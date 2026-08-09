@@ -1,0 +1,25 @@
+bring prelude.jbini;
+bring algebra.jbini;
+
+let (start: integer, stop: integer) till: integer list = match start ≤ stop {
+  yea ↦ start .* ((start + 1) till stop),
+  nay ↦ empty
+};
+
+flesh (a list) magma {
+  l₀ * l₁ = match l₀ {
+    empty ↦ l₁,
+    a .* l ↦ a .* (l * l₁)
+  }
+}
+
+flesh (a list) monoid {
+  ∅ = empty
+}
+
+flesh list functor {
+  it map f = match it {
+    empty ↦ empty,
+    a .* l ↦ (a f) .* (l map f)
+  }
+}

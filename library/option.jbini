@@ -1,0 +1,18 @@
+bring prelude.jbini;
+bring monad.jbini;
+
+flesh option monad@applicative {
+  a pure = a some,
+  value apply maybe-function = match value, maybe-function {
+    a some, f some ↦ (a f) some,
+    _, _ ↦ none
+  }
+}
+
+flesh option monad@monad {
+  value flat = match value {
+    none ↦ none,
+    inner some ↦ inner
+  },
+  value bind f = (value map f) flat
+}

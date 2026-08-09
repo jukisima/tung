@@ -1,0 +1,34 @@
+bring prelude.jbini;
+bring list.jbini;
+
+let numbers: integer list = 0 till 64;
+
+let (divisor: integer, divided: integer) can-divide: 𝟚 =
+  try divided ≡ ((divided ÷ divisor) × divisor) {
+    zero-divideth ↦ nay
+  };
+
+let (i: integer) fizzbuzz-line: string =
+  match 3 can-divide i, 5 can-divide i {
+    yea, yea ↦ 'fizzbuzz',
+    yea, nay ↦ 'fizz',
+    nay, yea ↦ 'buzz',
+    nay, nay ↦ i to-string
+  };
+
+let print-lines: string list → 𝟙 ! console = match {
+  empty ↦ null,
+  line .* rest ↦ (
+    let _ = try line write-line;
+    rest print-lines
+  )
+};
+
+let map-fizzbuzz: integer list → string list = match {
+  empty ↦ empty,
+  n .* rest ↦ (n fizzbuzz-line) .* (rest map-fizzbuzz)
+};
+
+let lines: string list = numbers map-fizzbuzz;
+
+lines print-lines

@@ -1,0 +1,16 @@
+bone a magma {
+  a * a: a
+}
+
+bone a semigroup need a magma {
+  # a * (b * c) ≡ (a * b) * c
+}
+
+bone a monoid need a semigroup {
+  ∅: a
+}
+
+bone morphisms category {
+  id: a morphisms a,
+  (a morphisms b) compose (b morphisms c): a morphisms c
+}

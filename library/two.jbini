@@ -1,0 +1,6 @@
+flesh 𝟚 to-string {
+  a to-string = match a {
+    yea ↦ 'yea',
+    nay ↦ 'nay'
+  }
+}

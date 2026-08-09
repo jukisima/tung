@@ -1,0 +1,166 @@
+data 𝟘 {}
+
+data 𝟙 {
+  null
+}
+
+data 𝟚 {
+  yea,
+  nay
+}
+
+let ¬: 𝟚 → 𝟚 = match {
+  yea ↦ nay,
+  nay ↦ yea
+};
+
+let (condition: 𝟚, then: a, else: a) if: a = match condition {
+  yea ↦ then,
+  nay ↦ else
+};
+
+data a ∏ b {
+  a ∏ b
+}
+
+let project₀: a ∏ b → a = match {
+  a ∏ _ ↦ a
+}
+
+let project₁: a ∏ b → b = match {
+  _ ∏ b ↦ b
+}
+
+data a ∐ b {
+  a inject₀,
+  b inject₁
+}
+
+data a option {
+  none,
+  a some
+}
+
+data a list {
+  empty,
+  a .* (a list)
+}
+
+type string = character list;
+
+bone a equal {
+  a ≡ a: 𝟚,
+  let a ≢ b = (a ≡ b) ¬
+}
+
+flesh 𝟚 equal {
+  a ≡ b = match a {
+    yea ↦ b,
+    nay ↦ b ¬
+  }
+}
+
+bone a order need a equal {
+  a ≤ a: 𝟚,
+  let a < b = match a ≤ b {
+    yea ↦ a ≢ b,
+    nay ↦ nay
+  },
+  let a ∧ b = match a ≤ b {
+    yea ↦ a,
+    nay ↦ b
+  },
+  let a ∨ b = match a ≤ b {
+    yea ↦ b,
+    nay ↦ a
+  }
+}
+
+flesh 𝟚 order {
+  a ≤ b = match a {
+    yea ↦ b,
+    nay ↦ yea
+  }
+}
+
+bone a add {
+  a + a: a
+}
+
+flesh 𝟚 add {
+  a + b = match a, b {
+    yea, nay ↦ yea,
+    nay, yea ↦ yea,
+    _, _ ↦ nay
+  }
+}
+
+bone a zero {
+  zero: a
+}
+
+bone a negate {
+  a ¯: a
+}
+
+bone a subtract need a add, a negate {
+  let (a: a, b: a) -: a = a + (b ¯)
+}
+
+bone a multiply {
+  a × a: a
+}
+
+bone a one {
+  one: a
+}
+
+bone a ring need a add, a zero, a negate, a multiply, a one {}
+
+bone a reciprocalise {
+  a /: a ! zero-divideth
+}
+
+bone a divide need a multiply, a reciprocalise {
+  let (a: a, b: a) ÷
+    : a ! zero-divideth
+    = a × (b /)
+}
+
+bone a field need a ring, a reciprocalise {}
+
+bone f functor {
+  (a f) map (a → b ! e): b f ! e
+}
+
+flesh option functor {
+  x map f = match x {
+    none ↦ none,
+    a some ↦ (a f) some
+  }
+}
+
+bone f filter need f functor {
+  (a f) filter (a → 𝟚 ! e): a f ! e
+}
+
+flesh option filter {
+  x filter f = match x {
+    none ↦ none,
+    a some ↦ (a f) if (a some) none
+  }
+}
+
+flesh list filter {
+  x filter f = match x {
+    empty ↦ empty,
+    a .* l ↦ (a f) if (a .* (l filter f)) (l filter f)
+  }
+}
+
+effect console {
+  write: string → 𝟙,
+  read: 𝟙 → string
+}
+
+effect zero-divideth {}
