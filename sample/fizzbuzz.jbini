@@ -5,7 +5,7 @@ let numbers: integer list = 0 till 64;
 
 let (divisor: integer, divided: integer) can-divide: 𝟚 =
   try divided ≡ ((divided ÷ divisor) × divisor) {
-    zero-divideth ↦ nay
+    fail ↦ nay
   };
 
 let (i: integer) fizzbuzz-line: string =

@@ -3,5 +3,5 @@ bone a to-string {
 }
 
 bone a from-string {
-  string from-string: a
+  string from-string: a ! string fail
 }

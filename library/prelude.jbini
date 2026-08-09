@@ -48,6 +48,24 @@ data a list {
 
 type string = character list;
 
+effect e fail {
+  fail: e → a
+}
+
+effect console {
+  write: string → 𝟙,
+  read: 𝟙 → string
+}
+
+effect random {
+  random: 𝟙 → float
+}
+
+effect a state {
+  get: 𝟙 → a,
+  set: a → 𝟙
+}
+
 bone a equal {
   a ≡ a: 𝟚,
   let a ≢ b = (a ≡ b) ¬
@@ -118,49 +136,19 @@ bone a one {
 bone a ring need a add, a zero, a negate, a multiply, a one {}
 
 bone a reciprocalise {
-  a /: a ! zero-divideth
+  a /: a ! string fail
 }
 
 bone a divide need a multiply, a reciprocalise {
   let (a: a, b: a) ÷
-    : a ! zero-divideth
+    : a ! string fail
     = a × (b /)
 }
 
+bone a mod {
+  a mod a: a ∏ a,
+  let a quotient b = (a mod b) project₀,
+  let a remainder b = (a mod b) project₁
+}
+
 bone a field need a ring, a reciprocalise {}
-
-bone f functor {
-  (a f) map (a → b ! e): b f ! e
-}
-
-flesh option functor {
-  x map f = match x {
-    none ↦ none,
-    a some ↦ (a f) some
-  }
-}
-
-bone f filter need f functor {
-  (a f) filter (a → 𝟚 ! e): a f ! e
-}
-
-flesh option filter {
-  x filter f = match x {
-    none ↦ none,
-    a some ↦ (a f) if (a some) none
-  }
-}
-
-flesh list filter {
-  x filter f = match x {
-    empty ↦ empty,
-    a .* l ↦ (a f) if (a .* (l filter f)) (l filter f)
-  }
-}
-
-effect console {
-  write: string → 𝟙,
-  read: 𝟙 → string
-}
-
-effect zero-divideth {}

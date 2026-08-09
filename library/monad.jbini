@@ -1,5 +1,9 @@
 bring prelude.jbini;
 
+bone f functor {
+  (a f) map (a → b ! e): b f ! e
+}
+
 bone f applicative need f functor {
   a pure: a f,
   (a f) apply ((a → b ! e) f): b f ! e
@@ -12,3 +16,8 @@ bone f monad need f applicative {
   # (a pure) f bind = a f
   # a pure bind = a
 }
+
+bone f filter need f functor {
+  (a f) filter (a → 𝟚 ! e): a f ! e
+}
+

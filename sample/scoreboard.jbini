@@ -1,0 +1,55 @@
+bring prelude.jbini;
+bring list.jbini;
+bring monad.jbini;
+bring option.jbini;
+
+data verdict {
+  pass,
+  fail
+}
+
+let parse-score: string → float option = func raw ↦
+  try (raw from-string) some {
+    fail ↦ none
+  };
+
+let score-verdict: float option → verdict = match {
+  none ↦ fail,
+  score some ↦ match 0.5 ≤ score {
+    yea ↦ pass,
+    nay ↦ fail
+  }
+};
+
+let count-pass: verdict list → integer = match {
+  empty ↦ 0,
+  pass .* rest ↦ 1 + (rest count-pass),
+  fail .* rest ↦ rest count-pass
+};
+
+let parse-all: string list → (float option) list = match {
+  empty ↦ empty,
+  raw .* rest ↦ (raw parse-score) .* (rest parse-all)
+};
+
+let grade-all: (float option) list → verdict list = match {
+  empty ↦ empty,
+  score .* rest ↦ (score score-verdict) .* (rest grade-all)
+};
+
+let raw-scores: string list =
+  '0.75' .* ('bad' .* ('0.20' .* ('0.90' .* empty)));
+
+let scores: (float option) list = raw-scores parse-all;
+let verdicts: verdict list = scores grade-all;
+
+let summary =
+  [name = 'cohort-a', pass-count = verdicts count-pass, last = (0.5 some) score-verdict];
+
+let public-summary =
+  [= summary, last = (0.5 pure) score-verdict, -name];
+
+let _ = 'scoreboard' write-line;
+let _ = ((verdicts count-pass) to-string) write-line;
+
+null

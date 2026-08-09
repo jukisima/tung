@@ -4,11 +4,11 @@ enum Ty {
     case Con(String)
     case App(String, List[Ty])
     case Record(List[(String, Ty)])
-    case Fun(List[Ty], List[String], Ty)
+    case Fun(List[Ty], List[Ty], Ty)
 }
 
 enum Inferred {
-    case Value(Ty, List[String])
+    case Value(Ty, List[Ty])
 }
 
 enum Scheme {
@@ -42,7 +42,7 @@ enum TypeInfo {
 }
 
 enum BoneInfo {
-    case Info(List[String], List[BoneMember])
+    case Info(List[String], List[BoneNeed], List[BoneMember])
 }
 
 enum TcContext {

@@ -1,0 +1,11 @@
+bring prelude.jbini;
+
+let quotient: integer ! console =
+  try 1 ÷ 0 {
+    fail ↦ (
+      let _ = 'division by zero caught; using 0' write-line;
+      0
+    )
+  };
+
+(quotient to-string) write-line

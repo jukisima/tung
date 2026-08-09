@@ -2,24 +2,28 @@ pub def check(source: String): String =
     checkWithImports(source, Nil)
 
 pub def checkWithImports(source: String, imports: List[(String, String)]): String =
+    checkPrepared(source, imports, false)
+
+pub def checkRunnableWithImports(source: String, imports: List[(String, String)]): String =
+    checkPrepared(source, imports, true)
+
+def checkPrepared(source: String, imports: List[(String, String)], runnable: Bool): String =
     match parse(source) {
         case ParseResult.Err(msg) => "parse error: ${msg}"
         case ParseResult.Ok(p, _) =>
-            match inferProgramWithImports(p, imports) {
+            match inferProgramWithMode(p, imports, runnable) {
                 case TcResult.Err(msg) => "type error: ${msg}"
                 case TcResult.Ok(_, _) => "type ok"
             }
     }
 
-def inferProgram(p: Program): TcResult[Program] =
-    inferProgramWithImports(p, Nil)
-
-def inferProgramWithImports(p: Program, imports: List[(String, String)]): TcResult[Program] =
+def inferProgramWithMode(p: Program, imports: List[(String, String)], runnable: Bool): TcResult[Program] =
     match p {
         case Program.Decls(ds) =>
             match prepareDecls(ds, imports, TcContext.Context(baseEnv(), Nil, Nil)) {
                 case TcResult.Err(msg) => TcResult.Err(msg)
-                case TcResult.Ok((typedDs, ctx), st) => checkDecls(typedDs, ctx, st)
+                case TcResult.Ok((typedDs, ctx), st) =>
+                    if (runnable) checkRunnableDecls(typedDs, ctx, st) else checkDecls(typedDs, ctx, st)
             }
     }
 

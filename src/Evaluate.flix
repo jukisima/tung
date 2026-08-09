@@ -1,3 +1,7 @@
+import java.lang.{System => JSystem}
+import java.util.{Random => JRandom}
+import java.util.{Scanner => JScanner}
+
 enum RuntimeValue {
     case Unit
     case Integer(Int32)
@@ -16,7 +20,7 @@ enum RuntimeValue {
 }
 
 enum RuntimeEnv {
-    case Env(List[(String, RuntimeValue)])
+    case Env(List[(String, RuntimeValue)], List[(String, BoneInfo)])
 }
 
 enum RuntimeError {
@@ -109,21 +113,9 @@ def evalImport(path: String, imports: List[(String, String)]): RuntimeResult[Run
 def importedVisibleRuntimeEnv(ns: String, env: RuntimeEnv): RuntimeEnv =
     namespaceRuntimeImportEnv(ns, env)
 
-def namespaceRuntimeEnv(ns: String, env: RuntimeEnv): RuntimeEnv =
-    match env {
-        case RuntimeEnv.Env(values) => RuntimeEnv.Env(namespaceRuntimeValues(ns, values))
-    }
-
-def namespaceRuntimeValues(ns: String, values: List[(String, RuntimeValue)]): List[(String, RuntimeValue)] =
-    match values {
-        case Nil => Nil
-        case (name, _) :: rest if isBaseRuntimeImportName(name) => namespaceRuntimeValues(ns, rest)
-        case (name, value) :: rest => (ns + "@" + name, namespaceRuntimeValue(ns, value)) :: namespaceRuntimeValues(ns, rest)
-    }
-
 def namespaceRuntimeImportEnv(ns: String, env: RuntimeEnv): RuntimeEnv =
     match env {
-        case RuntimeEnv.Env(values) => RuntimeEnv.Env(namespaceRuntimeImportValues(ns, values))
+        case RuntimeEnv.Env(values, bones) => RuntimeEnv.Env(namespaceRuntimeImportValues(ns, values), namespaceImportBones(ns, bones))
     }
 
 def namespaceRuntimeImportValues(ns: String, values: List[(String, RuntimeValue)]): List[(String, RuntimeValue)] =
@@ -139,13 +131,14 @@ def namespaceRuntimeValue(ns: String, value: RuntimeValue): RuntimeValue =
     match value {
         case RuntimeValue.Data(qualifiedName, displayName, args) => RuntimeValue.Data(ns + "@" + qualifiedName, displayName, args)
         case RuntimeValue.Constructor(qualifiedName, displayName, arity, args) => RuntimeValue.Constructor(ns + "@" + qualifiedName, displayName, arity, args)
+        case RuntimeValue.EffectOp(effectName, _, _, _) if isBaseRuntimeEffectName(effectName) => value
         case RuntimeValue.EffectOp(effectName, opName, arity, args) => RuntimeValue.EffectOp(ns + "@" + effectName, opName, arity, args)
         case _ => value
     }
 
 def mergeRuntimeEnv(left: RuntimeEnv, right: RuntimeEnv): RuntimeEnv =
     match (left, right) {
-        case (RuntimeEnv.Env(leftValues), RuntimeEnv.Env(rightValues)) => RuntimeEnv.Env(appendList(leftValues, rightValues))
+        case (RuntimeEnv.Env(leftValues, leftBones), RuntimeEnv.Env(rightValues, rightBones)) => RuntimeEnv.Env(appendList(leftValues, rightValues), appendList(leftBones, rightBones))
     }
 
 def evalDecl(d: Decl, env: RuntimeEnv): RuntimeResult[(RuntimeEnv, Option[RuntimeValue])] =
@@ -153,13 +146,15 @@ def evalDecl(d: Decl, env: RuntimeEnv): RuntimeResult[(RuntimeEnv, Option[Runtim
         case Decl.Import(path) => RuntimeResult.Err(RuntimeError.Message("evaluation does not support bring '${path}'"))
         case Decl.TypeAlias(_, _) => RuntimeResult.Ok((env, None))
         case Decl.Data(_, name, ctors) => RuntimeResult.Ok((addConstructors(name, ctors, env), None))
-        case Decl.Effect(name, ops) => RuntimeResult.Ok((addEffectOps(name, ops, env), None))
-        case Decl.Bone(_, boneName, members) => evalBoneDefaultMembers(boneName, members, env)
+        case Decl.Effect(_, name, ops) => RuntimeResult.Ok((addEffectOps(name, ops, env), None))
+        case Decl.Bone(params, boneName, needs, members) => evalBoneDefaultMembers(boneName, members, addRuntimeBoneInfo(boneName, params, needs, members, env))
         case Decl.Flesh(_, boneName, members) => evalFleshMembers(boneName, members, env)
         case Decl.Let(name, _, expr) =>
             match evalBoundValue(name, expr, env) {
                 case RuntimeResult.Err(err) => RuntimeResult.Err(err)
-                case RuntimeResult.Ok(value) => RuntimeResult.Ok((addValue(name, value, env), Some(value)))
+                case RuntimeResult.Ok(value) =>
+                    let last = if (name == "_") Some(value) else None;
+                    RuntimeResult.Ok((addValue(name, value, env), last))
             }
     }
 
@@ -193,7 +188,7 @@ def evalFleshMembers(boneName: String, members: List[Decl], env: RuntimeEnv): Ru
             match evalBoundValue(name, expr, env) {
                 case RuntimeResult.Err(err) => RuntimeResult.Err(err)
                 case RuntimeResult.Ok(value) =>
-                    let env2 = addValue(boneName + "@" + name, value, addValue(name, value, env));
+                    let env2 = addFleshValue(boneName, name, value, env);
                     match evalFleshMembers(boneName, rest, env2) {
                         case RuntimeResult.Err(err) => RuntimeResult.Err(err)
                         case RuntimeResult.Ok((env3, _)) => RuntimeResult.Ok((env3, Some(value)))
@@ -448,9 +443,9 @@ def evalNative(name: String, args: List[RuntimeValue]): RuntimeResult[RuntimeVal
         case ("×", RuntimeValue.Float(a) :: RuntimeValue.Float(b) :: Nil) => evalFloatBinary("×", a, b)
         case ("¯", RuntimeValue.Integer(a) :: Nil) => RuntimeResult.Ok(RuntimeValue.Integer(-a))
         case ("¯", RuntimeValue.Float(a) :: Nil) => evalFloatNegate(a)
-        case ("÷", RuntimeValue.Integer(_) :: RuntimeValue.Integer(0) :: Nil) => RuntimeResult.Err(RuntimeError.Effect("zero-divideth"))
+        case ("÷", RuntimeValue.Integer(_) :: RuntimeValue.Integer(0) :: Nil) => RuntimeResult.Err(RuntimeError.Effect("fail"))
         case ("÷", RuntimeValue.Integer(a) :: RuntimeValue.Integer(b) :: Nil) => RuntimeResult.Ok(RuntimeValue.Integer(a / b))
-        case ("divide", RuntimeValue.Integer(_) :: RuntimeValue.Integer(0) :: Nil) => RuntimeResult.Err(RuntimeError.Effect("zero-divideth"))
+        case ("divide", RuntimeValue.Integer(_) :: RuntimeValue.Integer(0) :: Nil) => RuntimeResult.Err(RuntimeError.Effect("fail"))
         case ("divide", RuntimeValue.Integer(a) :: RuntimeValue.Integer(b) :: Nil) => RuntimeResult.Ok(RuntimeValue.Integer(a / b))
         case ("≡", a :: b :: Nil) => RuntimeResult.Ok(runtimeBool(runtimeEquals(a, b)))
         case ("≤", RuntimeValue.Integer(a) :: RuntimeValue.Integer(b) :: Nil) => RuntimeResult.Ok(runtimeBool(a <= b))
@@ -458,15 +453,42 @@ def evalNative(name: String, args: List[RuntimeValue]): RuntimeResult[RuntimeVal
         case ("/", RuntimeValue.Float(a) :: Nil) => evalFloatReciprocal(a)
         case ("⌊", RuntimeValue.Float(a) :: Nil) => evalFloatFloor(a)
         case ("exp", RuntimeValue.Float(a) :: Nil) => evalFloatExp(a)
+        case ("from-string", RuntimeValue.Text(text) :: Nil) => floatFromString(text)
         case ("to-string", value :: Nil) => RuntimeResult.Ok(RuntimeValue.Text(showRuntimeValue(value)))
         case _ => RuntimeResult.Err(RuntimeError.Message("native '${name}' does not support these arguments"))
     }
 
 def evalEffectOp(effectName: String, opName: String, args: List[RuntimeValue]): RuntimeResult[RuntimeValue] =
     match (effectName, opName, args) {
-        case ("console", "write-line", RuntimeValue.Text(_) :: Nil) => RuntimeResult.Ok(RuntimeValue.Data("𝟙@null", "null", Nil))
-        case ("console", "read-line", RuntimeValue.Data(_, "null", Nil) :: Nil) => RuntimeResult.Ok(RuntimeValue.Text(""))
+        case ("console", "write-line", RuntimeValue.Text(text) :: Nil) => writeConsoleLine(text)
+        case ("console", "read-line", RuntimeValue.Data(_, "null", Nil) :: Nil) => RuntimeResult.Ok(RuntimeValue.Text(readConsoleLine()))
+        case ("random", "random-float", RuntimeValue.Data(_, "null", Nil) :: Nil) => RuntimeResult.Ok(RuntimeValue.Float(Float64.toString(nextRandomFloat())))
+        case ("random", "random-integer", RuntimeValue.Data(_, "null", Nil) :: Nil) => RuntimeResult.Ok(RuntimeValue.Integer(nextRandomInteger()))
         case _ => RuntimeResult.Err(RuntimeError.Effect(effectName))
+    }
+
+def writeConsoleLine(text: String): RuntimeResult[RuntimeValue] =
+    unsafe IO {
+        println(text);
+        RuntimeResult.Ok(RuntimeValue.Data("𝟙@null", "null", Nil))
+    }
+
+def readConsoleLine(): String =
+    unsafe IO {
+        let scanner = new JScanner(JSystem.in);
+        if (scanner.hasNextLine()) scanner.nextLine() else ""
+    }
+
+def nextRandomFloat(): Float64 =
+    unsafe IO {
+        let rnd = new JRandom();
+        rnd.nextDouble()
+    }
+
+def nextRandomInteger(): Int32 =
+    unsafe IO {
+        let rnd = new JRandom();
+        rnd.nextInt()
     }
 
 def evalFloatNegate(text: String): RuntimeResult[RuntimeValue] =
@@ -497,7 +519,7 @@ def evalFloatLessEqual(left: String, right: String): RuntimeResult[RuntimeValue]
 
 def evalFloatReciprocal(text: String): RuntimeResult[RuntimeValue] =
     match Float64.fromString(text) {
-        case Some(0.0f64) => RuntimeResult.Err(RuntimeError.Effect("zero-divideth"))
+        case Some(0.0f64) => RuntimeResult.Err(RuntimeError.Effect("fail"))
         case Some(x) => RuntimeResult.Ok(RuntimeValue.Float(Float64.toString(1.0f64 / x)))
         case None => RuntimeResult.Err(RuntimeError.Message("invalid float '${text}'"))
     }
@@ -514,8 +536,14 @@ def evalFloatExp(text: String): RuntimeResult[RuntimeValue] =
         case None => RuntimeResult.Err(RuntimeError.Message("invalid float '${text}'"))
     }
 
+def floatFromString(text: String): RuntimeResult[RuntimeValue] =
+    match Float64.fromString(text) {
+        case Some(x) => RuntimeResult.Ok(RuntimeValue.Float(Float64.toString(x)))
+        case None => RuntimeResult.Err(RuntimeError.Effect("fail"))
+    }
+
 def runtimeBool(b: Bool): RuntimeValue =
-    if (b) RuntimeValue.Data("two@yea", "yea", Nil) else RuntimeValue.Data("two@nay", "nay", Nil)
+    if (b) RuntimeValue.Data("𝟚@yea", "yea", Nil) else RuntimeValue.Data("𝟚@nay", "nay", Nil)
 
 def runtimeEquals(a: RuntimeValue, b: RuntimeValue): Bool =
     match (a, b) {
@@ -568,19 +596,23 @@ def typeArity(t: TypeExpr): Int32 =
     }
 
 def baseRuntimeEnv(): RuntimeEnv =
-    addBaseEffectOps(addBaseNatives(RuntimeEnv.Env(Nil)))
+    addBaseEffectOps(addBaseNatives(RuntimeEnv.Env(Nil, Nil)))
 
 def isBaseRuntimeName(name: String): Bool =
-    name == "to-string" or name == "⌊" or name == "≤" or name == "≡" or name == "÷" or name == "divide" or name == "/" or name == "¯" or name == "×" or name == "-" or name == "+" or name == "exp" or name == "log" or name == "sin" or name == "cos" or name == "read-line" or name == "write-line"
+    name == "to-string" or name == "from-string" or name == "⌊" or name == "≤" or name == "≡" or name == "÷" or name == "divide" or name == "/" or name == "¯" or name == "×" or name == "-" or name == "+" or name == "exp" or name == "log" or name == "sin" or name == "cos" or name == "read-line" or name == "write-line" or name == "random-float" or name == "random-integer"
 
 def isBaseRuntimeImportName(name: String): Bool =
     isBaseRuntimeName(name) or isBaseRuntimeName(lastQualifiedSegment(name))
+
+def isBaseRuntimeEffectName(name: String): Bool =
+    name == "io" or name == "console" or name == "random" or name == "fail" or name == "state"
 
 def addBaseNatives(env: RuntimeEnv): RuntimeEnv =
     addNatives(baseNativeSpecs(), env)
 
 def baseNativeSpecs(): List[(String, Int32)] =
     ("to-string", 1) ::
+    ("from-string", 1) ::
     ("⌊", 1) ::
     ("≤", 2) ::
     ("≡", 2) ::
@@ -604,8 +636,10 @@ def addNatives(specs: List[(String, Int32)], env: RuntimeEnv): RuntimeEnv =
     }
 
 def addBaseEffectOps(env: RuntimeEnv): RuntimeEnv =
+    addBaseEffectOp("random", "random-integer", 1,
+    addBaseEffectOp("random", "random-float", 1,
     addBaseEffectOp("console", "read-line", 1,
-    addBaseEffectOp("console", "write-line", 1, env))
+    addBaseEffectOp("console", "write-line", 1, env))))
 
 def addNative(name: String, arity: Int32, env: RuntimeEnv): RuntimeEnv =
     addValue(name, RuntimeValue.Native(name, arity, Nil), env)
@@ -615,12 +649,12 @@ def addBaseEffectOp(effectName: String, opName: String, arity: Int32, env: Runti
 
 def addValue(name: String, value: RuntimeValue, env: RuntimeEnv): RuntimeEnv =
     match env {
-        case RuntimeEnv.Env(values) => RuntimeEnv.Env((name, value) :: values)
+        case RuntimeEnv.Env(values, bones) => RuntimeEnv.Env((name, value) :: values, bones)
     }
 
 def lookupValue(name: String, env: RuntimeEnv): Option[RuntimeValue] =
     match env {
-        case RuntimeEnv.Env(values) => lookupValueIn(name, values)
+        case RuntimeEnv.Env(values, _) => lookupValueIn(name, values)
     }
 
 def lookupValueIn(name: String, values: List[(String, RuntimeValue)]): Option[RuntimeValue] =
@@ -628,6 +662,52 @@ def lookupValueIn(name: String, values: List[(String, RuntimeValue)]): Option[Ru
         case Nil => None
         case (n, v) :: _ if n == name => Some(v)
         case _ :: rest => lookupValueIn(name, rest)
+    }
+
+def addRuntimeBoneInfo(boneName: String, params: List[String], needs: List[BoneNeed], members: List[BoneMember], env: RuntimeEnv): RuntimeEnv =
+    match env {
+        case RuntimeEnv.Env(values, bones) => RuntimeEnv.Env(values, (boneName, BoneInfo.Info(params, needs, members)) :: bones)
+    }
+
+def addFleshValue(boneName: String, memberName: String, value: RuntimeValue, env: RuntimeEnv): RuntimeEnv =
+    addFleshOwnerValues(memberName, runtimeMemberOwnersOrDirect(boneName, memberName, env), value, addValue(memberName, value, env))
+
+def addFleshOwnerValues(memberName: String, owners: List[String], value: RuntimeValue, env: RuntimeEnv): RuntimeEnv =
+    match owners {
+        case Nil => env
+        case owner :: rest => addFleshOwnerValues(memberName, rest, value, addValue(owner + "@" + memberName, value, env))
+    }
+
+def runtimeMemberOwnersOrDirect(boneName: String, memberName: String, env: RuntimeEnv): List[String] =
+    match runtimeMemberOwners(boneName, memberName, env) {
+        case Nil => boneName :: Nil
+        case owners => owners
+    }
+
+def runtimeMemberOwners(boneName: String, memberName: String, env: RuntimeEnv): List[String] =
+    match env {
+        case RuntimeEnv.Env(_, bones) => runtimeMemberOwnersIn(boneName, memberName, bones, Nil)
+    }
+
+def runtimeMemberOwnersIn(boneName: String, memberName: String, bones: List[(String, BoneInfo)], seen: List[String]): List[String] =
+    if (containsString(boneName, seen)) {
+        Nil
+    } else {
+        match findBoneInfoIn(boneName, bones) {
+            case None => Nil
+            case Some(BoneInfo.Info(_, needs, members)) =>
+                let own = match findBoneMember(memberName, members) {
+                    case None => Nil
+                    case Some(_) => boneName :: Nil
+                };
+                appendList(own, runtimeMemberOwnersInNeeds(needs, memberName, bones, boneName :: seen))
+        }
+    }
+
+def runtimeMemberOwnersInNeeds(needs: List[BoneNeed], memberName: String, bones: List[(String, BoneInfo)], seen: List[String]): List[String] =
+    match needs {
+        case Nil => Nil
+        case BoneNeed.Need(_, neededName) :: rest => appendList(runtimeMemberOwnersIn(neededName, memberName, bones, seen), runtimeMemberOwnersInNeeds(rest, memberName, bones, seen))
     }
 
 def appendRuntimeValue(xs: List[RuntimeValue], x: RuntimeValue): List[RuntimeValue] =

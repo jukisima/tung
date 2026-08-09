@@ -4,7 +4,7 @@ jbini is a small expression-oriented programming language with sequence applicat
 
 ## source files
 
-A file is a sequence of declarations followed by an optional final expression. A trailing semicolon at the end of a file may be omitted. `bring` declarations and local block `let` declarations require semicolons.
+a file is a sequence of declarations followed by an optional final expression. a trailing semicolon at the end of a file may be omitted. `bring` declarations and local block `let` declarations require semicolons. the outer file acts like an implicit block: a file-level computation binding such as `let x: integer ! console = ...;` runs before the final expression, and later expressions see `x` as an `integer`.
 
 ```jbini
 bring prelude.jbini;
@@ -14,6 +14,16 @@ let answer: integer = 42
 ```
 
 `bring path;` imports another file. Imported definitions are available as `namespace@name`, where `namespace` is the first component of the import path. An unqualified imported name is accepted only when exactly one visible definition has that name; otherwise the checker requires qualification.
+
+when a file is run as a program, its final expression must return `𝟙`. declarations without a final expression count as a pure `𝟙` file. only runner-provided effects may remain at the file boundary:
+
+```jbini
+𝟙
+𝟙 ! console
+𝟙 ! console, random
+```
+
+user-defined effects and `fail` must be handled before the end of the file.
 
 ## names and application
 
@@ -71,6 +81,11 @@ let pair-value-explicit: integer string $∏ = 1 ∏ 'one'
 effect console {
   write: string → 𝟙,
   read: 𝟙 → string
+}
+
+effect a state {
+  get: 𝟙 → a,
+  set: a → 𝟙
 }
 ```
 
@@ -176,8 +191,12 @@ Effects are invoked as ordinary calls and handled with `try`.
 ```jbini
 let safe-divide: integer → integer → integer = func x, y ↦
   try x divide y {
-    zero-divideth ↦ 0
+    fail ↦ 0
   };
+
+let chance: float ! random = null random-float;
+
+let remembered: integer ! integer state = null get;
 ```
 
 ## types
@@ -189,9 +208,12 @@ Function types use `→`; effects appear after `!`.
 ```jbini
 a → b
 a → b ! console
-a → b ! console, zero-divideth
+a → b ! console, string fail
+a → b ! integer state
 (a → b ! e) → a list → b list ! e
 ```
+
+effect entries use the same type application rule as types. `integer state` is the `state` effect at `integer`; `string fail` is the fail effect carrying string errors; `e` is an open effect variable.
 
 Type variables are implicit. `\\` is explicit forall.
 
@@ -207,18 +229,21 @@ The checker and runner provide these names natively. Standard-library type class
 
 ```jbini
 to-string: float → string
+from-string: string → float ! string fail
 ⌊: float → integer
 ≤: float → float → 𝟚
 +: float → float → float
 ¯: float → float
 ×: float → float → float
-/: float → float ! zero-divideth
+/: float → float ! string fail
 exp: float → float
 log: float → float
 sin: float → float
 cos: float → float
 
-divide: integer → integer → integer ! zero-divideth
+divide: integer → integer → integer ! string fail
 write-line: string → 𝟙 ! console
 read-line: 𝟙 → string ! console
+random-float: 𝟙 → float ! random
+random-integer: 𝟙 → integer ! random
 ```

@@ -7,8 +7,8 @@ enum Decl {
     case Let(String, Option[TypeExpr], Expr)
     case TypeAlias(String, TypeExpr)
     case Data(List[String], String, List[Ctor])
-    case Effect(String, List[EffectOp])
-    case Bone(List[String], String, List[BoneMember])
+    case Effect(List[String], String, List[EffectOp])
+    case Bone(List[String], String, List[BoneNeed], List[BoneMember])
     case Flesh(TypeExpr, String, List[Decl])
 }
 
@@ -25,11 +25,15 @@ enum BoneMember {
     case Default(String, Option[TypeExpr], Expr)
 }
 
+enum BoneNeed {
+    case Need(List[TypeExpr], String)
+}
+
 enum TypeExpr {
     case Name(String)
     case Apply(String, List[TypeExpr])
     case Record(List[(String, TypeExpr)])
-    case Arrow(List[TypeExpr], List[String], TypeExpr)
+    case Arrow(List[TypeExpr], List[TypeExpr], TypeExpr)
     case Forall(List[TypeExpr], TypeExpr)
 }
 
@@ -339,13 +343,22 @@ def parseData(ts: List[Token]): ParseResult[Decl] =
     }
 
 def parseEffect(ts: List[Token]): ParseResult[Decl] =
-    match ts {
-        case Token.Ident(name) :: Token.LBrace :: rest =>
-            match parseEffectOps(rest, Nil) {
-                case ParseResult.Err(msg) => ParseResult.Err(msg)
-                case ParseResult.Ok(ops, rest2) => ParseResult.Ok(Decl.Effect(name, List.reverse(ops)), rest2)
+    match takeHeaderTokens(ts, Nil) {
+        case ParseResult.Err(msg) => ParseResult.Err(msg)
+        case ParseResult.Ok(header, Token.LBrace :: rest) =>
+            match headerFromTokens(List.reverse(header)) {
+                case None => ParseResult.Err("effect declaration requires a name")
+                case Some((paramTerms, name)) =>
+                    match namesFromHeaderTerms(paramTerms, Nil) {
+                        case None => ParseResult.Err("effect parameters must be names")
+                        case Some(params) =>
+                            match parseEffectOps(rest, Nil) {
+                                case ParseResult.Err(msg) => ParseResult.Err(msg)
+                                case ParseResult.Ok(ops, rest2) => ParseResult.Ok(Decl.Effect(params, name, List.reverse(ops)), rest2)
+                            }
+                    }
             }
-        case _ => ParseResult.Err("expected effect declaration")
+        case _ => ParseResult.Err("expected '{' after effect header")
     }
 
 def parseEffectOps(ts: List[Token], acc: List[EffectOp]): ParseResult[List[EffectOp]] =
@@ -363,19 +376,62 @@ def parseBone(ts: List[Token]): ParseResult[Decl] =
     match takeHeaderTokens(ts, Nil) {
         case ParseResult.Err(msg) => ParseResult.Err(msg)
         case ParseResult.Ok(header, Token.LBrace :: rest) =>
-            match headerFromTokens(headerTokensBeforeNeed(List.reverse(header))) {
+            let (boneHeader, needHeader) = splitBoneHeaderNeed(List.reverse(header));
+            match headerFromTokens(boneHeader) {
                 case None => ParseResult.Err("bone declaration requires a name")
                 case Some((paramTerms, name)) =>
                     match namesFromHeaderTerms(paramTerms, Nil) {
                         case None => ParseResult.Err("bone parameters must be names")
                         case Some(params) =>
-                            match parseBoneMembers(rest, Nil) {
+                            match parseBoneNeeds(needHeader) {
                                 case ParseResult.Err(msg) => ParseResult.Err(msg)
-                                case ParseResult.Ok(ms, rest2) => ParseResult.Ok(Decl.Bone(params, name, List.reverse(ms)), rest2)
+                                case ParseResult.Ok(needs, _) =>
+                                    match parseBoneMembers(rest, Nil) {
+                                        case ParseResult.Err(msg) => ParseResult.Err(msg)
+                                        case ParseResult.Ok(ms, rest2) => ParseResult.Ok(Decl.Bone(params, name, needs, List.reverse(ms)), rest2)
+                                    }
                             }
                     }
             }
         case _ => ParseResult.Err("expected '{' after bone header")
+    }
+
+def splitBoneHeaderNeed(ts: List[Token]): (List[Token], List[Token]) =
+    match splitTopLevel(ts, Nil, 0, t -> match t { case Token.Ident("need") => true case _ => false }) {
+        case Some((left, right)) => (left, right)
+        case None => (ts, Nil)
+    }
+
+def parseBoneNeeds(ts: List[Token]): ParseResult[List[BoneNeed]] =
+    parseBoneNeedsLoop(ts, Nil)
+
+def parseBoneNeedsLoop(ts: List[Token], acc: List[BoneNeed]): ParseResult[List[BoneNeed]] =
+    match ts {
+        case Nil => ParseResult.Ok(List.reverse(acc), Nil)
+        case Token.Comma :: rest => parseBoneNeedsLoop(rest, acc)
+        case _ =>
+            match takeTopLevelUntilOrEnd(ts, Nil, 0, t -> match t { case Token.Comma => true case _ => false }) {
+                case ParseResult.Err(msg) => ParseResult.Err(msg)
+                case ParseResult.Ok(parts, rest) =>
+                    match parseBoneNeed(List.reverse(parts)) {
+                        case ParseResult.Err(msg) => ParseResult.Err(msg)
+                        case ParseResult.Ok(need, _) => parseBoneNeedsLoop(dropComma(rest), need :: acc)
+                    }
+            }
+    }
+
+def parseBoneNeed(ts: List[Token]): ParseResult[BoneNeed] =
+    match ts {
+        case Nil => ParseResult.Err("empty bone need")
+        case _ =>
+            match headerFromTokens(ts) {
+                case None => ParseResult.Err("invalid bone need")
+                case Some((argTerms, name)) =>
+                    match typesFromHeaderTerms(argTerms, Nil) {
+                        case None => ParseResult.Err("bone need arguments must be types")
+                        case Some(args) => ParseResult.Ok(BoneNeed.Need(args, name), Nil)
+                    }
+            }
     }
 
 def parseFlesh(ts: List[Token]): ParseResult[Decl] =
@@ -1063,9 +1119,9 @@ def parseEffectfulValueType(ts: List[Token]): ParseResult[TypeExpr] =
             match parseTypeApplication(retTokens) {
                 case ParseResult.Err(msg) => ParseResult.Err(msg)
                 case ParseResult.Ok(ret, Nil) =>
-                    match parseEffectNameList(effectTokens, Nil) {
+                    match parseEffectList(effectTokens) {
                         case ParseResult.Err(msg) => ParseResult.Err(msg)
-                        case ParseResult.Ok(effects, Nil) => ParseResult.Ok(TypeExpr.Arrow(Nil, List.reverse(effects), ret), Nil)
+                        case ParseResult.Ok(effects, Nil) => ParseResult.Ok(TypeExpr.Arrow(Nil, effects, ret), Nil)
                         case _ => ParseResult.Err("unexpected tokens after effects")
                     }
                 case _ => ParseResult.Err("unexpected tokens before effects")
@@ -1073,15 +1129,15 @@ def parseEffectfulValueType(ts: List[Token]): ParseResult[TypeExpr] =
         case None => parseTypeApplication(ts)
     }
 
-def parseArrowResult(ts: List[Token]): ParseResult[(List[String], TypeExpr)] =
+def parseArrowResult(ts: List[Token]): ParseResult[(List[TypeExpr], TypeExpr)] =
     match splitTopLevelBang(ts, Nil, 0) {
         case Some((retTokens, effectTokens)) =>
             match parseArrowType(retTokens) {
                 case ParseResult.Err(msg) => ParseResult.Err(msg)
                 case ParseResult.Ok(ret, Nil) =>
-                    match parseEffectNameList(effectTokens, Nil) {
+                    match parseEffectList(effectTokens) {
                         case ParseResult.Err(msg) => ParseResult.Err(msg)
-                        case ParseResult.Ok(effects, Nil) => ParseResult.Ok((List.reverse(effects), ret), Nil)
+                        case ParseResult.Ok(effects, Nil) => ParseResult.Ok((effects, ret), Nil)
                         case _ => ParseResult.Err("unexpected tokens after effects")
                     }
                 case _ => ParseResult.Err("unexpected tokens before effects")
@@ -1089,15 +1145,20 @@ def parseArrowResult(ts: List[Token]): ParseResult[(List[String], TypeExpr)] =
         case None => parseArrowResultOld(ts)
     }
 
-def parseArrowResultOld(ts: List[Token]): ParseResult[(List[String], TypeExpr)] =
+def parseArrowResultOld(ts: List[Token]): ParseResult[(List[TypeExpr], TypeExpr)] =
     match ts {
         case Token.LBrace :: rest =>
-            match takeEffectNames(rest, Nil) {
+            match takeEffectTokens(rest, Nil) {
                 case ParseResult.Err(msg) => ParseResult.Err(msg)
-                case ParseResult.Ok(effects, rest2) =>
+                case ParseResult.Ok(effectTokens, rest2) =>
                     match parseArrowType(rest2) {
                         case ParseResult.Err(msg) => ParseResult.Err(msg)
-                        case ParseResult.Ok(ret, rest3) => ParseResult.Ok((List.reverse(effects), ret), rest3)
+                        case ParseResult.Ok(ret, rest3) =>
+                            match parseEffectList(List.reverse(effectTokens)) {
+                                case ParseResult.Err(msg) => ParseResult.Err(msg)
+                                case ParseResult.Ok(effects, Nil) => ParseResult.Ok((effects, ret), rest3)
+                                case _ => ParseResult.Err("unexpected tokens in effects")
+                            }
                     }
             }
         case _ =>
@@ -1107,20 +1168,14 @@ def parseArrowResultOld(ts: List[Token]): ParseResult[(List[String], TypeExpr)] 
             }
     }
 
-def parseEffectNameList(ts: List[Token], acc: List[String]): ParseResult[List[String]] =
-    match ts {
-        case Nil => ParseResult.Ok(acc, Nil)
-        case Token.Comma :: rest => parseEffectNameList(rest, acc)
-        case Token.Ident(name) :: rest => parseEffectNameList(rest, name :: acc)
-        case _ => ParseResult.Err("expected effect name")
-    }
+def parseEffectList(ts: List[Token]): ParseResult[List[TypeExpr]] =
+    parseCommaTypes(ts)
 
-def takeEffectNames(ts: List[Token], acc: List[String]): ParseResult[List[String]] =
+def takeEffectTokens(ts: List[Token], acc: List[Token]): ParseResult[List[Token]] =
     match ts {
         case Token.RBrace :: rest => ParseResult.Ok(acc, rest)
-        case Token.Comma :: rest => takeEffectNames(rest, acc)
-        case Token.Ident(name) :: rest => takeEffectNames(rest, name :: acc)
-        case _ => ParseResult.Err("expected effect name")
+        case x :: rest => takeEffectTokens(rest, x :: acc)
+        case Nil => ParseResult.Err("expected '}' after effects")
     }
 
 def parseCommaTypes(ts: List[Token]): ParseResult[List[TypeExpr]] =
@@ -1403,7 +1458,7 @@ def headerTermName(term: List[Token]): Option[String] =
     }
 
 def typeFromHeaderTerms(terms: List[List[Token]]): ParseResult[TypeExpr] =
-    match parseTypeTokens(flattenHeaderTerms(terms)) {
+    match parseTypeTokens(flatHeaderTerms(terms)) {
         case ParseResult.Ok(t, Nil) => ParseResult.Ok(t, Nil)
         case ParseResult.Err(msg) => ParseResult.Err(msg)
         case _ => ParseResult.Err("could not parse flesh type")
@@ -1439,10 +1494,10 @@ def namesFromHeaderTerms(terms: List[List[Token]], acc: List[String]): Option[Li
             }
     }
 
-def flattenHeaderTerms(terms: List[List[Token]]): List[Token] =
+def flatHeaderTerms(terms: List[List[Token]]): List[Token] =
     match terms {
         case Nil => Nil
-        case term :: rest => appendTokens(term, flattenHeaderTerms(rest))
+        case term :: rest => appendTokens(term, flatHeaderTerms(rest))
     }
 
 def takeUntilEquals(ts: List[Token], acc: List[Token]): ParseResult[List[Token]] =
@@ -1678,12 +1733,6 @@ def takeTopLevelUntilOrEnd(ts: List[Token], acc: List[Token], depth: Int32, stop
         case Token.LBracket :: rest => takeTopLevelUntilOrEnd(rest, Token.LBracket :: acc, depth + 1, stop)
         case Token.RBracket :: rest => takeTopLevelUntilOrEnd(rest, Token.RBracket :: acc, depth - 1, stop)
         case x :: rest => takeTopLevelUntilOrEnd(rest, x :: acc, depth, stop)
-    }
-
-def headerTokensBeforeNeed(ts: List[Token]): List[Token] =
-    match splitTopLevel(ts, Nil, 0, t -> match t { case Token.Ident("need") => true case _ => false }) {
-        case Some((left, _)) => left
-        case None => ts
     }
 
 def takeBalanced(ts: List[Token], acc: List[Token], depth: Int32): ParseResult[List[Token]] =

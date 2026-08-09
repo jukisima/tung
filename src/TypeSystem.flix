@@ -1,4 +1,4 @@
-def curriedFunction(args: List[Ty], effects: List[String], ret: Ty): Ty =
+def curriedFunction(args: List[Ty], effects: List[Ty], ret: Ty): Ty =
     match args {
         case Nil =>
             match effects {
@@ -8,48 +8,75 @@ def curriedFunction(args: List[Ty], effects: List[String], ret: Ty): Ty =
         case arg :: rest => Ty.Fun(arg :: Nil, effects, curriedFunction(rest, effects, ret))
     }
 
-def splitComputationType(ty: Ty): (Ty, List[String]) =
+def splitComputationType(ty: Ty): (Ty, List[Ty]) =
     match normalizeFun(ty) {
         case Ty.Fun(Nil, effects, ret) => (ret, effects)
         case other => (other, Nil)
     }
-def unionEffects(xs: List[String], ys: List[String]): List[String] =
+
+def applyStateEffects(effects: List[Ty], st: TcState): List[Ty] =
+    List.map(e -> if (isEffectVarTy(e)) e else applyState(e, st), effects)
+
+def unionEffects(xs: List[Ty], ys: List[Ty]): List[Ty] =
     match xs {
         case Nil => ys
         case x :: rest => unionEffects(rest, addEffect(x, ys))
     }
 
-def removeEffect(x: String, xs: List[String]): List[String] =
+def removeEffect(x: String, xs: List[Ty]): List[Ty] =
     match xs {
         case Nil => Nil
-        case y :: rest if x == y => removeEffect(x, rest)
+        case y :: rest if effectHasName(x, y) => removeEffect(x, rest)
         case y :: rest => y :: removeEffect(x, rest)
     }
 
-def addEffect(x: String, xs: List[String]): List[String] =
-    if (containsString(x, xs)) xs else x :: xs
+def containsEffectName(x: String, xs: List[Ty]): Bool =
+    match xs {
+        case Nil => false
+        case y :: _ if effectHasName(x, y) => true
+        case _ :: rest => containsEffectName(x, rest)
+    }
 
-def sameEffects(xs: List[String], ys: List[String]): Bool =
+def addEffect(x: Ty, xs: List[Ty]): List[Ty] =
+    if (containsEffect(x, xs)) xs else x :: xs
+
+def sameEffects(xs: List[Ty], ys: List[Ty]): Bool =
+    match unifyEffects(xs, ys, TcState.State(0, Nil, Nil)) {
+        case TcResult.Ok(_, _) => true
+        case TcResult.Err(_) => false
+    }
+
+def unifyEffects(xs: List[Ty], ys: List[Ty], st: TcState): TcResult[Unit] =
     let xLabels = concreteEffects(xs);
     let yLabels = concreteEffects(ys);
     let xOpen = hasEffectVar(xs);
     let yOpen = hasEffectVar(ys);
-    let xFitsY = allEffectsIn(xLabels, yLabels) or yOpen;
-    let yFitsX = allEffectsIn(yLabels, xLabels) or xOpen;
-    xFitsY and yFitsX
+    match unifyCommonEffects(xLabels, yLabels, st) {
+        case TcResult.Err(msg) => TcResult.Err(msg)
+        case TcResult.Ok(_, st1) =>
+            let xFitsY = allEffectsIn(xLabels, yLabels) or yOpen;
+            let yFitsX = allEffectsIn(yLabels, xLabels) or xOpen;
+            if (xFitsY and yFitsX) TcResult.Ok((), st1) else TcResult.Err("cannot unify effects {" + showEffects(xs) + "} with {" + showEffects(ys) + "}")
+    }
 
-def concreteEffects(xs: List[String]): List[String] =
+def concreteEffects(xs: List[Ty]): List[Ty] =
     match xs {
         case Nil => Nil
-        case x :: rest if isEffectVarName(x) => concreteEffects(rest)
+        case x :: rest if isEffectVarTy(x) => concreteEffects(rest)
         case x :: rest => x :: concreteEffects(rest)
     }
 
-def hasEffectVar(xs: List[String]): Bool =
+def hasEffectVar(xs: List[Ty]): Bool =
     match xs {
         case Nil => false
-        case x :: _ if isEffectVarName(x) => true
+        case x :: _ if isEffectVarTy(x) => true
         case _ :: rest => hasEffectVar(rest)
+    }
+
+def isEffectVarTy(x: Ty): Bool =
+    match x {
+        case Ty.Var(name) => isEffectVarName(name)
+        case _ => false
     }
 
 def isEffectVarName(x: String): Bool =
@@ -73,17 +100,110 @@ def isEffectDigit(c: Char): Bool =
 def isLowerAlpha(c: Char): Bool =
     c >= 'a' and c <= 'z'
 
-def allEffectsIn(xs: List[String], ys: List[String]): Bool =
+def allEffectsIn(xs: List[Ty], ys: List[Ty]): Bool =
     match xs {
         case Nil => true
-        case x :: rest => containsString(x, ys) and allEffectsIn(rest, ys)
+        case x :: rest => containsEffectHead(x, ys) and allEffectsIn(rest, ys)
     }
 
-def showEffects(xs: List[String]): String =
+def unifyCommonEffects(xs: List[Ty], ys: List[Ty], st: TcState): TcResult[Unit] =
+    match xs {
+        case Nil => TcResult.Ok((), st)
+        case x :: rest =>
+            match findEffectByHead(x, ys) {
+                case None => unifyCommonEffects(rest, ys, st)
+                case Some(y) =>
+                    match unifyEffect(x, y, st) {
+                        case TcResult.Err(msg) => TcResult.Err(msg)
+                        case TcResult.Ok(_, st1) => unifyCommonEffects(rest, ys, st1)
+                    }
+            }
+    }
+
+def unifyEffect(x: Ty, y: Ty, st: TcState): TcResult[Unit] =
+    match (effectNameAndArgs(x), effectNameAndArgs(y)) {
+        case (Some((xName, xArgs)), Some((yName, yArgs))) if xName == yName => unifyLists(xArgs, yArgs, st)
+        case _ => TcResult.Err("cannot unify effect " + showEffect(x) + " with " + showEffect(y))
+    }
+
+def findEffectByHead(x: Ty, ys: List[Ty]): Option[Ty] =
+    match ys {
+        case Nil => None
+        case y :: _ if sameEffectHead(x, y) => Some(y)
+        case _ :: rest => findEffectByHead(x, rest)
+    }
+
+def containsEffect(x: Ty, ys: List[Ty]): Bool =
+    match ys {
+        case Nil => false
+        case y :: _ if sameEffectTy(x, y) => true
+        case _ :: rest => containsEffect(x, rest)
+    }
+
+def containsEffectHead(x: Ty, ys: List[Ty]): Bool =
+    match ys {
+        case Nil => false
+        case y :: _ if sameEffectHead(x, y) => true
+        case _ :: rest => containsEffectHead(x, rest)
+    }
+
+def sameEffectHead(x: Ty, y: Ty): Bool =
+    match (effectNameAndArgs(x), effectNameAndArgs(y)) {
+        case (Some((xName, _)), Some((yName, _))) => xName == yName
+        case _ => false
+    }
+
+def sameEffectTy(x: Ty, y: Ty): Bool =
+    match (x, y) {
+        case (Ty.Meta(xId), Ty.Meta(yId)) => xId == yId
+        case (Ty.Var(xName), Ty.Var(yName)) => xName == yName
+        case (Ty.Con(xName), Ty.Con(yName)) => xName == yName
+        case (Ty.App(xName, xs), Ty.App(yName, ys)) => xName == yName and sameTyList(xs, ys)
+        case (Ty.Record(xs), Ty.Record(ys)) => sameRecordTyList(xs, ys)
+        case (Ty.Fun(xArgs, xEffs, xRet), Ty.Fun(yArgs, yEffs, yRet)) => sameTyList(xArgs, yArgs) and sameTyList(xEffs, yEffs) and sameEffectTy(xRet, yRet)
+        case _ => false
+    }
+
+def sameTyList(xs: List[Ty], ys: List[Ty]): Bool =
+    match (xs, ys) {
+        case (Nil, Nil) => true
+        case (x :: xr, y :: yr) => sameEffectTy(x, y) and sameTyList(xr, yr)
+        case _ => false
+    }
+
+def sameRecordTyList(xs: List[(String, Ty)], ys: List[(String, Ty)]): Bool =
+    match (xs, ys) {
+        case (Nil, Nil) => true
+        case ((xName, xTy) :: xr, (yName, yTy) :: yr) => xName == yName and sameEffectTy(xTy, yTy) and sameRecordTyList(xr, yr)
+        case _ => false
+    }
+
+def effectHasName(name: String, effect: Ty): Bool =
+    match effectNameAndArgs(effect) {
+        case Some((effectName, _)) => name == effectName
+        case None => false
+    }
+
+def effectNameAndArgs(effect: Ty): Option[(String, List[Ty])] =
+    match effect {
+        case Ty.App(name, args) => Some((name, args))
+        case Ty.Con(name) => Some((name, Nil))
+        case _ => None
+    }
+
+def showEffects(xs: List[Ty]): String =
     match xs {
         case Nil => ""
-        case x :: Nil => x
-        case x :: rest => x + ", " + showEffects(rest)
+        case x :: Nil => showEffect(x)
+        case x :: rest => showEffect(x) + ", " + showEffects(rest)
+    }
+
+def showEffect(effect: Ty): String =
+    match effect {
+        case Ty.Var(name) => name
+        case Ty.App(name, Nil) => name
+        case Ty.App(name, args) => showTyList(args) + " " + name
+        case other => showTy(other)
     }
 def unify(a: Ty, b: Ty, st: TcState): TcResult[Unit] =
     let aa = normalizeFun(applyState(a, st));
@@ -99,13 +219,13 @@ def unify(a: Ty, b: Ty, st: TcState): TcResult[Unit] =
         case (Ty.App(x, xs), Ty.App(y, ys)) if isTypeVarName(y) => unifyTypeHead(y, x, ys, xs, st)
         case (Ty.Record(xs), Ty.Record(ys)) => unifyRecordFields(xs, ys, st)
         case (Ty.Fun(xs, xEffs, x), Ty.Fun(ys, yEffs, y)) =>
-            if (sameEffects(xEffs, yEffs)) {
-                match unifyLists(xs, ys, st) {
-                    case TcResult.Err(msg) => TcResult.Err(msg)
-                    case TcResult.Ok(_, st2) => unify(x, y, st2)
-                }
-            } else {
-                TcResult.Err("cannot unify effects {" + showEffects(xEffs) + "} with {" + showEffects(yEffs) + "}")
+            match unifyEffects(xEffs, yEffs, st) {
+                case TcResult.Err(msg) => TcResult.Err(msg)
+                case TcResult.Ok(_, st1) =>
+                    match unifyLists(xs, ys, st1) {
+                        case TcResult.Err(msg) => TcResult.Err(msg)
+                        case TcResult.Ok(_, st2) => unify(x, y, st2)
+                    }
             }
         case _ => TcResult.Err("cannot unify ${showTy(aa)} with ${showTy(bb)}")
     }
@@ -193,7 +313,7 @@ def occursMeta(id: Int32, ty: Ty, st: TcState): Bool =
         case Ty.Con(_) => false
         case Ty.App(_, args) => occursMetaList(id, args, st)
         case Ty.Record(fields) => occursMetaRecordFields(id, fields, st)
-        case Ty.Fun(args, _, ret) => occursMetaList(id, args, st) or occursMeta(id, ret, st)
+        case Ty.Fun(args, effects, ret) => occursMetaList(id, args, st) or occursMetaList(id, concreteEffects(effects), st) or occursMeta(id, ret, st)
     }
 
 def occursMetaRecordFields(id: Int32, fields: List[(String, Ty)], st: TcState): Bool =
@@ -225,9 +345,12 @@ def applySubst(ty: Ty, subst: List[(Int32, Ty)]): Ty =
             }
         case Ty.App(name, args) => Ty.App(name, List.map(t -> applySubst(t, subst), args))
         case Ty.Record(fields) => Ty.Record(List.map(p -> match p { case (name, t) => (name, applySubst(t, subst)) }, fields))
-        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> applySubst(t, subst), args), effects, applySubst(ret, subst))
+        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> applySubst(t, subst), args), List.map(t -> applySubstEffect(t, subst), effects), applySubst(ret, subst))
         case _ => ty
     }
+
+def applySubstEffect(effect: Ty, subst: List[(Int32, Ty)]): Ty =
+    if (isEffectVarTy(effect)) effect else applySubst(effect, subst)
 
 def applyTypeHeadSubst(ty: Ty, heads: List[(String, String)]): Ty =
     match ty {
@@ -238,9 +361,12 @@ def applyTypeHeadSubst(ty: Ty, heads: List[(String, String)]): Ty =
             };
             Ty.App(name2, List.map(t -> applyTypeHeadSubst(t, heads), args))
         case Ty.Record(fields) => Ty.Record(List.map(p -> match p { case (name, t) => (name, applyTypeHeadSubst(t, heads)) }, fields))
-        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> applyTypeHeadSubst(t, heads), args), effects, applyTypeHeadSubst(ret, heads))
+        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> applyTypeHeadSubst(t, heads), args), List.map(t -> applyTypeHeadSubstEffect(t, heads), effects), applyTypeHeadSubst(ret, heads))
         case _ => ty
     }
+
+def applyTypeHeadSubstEffect(effect: Ty, heads: List[(String, String)]): Ty =
+    if (isEffectVarTy(effect)) effect else applyTypeHeadSubst(effect, heads)
 
 def lookupSubst(id: Int32, subst: List[(Int32, Ty)]): Option[Ty] =
     match subst {
@@ -292,9 +418,12 @@ def replaceVars(ty: Ty, repls: List[(String, Ty)]): Ty =
             }
         case Ty.App(name, args) => Ty.App(name, List.map(t -> replaceVars(t, repls), args))
         case Ty.Record(fields) => Ty.Record(List.map(p -> match p { case (name, t) => (name, replaceVars(t, repls)) }, fields))
-        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> replaceVars(t, repls), args), effects, replaceVars(ret, repls))
+        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> replaceVars(t, repls), args), List.map(t -> replaceVarsInEffect(t, repls), effects), replaceVars(ret, repls))
         case _ => ty
     }
+
+def replaceVarsInEffect(effect: Ty, repls: List[(String, Ty)]): Ty =
+    if (isEffectVarTy(effect)) effect else replaceVars(effect, repls)
 
 def lookupNameTy(name: String, xs: List[(String, Ty)]): Option[Ty] =
     match xs {
@@ -307,14 +436,30 @@ def typeExprScheme(t: TypeExpr, ctx: TcContext): Scheme =
     let ty = convertTypeExpr(t, ctx);
     generalizeTy(ty)
 
+def typeExprBindingScheme(t: TypeExpr, ctx: TcContext): Scheme =
+    let ty = convertTypeExpr(t, ctx);
+    let (value, _) = splitComputationType(ty);
+    generalizeTy(value)
+
 def convertTypeExpr(t: TypeExpr, ctx: TcContext): Ty =
     match t {
         case TypeExpr.Name(name) => atomTypeName(name, ctx)
         case TypeExpr.Apply(name, args) => atomAppliedTypeName(name, List.map(x -> convertTypeExpr(x, ctx), args), ctx)
         case TypeExpr.Record(fields) => Ty.Record(List.map(p -> match p { case (name, fieldTy) => (name, convertTypeExpr(fieldTy, ctx)) }, fields))
-        case TypeExpr.Arrow(args, effects, ret) => curriedFunction(List.map(x -> convertTypeExpr(x, ctx), args), effects, convertTypeExpr(ret, ctx))
+        case TypeExpr.Arrow(args, effects, ret) => curriedFunction(List.map(x -> convertTypeExpr(x, ctx), args), List.map(e -> convertEffectExpr(e, ctx), effects), convertTypeExpr(ret, ctx))
         case TypeExpr.Forall(_, body) => convertTypeExpr(body, ctx)
     }
+
+def convertEffectExpr(t: TypeExpr, ctx: TcContext): Ty =
+    match t {
+        case TypeExpr.Name(name) if isEffectVarName(name) => Ty.Var(name)
+        case TypeExpr.Name(name) => Ty.App(canonicalEffectName(name, ctx), Nil)
+        case TypeExpr.Apply(name, args) => Ty.App(canonicalEffectName(name, ctx), List.map(x -> convertTypeExpr(x, ctx), args))
+        case _ => convertTypeExpr(t, ctx)
+    }
+
+def canonicalEffectName(name: String, _ctx: TcContext): String =
+    name
 
 def typeExprFromTy(ty: Ty, st: TcState): TypeExpr =
     typeExprFromAppliedTy(normalizeFun(applyState(ty, st)))
@@ -326,8 +471,11 @@ def typeExprFromAppliedTy(ty: Ty): TypeExpr =
         case Ty.Con(name) => TypeExpr.Name(name)
         case Ty.App(name, args) => TypeExpr.Apply(name, List.map(typeExprFromAppliedTy, args))
         case Ty.Record(fields) => TypeExpr.Record(List.map(p -> match p { case (name, fieldTy) => (name, typeExprFromAppliedTy(fieldTy)) }, fields))
-        case Ty.Fun(args, effects, ret) => TypeExpr.Arrow(List.map(typeExprFromAppliedTy, args), effects, typeExprFromAppliedTy(ret))
+        case Ty.Fun(args, effects, ret) => TypeExpr.Arrow(List.map(typeExprFromAppliedTy, args), List.map(typeExprFromEffectTy, effects), typeExprFromAppliedTy(ret))
     }
+
+def typeExprFromEffectTy(ty: Ty): TypeExpr =
+    typeExprFromAppliedTy(ty)
 
 def specializeBoneType(boneParams: List[String], fleshType: TypeExpr, memberType: TypeExpr): TypeExpr =
     match boneParams {
@@ -342,7 +490,7 @@ def substituteTypeExpr(param: String, replacement: TypeExpr, t: TypeExpr): TypeE
         case TypeExpr.Apply(name, args) if name == param => applyReplacementType(replacement, List.map(x -> substituteTypeExpr(param, replacement, x), args))
         case TypeExpr.Apply(name, args) => TypeExpr.Apply(name, List.map(x -> substituteTypeExpr(param, replacement, x), args))
         case TypeExpr.Record(fields) => TypeExpr.Record(List.map(p -> match p { case (name, fieldTy) => (name, substituteTypeExpr(param, replacement, fieldTy)) }, fields))
-        case TypeExpr.Arrow(args, effects, ret) => TypeExpr.Arrow(List.map(x -> substituteTypeExpr(param, replacement, x), args), effects, substituteTypeExpr(param, replacement, ret))
+        case TypeExpr.Arrow(args, effects, ret) => TypeExpr.Arrow(List.map(x -> substituteTypeExpr(param, replacement, x), args), List.map(x -> substituteTypeExpr(param, replacement, x), effects), substituteTypeExpr(param, replacement, ret))
         case TypeExpr.Forall(params, body) => TypeExpr.Forall(params, substituteTypeExpr(param, replacement, body))
     }
 
@@ -405,8 +553,15 @@ def typeVarsInTy(ty: Ty, acc: List[String]): List[String] =
         case Ty.Var(v) => addUnique(v, acc)
         case Ty.App(_, args) => typeVarsInList(args, acc)
         case Ty.Record(fields) => typeVarsInRecordFields(fields, acc)
-        case Ty.Fun(args, _, ret) => typeVarsInTy(ret, typeVarsInList(args, acc))
+        case Ty.Fun(args, effects, ret) => typeVarsInTy(ret, typeVarsInEffects(effects, typeVarsInList(args, acc)))
         case _ => acc
+    }
+
+def typeVarsInEffects(effects: List[Ty], acc: List[String]): List[String] =
+    match effects {
+        case Nil => acc
+        case effect :: rest if isEffectVarTy(effect) => typeVarsInEffects(rest, acc)
+        case effect :: rest => typeVarsInEffects(rest, typeVarsInTy(effect, acc))
     }
 
 def typeVarsInRecordFields(fields: List[(String, Ty)], acc: List[String]): List[String] =

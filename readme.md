@@ -24,7 +24,7 @@ flix test
 flix src/*.flix -- path/to/file.jbini
 ```
 
-the runner loads the bundled files in `library/` as import targets, type-checks the given file, then evaluates its last expression.
+the runner loads the bundled files in `library/` as import targets, checks that the file is a runnable program, then evaluates its final expression. a runnable file must return `𝟙`; only `console` and `random` effects may remain at the file boundary.
 
 ## folder map
 

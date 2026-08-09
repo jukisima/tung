@@ -8,6 +8,7 @@ def testParse(): Unit \ Assert =
     assertParseOk("explicit data/type operator marker", "data a b $pair { a b $pair } let made: integer string $pair = 1 'x' $pair");
     assertParseOk("explicit function header marker", "let a b $combine: integer → integer → integer = a + b; 1 combine 2");
     assertParseOk("typed arguments before function name", "let (x: integer, y: integer) add: integer = x + y; 1 add 2");
+    assertParseOk("parameterized effect declaration", "effect a state { get: 𝟙 → a, set: a → 𝟙 }");
     assertParseOk("name may use non-special characters", "let rate% = 1; rate%");
     assertParseOk("bone default body", "data 𝟚 { yea, nay } let ¬: 𝟚 → 𝟚 = match { yea ↦ nay, nay ↦ yea }; bone a equal { a ≡ a: 𝟚, let a ≢ b = (a ≡ b) ¬ }");
     assertParseOk("typed bone default body", "bone a subtract need a add { let (a: a, b: a) -: a = a }");

@@ -1,5 +1,6 @@
 bring prelude.jbini;
 bring algebra.jbini;
+bring natural.jbini;
 
 let (start: integer, stop: integer) till: integer list = match start ≤ stop {
   yea ↦ start .* ((start + 1) till stop),
@@ -22,4 +23,16 @@ flesh list functor {
     empty ↦ empty,
     a .* l ↦ (a f) .* (l map f)
   }
+}
+
+flesh list filter {
+  x filter f = match x {
+    empty ↦ empty,
+    a .* l ↦ (a f) if (a .* (l filter f)) (l filter f)
+  }
+}
+
+let size: a list → natural = match {
+  empty ↦ natural@zero,
+  a .* l ↦ (l size) suc
 }

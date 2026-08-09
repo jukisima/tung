@@ -14,7 +14,7 @@ def inferExpr(e: Expr, ctx: TcContext, st: TcState): TcResult[Inferred] =
         case Expr.Block(ds, body) => inferBlock(ds, body, ctx, st)
     }
 
-def inferRecordFields(fields: List[(String, Expr)], ctx: TcContext, st: TcState, acc: List[(String, Ty)], effects: List[String]): TcResult[Inferred] =
+def inferRecordFields(fields: List[(String, Expr)], ctx: TcContext, st: TcState, acc: List[(String, Ty)], effects: List[Ty]): TcResult[Inferred] =
     match fields {
         case Nil => TcResult.Ok(Inferred.Value(Ty.Record(List.reverse(acc)), effects), st)
         case (name, expr) :: rest =>
@@ -35,7 +35,7 @@ def inferRecordUpdate(base: Expr, updates: List[RecordUpdate], ctx: TcContext, s
             }
     }
 
-def inferRecordUpdates(updates: List[RecordUpdate], fields: List[(String, Ty)], ctx: TcContext, st: TcState, effects: List[String]): TcResult[Inferred] =
+def inferRecordUpdates(updates: List[RecordUpdate], fields: List[(String, Ty)], ctx: TcContext, st: TcState, effects: List[Ty]): TcResult[Inferred] =
     match updates {
         case Nil => TcResult.Ok(Inferred.Value(Ty.Record(fields), effects), st)
         case RecordUpdate.Remove(name) :: rest =>
@@ -90,7 +90,7 @@ def inferVar(name: String, ctx: TcContext, st: TcState): TcResult[Inferred] =
     }
 
 def inferApply(f: Expr, args: List[Expr], ctx: TcContext, st: TcState): TcResult[Inferred] =
-    match flattenApply(f, args) {
+    match flatApply(f, args) {
         case (Expr.Var(name), allArgs) => inferNamedApply(name, allArgs, ctx, st)
         case (other, allArgs) =>
             match inferExpr(other, ctx, st) {
@@ -99,10 +99,10 @@ def inferApply(f: Expr, args: List[Expr], ctx: TcContext, st: TcState): TcResult
             }
     }
 
-def flattenApply(f: Expr, args: List[Expr]): (Expr, List[Expr]) =
+def flatApply(f: Expr, args: List[Expr]): (Expr, List[Expr]) =
     match f {
         case Expr.Apply(inner, innerArgs) =>
-            let (base, baseArgs) = flattenApply(inner, innerArgs);
+            let (base, baseArgs) = flatApply(inner, innerArgs);
             (base, appendList(baseArgs, args))
         case _ => (f, args)
     }
@@ -161,7 +161,7 @@ def inferCurriedApply(fn: Inferred, args: List[Expr], ctx: TcContext, st: TcStat
             }
     }
 
-def unifyApplyFunction(fTy: Ty, argTy: Ty, retTy: Ty, st: TcState): TcResult[List[String]] =
+def unifyApplyFunction(fTy: Ty, argTy: Ty, retTy: Ty, st: TcState): TcResult[List[Ty]] =
     match normalizeFun(applyState(fTy, st)) {
         case Ty.Fun(param :: restParams, effects, ret) =>
             let remaining = match restParams {
@@ -204,7 +204,7 @@ def inferredTypes(xs: List[Inferred]): List[Ty] =
         case Inferred.Value(t, _) :: rest => t :: inferredTypes(rest)
     }
 
-def inferredEffects(xs: List[Inferred]): List[String] =
+def inferredEffects(xs: List[Inferred]): List[Ty] =
     match xs {
         case Nil => Nil
         case Inferred.Value(_, effects) :: rest => unionEffects(effects, inferredEffects(rest))
@@ -217,11 +217,11 @@ def inferTryHandle(body: Expr, cases: List[HandlerCase], ctx: TcContext, st: TcS
             inferHandlerCases(cases, applyState(bodyTy, st1), bodyEffects, ctx, st1)
     }
 
-def inferHandlerCases(cases: List[HandlerCase], bodyTy: Ty, effects: List[String], ctx: TcContext, st: TcState): TcResult[Inferred] =
+def inferHandlerCases(cases: List[HandlerCase], bodyTy: Ty, effects: List[Ty], ctx: TcContext, st: TcState): TcResult[Inferred] =
     match cases {
         case Nil => TcResult.Ok(Inferred.Value(applyState(bodyTy, st), effects), st)
         case HandlerCase.Case(effectName, handlerBody) :: rest =>
-            if (containsString(effectName, effects)) {
+            if (containsEffectName(effectName, effects)) {
                 match inferExpr(handlerBody, ctx, st) {
                     case TcResult.Err(msg) => TcResult.Err(msg)
                     case TcResult.Ok(Inferred.Value(handlerTy, handlerEffects), st1) =>

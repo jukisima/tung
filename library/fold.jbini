@@ -1,0 +1,4 @@
+bone f catamorphism {
+  (a f) fold₀ b (a → b → b ! e): b ! e,
+  (a f) fold₁ b (b → a → b ! e): b ! e
+}

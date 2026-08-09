@@ -8,6 +8,15 @@ def testNameResolution(): Unit \ Assert + IO =
             assertTypeOk("qualified duplicate member", "bone a first { a same: a } bone a second { a same: a } let ok: integer → integer = first@same;", Nil);
             assertTypeOk("bare constructor", "data two { yea, nay } let chosen-bare: two = yea;", Nil);
             assertTypeOk("bare effect operation", "effect io { trace: integer → integer } let traced-bare: integer ! io = 1 trace;", Nil);
+            assertLookupTyExact("bare imported value lookup", "bring file.jbini;", ("file.jbini", importedSource()) :: ("prelude.jbini", prelude) :: Nil, "foo", "integer");
+            assertLookupTyExact("qualified imported value lookup", "bring file.jbini;", ("file.jbini", importedSource()) :: ("prelude.jbini", prelude) :: Nil, "file@foo", "integer");
+            assertLookupTyExact("local value shadows imported bare value", "bring file.jbini; let foo: integer = 9;", ("file.jbini", importedSource()) :: ("prelude.jbini", prelude) :: Nil, "foo", "integer");
+            assertLookupMissingExact("missing qualified value lookup", "bring file.jbini;", ("file.jbini", importedSource()) :: ("prelude.jbini", prelude) :: Nil, "other@foo");
+            assertLookupAmbiguous("ambiguous imported value lookup", "bring file.jbini; bring other.jbini;", ("file.jbini", importedSource()) :: ("other.jbini", otherSource()) :: ("prelude.jbini", prelude) :: Nil, "foo");
+            assertLookupTyExact("first qualified ambiguous candidate lookup", "bring file.jbini; bring other.jbini;", ("file.jbini", importedSource()) :: ("other.jbini", otherSource()) :: ("prelude.jbini", prelude) :: Nil, "file@foo", "integer");
+            assertLookupTyExact("second qualified ambiguous candidate lookup", "bring file.jbini; bring other.jbini;", ("file.jbini", importedSource()) :: ("other.jbini", otherSource()) :: ("prelude.jbini", prelude) :: Nil, "other@foo", "integer");
+            assertCanonicalTypeExact("bare imported type canonicalization", "bring file.jbini;", ("file.jbini", "data file-box { box }") :: Nil, "file-box", "file@file-box");
+            assertCanonicalTypeExact("qualified imported type canonicalization", "bring file.jbini;", ("file.jbini", "data file-box { box }") :: Nil, "file@file-box", "file@file-box");
             assertImportSamples(prelude);
             assertImportErrorSamples(prelude)
         case Err(_) => Assert.fail("could not read library/prelude.jbini")
@@ -34,3 +43,65 @@ def importedSource(): String =
 
 def otherSource(): String =
     "bring prelude.jbini; let foo: integer = 7;"
+
+def assertLookupTyExact(testName: String, source: String, imports: List[(String, String)], name: String, expectedTy: String): Unit \ Assert =
+    match checkedContext(testName, source, imports) {
+        case None => ()
+        case Some(ctx) =>
+            match lookupEnv(name, ctx) {
+                case EnvLookup.Found(scheme) => Assert.assertEq(expected = expectedTy, schemeTyText(scheme))
+                case EnvLookup.Missing => Assert.fail("expected '${name}' to resolve in '${testName}'")
+                case EnvLookup.Ambiguous(msg) => Assert.fail("expected '${name}' to resolve in '${testName}', got ambiguity: ${msg}")
+            }
+    }
+
+def assertLookupMissingExact(testName: String, source: String, imports: List[(String, String)], name: String): Unit \ Assert =
+    match checkedContext(testName, source, imports) {
+        case None => ()
+        case Some(ctx) =>
+            match lookupEnv(name, ctx) {
+                case EnvLookup.Missing => ()
+                case EnvLookup.Found(scheme) => Assert.fail("expected '${name}' to be missing in '${testName}', got " + schemeTyText(scheme))
+                case EnvLookup.Ambiguous(msg) => Assert.fail("expected '${name}' to be missing in '${testName}', got ambiguity: ${msg}")
+            }
+    }
+
+def assertLookupAmbiguous(testName: String, source: String, imports: List[(String, String)], name: String): Unit \ Assert =
+    match checkedContext(testName, source, imports) {
+        case None => ()
+        case Some(ctx) =>
+            match lookupEnv(name, ctx) {
+                case EnvLookup.Ambiguous(_) => ()
+                case EnvLookup.Missing => Assert.fail("expected '${name}' to be ambiguous in '${testName}', got missing")
+                case EnvLookup.Found(scheme) => Assert.fail("expected '${name}' to be ambiguous in '${testName}', got " + schemeTyText(scheme))
+            }
+    }
+
+def assertCanonicalTypeExact(testName: String, source: String, imports: List[(String, String)], name: String, expected: String): Unit \ Assert =
+    match checkedContext(testName, source, imports) {
+        case None => ()
+        case Some(ctx) =>
+            match canonicalTypeName(name, ctx) {
+                case Some(actual) => Assert.assertEq(expected = expected, actual)
+                case None => Assert.fail("expected type '${name}' to resolve in '${testName}'")
+            }
+    }
+
+def checkedContext(testName: String, source: String, imports: List[(String, String)]): Option[TcContext] \ Assert =
+    match parse(source) {
+        case ParseResult.Err(msg) =>
+            Assert.fail("parse failed for '${testName}': ${msg}");
+            None
+        case ParseResult.Ok(program, _) =>
+            match inferProgramContext(program, imports, TcContext.Context(baseEnv(), Nil, Nil)) {
+                case TcResult.Err(msg) =>
+                    Assert.fail("type checking context failed for '${testName}': ${msg}");
+                    None
+                case TcResult.Ok(ctx, _) => Some(ctx)
+            }
+    }
+
+def schemeTyText(scheme: Scheme): String =
+    match scheme {
+        case Scheme.Forall(_, ty) => showTy(ty)
+    }

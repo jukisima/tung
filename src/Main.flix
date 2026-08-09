@@ -13,7 +13,7 @@ def mainRunPath(path: String): Unit \ IO =
             match mainReadLibraryImports() {
                 case Err(msg) => println(msg)
                 case Ok(imports) =>
-                    let typed = checkWithImports(source, imports);
+                    let typed = checkRunnableWithImports(source, imports);
                     if (typed == "type ok") println(evaluateWithImports(source, imports)) else println(typed)
             }
     }
@@ -41,6 +41,7 @@ def mainLibraryImports(): List[(String, String)] =
     ("library/constant.jbini", "constant.jbini") ::
     ("library/natural.jbini", "natural.jbini") ::
     ("library/list.jbini", "list.jbini") ::
+    ("library/string.jbini", "string.jbini") ::
     ("library/monad.jbini", "monad.jbini") ::
     ("library/option.jbini", "option.jbini") ::
     ("library/complex.jbini", "complex.jbini") ::

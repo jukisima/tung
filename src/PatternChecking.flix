@@ -159,9 +159,12 @@ def replaceTyVarsForCoverage(ty: Ty, repls: List[(String, Ty)]): Ty =
             }
         case Ty.App(name, args) => Ty.App(name, List.map(t -> replaceTyVarsForCoverage(t, repls), args))
         case Ty.Record(fields) => Ty.Record(List.map(p -> match p { case (name, t) => (name, replaceTyVarsForCoverage(t, repls)) }, fields))
-        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> replaceTyVarsForCoverage(t, repls), args), effects, replaceTyVarsForCoverage(ret, repls))
+        case Ty.Fun(args, effects, ret) => Ty.Fun(List.map(t -> replaceTyVarsForCoverage(t, repls), args), List.map(t -> replaceTyVarsForCoverageEffect(t, repls), effects), replaceTyVarsForCoverage(ret, repls))
         case _ => ty
     }
+
+def replaceTyVarsForCoverageEffect(effect: Ty, repls: List[(String, Ty)]): Ty =
+    if (isEffectVarTy(effect)) effect else replaceTyVarsForCoverage(effect, repls)
 
 def lookupCoverageTy(name: String, repls: List[(String, Ty)]): Option[Ty] =
     match repls {

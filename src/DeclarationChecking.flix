@@ -4,6 +4,12 @@ def checkDecls(ds: List[Decl], ctx: TcContext, st: TcState): TcResult[Program] =
         case TcResult.Ok(_, st2) => TcResult.Ok(Program.Decls(Nil), st2)
     }
 
+def checkRunnableDecls(ds: List[Decl], ctx: TcContext, st: TcState): TcResult[Program] =
+    match inferRunnableDecls(ds, ctx, st, Nil, Ty.Con("𝟙")) {
+        case TcResult.Err(msg) => TcResult.Err(msg)
+        case TcResult.Ok((value, effects), st2) => checkRunnableType(value, effects, st2)
+    }
+
 def checkDeclsContext(ds: List[Decl], ctx: TcContext, st: TcState): TcResult[TcContext] =
     match ds {
         case Nil => TcResult.Ok(ctx, st)
@@ -19,27 +25,89 @@ def checkDeclsContext(ds: List[Decl], ctx: TcContext, st: TcState): TcResult[TcC
             }
     }
 
+def inferRunnableDecls(ds: List[Decl], ctx: TcContext, st: TcState, effects: List[Ty], fileValue: Ty): TcResult[(Ty, List[Ty])] =
+    match ds {
+        case Nil => TcResult.Ok((fileValue, effects), st)
+        case Decl.Let(name, ann, expr) :: rest =>
+            match inferRunnableLet(name, ann, expr, ctx, st) {
+                case TcResult.Err(msg) => TcResult.Err(msg)
+                case TcResult.Ok((ctx2, value, letEffects), st2) =>
+                    let nextValue = if (name == "_") value else fileValue;
+                    inferRunnableDecls(rest, ctx2, st2, unionEffects(effects, letEffects), nextValue)
+            }
+        case d :: rest =>
+            match checkDecl(d, ctx, st) {
+                case TcResult.Err(msg) => TcResult.Err(msg)
+                case TcResult.Ok(_, st2) => inferRunnableDecls(rest, ctx, st2, effects, fileValue)
+            }
+    }
+
+def inferRunnableLet(name: String, ann: Option[TypeExpr], expr: Expr, ctx: TcContext, st: TcState): TcResult[(TcContext, Ty, List[Ty])] =
+    match ann {
+        case None =>
+            match inferNamed(name, expr, ctx, st) {
+                case TcResult.Err(msg) => TcResult.Err(msg)
+                case TcResult.Ok(Inferred.Value(value, effects), st2) =>
+                    TcResult.Ok((addEnv(name, generalizeApplied(value, st2), ctx), value, effects), st2)
+            }
+        case Some(tExpr) =>
+            match instantiateAnnotation(tExpr, ctx, st) {
+                case TcResult.Err(msg) => TcResult.Err(msg)
+                case TcResult.Ok((expectedValue, expectedEffects), st1) =>
+                    match checkExprAgainst(name, expectedValue, expectedEffects, expr, ctx, st1) {
+                        case TcResult.Err(msg) => TcResult.Err(msg)
+                        case TcResult.Ok((checkedValue, effects), st2) => TcResult.Ok((ctx, checkedValue, effects), st2)
+                    }
+            }
+    }
+
+def checkRunnableType(value: Ty, effects: List[Ty], st: TcState): TcResult[Program] =
+    let actualValue = applyState(value, st);
+    match unify(actualValue, Ty.Con("𝟙"), st) {
+        case TcResult.Err(_) => TcResult.Err("runnable file must return 𝟙, found ${showTy(actualValue)}")
+        case TcResult.Ok(_, st2) =>
+            let actualEffects = applyStateEffects(effects, st2);
+            if (allRunnableEffects(actualEffects)) {
+                TcResult.Ok(Program.Decls(Nil), st2)
+            } else {
+                TcResult.Err("runnable file has unhandled effects {" + showEffects(actualEffects) + "}; only console and random may remain")
+            }
+    }
+
+def allRunnableEffects(effects: List[Ty]): Bool =
+    match effects {
+        case Nil => true
+        case effect :: rest => isRunnableEffect(effect) and allRunnableEffects(rest)
+    }
+
+def isRunnableEffect(effect: Ty): Bool =
+    match effectNameAndArgs(effect) {
+        case Some(("console", Nil)) => true
+        case Some(("random", Nil)) => true
+        case _ => false
+    }
+
 def checkDecl(d: Decl, ctx: TcContext, st: TcState): TcResult[Decl] =
     match d {
         case Decl.Import(_) => TcResult.Ok(d, st)
         case Decl.Let(name, ann, expr) => checkLet(name, ann, expr, ctx, st)
         case Decl.TypeAlias(_, _) => TcResult.Ok(d, st)
         case Decl.Data(_, _, _) => TcResult.Ok(d, st)
-        case Decl.Effect(_, _) => TcResult.Ok(d, st)
-        case Decl.Bone(_, boneName, members) => checkBoneDefaults(boneName, members, ctx, st, d)
+        case Decl.Effect(_, _, _) => TcResult.Ok(d, st)
+        case Decl.Bone(_, boneName, needs, members) => checkBoneDecl(boneName, needs, members, ctx, st, d)
         case Decl.Flesh(ty, boneName, members) => checkFlesh(ty, boneName, members, ctx, st)
     }
 
 def inferBoneDefaultDecls(ds: List[Decl], ctx: TcContext, st: TcState, acc: List[Decl]): TcResult[(List[Decl], TcContext)] =
     match ds {
         case Nil => TcResult.Ok((List.reverse(acc), ctx), st)
-        case Decl.Bone(params, boneName, members) :: rest =>
-            let knownCtx = addBoneMembers(boneName, params, members, ctx);
+        case Decl.Bone(params, boneName, needs, members) :: rest =>
+            let knownCtx = addBoneMembers(boneName, params, needs, members, ctx);
             match inferBoneDefaultMembers(params, boneName, members, knownCtx, st, Nil) {
                 case TcResult.Err(msg) => TcResult.Err(msg)
                 case TcResult.Ok(typedMembers, st2) =>
-                    let typedDecl = Decl.Bone(params, boneName, List.reverse(typedMembers));
-                    let ctx2 = addBoneMembers(boneName, params, List.reverse(typedMembers), ctx);
+                    let typedDecl = Decl.Bone(params, boneName, needs, List.reverse(typedMembers));
+                    let ctx2 = addBoneMembers(boneName, params, needs, List.reverse(typedMembers), ctx);
                     inferBoneDefaultDecls(rest, ctx2, st2, typedDecl :: acc)
             }
         case d :: rest =>
@@ -105,6 +173,29 @@ def defaultBoneArgumentType(boneParams: List[String]): TypeExpr =
         case Nil => TypeExpr.Name("t0")
     }
 
+def checkBoneDecl(boneName: String, needs: List[BoneNeed], members: List[BoneMember], ctx: TcContext, st: TcState, whole: Decl): TcResult[Decl] =
+    match checkBoneNeeds(boneName, needs, ctx, st) {
+        case TcResult.Err(msg) => TcResult.Err(msg)
+        case TcResult.Ok(_, st1) => checkBoneDefaults(boneName, members, ctx, st1, whole)
+    }
+
+def checkBoneNeeds(boneName: String, needs: List[BoneNeed], ctx: TcContext, st: TcState): TcResult[Unit] =
+    match needs {
+        case Nil => TcResult.Ok((), st)
+        case BoneNeed.Need(args, neededName) :: rest =>
+            match findBoneInfo(neededName, ctx) {
+                case None => TcResult.Err("bone '${boneName}' needs unknown bone '${neededName}'")
+                case Some(BoneInfo.Info(params, _, _)) =>
+                    let expected = List.length(params);
+                    let actual = List.length(args);
+                    if (actual == expected) {
+                        checkBoneNeeds(boneName, rest, ctx, st)
+                    } else {
+                        TcResult.Err("bone '${boneName}' needs '${neededName}' with ${actual} arguments, but '${neededName}' has ${expected} parameters")
+                    }
+            }
+    }
+
 def checkBoneDefaults(boneName: String, members: List[BoneMember], ctx: TcContext, st: TcState, whole: Decl): TcResult[Decl] =
     match members {
         case Nil => TcResult.Ok(whole, st)
@@ -138,7 +229,11 @@ def checkLet(name: String, ann: Option[TypeExpr], expr: Expr, ctx: TcContext, st
 def checkFlesh(tyExpr: TypeExpr, boneName: String, members: List[Decl], ctx: TcContext, st: TcState): TcResult[Decl] =
     match findBoneInfo(boneName, ctx) {
         case None => checkLooseFleshMembers(members, ctx, st, Decl.Flesh(tyExpr, boneName, members))
-        case Some(BoneInfo.Info(params, ms)) => checkFleshMembers(members, boneName, params, tyExpr, ms, ctx, st, Decl.Flesh(tyExpr, boneName, members))
+        case Some(_) =>
+            match fleshSpecsForBone(boneName, tyExpr, ctx, Nil) {
+                case None => TcResult.Err("flesh '${boneName}' has an unknown required bone")
+                case Some(specs) => checkFleshMembers(members, specs, ctx, st, Decl.Flesh(tyExpr, boneName, members))
+            }
     }
 
 def checkLooseFleshMembers(members: List[Decl], ctx: TcContext, st: TcState, whole: Decl): TcResult[Decl] =
@@ -152,23 +247,78 @@ def checkLooseFleshMembers(members: List[Decl], ctx: TcContext, st: TcState, who
         case _ :: _ => TcResult.Err("flesh member must be a let")
     }
 
-def checkFleshMembers(members: List[Decl], boneName: String, boneParams: List[String], fleshType: TypeExpr, specs: List[BoneMember], ctx: TcContext, st: TcState, whole: Decl): TcResult[Decl] =
+enum FleshSpec {
+    case Spec(String, String, TypeExpr)
+}
+
+def fleshSpecsForBone(boneName: String, fleshType: TypeExpr, ctx: TcContext, seen: List[String]): Option[List[FleshSpec]] =
+    if (containsString(boneName, seen)) {
+        Some(Nil)
+    } else {
+        match findBoneInfo(boneName, ctx) {
+            case None => None
+            case Some(BoneInfo.Info(params, needs, members)) =>
+                match fleshSpecsForNeeds(needs, params, fleshType, ctx, boneName :: seen) {
+                    case None => None
+                    case Some(inherited) => Some(appendFleshSpecs(fleshMemberSpecs(boneName, params, fleshType, members), inherited))
+                }
+        }
+    }
+
+def fleshSpecsForNeeds(needs: List[BoneNeed], currentParams: List[String], currentFleshType: TypeExpr, ctx: TcContext, seen: List[String]): Option[List[FleshSpec]] =
+    match needs {
+        case Nil => Some(Nil)
+        case BoneNeed.Need(args, neededName) :: rest =>
+            let specializedArgs = List.map(t -> specializeBoneType(currentParams, currentFleshType, t), args);
+            match specializedArgs {
+                case Nil => None
+                case neededFleshType :: _ =>
+                    match (fleshSpecsForBone(neededName, neededFleshType, ctx, seen), fleshSpecsForNeeds(rest, currentParams, currentFleshType, ctx, seen)) {
+                        case (Some(left), Some(right)) => Some(appendFleshSpecs(left, right))
+                        case _ => None
+                    }
+            }
+    }
+
+def fleshMemberSpecs(boneName: String, boneParams: List[String], fleshType: TypeExpr, members: List[BoneMember]): List[FleshSpec] =
+    match members {
+        case Nil => Nil
+        case member :: rest =>
+            match boneMemberSignature(member) {
+                case None => fleshMemberSpecs(boneName, boneParams, fleshType, rest)
+                case Some((name, t)) => FleshSpec.Spec(name, boneName, specializeBoneType(boneParams, fleshType, t)) :: fleshMemberSpecs(boneName, boneParams, fleshType, rest)
+            }
+    }
+
+def appendFleshSpecs(xs: List[FleshSpec], ys: List[FleshSpec]): List[FleshSpec] =
+    match xs {
+        case Nil => ys
+        case x :: rest => x :: appendFleshSpecs(rest, ys)
+    }
+
+def findFleshSpec(name: String, specs: List[FleshSpec]): Option[FleshSpec] =
+    match specs {
+        case Nil => None
+        case FleshSpec.Spec(n, ownerName, memberType) :: _ if n == name => Some(FleshSpec.Spec(n, ownerName, memberType))
+        case _ :: rest => findFleshSpec(name, rest)
+    }
+
+def checkFleshMembers(members: List[Decl], specs: List[FleshSpec], ctx: TcContext, st: TcState, whole: Decl): TcResult[Decl] =
     match members {
         case Nil => TcResult.Ok(whole, st)
         case Decl.Let(name, _, expr) :: rest =>
-            match findBoneMember(name, specs) {
+            match findFleshSpec(name, specs) {
                 case None => TcResult.Err("flesh defines unknown member '${name}'")
-                case Some(specType) =>
-                    let memberType = specializeBoneType(boneParams, fleshType, specType);
-                    match checkRecursiveLetAnnotatedAlias(name, boneName + "@" + name, memberType, expr, ctx, st) {
+                case Some(FleshSpec.Spec(_, ownerName, memberType)) =>
+                    match checkRecursiveLetAnnotatedAlias(name, ownerName + "@" + name, memberType, expr, ctx, st) {
                         case TcResult.Err(msg) => TcResult.Err(msg)
-                        case TcResult.Ok(_, st2) => checkFleshMembers(rest, boneName, boneParams, fleshType, specs, ctx, st2, whole)
+                        case TcResult.Ok(_, st2) => checkFleshMembers(rest, specs, ctx, st2, whole)
                     }
             }
         case _ :: _ => TcResult.Err("flesh member must be a let")
     }
 
-def checkLocalDecls(ds: List[Decl], ctx: TcContext, st: TcState, effects: List[String]): TcResult[(TcContext, List[String])] =
+def checkLocalDecls(ds: List[Decl], ctx: TcContext, st: TcState, effects: List[Ty]): TcResult[(TcContext, List[Ty])] =
     match ds {
         case Nil => TcResult.Ok((ctx, effects), st)
         case Decl.Let(name, ann, expr) :: rest =>
@@ -179,7 +329,7 @@ def checkLocalDecls(ds: List[Decl], ctx: TcContext, st: TcState, effects: List[S
         case _ :: rest => checkLocalDecls(rest, ctx, st, effects)
     }
 
-def inferLocalLet(name: String, ann: Option[TypeExpr], expr: Expr, ctx: TcContext, st: TcState): TcResult[(TcContext, List[String])] =
+def inferLocalLet(name: String, ann: Option[TypeExpr], expr: Expr, ctx: TcContext, st: TcState): TcResult[(TcContext, List[Ty])] =
     match ann {
         case None => inferUnannotatedBinding(name, expr, ctx, st)
         case Some(tExpr) =>
@@ -193,7 +343,7 @@ def inferLocalLet(name: String, ann: Option[TypeExpr], expr: Expr, ctx: TcContex
             }
     }
 
-def inferUnannotatedBinding(name: String, expr: Expr, ctx: TcContext, st: TcState): TcResult[(TcContext, List[String])] =
+def inferUnannotatedBinding(name: String, expr: Expr, ctx: TcContext, st: TcState): TcResult[(TcContext, List[Ty])] =
     match inferNamed(name, expr, ctx, st) {
         case TcResult.Err(msg) => TcResult.Err(msg)
         case TcResult.Ok(Inferred.Value(t, effects), st2) => TcResult.Ok((addEnv(name, generalizeApplied(t, st2), ctx), effects), st2)
@@ -205,23 +355,24 @@ def inferNamed(name: String, expr: Expr, ctx: TcContext, st: TcState): TcResult[
         case TcResult.Ok(inferred, st2) => TcResult.Ok(inferred, st2)
     }
 
-def instantiateAnnotation(tExpr: TypeExpr, ctx: TcContext, st: TcState): TcResult[(Ty, List[String])] =
+def instantiateAnnotation(tExpr: TypeExpr, ctx: TcContext, st: TcState): TcResult[(Ty, List[Ty])] =
     match instantiate(typeExprScheme(tExpr, ctx), st) {
         case TcResult.Err(msg) => TcResult.Err(msg)
         case TcResult.Ok(expected, st1) => TcResult.Ok(splitComputationType(expected), st1)
     }
 
-def checkExprAgainst(name: String, expectedValue: Ty, expectedEffects: List[String], expr: Expr, ctx: TcContext, st: TcState): TcResult[(Ty, List[String])] =
+def checkExprAgainst(name: String, expectedValue: Ty, expectedEffects: List[Ty], expr: Expr, ctx: TcContext, st: TcState): TcResult[(Ty, List[Ty])] =
     match inferNamed(name, expr, ctx, st) {
         case TcResult.Err(msg) => TcResult.Err(msg)
         case TcResult.Ok(Inferred.Value(actual, effects), st1) =>
             match unify(actual, expectedValue, st1) {
                 case TcResult.Err(msg) => TcResult.Err("in '${name}': ${msg}; actual ${showTy(actual)}, expected ${showTy(expectedValue)}")
                 case TcResult.Ok(_, st2) =>
-                    if (sameEffects(effects, expectedEffects)) {
-                        TcResult.Ok((applyState(expectedValue, st2), effects), st2)
-                    } else {
-                        TcResult.Err("in '${name}': cannot unify effects {" + showEffects(effects) + "} with {" + showEffects(expectedEffects) + "}")
+                    let actualEffects = applyStateEffects(effects, st2);
+                    let expectedEffects2 = applyStateEffects(expectedEffects, st2);
+                    match unifyEffects(actualEffects, expectedEffects2, st2) {
+                        case TcResult.Ok(_, st3) => TcResult.Ok((applyState(expectedValue, st3), applyStateEffects(actualEffects, st3)), st3)
+                        case TcResult.Err(_) => TcResult.Err("in '${name}': cannot unify effects {" + showEffects(actualEffects) + "} with {" + showEffects(expectedEffects2) + "}")
                     }
             }
     }
