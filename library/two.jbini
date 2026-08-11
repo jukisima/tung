@@ -1,6 +1,24 @@
 flesh 𝟚 to-string {
-  a to-string = match a {
+  let a to-string = match a {
     yea ↦ 'yea',
     nay ↦ 'nay'
   }
+}
+
+data disjunctive {
+  𝟚 disjunctive
+}
+
+data conjunctive {
+  𝟚 conjunctive
+}
+
+flesh disjunctive monoid {
+  let (a disjunctive) * (b disjunctive) = (a ∨ b) disjunctive;
+  let ∅ = nay
+}
+
+flesh conjunctive monoid {
+  let (a conjunctive) * (b conjunctive) = (a ∧ b) conjunctive;
+  let ∅ = yea
 }

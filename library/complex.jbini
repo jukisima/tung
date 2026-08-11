@@ -4,28 +4,28 @@ data a complex {
   a complex a
 }
 
-flesh (a complex) add {
-  (a complex b) + (c complex d) = (a + c) complex (b + d)
+given a add flesh (a complex) add {
+  let (a complex b) + (c complex d) = (a + c) complex (b + d)
 }
 
-flesh (a complex) zero {
-  zero = zero complex zero
+given a zero flesh (a complex) zero {
+  let zero = zero complex zero
 }
 
-flesh (a complex) negate {
-  (a complex b) ¯ = (a ¯) complex (b ¯)
+given a negate flesh (a complex) negate {
+  let (a complex b) ¯ = (a ¯) complex (b ¯)
 }
 
-flesh (a complex) multiply {
-  (a complex b) × (c complex d) = ((a × c) - (b × d)) complex ((a × d) + (b × c))
+given a add, a negate, a multiply flesh (a complex) multiply {
+  let (a complex b) × (c complex d) = ((a × c) + ((b × d) ¯)) complex ((a × d) + (b × c))
 }
 
-flesh (a complex) one {
-  one = one complex zero
+given a one, a zero flesh (a complex) one {
+  let one = one complex zero
 }
 
-flesh (a complex) reciprocalise {
-  (a complex b) / =  (
+given a add, a negate, a multiply, a divide flesh (a complex) reciprocalise {
+  let (a complex b) / =  (
     let c = (a × a) + (b × b);
     (a ÷ c) complex ((b ÷ c) ¯)
   )

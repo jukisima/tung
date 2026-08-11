@@ -1,32 +1,50 @@
 bring prelude.jbini;
+bring algebra.jbini;
 bring monad.jbini;
 
+given a semigroup flesh (a option) semigroup {
+  let * = {
+    none, b ↦ b,
+    a, none ↦ a,
+    a some, b some ↦ (a * b) some
+  }
+}
+
+flesh (a option) monoid {
+  let ∅ = none
+}
+
 flesh option functor {
-  it map f = match it {
+  let it map f = match it {
     none ↦ none,
     a some ↦ (a f) some
   }
 }
 
 flesh option applicative {
-  a pure = a some,
-  it apply maybe-function = match it, maybe-function {
+  let pure = some;
+  let apply = {
     a some, f some ↦ (a f) some,
     _, _ ↦ none
   }
 }
 
 flesh option monad {
-  flat = match {
+  let flat = {
     none ↦ none,
-    inner some ↦ inner
-  },
-  it bind f = (it map f) flat
+    in some ↦ in
+  };
+  let a map-flat f = (a map f) flat
 }
 
 flesh option filter {
-  it filter f = match it {
+  let a filter f = match a {
     none ↦ none,
-    a some ↦ (a f) if (a some) none
+    in some ↦ (in f) if (in some) none
   }
+}
+
+let (a: a option, b: a) default: a = match a {
+  none ↦ b,
+  in some ↦ in
 }

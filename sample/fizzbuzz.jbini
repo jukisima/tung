@@ -1,7 +1,7 @@
 bring prelude.jbini;
 bring list.jbini;
 
-let numbers: integer list = 0 till 64;
+let numbers: integer list = 0 till 32;
 
 let (divisor: integer, divided: integer) can-divide: 𝟚 =
   try divided ≡ ((divided ÷ divisor) × divisor) {
@@ -16,7 +16,7 @@ let (i: integer) fizzbuzz-line: string =
     nay, nay ↦ i to-string
   };
 
-let print-lines: string list → 𝟙 ! console = match {
+let print-lines: string list → 𝟙 ! console = {
   empty ↦ null,
   line .* rest ↦ (
     let _ = try line write-line;
@@ -24,7 +24,7 @@ let print-lines: string list → 𝟙 ! console = match {
   )
 };
 
-let map-fizzbuzz: integer list → string list = match {
+let map-fizzbuzz: integer list → string list = {
   empty ↦ empty,
   n .* rest ↦ (n fizzbuzz-line) .* (rest map-fizzbuzz)
 };

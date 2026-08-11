@@ -3,15 +3,16 @@ bring string.jbini;
 
 let _ = 'input a float between 0.0 and 1.0' write-line;
 
-let user: float ! console =
-  try (null read-line) from-string {
+let read-user: 𝟙 → float ! console =
+  { _ ↦ try (null read-line) from-string {
     fail ↦ (
       let _ = 'could not read a float; using 0.0' write-line;
       0.0
     )
-  };
+  } };
 
-let hidden: float ! random = null random-float;
+let user = null read-user;
+let hidden = null random-float;
 
 let outcome: string =
   match user ≤ hidden, hidden ≤ user {

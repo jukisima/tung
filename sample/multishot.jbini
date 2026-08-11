@@ -1,0 +1,13 @@
+bring prelude.jbini;
+
+effect choice {
+  choose: 𝟙 → integer
+}
+
+let branch-sum: integer =
+  try (null choose) + (null choose) {
+    choose ↦ (1 resume) + (2 resume)
+  };
+
+let _ = 'multi-shot' write-line;
+(branch-sum to-string) write-line

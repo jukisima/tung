@@ -9,7 +9,7 @@ data 𝟚 {
   nay
 }
 
-let ¬: 𝟚 → 𝟚 = match {
+let ¬: 𝟚 → 𝟚 = {
   yea ↦ nay,
   nay ↦ yea
 };
@@ -23,11 +23,11 @@ data a ∏ b {
   a ∏ b
 }
 
-let project₀: a ∏ b → a = match {
+let project₀: a ∏ b → a = {
   a ∏ _ ↦ a
 }
 
-let project₁: a ∏ b → b = match {
+let project₁: a ∏ b → b = {
   _ ∏ b ↦ b
 }
 
@@ -44,6 +44,10 @@ data a option {
 data a list {
   empty,
   a .* (a list)
+}
+
+data a task {
+  a done
 }
 
 type string = character list;
@@ -66,28 +70,34 @@ effect a state {
   set: a → 𝟙
 }
 
+effect async {
+  fork: (𝟙 → a) → a task,
+  wait: a task → a,
+  sleep: integer → 𝟙
+}
+
 bone a equal {
-  a ≡ a: 𝟚,
+  a ≡ a: 𝟚;
   let a ≢ b = (a ≡ b) ¬
 }
 
 flesh 𝟚 equal {
-  a ≡ b = match a {
+  let a ≡ b = match a {
     yea ↦ b,
     nay ↦ b ¬
   }
 }
 
-bone a order need a equal {
-  a ≤ a: 𝟚,
+given a equal bone a order {
+  a ≤ a: 𝟚;
   let a < b = match a ≤ b {
     yea ↦ a ≢ b,
     nay ↦ nay
-  },
+  };
   let a ∧ b = match a ≤ b {
     yea ↦ a,
     nay ↦ b
-  },
+  };
   let a ∨ b = match a ≤ b {
     yea ↦ b,
     nay ↦ a
@@ -95,7 +105,7 @@ bone a order need a equal {
 }
 
 flesh 𝟚 order {
-  a ≤ b = match a {
+  let a ≤ b = match a {
     yea ↦ b,
     nay ↦ yea
   }
@@ -106,7 +116,7 @@ bone a add {
 }
 
 flesh 𝟚 add {
-  a + b = match a, b {
+  let a + b = match a, b {
     yea, nay ↦ yea,
     nay, yea ↦ yea,
     _, _ ↦ nay
@@ -121,7 +131,7 @@ bone a negate {
   a ¯: a
 }
 
-bone a subtract need a add, a negate {
+given a add, a negate bone a subtract {
   let (a: a, b: a) -: a = a + (b ¯)
 }
 
@@ -133,22 +143,24 @@ bone a one {
   one: a
 }
 
-bone a ring need a add, a zero, a negate, a multiply, a one {}
+given a add, a zero, a multiply, a one bone a semiring {}
+
+given a semiring, a negate bone a ring {}
 
 bone a reciprocalise {
   a /: a ! string fail
 }
 
-bone a divide need a multiply, a reciprocalise {
+given a multiply, a reciprocalise bone a divide {
   let (a: a, b: a) ÷
     : a ! string fail
     = a × (b /)
 }
 
 bone a mod {
-  a mod a: a ∏ a,
-  let a quotient b = (a mod b) project₀,
+  a mod a: a ∏ a;
+  let a quotient b = (a mod b) project₀;
   let a remainder b = (a mod b) project₁
 }
 
-bone a field need a ring, a reciprocalise {}
+given a ring, a reciprocalise bone a field {}

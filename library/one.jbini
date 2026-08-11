@@ -1,5 +1,5 @@
 flesh 𝟙 to-string {
-  a to-string = match a {
+  let to-string = match {
     null ↦ 'null'
   }
 }

@@ -6,7 +6,7 @@ data natural {
 }
 
 flesh natural equal {
-  a ≡ b = match a, b {
+  let a ≡ b = match a, b {
     zero, zero ↦ yea,
     a1 suc, b1 suc ↦ a1 ≡ b1,
     _, _ ↦ nay
@@ -14,7 +14,7 @@ flesh natural equal {
 }
 
 flesh natural order {
-  a ≤ b = match a, b {
+  let a ≤ b = match a, b {
     zero, _ ↦ yea,
     _, zero ↦ nay,
     a1 suc, b1 suc ↦ a1 ≤ b1
@@ -22,14 +22,14 @@ flesh natural order {
 }
 
 flesh natural add {
-  a + = match {
+  let a + = {
     zero ↦ a,
     b suc ↦ (a + b) suc
   }
 }
 
 flesh natural multiply {
-  a × = match {
+  let a × = {
     zero ↦ zero,
     b suc ↦ a + (a × b)
   }

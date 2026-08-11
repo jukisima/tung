@@ -4,20 +4,19 @@ bone f functor {
   (a f) map (a → b ! e): b f ! e
 }
 
-bone f applicative need f functor {
-  a pure: a f,
+given f functor bone f applicative {
+  a pure: a f;
   (a f) apply ((a → b ! e) f): b f ! e
 }
 
-bone f monad need f applicative {
-  ((a f) f) flat: a f,
-  let (a: a f, f: a → b f ! e) bind: b f ! e = (a map f) flat
+given f applicative bone f monad {
+  ((a f) f) flat: a f;
+  let (a: a f, f: a → b f ! e) map-flat: b f ! e = (a map f) flat
 
-  # (a pure) f bind = a f
-  # a pure bind = a
+  # (a pure) f map-flat = a f
+  # a pure map-flat = a
 }
 
-bone f filter need f functor {
+given f functor bone f filter {
   (a f) filter (a → 𝟚 ! e): a f ! e
 }
-
