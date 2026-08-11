@@ -1,0 +1,9 @@
+bone a semigroup {
+  a * a: a
+  # a * (b * c) ≡ (a * b) * c
+}
+
+given b semigroup
+flesh (a func b) semigroup {
+  let f * g = { a | (a f) * (a g) }
+}

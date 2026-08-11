@@ -1,7 +1,1 @@
-bone a to-string {
-  a to-string: string
-}
-
-bone a from-string {
-  string from-string: a ! string fail
-}
+type string = character list;

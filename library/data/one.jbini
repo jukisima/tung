@@ -1,0 +1,12 @@
+bring string.jbini;
+bring string/to-string.jbini;
+
+data 𝟙 {
+  null
+}
+
+flesh 𝟙 to-string {
+  let to-string = {
+    null | 'null'
+  }
+}

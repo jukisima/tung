@@ -1,4 +1,5 @@
-bring algebra.jbini;
+bring algebra/semigroup.jbini;
+bring algebra/monoid.jbini;
 
 bone f cata {
   (a f) foldr b (a → b → b ! e): b ! e;

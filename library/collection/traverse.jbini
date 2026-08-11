@@ -1,0 +1,8 @@
+bring collection/applicative.jbini;
+bring collection/catamorphism.jbini;
+
+given f functor, f cata, m applicative
+bone f traverse {
+  (a f) traverse (a → b m): (b f) m;
+  ((a m) f) sequence: (a f) m
+}

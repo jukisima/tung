@@ -1,0 +1,41 @@
+bring ground.jbini;
+
+data natural {
+  zero,
+  natural suc
+}
+
+flesh natural equal {
+  let ≡ = {
+    zero, zero | yea,
+    a suc, b suc | a ≡ b,
+    _, _ | nay
+  }
+}
+
+flesh natural order {
+  let ≤ = {
+    zero, _ | yea,
+    _, zero | nay,
+    a suc, b suc | a ≤ b
+  }
+}
+
+flesh natural add {
+  let + = {
+    a, zero | a,
+    a, (b suc) | (a + b) suc
+  }
+}
+
+flesh natural multiply {
+  let × = {
+    a, zero | zero,
+    a, b suc | a + (a × b)
+  }
+}
+
+let natural-to-integer: natural → integer = {
+  zero | 0,
+  a suc | 1 + (a natural-to-integer)
+}

@@ -1,0 +1,12 @@
+bring combinator.jbini;
+bring collection/functor.jbini;
+
+given f functor bone f applicative {
+  a pure: a f;
+  (a f) apply ((a → b ! e) f): b f ! e
+}
+
+flesh (a func) applicative {
+  let pure = const;
+  let f apply g = { a | (a f) (a g) }
+}

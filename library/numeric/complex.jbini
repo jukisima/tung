@@ -1,0 +1,41 @@
+bring ground.jbini;
+
+data a complex {
+  a complex a
+}
+
+given a add
+flesh (a complex) add {
+  let (a complex b) + (c complex d) = (a + c) complex (b + d)
+}
+
+given a zero
+flesh (a complex) zero {
+  let zero = zero complex zero
+}
+
+given a subtract
+flesh (a complex) subtract {
+  let (a complex b) - (c complex d) = (a - c) complex (b - d)
+}
+
+given a add, a subtract, a multiply
+flesh (a complex) multiply {
+  let (a complex b) × (c complex d) = ((a × c) - (b × d)) complex ((a × d) + (b × c))
+}
+
+given a one, a zero flesh (a complex) one {
+  let one = one complex zero
+}
+
+given a add, a zero, a subtract, a multiply, a divide flesh (a complex) divide {
+  let (a complex b) ÷ (c complex d) =  (
+    let e = (c × c) + (d × d);
+    (((a × c) + (b × d)) ÷ e) complex (((b × c) - (a × d)) ÷ e)
+  )
+}
+
+given a semiring
+flesh (a complex) absolute {
+  let (a complex b) absolute = (a × a) + (b × b)
+}

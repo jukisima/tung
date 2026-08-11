@@ -1,0 +1,18 @@
+bring two.jbini;
+bring equal.jbini;
+
+given a equal bone a order {
+  a ≤ a: 𝟚;
+  let a < b = match a ≤ b {
+    yea | a ≢ b,
+    nay | nay
+  };
+  let a ∧ b = match a ≤ b {
+    yea | a,
+    nay | b
+  };
+  let a ∨ b = match a ≤ b {
+    yea | b,
+    nay | a
+  }
+}

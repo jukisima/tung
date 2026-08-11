@@ -1,5 +1,0 @@
-flesh 𝟙 to-string {
-  let to-string = match {
-    null ↦ 'null'
-  }
-}

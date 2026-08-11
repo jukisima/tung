@@ -1,0 +1,6 @@
+bring collection/functor.jbini;
+
+given f functor
+bone f filter {
+  (a f) filter (a → 𝟚 ! e): a f ! e
+}

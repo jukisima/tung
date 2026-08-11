@@ -1,34 +1,18 @@
-bring prelude.jbini;
+bring ground.jbini;
 bring list.jbini;
 
-let numbers: integer list = 0 till 32;
-
-let (divisor: integer, divided: integer) can-divide: 𝟚 =
-  try divided ≡ ((divided ÷ divisor) × divisor) {
-    fail ↦ nay
+given a divide, a multiply, a equal
+let (divisor: a, divided: a) can-divide: 𝟚 =
+  try divided ≡ (divided ÷ divisor $ × divisor) {
+    _ fail | nay
   };
 
-let (i: integer) fizzbuzz-line: string =
+let (i: integer) fizzbuzz: string =
   match 3 can-divide i, 5 can-divide i {
-    yea, yea ↦ 'fizzbuzz',
-    yea, nay ↦ 'fizz',
-    nay, yea ↦ 'buzz',
-    nay, nay ↦ i to-string
+    yea, yea | 'fizzbuzz',
+    yea, nay | 'fizz',
+    nay, yea | 'buzz',
+    nay, nay | i to-string
   };
 
-let print-lines: string list → 𝟙 ! console = {
-  empty ↦ null,
-  line .* rest ↦ (
-    let _ = try line write-line;
-    rest print-lines
-  )
-};
-
-let map-fizzbuzz: integer list → string list = {
-  empty ↦ empty,
-  n .* rest ↦ (n fizzbuzz-line) .* (rest map-fizzbuzz)
-};
-
-let lines: string list = numbers map-fizzbuzz;
-
-lines print-lines
+0 till 32 $ map fizzbuzz $ each write-line

@@ -1,0 +1,42 @@
+bring foreign.jbini;
+
+bone a add {
+  a + a: a
+}
+
+bone a zero {
+  zero: a
+}
+
+bone a multiply {
+  a × a: a
+}
+
+bone a one {
+  one: a
+}
+
+given a add, a zero, a multiply, a one
+bone a semiring {}
+
+given b semiring
+flesh (a func b) semiring {
+  let f + g = { a | (a f) + (a g) };
+  let zero = { a | zero };
+  let f × g = { a | (a f) × (a g) };
+  let one = { a | one }
+}
+
+flesh integer semiring {
+  let + = add-integer;
+  let zero = 0;
+  let × = multiply-integer;
+  let one = 1;
+}
+
+flesh float semiring {
+  let + = add-float;
+  let zero = 0.0;
+  let × = multiply-float;
+  let one = 1.0;
+}

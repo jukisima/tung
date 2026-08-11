@@ -1,0 +1,6 @@
+bring two.jbini;
+
+bone a equal {
+  a ≡ a: 𝟚;
+  let a ≢ b = (a ≡ b) ¬
+}

@@ -1,17 +1,17 @@
-bring prelude.jbini;
+bring ground.jbini;
 
 let answer: 𝟙 → integer ! async =
-  { _ ↦ (
+  { _ | (
     let _ = 1000 sleep;
     try (
-      let left = ({ _ ↦ 20 }) fork;
-      let right = ({ _ ↦ 22 }) fork;
+      let left = ({ _ | 20 }) fork;
+      let right = ({ _ | 22 }) fork;
       (left wait) + (right wait)
     ) {
-      work fork ↦ ((null work) done) resume,
-      (value done) wait ↦ value resume
+      work fork | ((null work) done) resume,
+      (value done) wait | value resume
     }
   ) };
 
 let _ = 'async' write-line;
-((null answer) to-string) write-line
+null answer $ to-string $ write-line

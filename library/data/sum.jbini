@@ -1,0 +1,4 @@
+data a ∐ b {
+  a inject₀,
+  b inject₁
+}

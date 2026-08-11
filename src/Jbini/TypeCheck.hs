@@ -1,25 +1,40 @@
-{-# LANGUAGE LambdaCase #-}
-
-module Jbini.TypeCheck
-  ( Ty(..), Scheme(..), EnvLookup(..), TcContext(..), TcState(..), TcResult(..)
-  , BoneInfo(..)
-  , check, checkWithImports, checkRunnableWithImports
-  , baseContext
-  , inferProgramContext, lookupEnv, canonicalTypeName, showTy, showEffects
-  , libraryImportFiles, importNamespace, namespaceImportBones, lastQualifiedSegment
-  , baseRuntimeNames, baseEffectNames, runtimeNativeSpecs, runtimeEffectOpSpecs
-  , findBoneMember
-  ) where
+module Jbini.TypeCheck (
+  Ty (..),
+  Scheme (..),
+  EnvLookup (..),
+  TcContext (..),
+  TcState (..),
+  TcResult (..),
+  BoneInfo (..),
+  check,
+  checkWithImports,
+  checkRunnableWithImports,
+  baseContext,
+  inferProgramContext,
+  lookupEnv,
+  canonicalTypeName,
+  showTy,
+  showEffects,
+  libraryImportFiles,
+  importNamespace,
+  namespaceImportBones,
+  lastQualifiedSegment,
+  baseRuntimeNames,
+  baseEffectNames,
+  runtimeNativeSpecs,
+  runtimeEffectOpSpecs,
+  findBoneMember,
+)
+where
 
 import Control.Monad (foldM, replicateM, unless, zipWithM_)
-import Control.Monad.Trans.State.Strict (StateT(..), get, put, runStateT)
+import Control.Monad.Trans.State.Strict (StateT (..), runStateT)
 import Data.Char (isAscii, isDigit, isLower)
-import Data.List (find, intercalate, nub)
-import Data.List.NonEmpty (NonEmpty(..))
+import Data.List ((\\), find, intercalate, isPrefixOf, nub)
+import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
-
 import Jbini.Parse (parse)
 import Jbini.Syntax
 
@@ -33,45 +48,84 @@ data Ty
   deriving (Eq, Show)
 
 data Need = Need [Ty] String deriving (Eq, Show)
-data Inferred = Inferred Ty [Ty] [Need] deriving (Eq, Show)
+
+data Inferred = Inferred
+  { inferredTy :: Ty
+  , inferredEffects :: [Ty]
+  , inferredNeeds :: [Need]
+  }
+  deriving (Eq, Show)
+
 data Scheme = Forall [String] [Need] Ty deriving (Eq, Show)
 
 data EnvLookup = EnvFound Scheme | EnvMissing | EnvAmbiguous String deriving (Eq, Show)
-data EnvChoices = EnvChoices [Scheme] | ChoicesMissing | ChoicesAmbiguous String deriving (Eq, Show)
-data TcResult a = TcOk a TcState | TcErr String deriving (Eq, Show)
-data TcState = TcState Int (Map.Map Int Ty) (Map.Map String String) deriving (Eq, Show)
-data TypeInfo = Alias String [String] | DataInfo String [String] [(String, [TypeExpr])] deriving (Eq, Show)
-data BoneInfo = BoneInfo [String] [BoneNeed] [BoneMember] deriving (Eq, Show)
-data FleshInfo = FleshInfo String TypeExpr [BoneNeed] deriving (Eq, Show)
-data TcContext = TcContext [(String, Scheme, Int, String)] (Map.Map String TypeInfo) (Map.Map String BoneInfo) [FleshInfo] deriving (Eq, Show)
 
-type Tc = StateT TcState (Either String)
+data EnvChoices = EnvChoices [Scheme] | ChoicesMissing | ChoicesAmbiguous String deriving (Eq, Show)
+
+data TcResult a = TcOk a TcState | TcErr String deriving (Eq, Show)
+
+data TyHead = TyHead String [Ty] deriving (Eq, Show)
+
+data TcState = TcState
+  { tcNextMeta :: Int
+  , tcMetaSubst :: Map.Map Int Ty
+  , tcTypeHeads :: Map.Map String TyHead
+  , tcEffectRows :: Map.Map String [Ty]
+  }
+  deriving (Eq, Show)
+
+data TypeInfo = Alias String [String] | DataInfo String [String] [(String, [TypeExpr])] | ShownType TypeInfo deriving (Eq, Show)
+
+data BoneInfo = BoneInfo
+  { boneParams :: [String]
+  , boneNeeds :: [BoneNeed]
+  , boneMembers :: [BoneMember]
+  }
+  deriving (Eq, Show)
+
+data FleshInfo = FleshInfo
+  { fleshBone :: String
+  , fleshType :: TypeExpr
+  , fleshNeeds :: [BoneNeed]
+  }
+  deriving (Eq, Show)
+
+data TcContext = TcContext
+  { tcEnv :: [(String, Scheme, Int, String)]
+  , tcTypes :: Map.Map String TypeInfo
+  , tcBones :: Map.Map String BoneInfo
+  , tcFleshes :: [FleshInfo]
+  }
+  deriving (Eq, Show)
+
+newtype Tc a = Tc {unTc :: StateT TcState (Either String) a}
+  deriving newtype (Functor, Applicative, Monad)
 
 initialTcState :: TcState
-initialTcState = TcState 0 Map.empty Map.empty
+initialTcState = TcState{tcNextMeta = 0, tcMetaSubst = Map.empty, tcTypeHeads = Map.empty, tcEffectRows = Map.empty}
 
 runTc :: Tc a -> TcState -> TcResult a
-runTc computation st = case runStateT computation st of
+runTc computation st = case runStateT (unTc computation) st of
   Left msg -> TcErr msg
   Right (value, st2) -> TcOk value st2
 
 failTc :: String -> Tc a
-failTc msg = StateT $ \_ -> Left msg
+failTc msg = Tc $ StateT $ \_ -> Left msg
 
 getTc :: Tc TcState
-getTc = get
+getTc = Tc $ StateT $ \st -> Right (st, st)
 
 putTc :: TcState -> Tc ()
-putTc = put
+putTc st = Tc $ StateT $ \_ -> Right ((), st)
 
 mapTcError :: Tc a -> (String -> String) -> Tc a
-mapTcError computation f = StateT $ \st -> case runStateT computation st of
+mapTcError computation f = Tc $ StateT $ \st -> case runStateT (unTc computation) st of
   Left msg -> Left (f msg)
   ok -> ok
 
 recoverTc :: Tc a -> (String -> Tc a) -> Tc a
-recoverTc computation f = StateT $ \st -> case runStateT computation st of
-  Left msg -> runStateT (f msg) st
+recoverTc computation f = Tc $ StateT $ \st -> case runStateT (unTc computation) st of
+  Left msg -> runStateT (unTc (f msg)) st
   ok -> ok
 
 curriedFunction :: [Ty] -> [Ty] -> Ty -> Ty
@@ -89,7 +143,12 @@ skipEffectVar :: (Ty -> Ty) -> Ty -> Ty
 skipEffectVar f ty = if isEffectVarTy ty then ty else f ty
 
 applyStateEffects :: [Ty] -> TcState -> [Ty]
-applyStateEffects effects st = map (skipEffectVar (`applyState` st)) effects
+applyStateEffects effects st = foldl' (flip addEffect) [] (concatMap (`applyStateEffect` st) effects)
+
+applyStateEffect :: Ty -> TcState -> [Ty]
+applyStateEffect (TyVar name) st@TcState{tcEffectRows}
+  | isEffectVarName name = maybe [TyVar name] (`applyStateEffects` st) (Map.lookup name tcEffectRows)
+applyStateEffect effect st = [applyState effect st]
 
 applyStateNeed :: Need -> TcState -> Need
 applyStateNeed (Need args name) st = Need (applyStateAll args st) name
@@ -113,22 +172,53 @@ addNeed :: Need -> [Need] -> [Need]
 addNeed = addUnique
 
 unifyEffectsM :: [Ty] -> [Ty] -> Tc ()
-unifyEffectsM xs ys = do
-  let xLabels = concreteEffects xs
+unifyEffectsM xs0 ys0 = do
+  st <- getTc
+  let xs = applyStateEffects xs0 st
+      ys = applyStateEffects ys0 st
+      xLabels = concreteEffects xs
       yLabels = concreteEffects ys
-      xOpen = hasEffectVar xs
-      yOpen = hasEffectVar ys
+      xVars = effectVars xs
+      yVars = effectVars ys
+      xMissing = missingEffects xLabels yLabels
+      yMissing = missingEffects yLabels xLabels
   unifyCommonEffectsM xLabels yLabels
-  let xFitsY = allEffectsIn xLabels yLabels || yOpen
-      yFitsX = allEffectsIn yLabels xLabels || xOpen
-  unless (xFitsY && yFitsX) $
-    failTc ("cannot unify effects {" ++ showEffects xs ++ "} with {" ++ showEffects ys ++ "}")
+  case (xVars, yVars) of
+    ([], []) -> unless (null xMissing && null yMissing) mismatch
+    (x : _, []) -> unless (null xMissing) mismatch >> bindEffectVarM x yMissing
+    ([], y : _) -> unless (null yMissing) mismatch >> bindEffectVarM y xMissing
+    (x : _, y : _)
+      | x == y -> bindEffectVarM x (unionEffects xMissing yMissing)
+      | otherwise -> bindEffectVarM x yMissing >> bindEffectVarM y xMissing
+ where
+  mismatch = failTc ("cannot unify effects {" ++ showEffects xs0 ++ "} with {" ++ showEffects ys0 ++ "}")
 
 concreteEffects :: [Ty] -> [Ty]
 concreteEffects = filter (not . isEffectVarTy)
 
-hasEffectVar :: [Ty] -> Bool
-hasEffectVar = any isEffectVarTy
+effectVars :: [Ty] -> [String]
+effectVars effects = nub [name | TyVar name <- effects, isEffectVarName name]
+
+missingEffects :: [Ty] -> [Ty] -> [Ty]
+missingEffects xs ys = filter (not . (`containsEffectHead` ys)) xs
+
+bindEffectVarM :: String -> [Ty] -> Tc ()
+bindEffectVarM name effects = do
+  st@TcState{tcEffectRows} <- getTc
+  let normalized = filter (/= TyVar name) (applyStateEffects effects st)
+  if any (effectVarOccurs name) normalized
+    then failTc "recursive effect"
+    else case Map.lookup name tcEffectRows of
+      Just existing -> unifyEffectsM existing normalized
+      Nothing -> putTc st{tcEffectRows = Map.insert name normalized tcEffectRows}
+
+effectVarOccurs :: String -> Ty -> Bool
+effectVarOccurs name = \case
+  TyVar found -> name == found
+  TyApp _ args -> any (effectVarOccurs name) args
+  TyRecord fields -> any (effectVarOccurs name) (Map.elems fields)
+  TyFun args effects ret -> any (effectVarOccurs name) args || any (effectVarOccurs name) effects || effectVarOccurs name ret
+  _ -> False
 
 isEffectVarTy :: Ty -> Bool
 isEffectVarTy (TyVar name) = isEffectVarName name
@@ -138,9 +228,6 @@ isEffectVarName :: String -> Bool
 isEffectVarName "e" = True
 isEffectVarName ('e' : rest) = all isDigit rest
 isEffectVarName _ = False
-
-allEffectsIn :: [Ty] -> [Ty] -> Bool
-allEffectsIn xs ys = all (`containsEffectHead` ys) xs
 
 unifyCommonEffectsM :: [Ty] -> [Ty] -> Tc ()
 unifyCommonEffectsM xs ys =
@@ -196,6 +283,8 @@ unifyM a b = do
     (TyApp x xs, TyApp y ys) | isTypeVarName x -> unifyTypeHeadM x y xs ys
     (TyApp x xs, TyApp y ys) | isTypeVarName y -> unifyTypeHeadM y x ys xs
     (TyRecord xs, TyRecord ys) -> unifyRecordFieldsM xs ys
+    (TyApp x xs, TyFun ys yEffs y) | isTypeVarName x -> unifyTypeHeadWithFunM x xs ys yEffs y
+    (TyFun xs xEffs x, TyApp y ys) | isTypeVarName y -> unifyTypeHeadWithFunM y ys xs xEffs x
     (TyFun xs xEffs x, TyFun ys yEffs y) -> unifyFunM xs xEffs x ys yEffs y
     _ -> failTc ("cannot unify " ++ showTy aa ++ " with " ++ showTy bb)
 
@@ -203,18 +292,19 @@ unifyFunM :: NonEmpty Ty -> [Ty] -> Ty -> NonEmpty Ty -> [Ty] -> Ty -> Tc ()
 unifyFunM xs xEffs xRet ys yEffs yRet =
   case compare (length xArgs) (length yArgs) of
     EQ -> unifyEffectsM xEffs yEffs >> unifyListsM xArgs yArgs >> unifyM xRet yRet
-    LT | null xEffs -> do
+    LT -> do
+      unifyEffectsM xEffs []
       let (prefix, suffix) = splitAt (length xArgs) yArgs
       unifyListsM xArgs prefix
       unifyM xRet (TyFun (nonEmptyKnown suffix) yEffs yRet)
-    GT | null yEffs -> do
+    GT -> do
+      unifyEffectsM yEffs []
       let (prefix, suffix) = splitAt (length yArgs) xArgs
       unifyListsM prefix yArgs
       unifyM (TyFun (nonEmptyKnown suffix) xEffs xRet) yRet
-    _ -> failTc ("arity mismatch: [" ++ showTyList xArgs ++ "] vs [" ++ showTyList yArgs ++ "]")
-  where
-    xArgs = NE.toList xs
-    yArgs = NE.toList ys
+ where
+  xArgs = NE.toList xs
+  yArgs = NE.toList ys
 
 nonEmptyKnown :: [a] -> NonEmpty a
 nonEmptyKnown (x : xs) = x :| xs
@@ -224,7 +314,9 @@ normalizeFun :: Ty -> Ty
 normalizeFun (TyFun args effects ret) = case normalizeFun ret of
   TyFun moreArgs moreEffects finalRet | null effects -> TyFun (args <> moreArgs) moreEffects finalRet
   other -> TyFun args effects other
-normalizeFun (TyApp name args) = TyApp name (map normalizeFun args)
+normalizeFun (TyApp name args) = case tyAppOrFunc name (map normalizeFun args) of
+  TyApp appName appArgs -> TyApp appName appArgs
+  funTy -> normalizeFun funTy
 normalizeFun (TyRecord fields) = TyRecord (Map.map normalizeFun fields)
 normalizeFun ty = ty
 
@@ -237,34 +329,57 @@ unifyTypeHeadM :: String -> String -> [Ty] -> [Ty] -> Tc ()
 unifyTypeHeadM varName actualName varArgs actualArgs = do
   st <- getTc
   case lookupTypeHead varName st of
-    Just boundName | boundName == actualName -> unifyListsM varArgs actualArgs
-    Just boundName -> failTc ("cannot unify " ++ boundName ++ " with " ++ actualName)
+    Just boundHead -> unifyM (applyTypeHead boundHead varArgs) (tyAppOrFunc actualName actualArgs)
     Nothing | isTypeVarName actualName -> unifyListsM varArgs actualArgs
-    Nothing -> bindTypeHeadM varName actualName >> unifyListsM varArgs actualArgs
+    Nothing -> bindTypeHeadM varName (TyHead actualName []) >> unifyListsM varArgs actualArgs
 
-lookupTypeHead :: String -> TcState -> Maybe String
-lookupTypeHead name (TcState _ _ heads) = Map.lookup name heads
+unifyTypeHeadWithFunM :: String -> [Ty] -> NonEmpty Ty -> [Ty] -> Ty -> Tc ()
+unifyTypeHeadWithFunM varName varArgs funArgs effects ret
+  | not (null effects) = failTc "effectful functions cannot be used as func"
+  | otherwise = case NE.toList funArgs of
+      [] -> failTc "internal error: function type with no arguments"
+      arg : rest -> do
+        let result = curriedFunction rest [] ret
+            fullFun = TyFun (arg :| rest) [] ret
+        st <- getTc
+        case lookupTypeHead varName st of
+          Just boundHead -> unifyM (applyTypeHead boundHead varArgs) fullFun
+          Nothing -> case varArgs of
+            [onlyResult] -> bindTypeHeadM varName (TyHead "func" [arg]) >> unifyM onlyResult result
+            [fromArg, toArg] -> bindTypeHeadM varName (TyHead "func" []) >> unifyM fromArg arg >> unifyM toArg result
+            _ -> failTc "func expects one or two type arguments in function unification"
 
-bindTypeHeadM :: String -> String -> Tc ()
+lookupTypeHead :: String -> TcState -> Maybe TyHead
+lookupTypeHead name TcState{tcTypeHeads} = Map.lookup name tcTypeHeads
+
+bindTypeHeadM :: String -> TyHead -> Tc ()
 bindTypeHeadM name value = do
-  TcState next subst heads <- getTc
-  putTc (TcState next subst (Map.insert name value heads))
+  st@TcState{tcTypeHeads} <- getTc
+  putTc st{tcTypeHeads = Map.insert name value tcTypeHeads}
+
+applyTypeHead :: TyHead -> [Ty] -> Ty
+applyTypeHead (TyHead name prefixArgs) args = tyAppOrFunc name (prefixArgs ++ args)
+
+tyAppOrFunc :: String -> [Ty] -> Ty
+tyAppOrFunc name [] = TyCon name
+tyAppOrFunc "func" [arg, ret] = TyFun (arg :| []) [] ret
+tyAppOrFunc name args = TyApp name args
 
 unifyRecordFieldsM :: Map.Map String Ty -> Map.Map String Ty -> Tc ()
 unifyRecordFieldsM xs ys
   | Map.size xs /= Map.size ys = failTc "record arity mismatch"
   | otherwise = mapM_ one (Map.toList xs)
-  where
-    one (name, xTy) = case Map.lookup name ys of
-      Nothing -> failTc ("record field mismatch '" ++ name ++ "'")
-      Just yTy -> unifyM xTy yTy
+ where
+  one (name, xTy) = case Map.lookup name ys of
+    Nothing -> failTc ("record field mismatch '" ++ name ++ "'")
+    Just yTy -> unifyM xTy yTy
 
 bindMetaM :: Int -> Ty -> Tc ()
 bindMetaM ident ty = do
-  st@(TcState next subst heads) <- getTc
+  st@TcState{tcMetaSubst} <- getTc
   if occursMeta ident ty st
     then failTc "recursive type"
-    else putTc (TcState next (Map.insert ident ty subst) heads)
+    else putTc st{tcMetaSubst = Map.insert ident ty tcMetaSubst}
 
 occursMeta :: Int -> Ty -> TcState -> Bool
 occursMeta ident ty st = case applyState ty st of
@@ -276,53 +391,62 @@ occursMeta ident ty st = case applyState ty st of
   TyFun args effects ret -> any (\t -> occursMeta ident t st) args || any (\t -> occursMeta ident t st) (concreteEffects effects) || occursMeta ident ret st
 
 applyState :: Ty -> TcState -> Ty
-applyState ty (TcState _ subst heads) = applyTypeHeadSubst (applySubst ty subst) heads
+applyState ty st@TcState{tcMetaSubst, tcTypeHeads} = go ty
+ where
+  go = \case
+    TyMeta ident -> maybe (TyMeta ident) go (Map.lookup ident tcMetaSubst)
+    TyVar name -> maybe (TyVar name) (`applyTypeHead` []) (Map.lookup name tcTypeHeads)
+    TyCon name -> TyCon name
+    TyApp name args -> maybe (tyAppOrFunc name (map go args)) (\headSubst -> go (applyTypeHead headSubst (map go args))) (Map.lookup name tcTypeHeads)
+    TyRecord fields -> TyRecord (Map.map go fields)
+    TyFun args effects ret -> TyFun (fmap go args) (applyStateEffects effects st) (go ret)
 
 applyStateAll :: [Ty] -> TcState -> [Ty]
 applyStateAll tys st = map (`applyState` st) tys
 
-applySubst :: Ty -> Map.Map Int Ty -> Ty
-applySubst ty subst = case ty of
-  TyMeta ident -> maybe ty (`applySubst` subst) (Map.lookup ident subst)
-  _ -> mapTyChildren (`applySubst` subst) (skipEffectVar (`applySubst` subst)) ty
-
-applyTypeHeadSubst :: Ty -> Map.Map String String -> Ty
-applyTypeHeadSubst ty heads = case ty of
-  TyVar name | Just concrete <- Map.lookup name heads -> TyCon concrete
-  TyApp name args -> TyApp (Map.findWithDefault name name heads) (map (`applyTypeHeadSubst` heads) args)
-  _ -> mapTyChildren (`applyTypeHeadSubst` heads) (skipEffectVar (`applyTypeHeadSubst` heads)) ty
-
 freshM :: Tc Ty
 freshM = do
-  TcState next subst heads <- getTc
-  putTc (TcState (next + 1) subst heads)
-  pure (TyMeta next)
+  st@TcState{tcNextMeta} <- getTc
+  putTc st{tcNextMeta = tcNextMeta + 1}
+  pure (TyMeta tcNextMeta)
 
 freshManyM :: Int -> Tc [Ty]
 freshManyM n = replicateM n freshM
 
 instantiateM :: Scheme -> Tc (Ty, [Need])
 instantiateM (Forall vars needs ty) = do
-  repls <- freshForNamesM (typeHeadVarsInNeeds needs (typeHeadVarsInTy ty [])) vars
+  let appliedVars = filter (`elem` vars) (typeAppHeadsInNeeds needs (typeAppHeadsInTy ty []))
+      headVars = nub (appliedVars ++ typeHeadVarsInNeeds needs (typeHeadVarsInTy ty []))
+      rowVars = effectRowVarsInNeeds needs (effectRowVarsInTy ty [])
+  repls <- freshForNamesM headVars rowVars vars
   pure (replaceVars ty repls, map (`replaceNeedVars` repls) needs)
 
-freshForNamesM :: [String] -> [String] -> Tc (Map.Map String Ty)
-freshForNamesM headVars vars =
+freshForNamesM :: [String] -> [String] -> [String] -> Tc (Map.Map String Ty)
+freshForNamesM headVars rowVars vars =
   Map.fromList <$> traverse freshPair vars
-  where
-    freshPair v
-      | v `elem` headVars = do
-          name <- freshTypeHeadNameM
-          pure (v, TyVar name)
-      | otherwise = do
-          t <- freshM
-          pure (v, t)
+ where
+  freshPair v
+    | v `elem` rowVars = do
+        name <- freshEffectVarNameM
+        pure (v, TyVar name)
+    | v `elem` headVars = do
+        name <- freshTypeHeadNameM
+        pure (v, TyVar name)
+    | otherwise = do
+        t <- freshM
+        pure (v, t)
 
 freshTypeHeadNameM :: Tc String
 freshTypeHeadNameM = do
-  TcState next subst heads <- getTc
-  putTc (TcState (next + 1) subst heads)
-  pure ("h" ++ show next)
+  st@TcState{tcNextMeta} <- getTc
+  putTc st{tcNextMeta = tcNextMeta + 1}
+  pure ("h" ++ show tcNextMeta)
+
+freshEffectVarNameM :: Tc String
+freshEffectVarNameM = do
+  st@TcState{tcNextMeta} <- getTc
+  putTc st{tcNextMeta = tcNextMeta + 1}
+  pure ("e" ++ show tcNextMeta)
 
 replaceVars :: Ty -> Map.Map String Ty -> Ty
 replaceVars ty repls = case ty of
@@ -331,7 +455,7 @@ replaceVars ty repls = case ty of
     | Just (TyVar newName) <- Map.lookup name repls -> TyApp newName (map (`replaceVars` repls) args)
     | Just (TyCon newName) <- Map.lookup name repls -> TyApp newName (map (`replaceVars` repls) args)
     | otherwise -> TyApp name (map (`replaceVars` repls) args)
-  _ -> mapTyChildren (`replaceVars` repls) (skipEffectVar (`replaceVars` repls)) ty
+  _ -> mapTyChildren (`replaceVars` repls) (`replaceVars` repls) ty
 
 replaceNeedVars :: Need -> Map.Map String Ty -> Need
 replaceNeedVars (Need args name) repls = Need (map (`replaceVars` repls) args) name
@@ -413,23 +537,26 @@ applyReplacementType replacement args = case replacement of
 
 atomTypeName :: String -> TcContext -> Ty
 atomTypeName name ctx
+  | name == "func" = TyCon "func"
   | isPrimitiveConcreteTypeName name = TyCon name
   | otherwise = maybe (TyVar name) TyCon (canonicalTypeName name ctx)
 
 atomAppliedTypeName :: String -> [Ty] -> TcContext -> Ty
+atomAppliedTypeName "func" args _ = tyAppOrFunc "func" args
 atomAppliedTypeName name args ctx = maybe (TyApp name args) (`TyApp` args) (canonicalTypeName name ctx)
 
 isPrimitiveConcreteTypeName :: String -> Bool
 isPrimitiveConcreteTypeName name = name `elem` primitiveTypeNames
 
 canonicalTypeName :: String -> TcContext -> Maybe String
-canonicalTypeName name ctx = case findTypeInfoForTypeSystem name ctx of
+canonicalTypeName name ctx = case unshownTypeInfo <$> findTypeInfoForTypeSystem name ctx of
   Just (Alias canonical _) -> Just canonical
   Just (DataInfo canonical _ _) -> Just canonical
+  Just (ShownType _) -> Nothing
   Nothing -> Nothing
 
 findTypeInfoForTypeSystem :: String -> TcContext -> Maybe TypeInfo
-findTypeInfoForTypeSystem name (TcContext _ types _ _) = Map.lookup name types
+findTypeInfoForTypeSystem name TcContext{tcTypes} = Map.lookup name tcTypes
 
 typeVarsInTy :: Ty -> [String] -> [String]
 typeVarsInTy ty acc = case ty of
@@ -440,7 +567,7 @@ typeVarsInTy ty acc = case ty of
   _ -> acc
 
 typeVarsInEffects :: [Ty] -> [String] -> [String]
-typeVarsInEffects effects acc = foldl' (\vars effect -> if isEffectVarTy effect then vars else typeVarsInTy effect vars) acc effects
+typeVarsInEffects effects acc = foldl' (flip typeVarsInTy) acc effects
 
 typeVarsInNeed :: Need -> [String] -> [String]
 typeVarsInNeed (Need args _) acc = typeVarsInList args acc
@@ -463,10 +590,43 @@ typeHeadVarsInNeed (Need args _) acc = foldl' (flip typeHeadVarsInTy) acc args
 typeHeadVarsInNeeds :: [Need] -> [String] -> [String]
 typeHeadVarsInNeeds needs acc = foldl' (flip typeHeadVarsInNeed) acc needs
 
+typeAppHeadsInTy :: Ty -> [String] -> [String]
+typeAppHeadsInTy ty acc = case ty of
+  TyApp name args -> foldl' (flip typeAppHeadsInTy) (addUnique name acc) args
+  TyRecord fields -> foldl' (flip typeAppHeadsInTy) acc (Map.elems fields)
+  TyFun args effects ret -> typeAppHeadsInTy ret (foldl' (flip typeAppHeadsInTy) (foldl' (flip typeAppHeadsInTy) acc (NE.toList args)) effects)
+  _ -> acc
+
+typeAppHeadsInNeed :: Need -> [String] -> [String]
+typeAppHeadsInNeed (Need args _) acc = foldl' (flip typeAppHeadsInTy) acc args
+
+typeAppHeadsInNeeds :: [Need] -> [String] -> [String]
+typeAppHeadsInNeeds needs acc = foldl' (flip typeAppHeadsInNeed) acc needs
+
+effectRowVarsInTy :: Ty -> [String] -> [String]
+effectRowVarsInTy ty acc = case ty of
+  TyApp _ args -> foldl' (flip effectRowVarsInTy) acc args
+  TyRecord fields -> foldl' (flip effectRowVarsInTy) acc (Map.elems fields)
+  TyFun args effects ret ->
+    effectRowVarsInTy ret $
+      foldl' (flip effectRowVarsInEffect) (foldl' (flip effectRowVarsInTy) acc (NE.toList args)) effects
+  _ -> acc
+
+effectRowVarsInEffect :: Ty -> [String] -> [String]
+effectRowVarsInEffect effect acc = case effect of
+  TyVar name | isEffectVarName name -> addUnique name acc
+  other -> effectRowVarsInTy other acc
+
+effectRowVarsInNeed :: Need -> [String] -> [String]
+effectRowVarsInNeed (Need args _) acc = foldl' (flip effectRowVarsInTy) acc args
+
+effectRowVarsInNeeds :: [Need] -> [String] -> [String]
+effectRowVarsInNeeds needs acc = foldl' (flip effectRowVarsInNeed) acc needs
+
 typeVarsInList :: [Ty] -> [String] -> [String]
 typeVarsInList tys acc = foldl' (flip typeVarsInTy) acc tys
 
-addUnique :: Eq a => a -> [a] -> [a]
+addUnique :: (Eq a) => a -> [a] -> [a]
 addUnique x xs = if x `elem` xs then xs else x : xs
 
 showTy :: Ty -> String
@@ -478,7 +638,7 @@ showTy = \case
   TyRecord fields -> "[" ++ showRecordFields fields ++ "]"
   TyFun args effects ret ->
     let effectText = if null effects then "" else "{" ++ showEffects effects ++ "} "
-    in "(" ++ showTyList (NE.toList args) ++ " \\" ++ effectText ++ showTy ret ++ ")"
+     in "(" ++ showTyList (NE.toList args) ++ " \\" ++ effectText ++ showTy ret ++ ")"
 
 showRecordFields :: Map.Map String Ty -> String
 showRecordFields fields = intercalate ", " [name ++ ": " ++ showTy ty | (name, ty) <- Map.toList fields]
@@ -487,184 +647,290 @@ showTyList :: [Ty] -> String
 showTyList = intercalate ", " . map showTy
 
 baseEnvNames, baseRuntimeNames, baseEffectNames, runnerEffectNames, primitiveTypeNames :: [String]
-baseEnvNames = ["to-string", "from-string", "⌊", "≤", "+", "-", "¯", "×", "÷", "/", "exp", "log", "sin", "cos", "write-line", "read-line", "sleep", "random-float", "random-integer", "divide"]
-baseRuntimeNames = ["to-string", "from-string", "⌊", "≤", "≡", "÷", "divide", "/", "¯", "×", "-", "+", "exp", "log", "sin", "cos", "read-line", "write-line", "sleep", "random-float", "random-integer"]
+baseEnvNames = ["to-string", "from-string", "floor", "≤", "+", "-", "×", "÷", "exponent", "logarithm", "sine", "write", "read", "sleep", "random"]
+baseRuntimeNames = ["to-string", "from-string", "floor", "≤", "≡", "÷", "×", "-", "+", "exponent", "logarithm", "sine", "read", "write", "sleep", "random"]
 baseEffectNames = ["io", "console", "random", "fail", "state", "async"]
 runnerEffectNames = ["console", "random", "async"]
-primitiveTypeNames = ["integer", "float", "char", "character", "string", "𝟘", "𝟙", "𝟚"]
+primitiveTypeNames = ["integer", "float", "char", "character", "string", "func", "𝟘", "𝟙", "𝟚"]
 
 baseContext :: TcContext
-baseContext = TcContext baseEnv Map.empty Map.empty primitiveFleshes
+baseContext =
+  TcContext
+    { tcEnv = baseEnv
+    , tcTypes = Map.empty
+    , tcBones = Map.empty
+    , tcFleshes = primitiveFleshes
+    }
 
 primitiveFleshes :: [FleshInfo]
 primitiveFleshes =
   [ FleshInfo bone (TypeName ty) []
   | (ty, bones) <-
-      [ ("integer", ["equal", "order", "add", "zero", "negate", "subtract", "multiply", "one", "semiring", "ring", "mod", "divide", "to-string"])
-      , ("float", ["equal", "order", "add", "zero", "negate", "subtract", "multiply", "one", "semiring", "ring", "reciprocalise", "divide", "field", "from-string", "to-string"])
+      [ ("integer", ["equal", "order", "add", "zero", "subtract", "multiply", "one", "semiring", "ring", "mod", "divide", "to-string"])
+      , ("float", ["equal", "order", "add", "zero", "subtract", "multiply", "one", "semiring", "ring", "divide", "field", "from-string", "to-string"])
       ]
   , bone <- bones
   ]
 
 runtimeNativeSpecs :: [(String, Int)]
 runtimeNativeSpecs =
-  [ ("to-string", 1), ("from-string", 1), ("⌊", 1), ("≤", 2), ("≡", 2), ("÷", 2), ("divide", 2)
-  , ("/", 1), ("exp", 1), ("log", 1), ("sin", 1), ("cos", 1), ("¯", 1), ("×", 2), ("-", 2), ("+", 2)
+  [ ("to-string", 1)
+  , ("from-string", 1)
+  , ("floor", 1)
+  , ("≤", 2)
+  , ("≡", 2)
+  , ("÷", 2)
+  , ("exponent", 1)
+  , ("logarithm", 1)
+  , ("sine", 1)
+  , ("×", 2)
+  , ("-", 2)
+  , ("+", 2)
   ]
 
 runtimeEffectOpSpecs :: [(String, String, Int)]
 runtimeEffectOpSpecs =
-  [ ("async", "wait", 1), ("async", "fork", 1), ("async", "sleep", 1)
-  , ("random", "random-integer", 1), ("random", "random-float", 1)
-  , ("console", "read-line", 1), ("console", "write-line", 1)
+  [ ("async", "wait", 1)
+  , ("async", "fork", 1)
+  , ("async", "sleep", 1)
+  , ("random", "random", 1)
+  , ("console", "read", 1)
+  , ("console", "write", 1)
   ]
 
 libraryImportFiles :: [(FilePath, String)]
 libraryImportFiles =
-  [ ("library/prelude.jbini", "prelude.jbini")
-  , ("library/algebra.jbini", "algebra.jbini")
-  , ("library/cata.jbini", "cata.jbini")
-  , ("library/combinator.jbini", "combinator.jbini")
-  , ("library/constant.jbini", "constant.jbini")
-  , ("library/natural.jbini", "natural.jbini")
-  , ("library/list.jbini", "list.jbini")
+  [ ("library/ground.jbini", "ground.jbini")
+  , ("library/_foreign.jbini", "foreign.jbini")
+  , ("library/data/zero.jbini", "data/zero.jbini")
+  , ("library/data/zero.jbini", "zero.jbini")
+  , ("library/data/one.jbini", "data/one.jbini")
+  , ("library/data/one.jbini", "one.jbini")
+  , ("library/data/two.jbini", "data/two.jbini")
+  , ("library/data/two.jbini", "two.jbini")
+  , ("library/data/product.jbini", "data/product.jbini")
+  , ("library/data/product.jbini", "product.jbini")
+  , ("library/data/sum.jbini", "data/sum.jbini")
+  , ("library/data/sum.jbini", "sum.jbini")
   , ("library/string.jbini", "string.jbini")
-  , ("library/monad.jbini", "monad.jbini")
-  , ("library/option.jbini", "option.jbini")
-  , ("library/complex.jbini", "complex.jbini")
+  , ("library/string/to-string.jbini", "string/to-string.jbini")
+  , ("library/string/from-string.jbini", "string/from-string.jbini")
+  , ("library/equal.jbini", "equal.jbini")
+  , ("library/order.jbini", "order.jbini")
+  , ("library/algebra/category.jbini", "algebra/category.jbini")
+  , ("library/algebra/field.jbini", "algebra/field.jbini")
+  , ("library/algebra/group.jbini", "algebra/group.jbini")
+  , ("library/algebra/monoid.jbini", "algebra/monoid.jbini")
+  , ("library/algebra/ring.jbini", "algebra/ring.jbini")
+  , ("library/algebra/semigroup.jbini", "algebra/semigroup.jbini")
+  , ("library/algebra/semigroupoid.jbini", "algebra/semigroupoid.jbini")
+  , ("library/algebra/semiring.jbini", "algebra/semiring.jbini")
+  , ("library/collection/applicative.jbini", "collection/applicative.jbini")
+  , ("library/collection/catamorphism.jbini", "collection/catamorphism.jbini")
+  , ("library/collection/filter.jbini", "collection/filter.jbini")
+  , ("library/collection/functor.jbini", "collection/functor.jbini")
+  , ("library/collection/list.jbini", "collection/list.jbini")
+  , ("library/collection/list.jbini", "list.jbini")
+  , ("library/collection/monad.jbini", "collection/monad.jbini")
+  , ("library/collection/size.jbini", "collection/size.jbini")
+  , ("library/collection/traverse.jbini", "collection/traverse.jbini")
+  , ("library/combinator.jbini", "combinator.jbini")
+  , ("library/data/natural.jbini", "data/natural.jbini")
+  , ("library/data/natural.jbini", "natural.jbini")
+  , ("library/data/option.jbini", "data/option.jbini")
+  , ("library/data/option.jbini", "option.jbini")
+  , ("library/numeric/absolute.jbini", "numeric/absolute.jbini")
+  , ("library/numeric/complex.jbini", "numeric/complex.jbini")
+  , ("library/numeric/complex.jbini", "complex.jbini")
+  , ("library/numeric/constant.jbini", "numeric/constant.jbini")
+  , ("library/numeric/constant.jbini", "constant.jbini")
+  , ("library/numeric/float.jbini", "numeric/float.jbini")
+  , ("library/numeric/integer.jbini", "numeric/integer.jbini")
   ]
 
 importNamespace :: String -> String
 importNamespace path = takeWhile (/= '.') path
 
 namespaceImportContext :: String -> TcContext -> TcContext
-namespaceImportContext ns (TcContext env types bones fleshes) =
-  TcContext (namespaceImportEnv ns env) (namespaceImportTypes ns types) (namespaceImportBones ns bones) (namespaceImportFleshes ns fleshes)
+namespaceImportContext ns TcContext{..} =
+  TcContext
+    { tcEnv = namespaceImportEnv ns tcEnv
+    , tcTypes = namespaceImportTypes ns tcTypes
+    , tcBones = namespaceImportBones ns tcBones
+    , tcFleshes = namespaceImportFleshes ns tcFleshes
+    }
 
 namespaceImportEnv :: String -> [(String, Scheme, Int, String)] -> [(String, Scheme, Int, String)]
-namespaceImportEnv ns = concatMap one
-  where
-    one (name, scheme, rank, origin)
-      | isBaseEnvBinding name origin = []
-      | otherwise =
-          let scheme2 = namespaceScheme ns scheme
-              origin2 = ns ++ "@" ++ origin
-              exact = (ns ++ "@" ++ name, scheme2, importEnvRank, origin2)
-          in if rank == localEnvRank
-                then (lastQualifiedSegment name, scheme2, aliasEnvRank, origin2) : [exact]
-                else [exact]
+namespaceImportEnv ns env = concatMap one env
+ where
+  hasShownValues = any (\(_, _, rank, origin) -> rank == localEnvRank && isShownOrigin origin) env
+  one (name, scheme, rank, origin)
+    | isBaseEnvBinding name origin = []
+    | otherwise =
+        let scheme2 = namespaceScheme ns scheme
+            origin2 = ns ++ "@" ++ origin
+            exact = (ns ++ "@" ++ name, scheme2, importEnvRank, origin2)
+         in if rank == localEnvRank && (not hasShownValues || isShownOrigin origin)
+              then (lastQualifiedSegment name, scheme2, aliasEnvRank, origin2) : [exact]
+              else [exact]
+
+isShownOrigin :: String -> Bool
+isShownOrigin origin = "show@" `isPrefixOf` origin
 
 namespaceImportTypes :: String -> Map.Map String TypeInfo -> Map.Map String TypeInfo
-namespaceImportTypes ns =
+namespaceImportTypes ns types =
   Map.foldlWithKey' step Map.empty
-  where
-    step acc name info =
-      let info2 = namespaceTypeInfo ns info
-          withExact = Map.insert (ns ++ "@" ++ name) info2 acc
-      in if typeInfoCanonicalName info == name && not (isQualifiedEnvName name)
-            then Map.insert (lastQualifiedSegment name) info2 withExact
-            else withExact
+    types
+ where
+  step acc name info =
+    let info2 = namespaceTypeInfo ns info
+        withExact = Map.insert (ns ++ "@" ++ name) info2 acc
+     in if (typeInfoIsShown info || typeInfoCanonicalName info == name) && not (isQualifiedEnvName name)
+          then Map.insert (lastQualifiedSegment name) info2 withExact
+          else withExact
 
 namespaceTypeInfo :: String -> TypeInfo -> TypeInfo
 namespaceTypeInfo ns = \case
-  Alias name params -> Alias (ns ++ "@" ++ name) params
-  DataInfo name params ctors -> DataInfo (ns ++ "@" ++ name) params (namespaceCtorInfos ns ctors)
+  Alias name params -> Alias (namespaceTypeName ns name) params
+  DataInfo name params ctors -> DataInfo (namespaceTypeName ns name) params (namespaceCtorInfos ns params (isQualifiedEnvName name) ctors)
+  ShownType info -> ShownType (namespaceTypeInfo ns info)
+
+namespaceTypeName :: String -> String -> String
+namespaceTypeName ns name
+  | isPrimitiveTypeName name || isQualifiedEnvName name = name
+  | otherwise = ns ++ "@" ++ name
 
 typeInfoCanonicalName :: TypeInfo -> String
 typeInfoCanonicalName = \case
   Alias name _ -> name
   DataInfo name _ _ -> name
+  ShownType info -> typeInfoCanonicalName info
 
-namespaceCtorInfos :: String -> [(String, [TypeExpr])] -> [(String, [TypeExpr])]
-namespaceCtorInfos ns = map (\(name, fields) -> (ns ++ "@" ++ name, map (namespaceTypeExpr ns) fields))
+typeInfoIsShown :: TypeInfo -> Bool
+typeInfoIsShown = \case
+  ShownType _ -> True
+  _ -> False
+
+namespaceCtorInfos :: String -> [String] -> Bool -> [(String, [TypeExpr])] -> [(String, [TypeExpr])]
+namespaceCtorInfos ns params externalType = map (\(name, fields) -> (namespaceCtorName ns externalType name, map (namespaceTypeExprWith params ns) fields))
+
+namespaceCtorName :: String -> Bool -> String -> String
+namespaceCtorName ns externalType name
+  | externalType && isQualifiedEnvName name = name
+  | otherwise = ns ++ "@" ++ name
 
 namespaceImportBones :: String -> Map.Map String BoneInfo -> Map.Map String BoneInfo
 namespaceImportBones ns =
   Map.foldlWithKey' step Map.empty
-  where
-    step acc name (BoneInfo params needs members) =
-      let info = BoneInfo params (namespaceBoneNeeds ns needs) (namespaceBoneMembers ns members)
-      in Map.insert (lastQualifiedSegment name) info (Map.insert (ns ++ "@" ++ name) info acc)
+ where
+  step acc name BoneInfo{..} =
+    let info = BoneInfo boneParams (namespaceBoneNeedsWith boneParams ns boneNeeds) (namespaceBoneMembers boneParams ns boneMembers)
+     in Map.insert (lastQualifiedSegment name) info (Map.insert (ns ++ "@" ++ name) info acc)
 
-namespaceBoneNeeds :: String -> [BoneNeed] -> [BoneNeed]
-namespaceBoneNeeds ns = map (\(BoneNeed args name) -> BoneNeed (map (namespaceTypeExpr ns) args) (namespaceBoneName ns name))
+namespaceBoneNeedsWith :: [String] -> String -> [BoneNeed] -> [BoneNeed]
+namespaceBoneNeedsWith bound ns = map (\(BoneNeed args name) -> BoneNeed (map (namespaceTypeExprWith bound ns) args) (namespaceBoneName ns name))
 
 namespaceBoneName :: String -> String -> String
 namespaceBoneName ns name = if isQualifiedEnvName name then name else ns ++ "@" ++ name
 
-namespaceBoneMembers :: String -> [BoneMember] -> [BoneMember]
-namespaceBoneMembers ns = map $ \case
-  BoneSpec name ann -> BoneSpec name (namespaceTypeAnn ns ann)
-  BoneDefault name (Just ann) expr -> BoneDefault name (Just (namespaceTypeAnn ns ann)) expr
+namespaceBoneMembers :: [String] -> String -> [BoneMember] -> [BoneMember]
+namespaceBoneMembers bound ns = map $ \case
+  BoneSpec name ann -> BoneSpec name (namespaceTypeAnnWith bound ns ann)
+  BoneDefault name (Just ann) expr -> BoneDefault name (Just (namespaceTypeAnnWith bound ns ann)) expr
   BoneDefault name Nothing expr -> BoneDefault name Nothing expr
 
-namespaceTypeAnn :: String -> TypeAnn -> TypeAnn
-namespaceTypeAnn ns (TypeAnn t needs) = TypeAnn (namespaceTypeExpr ns t) (namespaceBoneNeeds ns needs)
+namespaceTypeAnnWith :: [String] -> String -> TypeAnn -> TypeAnn
+namespaceTypeAnnWith bound ns (TypeAnn t needs) = TypeAnn (namespaceTypeExprWith bound ns t) (namespaceBoneNeedsWith bound ns needs)
 
 namespaceImportFleshes :: String -> [FleshInfo] -> [FleshInfo]
-namespaceImportFleshes ns = map $ \(FleshInfo boneName ty needs) ->
-  FleshInfo (namespaceBoneName ns boneName) (namespaceTypeExpr ns ty) (namespaceBoneNeeds ns needs)
+namespaceImportFleshes ns = map $ \FleshInfo{..} ->
+  let bound = typeExprVars fleshType ++ boneNeedVars fleshNeeds
+   in FleshInfo (namespaceBoneName ns fleshBone) (namespaceTypeExprWith bound ns fleshType) (namespaceBoneNeedsWith bound ns fleshNeeds)
+
+typeExprVars :: TypeExpr -> [String]
+typeExprVars = \case
+  TypeName name | isTypeVarName name -> [name]
+  TypeName _ -> []
+  TypeApply _ args -> nub (concatMap typeExprVars args)
+  TypeRecord fields -> nub (concatMap (typeExprVars . snd) fields)
+  TypeArrow args effects ret -> nub (concatMap typeExprVars (NE.toList args ++ effects ++ [ret]))
+  TypeForall params body -> typeExprVars body \\ typeParamNames params
+
+boneNeedVars :: [BoneNeed] -> [String]
+boneNeedVars needs = nub [name | BoneNeed args _ <- needs, name <- concatMap typeExprVars args]
 
 namespaceScheme :: String -> Scheme -> Scheme
-namespaceScheme ns (Forall vars needs ty) = Forall vars (namespaceNeeds ns needs) (namespaceTy ns ty)
+namespaceScheme ns (Forall vars needs ty) = Forall vars (namespaceNeedsWith vars ns needs) (namespaceTyWith vars ns ty)
 
-namespaceNeeds :: String -> [Need] -> [Need]
-namespaceNeeds ns = map (namespaceNeed ns)
+namespaceNeedsWith :: [String] -> String -> [Need] -> [Need]
+namespaceNeedsWith bound ns = map (namespaceNeedWith bound ns)
 
-namespaceNeed :: String -> Need -> Need
-namespaceNeed ns (Need args name) = Need (map (namespaceTy ns) args) (namespaceBoneName ns name)
+namespaceNeedWith :: [String] -> String -> Need -> Need
+namespaceNeedWith bound ns (Need args name) = Need (map (namespaceTyWith bound ns) args) (namespaceBoneName ns name)
 
-namespaceTy :: String -> Ty -> Ty
-namespaceTy ns = \case
-  TyCon name -> TyCon (namespaceTyConHead ns name)
-  TyApp name args -> TyApp (namespaceTyAppHead ns name) (map (namespaceTy ns) args)
-  TyRecord fields -> TyRecord (Map.map (namespaceTy ns) fields)
-  TyFun args effects ret -> TyFun (fmap (namespaceTy ns) args) (namespaceEffects ns effects) (namespaceTy ns ret)
+namespaceTyWith :: [String] -> String -> Ty -> Ty
+namespaceTyWith bound ns = \case
+  TyCon name -> TyCon (namespaceTyConHeadWith bound ns name)
+  TyApp name args -> TyApp (namespaceTyAppHeadWith bound ns name) (map (namespaceTyWith bound ns) args)
+  TyRecord fields -> TyRecord (Map.map (namespaceTyWith bound ns) fields)
+  TyFun args effects ret -> TyFun (fmap (namespaceTyWith bound ns) args) (namespaceEffectsWith bound ns effects) (namespaceTyWith bound ns ret)
   ty -> ty
 
-namespaceTyConHead :: String -> String -> String
-namespaceTyConHead ns name
-  | isPrimitiveTypeName name || isQualifiedEnvName name = name
+namespaceTyConHeadWith :: [String] -> String -> String -> String
+namespaceTyConHeadWith bound ns name
+  | name `elem` bound || isPrimitiveTypeName name || isQualifiedEnvName name = name
   | otherwise = ns ++ "@" ++ name
 
-namespaceTyAppHead :: String -> String -> String
-namespaceTyAppHead ns name
-  | isPrimitiveTypeName name || isTypeVarName name || isQualifiedEnvName name = name
+namespaceTyAppHeadWith :: [String] -> String -> String -> String
+namespaceTyAppHeadWith bound ns name
+  | name `elem` bound || isPrimitiveTypeName name || isQualifiedEnvName name = name
   | otherwise = ns ++ "@" ++ name
 
-namespaceEffects :: String -> [Ty] -> [Ty]
-namespaceEffects ns = map (namespaceEffectTy ns)
+namespaceEffectsWith :: [String] -> String -> [Ty] -> [Ty]
+namespaceEffectsWith bound ns = map (namespaceEffectTyWith bound ns)
 
-namespaceEffectTy :: String -> Ty -> Ty
-namespaceEffectTy ns = \case
+namespaceEffectTyWith :: [String] -> String -> Ty -> Ty
+namespaceEffectTyWith bound ns = \case
   effect@(TyVar name) | isEffectVarName name -> effect
-  TyApp name args -> TyApp (namespaceEffectHead ns name) (map (namespaceTy ns) args)
+  TyApp name args -> TyApp (namespaceEffectHead ns name) (map (namespaceTyWith bound ns) args)
   TyCon name -> TyApp (namespaceEffectHead ns name) []
-  effect -> namespaceTy ns effect
+  effect -> namespaceTyWith bound ns effect
 
 namespaceEffectHead :: String -> String -> String
 namespaceEffectHead ns name
   | isBaseEffectName name || isQualifiedEnvName name = name
   | otherwise = ns ++ "@" ++ name
 
-namespaceTypeExpr :: String -> TypeExpr -> TypeExpr
-namespaceTypeExpr ns = \case
-  TypeName name -> TypeName (namespaceTyAppHead ns name)
-  TypeApply name args -> TypeApply (namespaceTyAppHead ns name) (map (namespaceTypeExpr ns) args)
-  TypeRecord fields -> TypeRecord [(name, namespaceTypeExpr ns fieldTy) | (name, fieldTy) <- fields]
-  TypeArrow args effects ret -> TypeArrow (fmap (namespaceTypeExpr ns) args) (map (namespaceEffectTypeExpr ns) effects) (namespaceTypeExpr ns ret)
-  TypeForall params body -> TypeForall params (namespaceTypeExpr ns body)
+namespaceTypeExprWith :: [String] -> String -> TypeExpr -> TypeExpr
+namespaceTypeExprWith bound ns = \case
+  TypeName name -> TypeName (namespaceTyAppHeadWith bound ns name)
+  TypeApply name args -> TypeApply (namespaceTyAppHeadWith bound ns name) (map (namespaceTypeExprWith bound ns) args)
+  TypeRecord fields -> TypeRecord [(name, namespaceTypeExprWith bound ns fieldTy) | (name, fieldTy) <- fields]
+  TypeArrow args effects ret -> TypeArrow (fmap (namespaceTypeExprWith bound ns) args) (map (namespaceEffectTypeExprWith bound ns) effects) (namespaceTypeExprWith bound ns ret)
+  TypeForall params body ->
+    let bound2 = typeParamNames params ++ bound
+     in TypeForall params (namespaceTypeExprWith bound2 ns body)
 
-namespaceEffectTypeExpr :: String -> TypeExpr -> TypeExpr
-namespaceEffectTypeExpr ns = \case
+namespaceEffectTypeExprWith :: [String] -> String -> TypeExpr -> TypeExpr
+namespaceEffectTypeExprWith bound ns = \case
   t@(TypeName name) | isEffectVarName name || isBaseEffectName name || isQualifiedEnvName name -> t
   TypeName name -> TypeName (namespaceEffectHead ns name)
-  TypeApply name args -> TypeApply (namespaceEffectHead ns name) (map (namespaceTypeExpr ns) args)
-  t -> namespaceTypeExpr ns t
+  TypeApply name args -> TypeApply (namespaceEffectHead ns name) (map (namespaceTypeExprWith bound ns) args)
+  t -> namespaceTypeExprWith bound ns t
+
+typeParamNames :: [TypeExpr] -> [String]
+typeParamNames = mapMaybe \case
+  TypeName name -> Just name
+  _ -> Nothing
 
 mergeContext :: TcContext -> TcContext -> TcContext
-mergeContext (TcContext env1 types1 bones1 fleshes1) (TcContext env2 types2 bones2 fleshes2) =
-  TcContext (env1 ++ env2) (Map.union types1 types2) (Map.union bones1 bones2) (fleshes1 ++ fleshes2)
+mergeContext left right =
+  TcContext
+    { tcEnv = tcEnv left ++ tcEnv right
+    , tcTypes = Map.union (tcTypes left) (tcTypes right)
+    , tcBones = Map.union (tcBones left) (tcBones right)
+    , tcFleshes = tcFleshes left ++ tcFleshes right
+    }
 
 isBaseEnvName :: String -> Bool
 isBaseEnvName name = name `elem` baseEnvNames
@@ -689,54 +955,62 @@ collectProgramContext ds ctx = foldl' (flip collectDeclContext) ctx ds
 collectDeclContext :: Decl -> TcContext -> TcContext
 collectDeclContext decl ctx = case decl of
   Import _ -> ctx
+  ShowDecl _ -> ctx
+  ShowTypeDecl _ -> ctx
   DataDecl params name ctors -> collectConstructors name params ctors (addDataTypeInfo name params (dataCtorInfos name ctors) ctx)
   TypeAlias name _ -> addTypeAliasInfo name [] ctx
   EffectDecl params name ops -> collectEffectOps params name ops ctx
+  ForeignDecl members -> addForeignMembers members ctx
   BoneDecl params name needs members -> addBoneMembers name params needs members ctx
   Let name (Just ann) _ -> addEnv name (typeAnnScheme ann ctx) ctx
   Let _ Nothing _ -> ctx
   FleshDecl ty boneName needs _ -> addFleshInfo boneName ty needs ctx
+
+addForeignMembers :: [ForeignMember] -> TcContext -> TcContext
+addForeignMembers members ctx = foldl' step ctx members
+ where
+  step current (ForeignMember name ann) = addEnv name (typeAnnScheme ann current) current
 
 dataCtorInfos :: String -> [Ctor] -> [(String, [TypeExpr])]
 dataCtorInfos dataName = map (\(Ctor name fields) -> (dataName ++ "@" ++ name, fields))
 
 collectEffectOps :: [String] -> String -> [EffectOp] -> TcContext -> TcContext
 collectEffectOps params effectName ops ctx = foldl' step ctx ops
-  where
-    step current (EffectOp opName t) =
-      let opTy = addLatentEffect params effectName (convertTypeExpr t current)
-          scheme = generalizeTy opTy
-      in addEnvAlias opName (effectName ++ "@" ++ opName) scheme (addEnv (effectName ++ "@" ++ opName) scheme current)
+ where
+  step current (EffectOp opName t) =
+    let opTy = addLatentEffect params effectName (convertTypeExpr t current)
+        scheme = generalizeTy opTy
+     in addEnvAlias opName (effectName ++ "@" ++ opName) scheme (addEnv (effectName ++ "@" ++ opName) scheme current)
 
 addLatentEffect :: [String] -> String -> Ty -> Ty
 addLatentEffect params effectName ty =
   let effect = TyApp effectName (map TyVar params)
-  in case normalizeFun ty of
-    TyFun args effects ret -> TyFun args (addEffect effect effects) ret
-    other -> other
+   in case normalizeFun ty of
+        TyFun args effects ret -> TyFun args (addEffect effect effects) ret
+        other -> other
 
 collectConstructors :: String -> [String] -> [Ctor] -> TcContext -> TcContext
 collectConstructors dataName params ctors ctx = foldl' step ctx ctors
-  where
-    step current (Ctor name fields) =
-      let result = dataResultType dataName params
-          fieldTys = map (`convertTypeExpr` current) fields
-          ty = if null fieldTys then result else curriedFunction fieldTys [] result
-          scheme = Forall params [] ty
-      in addEnvAlias name (dataName ++ "@" ++ name) scheme (addEnv (dataName ++ "@" ++ name) scheme current)
+ where
+  step current (Ctor name fields) =
+    let result = dataResultType dataName params
+        fieldTys = map (`convertTypeExpr` current) fields
+        ty = if null fieldTys then result else curriedFunction fieldTys [] result
+        scheme = Forall params [] ty
+     in addEnvAlias name (dataName ++ "@" ++ name) scheme (addEnv (dataName ++ "@" ++ name) scheme current)
 
 dataResultType :: String -> [String] -> Ty
 dataResultType name [] = TyCon name
 dataResultType name params = TyApp name (map TyVar params)
 
 addTypeAliasInfo :: String -> [String] -> TcContext -> TcContext
-addTypeAliasInfo name params (TcContext env types bones fleshes) = TcContext env (Map.insert name (Alias name params) types) bones fleshes
+addTypeAliasInfo name params ctx@TcContext{tcTypes} = ctx{tcTypes = Map.insert name (Alias name params) tcTypes}
 
 addDataTypeInfo :: String -> [String] -> [(String, [TypeExpr])] -> TcContext -> TcContext
-addDataTypeInfo name params ctors (TcContext env types bones fleshes) = TcContext env (Map.insert name (DataInfo name params ctors) types) bones fleshes
+addDataTypeInfo name params ctors ctx@TcContext{tcTypes} = ctx{tcTypes = Map.insert name (DataInfo name params ctors) tcTypes}
 
 addFleshInfo :: String -> TypeExpr -> [BoneNeed] -> TcContext -> TcContext
-addFleshInfo boneName ty needs (TcContext env types bones fleshes) = TcContext env types bones (FleshInfo boneName ty needs : fleshes)
+addFleshInfo boneName ty needs ctx@TcContext{tcFleshes} = ctx{tcFleshes = FleshInfo boneName ty needs : tcFleshes}
 
 addEnv :: String -> Scheme -> TcContext -> TcContext
 addEnv name scheme = addEnvWith name scheme localEnvRank name
@@ -745,7 +1019,41 @@ addEnvAlias :: String -> String -> Scheme -> TcContext -> TcContext
 addEnvAlias name qualifiedName scheme = addEnvWith name scheme localEnvRank qualifiedName
 
 addEnvWith :: String -> Scheme -> Int -> String -> TcContext -> TcContext
-addEnvWith name scheme rank origin (TcContext env types bones fleshes) = TcContext ((name, scheme, rank, origin) : env) types bones fleshes
+addEnvWith name scheme rank origin ctx@TcContext{tcEnv} = ctx{tcEnv = (name, scheme, rank, origin) : tcEnv}
+
+addShownEnv :: String -> TcContext -> TcContext
+addShownEnv name ctx = foldl' addOne ctx (shownEnvBindings name ctx)
+ where
+  exportName = lastQualifiedSegment name
+  addOne current scheme = addEnvWith exportName scheme localEnvRank ("show@" ++ exportName) current
+
+shownEnvBindings :: String -> TcContext -> [Scheme]
+shownEnvBindings name TcContext{tcEnv}
+  | isQualifiedEnvName name = maybe [] (: []) (lookupEnvExact name tcEnv)
+  | otherwise = case shownBareEnvBindings name tcEnv of
+      Right schemes -> schemes
+      Left _ -> []
+
+shownBareEnvBindings :: String -> [(String, Scheme, Int, String)] -> Either String [Scheme]
+shownBareEnvBindings name env =
+  let candidates = collectEnvCandidates name env
+   in case candidates of
+        [] -> Left ("unknown name '" ++ name ++ "'")
+        _ ->
+          let bestRank = minimum [rank | (_, rank, _) <- candidates]
+              best = [(scheme, origin) | (scheme, rank, origin) <- candidates, rank == bestRank]
+              origins = nub (map snd best)
+           in case origins of
+                [origin] -> Right [scheme | (scheme, foundOrigin) <- best, foundOrigin == origin]
+                _ -> Left ("ambiguous name '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " origins)
+
+addShownType :: String -> TcContext -> TcContext
+addShownType name ctx@TcContext{tcTypes} = case shownTypeInfo name ctx of
+  Just info -> ctx{tcTypes = Map.insert (lastQualifiedSegment name) (ShownType info) tcTypes}
+  Nothing -> ctx
+
+shownTypeInfo :: String -> TcContext -> Maybe TypeInfo
+shownTypeInfo name TcContext{tcTypes} = Map.lookup name tcTypes
 
 localEnvRank, aliasEnvRank, importEnvRank, baseEnvRank, selfAliasEnvRank :: Int
 localEnvRank = 0
@@ -762,9 +1070,9 @@ lookupEnv name ctx = case lookupEnvChoices name ctx of
   EnvChoices (scheme : _) -> EnvFound scheme
 
 lookupEnvChoices :: String -> TcContext -> EnvChoices
-lookupEnvChoices name (TcContext env _ _ _)
-  | isQualifiedEnvName name = maybe ChoicesMissing (EnvChoices . (: [])) (lookupEnvExact name env)
-  | otherwise = selectEnvChoices name (collectEnvCandidates name env)
+lookupEnvChoices name TcContext{tcEnv}
+  | isQualifiedEnvName name = maybe ChoicesMissing (EnvChoices . (: [])) (lookupEnvExact name tcEnv)
+  | otherwise = selectEnvChoices name (collectEnvCandidates name tcEnv)
 
 lookupEnvExact :: String -> [(String, Scheme, Int, String)] -> Maybe Scheme
 lookupEnvExact name env = case find (\(n, _, _, _) -> n == name) env of
@@ -779,16 +1087,16 @@ selectEnvChoices :: String -> [(Scheme, Int, String)] -> EnvChoices
 selectEnvChoices _ [] = ChoicesMissing
 selectEnvChoices name candidates =
   let bestRank = minimum [rank | (_, rank, _) <- candidates]
-  in case [origin | (_, rank, origin) <- candidates, rank == bestRank] of
-    [] -> ChoicesMissing
-    bestOrigin : _ ->
-      let ambiguous = nub [origin | (_, rank, origin) <- candidates, rank == bestRank, origin /= bestOrigin]
-      in case ambiguous of
-        [] ->
-          let bestChoices = [scheme | (scheme, rank, origin) <- candidates, rank == bestRank, origin == bestOrigin]
-              lowerChoices = [scheme | (scheme, rank, _) <- candidates, rank > bestRank]
-          in EnvChoices (bestChoices ++ lowerChoices)
-        _ -> ChoicesAmbiguous ("ambiguous name '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " (bestOrigin : ambiguous))
+   in case [origin | (_, rank, origin) <- candidates, rank == bestRank] of
+        [] -> ChoicesMissing
+        bestOrigin : _ ->
+          let ambiguous = nub [origin | (_, rank, origin) <- candidates, rank == bestRank, origin /= bestOrigin]
+           in case ambiguous of
+                [] ->
+                  let bestChoices = [scheme | (scheme, rank, origin) <- candidates, rank == bestRank, origin == bestOrigin]
+                      lowerChoices = [scheme | (scheme, rank, _) <- candidates, rank > bestRank]
+                   in EnvChoices (bestChoices ++ lowerChoices)
+                _ -> ChoicesAmbiguous ("ambiguous name '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " (bestOrigin : ambiguous))
 
 isQualifiedEnvName :: String -> Bool
 isQualifiedEnvName = elem '@'
@@ -798,28 +1106,29 @@ lastQualifiedSegment name = reverse (takeWhile (/= '@') (reverse name))
 
 baseEnv :: [(String, Scheme, Int, String)]
 baseEnv =
-  map (uncurry baseBinding)
+  map
+    (uncurry baseBinding)
     [ ("to-string", native1 "integer" [] "string")
     , ("to-string", native1 "float" [] "string")
     , ("from-string", native1 "string" [nativeEffect1 "fail" "string"] "float")
-    , ("⌊", native1 "float" [] "integer")
+    , ("floor", native1 "float" [] "integer")
+    , ("≤", native2 "integer" "integer" [] "𝟚")
     , ("≤", native2 "float" "float" [] "𝟚")
+    , ("+", native2 "integer" "integer" [] "integer")
     , ("+", native2 "float" "float" [] "float")
-    , ("-", native1 "float" [] "float")
-    , ("¯", native1 "float" [] "float")
+    , ("×", native2 "integer" "integer" [] "integer")
     , ("×", native2 "float" "float" [] "float")
+    , ("-", native2 "integer" "integer" [] "integer")
+    , ("-", native2 "float" "float" [] "float")
     , ("÷", native2 "integer" "integer" [nativeEffect1 "fail" "string"] "integer")
-    , ("/", native1 "float" [nativeEffect1 "fail" "string"] "float")
-    , ("exp", native1 "float" [] "float")
-    , ("log", native1 "float" [] "float")
-    , ("sin", native1 "float" [] "float")
-    , ("cos", native1 "float" [] "float")
-    , ("write-line", native1 "string" [nativeEffect "console"] "𝟙")
-    , ("read-line", native1 "𝟙" [nativeEffect "console"] "string")
+    , ("÷", native2 "float" "float" [nativeEffect1 "fail" "string"] "float")
+    , ("exponent", native1 "float" [] "float")
+    , ("logarithm", native1 "float" [] "float")
+    , ("sine", native1 "float" [] "float")
+    , ("write", native1 "string" [nativeEffect "console"] "𝟙")
+    , ("read", native1 "𝟙" [nativeEffect "console"] "string")
     , ("sleep", native1 "integer" [nativeEffect "async"] "𝟙")
-    , ("random-float", native1 "𝟙" [nativeEffect "random"] "float")
-    , ("random-integer", native1 "𝟙" [nativeEffect "random"] "integer")
-    , ("divide", native2 "integer" "integer" [nativeEffect1 "fail" "string"] "integer")
+    , ("random", native1 "𝟙" [nativeEffect "random"] "float")
     ]
 
 baseBinding :: String -> Scheme -> (String, Scheme, Int, String)
@@ -841,27 +1150,33 @@ addBoneMembers :: String -> [String] -> [BoneNeed] -> [BoneMember] -> TcContext 
 addBoneMembers boneName params needs members ctx = addBoneMembersToEnv boneName members (addBoneInfo boneName params needs members ctx)
 
 addBoneInfo :: String -> [String] -> [BoneNeed] -> [BoneMember] -> TcContext -> TcContext
-addBoneInfo boneName params needs members (TcContext env types bones fleshes) = TcContext env types (Map.insert boneName (BoneInfo params needs members) bones) fleshes
+addBoneInfo boneName params needs members ctx@TcContext{tcBones} = ctx{tcBones = Map.insert boneName (BoneInfo params needs members) tcBones}
 
 addBoneMembersToEnv :: String -> [BoneMember] -> TcContext -> TcContext
 addBoneMembersToEnv boneName members ctx = foldl' step ctx members
-  where
-    step current member = case boneMemberSignature member of
-      Nothing -> current
-      Just (name, ann) ->
-        let scheme = boneMemberScheme boneName ann current
-        in addEnvAlias name (boneName ++ "@" ++ name) scheme (addEnv (boneName ++ "@" ++ name) scheme current)
+ where
+  step current member = case boneMemberSignature member of
+    Nothing -> current
+    Just (name, ann) ->
+      let scheme = boneMemberScheme boneName ann current
+       in addEnvAlias name (boneName ++ "@" ++ name) scheme (addEnv (boneName ++ "@" ++ name) scheme current)
 
 boneMemberScheme :: String -> TypeAnn -> TcContext -> Scheme
 boneMemberScheme boneName ann ctx =
-  typeAnnScheme (typeAnnWithOwnBoneNeed boneName ann ctx) ctx
+  let scheme = typeAnnScheme (typeAnnWithOwnBoneNeed boneName ann ctx) ctx
+   in case findBoneInfo boneName ctx of
+        Just BoneInfo{boneParams} -> addForallVars boneParams scheme
+        Nothing -> scheme
+
+addForallVars :: [String] -> Scheme -> Scheme
+addForallVars extra (Forall vars needs ty) = Forall (nub (extra ++ vars)) needs ty
 
 typeAnnWithOwnBoneNeed :: String -> TypeAnn -> TcContext -> TypeAnn
 typeAnnWithOwnBoneNeed boneName (TypeAnn t needs) ctx = TypeAnn t (ownBoneNeed boneName ctx ++ needs)
 
 ownBoneNeed :: String -> TcContext -> [BoneNeed]
 ownBoneNeed boneName ctx = case findBoneInfo boneName ctx of
-  Just (BoneInfo params _ _) -> [BoneNeed (map TypeName params) boneName]
+  Just BoneInfo{boneParams} -> [BoneNeed (map TypeName boneParams) boneName]
   Nothing -> []
 
 boneMemberSignature :: BoneMember -> Maybe (String, TypeAnn)
@@ -871,9 +1186,9 @@ boneMemberSignature = \case
   BoneDefault _ Nothing _ -> Nothing
 
 findBoneInfo :: String -> TcContext -> Maybe BoneInfo
-findBoneInfo boneName (TcContext _ _ bones _) = case Map.lookup boneName bones of
+findBoneInfo boneName TcContext{tcBones} = case Map.lookup boneName tcBones of
   Just info -> Just info
-  Nothing -> case nub [info | (name, info) <- Map.toList bones, boneNamesMatch name boneName] of
+  Nothing -> case nub [info | (name, info) <- Map.toList tcBones, boneNamesMatch name boneName] of
     [info] -> Just info
     _ -> Nothing
 
@@ -886,8 +1201,8 @@ bindPatternsM :: [Pattern] -> [Ty] -> TcContext -> Tc TcContext
 bindPatternsM patterns tys ctx
   | length patterns == length tys = foldM step ctx (zip patterns tys)
   | otherwise = failTc "pattern arity mismatch"
-  where
-    step currentCtx (pattern, ty) = bindPatternM pattern ty currentCtx
+ where
+  step currentCtx (pattern, ty) = bindPatternM pattern ty currentCtx
 
 bindPatternM :: Pattern -> Ty -> TcContext -> Tc TcContext
 bindPatternM (PVar "_") _ ctx = pure ctx
@@ -931,13 +1246,13 @@ uncoveredPatterns (ty : restTys) rows ctx st =
 
 uncoveredConstructor :: [(String, [Ty])] -> [String] -> [Ty] -> [[Pattern]] -> TcContext -> TcState -> Maybe [Pattern]
 uncoveredConstructor ctors allCtorNames restTys rows ctx st = foldr firstUncovered Nothing ctors
-  where
-    firstUncovered (ctorName, fieldTys) fallback =
-      case uncoveredPatterns (fieldTys ++ restTys) (specializeRows ctorName (length fieldTys) allCtorNames rows) ctx st of
-        Nothing -> fallback
-        Just witness ->
-          let (args, restWitness) = splitAt (length fieldTys) witness
-          in Just (PCon (lastQualifiedSegment ctorName) args : restWitness)
+ where
+  firstUncovered (ctorName, fieldTys) fallback =
+    case uncoveredPatterns (fieldTys ++ restTys) (specializeRows ctorName (length fieldTys) allCtorNames rows) ctx st of
+      Nothing -> fallback
+      Just witness ->
+        let (args, restWitness) = splitAt (length fieldTys) witness
+         in Just (PCon (lastQualifiedSegment ctorName) args : restWitness)
 
 ctorNames :: [(String, [Ty])] -> [String]
 ctorNames = map fst
@@ -945,7 +1260,7 @@ ctorNames = map fst
 constructorsForType :: Ty -> TcContext -> TcState -> Maybe [(String, [Ty])]
 constructorsForType ty ctx st = do
   (name, args) <- typeHead (applyState ty st)
-  case findTypeInfo name ctx of
+  case unshownTypeInfo <$> findTypeInfo name ctx of
     Just (DataInfo _ params ctors) -> Just (specializeCtorInfos params args ctors ctx)
     _ -> Nothing
 
@@ -956,12 +1271,17 @@ typeHead ty = case normalizeFun ty of
   _ -> Nothing
 
 findTypeInfo :: String -> TcContext -> Maybe TypeInfo
-findTypeInfo name (TcContext _ types _ _) = Map.lookup name types
+findTypeInfo name TcContext{tcTypes} = Map.lookup name tcTypes
+
+unshownTypeInfo :: TypeInfo -> TypeInfo
+unshownTypeInfo = \case
+  ShownType info -> unshownTypeInfo info
+  info -> info
 
 specializeCtorInfos :: [String] -> [Ty] -> [(String, [TypeExpr])] -> TcContext -> [(String, [Ty])]
 specializeCtorInfos params args ctors ctx =
   let repls = Map.fromList (zip params args)
-  in [(name, map (replaceTyVarsForCoverage repls . (`convertTypeExpr` ctx)) fields) | (name, fields) <- ctors]
+   in [(name, map (replaceTyVarsForCoverage repls . (`convertTypeExpr` ctx)) fields) | (name, fields) <- ctors]
 
 replaceTyVarsForCoverage :: Map.Map String Ty -> Ty -> Ty
 replaceTyVarsForCoverage repls ty = case ty of
@@ -994,7 +1314,9 @@ defaultRowsForConstructors ctorNames0 = mapMaybe $ \case
 
 constructorNamesMatch :: String -> String -> Bool
 constructorNamesMatch patternName ctorName =
-  lastQualifiedSegment ctorName `elem` [patternName, lastQualifiedSegment patternName]
+  if isQualifiedEnvName patternName
+    then patternName == ctorName
+    else patternName == lastQualifiedSegment ctorName
 
 isNullaryConstructorPatternFor :: String -> String -> Int -> Bool
 isNullaryConstructorPatternFor patternName ctorName arity = arity == 0 && isConstructorPatternName patternName [ctorName]
@@ -1022,7 +1344,7 @@ inferExprM expr ctx = case expr of
   EApply f args -> inferApplyM f (NE.toList args) ctx
   ERecord fields -> inferRecordFieldsM fields ctx
   EUpdate base updates -> inferRecordUpdateM base updates ctx
-  ETry body cases -> inferTryHandleM body cases ctx
+  ETry body returnCase cases -> inferTryHandleM body returnCase cases ctx
   EMatch scrutinees cases -> inferMatchM scrutinees cases ctx
   EBlock ds body -> inferBlockM ds body ctx
 
@@ -1030,10 +1352,10 @@ inferRecordFieldsM :: [(String, Expr)] -> TcContext -> Tc Inferred
 inferRecordFieldsM fields ctx = do
   (recordTy, effects, needs) <- foldM step (Map.empty, [], []) fields
   pure (Inferred (TyRecord recordTy) effects needs)
-  where
-    step (acc, effects, needs) (name, expr) = do
-      Inferred t fieldEffects fieldNeeds <- inferExprM expr ctx
-      pure (Map.insert name t acc, unionEffects effects fieldEffects, unionNeeds needs fieldNeeds)
+ where
+  step (acc, effects, needs) (name, expr) = do
+    Inferred t fieldEffects fieldNeeds <- inferExprM expr ctx
+    pure (Map.insert name t acc, unionEffects effects fieldEffects, unionNeeds needs fieldNeeds)
 
 inferRecordUpdateM :: Expr -> [RecordUpdate] -> TcContext -> Tc Inferred
 inferRecordUpdateM base updates ctx = do
@@ -1047,15 +1369,15 @@ inferRecordUpdatesM :: [RecordUpdate] -> Map.Map String Ty -> TcContext -> [Ty] 
 inferRecordUpdatesM updates fields ctx effects0 needs0 = do
   (updatedFields, effects, needs) <- foldM step (fields, effects0, needs0) updates
   pure (Inferred (TyRecord updatedFields) effects needs)
-  where
-    step (currentFields, effects, needs) = \case
-      RecordRemove name ->
-        if Map.member name currentFields
-          then pure (Map.delete name currentFields, effects, needs)
-          else failTc ("unknown record field '" ++ name ++ "'")
-      RecordSet name expr -> do
-        Inferred fieldTy fieldEffects fieldNeeds <- inferExprM expr ctx
-        pure (Map.insert name fieldTy currentFields, unionEffects effects fieldEffects, unionNeeds needs fieldNeeds)
+ where
+  step (currentFields, effects, needs) = \case
+    RecordRemove name ->
+      if Map.member name currentFields
+        then pure (Map.delete name currentFields, effects, needs)
+        else failTc ("unknown record field '" ++ name ++ "'")
+    RecordSet name expr -> do
+      Inferred fieldTy fieldEffects fieldNeeds <- inferExprM expr ctx
+      pure (Map.insert name fieldTy currentFields, unionEffects effects fieldEffects, unionNeeds needs fieldNeeds)
 
 inferBlockM :: [Decl] -> Expr -> TcContext -> Tc Inferred
 inferBlockM ds body ctx = do
@@ -1079,7 +1401,7 @@ inferApplyM f args ctx = case flatApply f args of
 flatApply :: Expr -> [Expr] -> (Expr, [Expr])
 flatApply (EApply inner innerArgs) args =
   let (base, baseArgs) = flatApply inner (NE.toList innerArgs)
-  in (base, baseArgs ++ args)
+   in (base, baseArgs ++ args)
 flatApply f args = (f, args)
 
 inferNamedApplyM :: String -> [Expr] -> TcContext -> Tc Inferred
@@ -1090,12 +1412,12 @@ inferNamedApplyM name args ctx = case lookupEnvChoices name ctx of
 
 tryApplySchemesM :: String -> [Expr] -> [Scheme] -> TcContext -> Maybe String -> Tc Inferred
 tryApplySchemesM name args schemes ctx firstError = foldr tryScheme noMore schemes firstError
-  where
-    noMore err = failTc (fromMaybe ("unknown name '" ++ name ++ "'") err)
-    tryScheme scheme fallback err =
-      recoverTc
-        (instantiateM scheme >>= \(t, needs) -> inferCurriedApplyM (Inferred t [] needs) args ctx)
-        (\msg -> fallback (keepFirstError err msg))
+ where
+  noMore err = failTc (fromMaybe ("unknown name '" ++ name ++ "'") err)
+  tryScheme scheme fallback err =
+    recoverTc
+      (instantiateM scheme >>= \(t, needs) -> inferCurriedApplyM (Inferred t [] needs) args ctx)
+      (\msg -> fallback (keepFirstError err msg))
 
 keepFirstError :: Maybe String -> String -> Maybe String
 keepFirstError Nothing msg = Just msg
@@ -1103,15 +1425,15 @@ keepFirstError some@(Just _) _ = some
 
 inferCurriedApplyM :: Inferred -> [Expr] -> TcContext -> Tc Inferred
 inferCurriedApplyM fn args ctx = foldM step fn args
-  where
-    step (Inferred fTy fEffs fNeeds) arg = do
-      Inferred argTy argEffs argNeeds <- inferExprM arg ctx
-      retTy <- freshM
-      latentEffects <- unifyApplyFunctionM fTy argTy retTy
-      let effects = unionEffects fEffs (unionEffects argEffs latentEffects)
-          needs = unionNeeds fNeeds argNeeds
-      st <- getTc
-      pure (Inferred (applyState retTy st) effects (applyStateNeeds needs st))
+ where
+  step (Inferred fTy fEffs fNeeds) arg = do
+    Inferred argTy argEffs argNeeds <- inferExprM arg ctx
+    retTy <- freshM
+    latentEffects <- unifyApplyFunctionM fTy argTy retTy
+    let effects = unionEffects fEffs (unionEffects argEffs latentEffects)
+        needs = unionNeeds fNeeds argNeeds
+    st <- getTc
+    pure (Inferred (applyState retTy st) effects (applyStateNeeds needs st))
 
 unifyApplyFunctionM :: Ty -> Ty -> Ty -> Tc [Ty]
 unifyApplyFunctionM fTy argTy retTy = do
@@ -1130,36 +1452,45 @@ unifyApplyFunctionM fTy argTy retTy = do
 inferExprListM :: [Expr] -> TcContext -> Tc [Inferred]
 inferExprListM exprs ctx = traverse (`inferExprM` ctx) exprs
 
-inferTryHandleM :: Expr -> [HandlerCase] -> TcContext -> Tc Inferred
-inferTryHandleM body cases ctx = do
+inferTryHandleM :: Expr -> Maybe ReturnCase -> [HandlerCase] -> TcContext -> Tc Inferred
+inferTryHandleM body returnCase cases ctx = do
   Inferred bodyTy bodyEffects bodyNeeds <- inferExprM body ctx
   st <- getTc
-  inferHandlerCasesM cases (applyState bodyTy st) bodyEffects bodyNeeds ctx
+  Inferred answerTy returnEffects returnNeeds <- inferReturnCaseM returnCase (applyState bodyTy st) ctx
+  inferHandlerCasesM cases answerTy bodyEffects (unionNeeds bodyNeeds returnNeeds) returnEffects ctx
 
-inferHandlerCasesM :: [HandlerCase] -> Ty -> [Ty] -> [Need] -> TcContext -> Tc Inferred
-inferHandlerCasesM cases bodyTy effects bodyNeeds ctx = do
-  (finalBodyTy, handled, accumulatedEffects, accumulatedNeeds) <- foldM step (bodyTy, [], [], bodyNeeds) cases
+inferReturnCaseM :: Maybe ReturnCase -> Ty -> TcContext -> Tc Inferred
+inferReturnCaseM Nothing bodyTy _ = pure (Inferred bodyTy [] [])
+inferReturnCaseM (Just (ReturnCase pattern body)) bodyTy ctx = do
+  ctx2 <- bindPatternM pattern bodyTy ctx
+  inferExprM body ctx2
+
+inferHandlerCasesM :: [HandlerCase] -> Ty -> [Ty] -> [Need] -> [Ty] -> TcContext -> Tc Inferred
+inferHandlerCasesM cases answerTy effects bodyNeeds returnEffects ctx = do
+  (finalAnswerTy, handled, accumulatedEffects, accumulatedNeeds) <- foldM step (answerTy, [], returnEffects, bodyNeeds) cases
   st <- getTc
   let remainingEffects = removeEffectNames handled (applyStateEffects effects st)
-  pure (Inferred (applyState finalBodyTy st) (unionEffects remainingEffects accumulatedEffects) (applyStateNeeds accumulatedNeeds st))
-  where
-    step (currentBodyTy, handled, accumulatedEffects, accumulatedNeeds) (HandlerCase name patterns handlerBody) = do
-      (handledName, handlerCtx) <- handlerCaseContextM name patterns currentBodyTy effects ctx
-      Inferred handlerTy caseEffects caseNeeds <- inferExprM handlerBody handlerCtx
-      mapTcError (unifyM currentBodyTy handlerTy) (\msg -> "in handler for '" ++ name ++ "': " ++ msg)
-      st <- getTc
-      pure
-        ( applyState currentBodyTy st
-        , addHandledEffectName handledName handled
-        , unionEffects accumulatedEffects (applyStateEffects caseEffects st)
-        , unionNeeds accumulatedNeeds (applyStateNeeds caseNeeds st)
-        )
+  pure (Inferred (applyState finalAnswerTy st) (unionEffects remainingEffects accumulatedEffects) (applyStateNeeds accumulatedNeeds st))
+ where
+  step (currentAnswerTy, handled, accumulatedEffects, accumulatedNeeds) (HandlerCase name patterns handlerBody) = do
+    (handledName, handlerCtx) <- handlerCaseContextM name patterns currentAnswerTy effects ctx
+    Inferred handlerTy caseEffects caseNeeds <- inferExprM handlerBody handlerCtx
+    mapTcError (unifyM currentAnswerTy handlerTy) (\msg -> "in handler for '" ++ name ++ "': " ++ msg)
+    st <- getTc
+    pure
+      ( applyState currentAnswerTy st
+      , addHandledEffectName handledName handled
+      , unionEffects accumulatedEffects (applyStateEffects caseEffects st)
+      , unionNeeds accumulatedNeeds (applyStateNeeds caseNeeds st)
+      )
 
 handlerCaseContextM :: String -> [Pattern] -> Ty -> [Ty] -> TcContext -> Tc (String, TcContext)
-handlerCaseContextM name patterns bodyTy effects ctx = case lookupEnv name ctx of
+handlerCaseContextM name patterns answerTy effects ctx = case lookupEnv name ctx of
   EnvMissing -> effectHandlerCaseContextM name patterns effects ctx
   EnvAmbiguous msg -> failTc msg
-  EnvFound scheme -> recoverTc (operationHandlerCaseContextM name patterns bodyTy effects scheme ctx) (\_ -> effectHandlerCaseContextM name patterns effects ctx)
+  EnvFound scheme
+    | null patterns -> recoverTc (operationHandlerCaseContextM name patterns answerTy effects scheme ctx) (\_ -> effectHandlerCaseContextM name patterns effects ctx)
+    | otherwise -> operationHandlerCaseContextM name patterns answerTy effects scheme ctx
 
 effectHandlerCaseContextM :: String -> [Pattern] -> [Ty] -> TcContext -> Tc (String, TcContext)
 effectHandlerCaseContextM effectName patterns effects ctx = case patterns of
@@ -1171,7 +1502,7 @@ effectHandlerCaseContextM effectName patterns effects ctx = case patterns of
   _ -> failTc ("effect-level handler '" ++ effectName ++ "' cannot bind operation arguments")
 
 operationHandlerCaseContextM :: String -> [Pattern] -> Ty -> [Ty] -> Scheme -> TcContext -> Tc (String, TcContext)
-operationHandlerCaseContextM name patterns bodyTy effects scheme ctx = do
+operationHandlerCaseContextM name patterns answerTy effects scheme ctx = do
   (t, _) <- instantiateM scheme
   case normalizeFun t of
     TyFun argTys opEffects retTy -> do
@@ -1180,7 +1511,7 @@ operationHandlerCaseContextM name patterns bodyTy effects scheme ctx = do
       st <- getTc
       let handledName = handledEffectName handledEffect st
           resumeEffects = removeEffect handledName (applyStateEffects effects st)
-          resumeTy = curriedFunction [applyState retTy st] resumeEffects (applyState bodyTy st)
+          resumeTy = curriedFunction [applyState retTy st] resumeEffects (applyState answerTy st)
       pure (handledName, addEnv "resume" (Forall [] [] resumeTy) ctx2)
     _ -> failTc ("handler case '" ++ name ++ "' is not an effect operation")
 
@@ -1191,13 +1522,13 @@ bindHandlerPatternsM patterns argTys ctx = bindPatternsM patterns argTys ctx
 findHandledOperationEffectM :: String -> [Ty] -> [Ty] -> Tc Ty
 findHandledOperationEffectM name opEffects effects =
   foldr tryEffect notFound opEffects
-  where
-    notFound = failTc ("handler case '" ++ name ++ "' is not an effect operation")
-    tryEffect opEffect fallback = do
-      st <- getTc
-      case findEffectByHead opEffect (applyStateEffects effects st) of
-        Nothing -> fallback
-        Just actualEffect -> unifyEffectM opEffect actualEffect >> (applyState actualEffect <$> getTc)
+ where
+  notFound = failTc ("handler case '" ++ name ++ "' is not an effect operation")
+  tryEffect opEffect fallback = do
+    st <- getTc
+    case findEffectByHead opEffect (applyStateEffects effects st) of
+      Nothing -> fallback
+      Just actualEffect -> unifyEffectM opEffect actualEffect >> (applyState actualEffect <$> getTc)
 
 handledEffectName :: Ty -> TcState -> String
 handledEffectName effect st = maybe (showEffect effect) fst (effectNameAndArgs (applyState effect st))
@@ -1224,7 +1555,8 @@ inferMatchM scrutinees cases ctx = do
   Inferred branchTy branchEffects branchNeeds <- inferMatchCasesM cases scrutTys ctx
   st <- getTc
   checkExhaustiveM (applyStateAll scrutTys st) cases ctx
-  pure (Inferred branchTy (unionEffects scrutEffects branchEffects) (unionNeeds scrutNeeds branchNeeds))
+  st2 <- getTc
+  pure (Inferred branchTy (unionEffects (applyStateEffects scrutEffects st2) branchEffects) (unionNeeds (applyStateNeeds scrutNeeds st2) branchNeeds))
 
 inferMatchCasesM :: NonEmpty MatchCase -> [Ty] -> TcContext -> Tc Inferred
 inferMatchCasesM cases scrutTys ctx = do
@@ -1233,18 +1565,18 @@ inferMatchCasesM cases scrutTys ctx = do
   case branchTy of
     Just t -> pure (Inferred (applyState t st) effects (applyStateNeeds needs st))
     Nothing -> failTc "empty match"
-  where
-    step (branchTy, currentScrutTys, effects, needs) (MatchCase ps e) = do
-      ctx2 <- bindPatternsM (NE.toList ps) currentScrutTys ctx
-      Inferred t caseEffects caseNeeds <- inferExprM e ctx2
-      mapM_ (`unifyM` t) branchTy
-      st <- getTc
-      pure
-        ( Just (applyState t st)
-        , applyStateAll currentScrutTys st
-        , unionEffects effects caseEffects
-        , unionNeeds needs caseNeeds
-        )
+ where
+  step (branchTy, currentScrutTys, effects, needs) (MatchCase ps e) = do
+    ctx2 <- bindPatternsM (NE.toList ps) currentScrutTys ctx
+    Inferred t caseEffects caseNeeds <- inferExprM e ctx2
+    mapM_ (`unifyM` t) branchTy
+    st <- getTc
+    pure
+      ( Just (applyState t st)
+      , applyStateAll currentScrutTys st
+      , unionEffects effects caseEffects
+      , unionNeeds needs caseNeeds
+      )
 
 checkDeclsM :: [Decl] -> TcContext -> Tc Program
 checkDeclsM ds ctx = checkDeclsContextM ds ctx >> pure (Program [])
@@ -1256,20 +1588,26 @@ checkRunnableDeclsM ds ctx = do
 
 checkDeclsContextM :: [Decl] -> TcContext -> Tc TcContext
 checkDeclsContextM ds ctx = foldM step ctx ds
-  where
-    step currentCtx (Let name Nothing expr) = fst <$> inferUnannotatedBindingM name expr currentCtx
-    step currentCtx (Let name (Just ann) expr) = do
-      checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann currentCtx
-      (checkedValue, _) <- checkAnnotatedExprM name ann expr currentCtx
-      scheme <- schemeFromCheckedAnn ann currentCtx checkedValue
-      pure (addEnv name scheme currentCtx)
-    step currentCtx d = checkDeclM d currentCtx >> pure currentCtx
+ where
+  step currentCtx (Let name Nothing expr) = fst <$> inferUnannotatedBindingM name expr currentCtx
+  step currentCtx (Let name (Just ann) expr) = do
+    checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann currentCtx
+    (checkedValue, _, checkedNeeds) <- checkAnnotatedExprM name ann expr currentCtx
+    scheme <- schemeFromCheckedAnn checkedValue checkedNeeds
+    pure (addEnv name scheme currentCtx)
+  step currentCtx (ShowDecl name) = checkShowDeclM name currentCtx >> pure (addShownEnv name currentCtx)
+  step currentCtx (ShowTypeDecl name) = checkShowTypeDeclM name currentCtx >> pure (addShownType name currentCtx)
+  step currentCtx d = checkDeclM d currentCtx >> pure currentCtx
 
 inferRunnableDeclM :: (TcContext, [Ty], [Need], Ty) -> Decl -> Tc (TcContext, [Ty], [Need], Ty)
 inferRunnableDeclM (ctx, effects, needs, fileValue) (Let name ann expr) = do
   (ctx2, value, letEffects, letNeeds) <- inferRunnableLetM name ann expr ctx
   let nextValue = if name == "_" then value else fileValue
   pure (ctx2, unionEffects effects letEffects, unionNeeds needs letNeeds, nextValue)
+inferRunnableDeclM (ctx, effects, needs, fileValue) (ShowDecl name) =
+  checkShowDeclM name ctx >> pure (addShownEnv name ctx, effects, needs, fileValue)
+inferRunnableDeclM (ctx, effects, needs, fileValue) (ShowTypeDecl name) =
+  checkShowTypeDeclM name ctx >> pure (addShownType name ctx, effects, needs, fileValue)
 inferRunnableDeclM (ctx, effects, needs, fileValue) d =
   checkDeclM d ctx >> pure (ctx, effects, needs, fileValue)
 
@@ -1283,8 +1621,8 @@ inferRunnableLetM name ann expr ctx = case ann of
     pure (addEnv name (generalizeApplied value normalizedNeeds st) ctx, value, effects, emittedNeeds)
   Just ann -> do
     checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann ctx
-    (checkedValue, effects) <- checkAnnotatedExprM name ann expr ctx
-    scheme <- schemeFromCheckedAnn ann ctx checkedValue
+    (checkedValue, effects, checkedNeeds) <- checkAnnotatedExprM name ann expr ctx
+    scheme <- schemeFromCheckedAnn checkedValue checkedNeeds
     pure (addEnv name scheme ctx, checkedValue, effects, [])
 
 checkRunnableTypeM :: Ty -> [Ty] -> [Need] -> TcContext -> Tc Program
@@ -1314,18 +1652,38 @@ isRunnableEffect effect = case effectNameAndArgs effect of
 checkDeclM :: Decl -> TcContext -> Tc Decl
 checkDeclM d ctx = case d of
   Let name ann expr -> checkLetM name ann expr ctx
+  ShowDecl name -> checkShowDeclM name ctx >> pure d
+  ShowTypeDecl name -> checkShowTypeDeclM name ctx >> pure d
   EffectDecl _ effectName ops -> checkEffectDeclM effectName ops d
+  ForeignDecl members -> checkForeignDeclM members ctx d
   BoneDecl _ boneName needs members -> checkBoneDeclM boneName needs members ctx d
   FleshDecl ty boneName needs members -> checkFleshM ty boneName needs members ctx
   _ -> pure d
 
+checkShowDeclM :: String -> TcContext -> Tc ()
+checkShowDeclM name ctx = case shownEnvBindingsResult name ctx of
+  Right _ -> pure ()
+  Left msg -> failTc msg
+
+checkShowTypeDeclM :: String -> TcContext -> Tc ()
+checkShowTypeDeclM name ctx = case shownTypeInfo name ctx of
+  Just _ -> pure ()
+  Nothing -> failTc ("unknown type '" ++ name ++ "'")
+
+shownEnvBindingsResult :: String -> TcContext -> Either String [Scheme]
+shownEnvBindingsResult name TcContext{tcEnv}
+  | isQualifiedEnvName name = case lookupEnvExact name tcEnv of
+      Just scheme -> Right [scheme]
+      Nothing -> Left ("unknown name '" ++ name ++ "'")
+  | otherwise = shownBareEnvBindings name tcEnv
+
 checkEffectDeclM :: String -> [EffectOp] -> Decl -> Tc Decl
 checkEffectDeclM effectName ops whole = mapM_ checkOp ops >> pure whole
-  where
-    checkOp (EffectOp opName t)
-      | not (isFunctionTypeExpr t) = failTc ("effect operation '" ++ effectName ++ "@" ++ opName ++ "' must have a function type")
-      | hasTopLevelArrowEffects t = failTc ("effect operation '" ++ effectName ++ "@" ++ opName ++ "' cannot declare extra top-level effects")
-      | otherwise = pure ()
+ where
+  checkOp (EffectOp opName t)
+    | not (isFunctionTypeExpr t) = failTc ("effect operation '" ++ effectName ++ "@" ++ opName ++ "' must have a function type")
+    | hasTopLevelArrowEffects t = failTc ("effect operation '" ++ effectName ++ "@" ++ opName ++ "' cannot declare extra top-level effects")
+    | otherwise = pure ()
 
 isFunctionTypeExpr :: TypeExpr -> Bool
 isFunctionTypeExpr (TypeForall _ body) = isFunctionTypeExpr body
@@ -1337,33 +1695,41 @@ hasTopLevelArrowEffects (TypeForall _ body) = hasTopLevelArrowEffects body
 hasTopLevelArrowEffects (TypeArrow _ effects _) = not (null effects)
 hasTopLevelArrowEffects _ = False
 
+checkForeignDeclM :: [ForeignMember] -> TcContext -> Decl -> Tc Decl
+checkForeignDeclM members ctx whole = mapM_ checkMember members >> pure whole
+ where
+  checkMember (ForeignMember name ann@(TypeAnn t _)) = do
+    checkTypeAnnNeedsM ("foreign '" ++ name ++ "'") ann ctx
+    unless (isFunctionTypeExpr t) $
+      failTc ("foreign '" ++ name ++ "' must have a function type")
+
 inferBoneDefaultDeclsM :: [Decl] -> TcContext -> Tc ([Decl], TcContext)
 inferBoneDefaultDeclsM ds ctx = do
   (acc, finalCtx) <- foldM step ([], ctx) ds
   pure (reverse acc, finalCtx)
-  where
-    step (acc, currentCtx) (BoneDecl params boneName needs members) = do
-      let knownCtx = addBoneMembers boneName params needs members currentCtx
-      typedMembers <- inferBoneDefaultMembersM params boneName members knownCtx
-      let typedDecl = BoneDecl params boneName needs typedMembers
-          ctx2 = addBoneMembers boneName params needs typedMembers currentCtx
-      pure (typedDecl : acc, ctx2)
-    step (acc, currentCtx) d =
-      pure (d : acc, collectDeclContext d currentCtx)
+ where
+  step (acc, currentCtx) (BoneDecl params boneName needs members) = do
+    let knownCtx = addBoneMembers boneName params needs members currentCtx
+    typedMembers <- inferBoneDefaultMembersM params boneName members knownCtx
+    let typedDecl = BoneDecl params boneName needs typedMembers
+        ctx2 = addBoneMembers boneName params needs typedMembers currentCtx
+    pure (typedDecl : acc, ctx2)
+  step (acc, currentCtx) d =
+    pure (d : acc, collectDeclContext d currentCtx)
 
 inferBoneDefaultMembersM :: [String] -> String -> [BoneMember] -> TcContext -> Tc [BoneMember]
 inferBoneDefaultMembersM boneParams boneName members ctx =
   reverse . fst <$> foldM step ([], ctx) members
-  where
-    step (acc, currentCtx) member = case member of
-      BoneSpec name t -> pure (BoneSpec name t : acc, currentCtx)
-      BoneDefault name (Just t) expr -> do
-        let typedMember = BoneDefault name (Just t) expr
-        pure (typedMember : acc, addBoneMembersToEnv boneName [typedMember] currentCtx)
-      BoneDefault name Nothing expr -> do
-        t <- mapTcError (inferBoneDefaultTypeM boneParams name expr currentCtx) (\msg -> "in bone default '" ++ name ++ "': " ++ msg)
-        let typedMember = BoneDefault name (Just t) expr
-        pure (typedMember : acc, addBoneMembersToEnv boneName [typedMember] currentCtx)
+ where
+  step (acc, currentCtx) member = case member of
+    BoneSpec name t -> pure (BoneSpec name t : acc, currentCtx)
+    BoneDefault name (Just t) expr -> do
+      let typedMember = BoneDefault name (Just t) expr
+      pure (typedMember : acc, addBoneMembersToEnv boneName [typedMember] currentCtx)
+    BoneDefault name Nothing expr -> do
+      t <- mapTcError (inferBoneDefaultTypeM boneParams name expr currentCtx) (\msg -> "in bone default '" ++ name ++ "': " ++ msg)
+      let typedMember = BoneDefault name (Just t) expr
+      pure (typedMember : acc, addBoneMembersToEnv boneName [typedMember] currentCtx)
 
 inferBoneDefaultTypeM :: [String] -> String -> Expr -> TcContext -> Tc TypeAnn
 inferBoneDefaultTypeM boneParams name expr ctx = case expr of
@@ -1391,32 +1757,32 @@ checkBoneDeclM boneName needs members ctx whole =
 
 checkBoneNeedsM :: String -> [BoneNeed] -> TcContext -> Tc ()
 checkBoneNeedsM owner needs ctx = mapM_ checkNeed needs
-  where
-    checkNeed (BoneNeed args neededName) = case findBoneInfo neededName ctx of
-      Nothing -> failTc (owner ++ " has unknown given bone '" ++ neededName ++ "'")
-      Just (BoneInfo params _ _) -> do
-        let expected = length params
-            actual = length args
-        unless (actual == expected) $
-          failTc (owner ++ " has given '" ++ neededName ++ "' with " ++ show actual ++ " arguments, but '" ++ neededName ++ "' has " ++ show expected ++ " parameters")
+ where
+  checkNeed (BoneNeed args neededName) = case findBoneInfo neededName ctx of
+    Nothing -> failTc (owner ++ " has unknown given bone '" ++ neededName ++ "'")
+    Just BoneInfo{boneParams} -> do
+      let expected = length boneParams
+          actual = length args
+      unless (actual == expected) $
+        failTc (owner ++ " has given '" ++ neededName ++ "' with " ++ show actual ++ " arguments, but '" ++ neededName ++ "' has " ++ show expected ++ " parameters")
 
 checkBoneMemberNeedsM :: String -> [BoneMember] -> TcContext -> Tc ()
 checkBoneMemberNeedsM boneName members ctx = mapM_ checkMember members
-  where
-    checkMember member = case boneMemberSignature member of
-      Nothing -> pure ()
-      Just (name, TypeAnn _ needs) -> checkBoneNeedsM ("bone member '" ++ boneName ++ "@" ++ name ++ "'") needs ctx
+ where
+  checkMember member = case boneMemberSignature member of
+    Nothing -> pure ()
+    Just (name, TypeAnn _ needs) -> checkBoneNeedsM ("bone member '" ++ boneName ++ "@" ++ name ++ "'") needs ctx
 
 checkTypeAnnNeedsM :: String -> TypeAnn -> TcContext -> Tc ()
 checkTypeAnnNeedsM owner (TypeAnn _ needs) = checkBoneNeedsM owner needs
 
 checkBoneDefaultsM :: String -> [BoneMember] -> TcContext -> Decl -> Tc Decl
 checkBoneDefaultsM boneName members ctx whole = mapM_ checkMember members >> pure whole
-  where
-    checkMember (BoneSpec _ _) = pure ()
-    checkMember (BoneDefault name (Just t) expr) =
-      checkRecursiveLetAnnotatedAliasM name (boneName ++ "@" ++ name) (typeAnnWithOwnBoneNeed boneName t ctx) expr ctx >> pure ()
-    checkMember (BoneDefault name Nothing _) = failTc ("bone default '" ++ name ++ "' has no inferred type")
+ where
+  checkMember (BoneSpec _ _) = pure ()
+  checkMember (BoneDefault name (Just t) expr) =
+    checkRecursiveLetAnnotatedAliasM name (boneName ++ "@" ++ name) (typeAnnWithOwnBoneNeed boneName t ctx) expr ctx >> pure ()
+  checkMember (BoneDefault name Nothing _) = failTc ("bone default '" ++ name ++ "' has no inferred type")
 
 checkLetM :: String -> Maybe TypeAnn -> Expr -> TcContext -> Tc Decl
 checkLetM name Nothing expr ctx = do
@@ -1435,13 +1801,13 @@ checkFleshM tyExpr boneName needs members ctx = do
     Nothing -> checkLooseFleshMembersM members ctx (FleshDecl tyExpr boneName needs members)
     Just _ -> case fleshSpecsForBone boneName tyExpr ctx [] of
       Nothing -> failTc ("flesh '" ++ boneName ++ "' has an unknown required bone")
-      Just specs -> checkFleshMembersM tyExpr boneName needs members specs ctx (FleshDecl tyExpr boneName needs members)
+      Just specs -> checkFleshMembersM tyExpr needs members specs ctx (FleshDecl tyExpr boneName needs members)
 
 checkLooseFleshMembersM :: [Decl] -> TcContext -> Decl -> Tc Decl
 checkLooseFleshMembersM members ctx whole = mapM_ checkMember members >> pure whole
-  where
-    checkMember (Let name _ expr) = checkRecursiveLetM name expr ctx >> pure ()
-    checkMember _ = failTc "flesh member must be a let"
+ where
+  checkMember (Let name _ expr) = checkRecursiveLetM name expr ctx >> pure ()
+  checkMember _ = failTc "flesh member must be a let"
 
 data FleshSpec = FleshSpec String String TypeAnn deriving (Eq, Show)
 
@@ -1450,19 +1816,19 @@ fleshSpecsForBone boneName fleshType ctx seen
   | boneName `elem` seen = Just []
   | otherwise = case findBoneInfo boneName ctx of
       Nothing -> Nothing
-      Just (BoneInfo params needs members) -> do
-        inherited <- fleshSpecsForNeeds needs params fleshType ctx (boneName : seen)
-        pure (fleshMemberSpecs boneName params fleshType members ++ inherited)
+      Just BoneInfo{..} -> do
+        inherited <- fleshSpecsForNeeds boneNeeds boneParams fleshType ctx (boneName : seen)
+        pure (fleshMemberSpecs boneName boneParams fleshType boneMembers ++ inherited)
 
 fleshSpecsForNeeds :: [BoneNeed] -> [String] -> TypeExpr -> TcContext -> [String] -> Maybe [FleshSpec]
 fleshSpecsForNeeds needs currentParams currentFleshType ctx seen =
   concat <$> traverse specsForNeed needs
-  where
-    specsForNeed (BoneNeed args neededName) = do
-      neededFleshType <- case map (specializeBoneType currentParams currentFleshType) args of
-        [] -> Nothing
-        x : _ -> Just x
-      fleshSpecsForBone neededName neededFleshType ctx seen
+ where
+  specsForNeed (BoneNeed args neededName) = do
+    neededFleshType <- case map (specializeBoneType currentParams currentFleshType) args of
+      [] -> Nothing
+      x : _ -> Just x
+    fleshSpecsForBone neededName neededFleshType ctx seen
 
 fleshMemberSpecs :: String -> [String] -> TypeExpr -> [BoneMember] -> [FleshSpec]
 fleshMemberSpecs boneName boneParams fleshType members =
@@ -1471,14 +1837,14 @@ fleshMemberSpecs boneName boneParams fleshType members =
 findFleshSpec :: String -> [FleshSpec] -> Maybe FleshSpec
 findFleshSpec name = find (\(FleshSpec n _ _) -> n == name)
 
-checkFleshMembersM :: TypeExpr -> String -> [BoneNeed] -> [Decl] -> [FleshSpec] -> TcContext -> Decl -> Tc Decl
-checkFleshMembersM tyExpr boneName needs members specs ctx whole = mapM_ checkMember members >> pure whole
-  where
-    checkMember (Let name _ expr) = case findFleshSpec name specs of
-      Nothing -> failTc ("flesh defines unknown member '" ++ name ++ "'")
-      Just (FleshSpec _ ownerName memberType) ->
-        checkRecursiveLetAnnotatedAliasM name (ownerName ++ "@" ++ name) (typeAnnWithFleshNeeds tyExpr boneName needs memberType) expr ctx >> pure ()
-    checkMember _ = failTc "flesh member must be a let"
+checkFleshMembersM :: TypeExpr -> [BoneNeed] -> [Decl] -> [FleshSpec] -> TcContext -> Decl -> Tc Decl
+checkFleshMembersM tyExpr needs members specs ctx whole = mapM_ checkMember members >> pure whole
+ where
+  checkMember (Let name _ expr) = case findFleshSpec name specs of
+    Nothing -> failTc ("flesh defines unknown member '" ++ name ++ "'")
+    Just (FleshSpec _ ownerName memberType) ->
+      checkRecursiveLetAnnotatedAliasM name (ownerName ++ "@" ++ name) (typeAnnWithFleshNeeds tyExpr ownerName needs memberType) expr ctx >> pure ()
+  checkMember _ = failTc "flesh member must be a let"
 
 typeAnnWithFleshNeeds :: TypeExpr -> String -> [BoneNeed] -> TypeAnn -> TypeAnn
 typeAnnWithFleshNeeds tyExpr boneName needs (TypeAnn t memberNeeds) =
@@ -1486,24 +1852,24 @@ typeAnnWithFleshNeeds tyExpr boneName needs (TypeAnn t memberNeeds) =
 
 checkLocalDeclsM :: [Decl] -> TcContext -> Tc (TcContext, [Ty])
 checkLocalDeclsM ds ctx = foldM step (ctx, []) ds
-  where
-    step (currentCtx, currentEffects) (Let name ann expr) = do
-      (ctx2, letEffects) <- inferLocalLetM name ann expr currentCtx
-      pure (ctx2, unionEffects currentEffects letEffects)
-    step acc _ = pure acc
+ where
+  step (currentCtx, currentEffects) (Let name ann expr) = do
+    (ctx2, letEffects) <- inferLocalLetM name ann expr currentCtx
+    pure (ctx2, unionEffects currentEffects letEffects)
+  step acc _ = pure acc
 
 inferLocalLetM :: String -> Maybe TypeAnn -> Expr -> TcContext -> Tc (TcContext, [Ty])
 inferLocalLetM name Nothing expr ctx = inferUnannotatedBindingM name expr ctx
 inferLocalLetM name (Just ann) expr ctx = do
   checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann ctx
-  (checkedValue, effects) <- checkAnnotatedExprM name ann expr ctx
-  scheme <- schemeFromCheckedAnn ann ctx checkedValue
+  (checkedValue, effects, checkedNeeds) <- checkAnnotatedExprM name ann expr ctx
+  scheme <- schemeFromCheckedAnn checkedValue checkedNeeds
   pure (addEnv name scheme ctx, effects)
 
-schemeFromCheckedAnn :: TypeAnn -> TcContext -> Ty -> Tc Scheme
-schemeFromCheckedAnn (TypeAnn _ needs) ctx checkedValue = do
+schemeFromCheckedAnn :: Ty -> [Need] -> Tc Scheme
+schemeFromCheckedAnn checkedValue checkedNeeds = do
   st <- getTc
-  pure (generalizeTyWithNeeds (applyStateNeeds (map (`convertBoneNeed` ctx) needs) st) (applyState checkedValue st))
+  pure (generalizeApplied checkedValue checkedNeeds st)
 
 inferUnannotatedBindingM :: String -> Expr -> TcContext -> Tc (TcContext, [Ty])
 inferUnannotatedBindingM name expr@(EMatch [] _) ctx = do
@@ -1528,18 +1894,19 @@ instantiateAnnotationM ann ctx = do
   (ty, needs) <- instantiateM (typeAnnScheme ann ctx)
   pure (ty, [], needs)
 
-checkAnnotatedExprM :: String -> TypeAnn -> Expr -> TcContext -> Tc (Ty, [Ty])
+checkAnnotatedExprM :: String -> TypeAnn -> Expr -> TcContext -> Tc (Ty, [Ty], [Need])
 checkAnnotatedExprM name ann expr ctx = do
   (expectedValue, expectedEffects, expectedNeeds) <- instantiateAnnotationM ann ctx
   checkExprAgainstM name expectedValue expectedEffects expectedNeeds expr ctx
 
-checkExprAgainstM :: String -> Ty -> [Ty] -> [Need] -> Expr -> TcContext -> Tc (Ty, [Ty])
+checkExprAgainstM :: String -> Ty -> [Ty] -> [Need] -> Expr -> TcContext -> Tc (Ty, [Ty], [Need])
 checkExprAgainstM name expectedValue expectedEffects expectedNeeds expr ctx = do
   Inferred actual effects needs <- inferNamedM name expr ctx
   mapTcError (unifyM actual expectedValue) (\msg -> "in '" ++ name ++ "': " ++ msg ++ "; actual " ++ showTy actual ++ ", expected " ++ showTy expectedValue)
   (checkedValue, checkedEffects) <- checkEffectsAgainstM name expectedValue effects expectedEffects
   checkNeedsAgainstM name ctx needs expectedNeeds
-  pure (checkedValue, checkedEffects)
+  st <- getTc
+  pure (checkedValue, checkedEffects, applyStateNeeds expectedNeeds st)
 
 checkEffectsAgainstM :: String -> Ty -> [Ty] -> [Ty] -> Tc (Ty, [Ty])
 checkEffectsAgainstM name expectedValue actualEffects0 expectedEffects0 = do
@@ -1547,10 +1914,11 @@ checkEffectsAgainstM name expectedValue actualEffects0 expectedEffects0 = do
   let actualEffects = applyStateEffects actualEffects0 st
       expectedEffects = applyStateEffects expectedEffects0 st
   recoverTc
-    (do
-      unifyEffectsM actualEffects expectedEffects
-      st2 <- getTc
-      pure (applyState expectedValue st2, applyStateEffects actualEffects st2))
+    ( do
+        unifyEffectsM actualEffects expectedEffects
+        st2 <- getTc
+        pure (applyState expectedValue st2, applyStateEffects actualEffects st2)
+    )
     (\_ -> failTc ("in '" ++ name ++ "': cannot unify effects {" ++ showEffects actualEffects ++ "} with {" ++ showEffects expectedEffects ++ "}"))
 
 checkNeedsAgainstM :: String -> TcContext -> [Need] -> [Need] -> Tc ()
@@ -1566,11 +1934,11 @@ normalizeNeedsM :: TcContext -> [Need] -> Tc [Need]
 normalizeNeedsM ctx needs0 = do
   st <- getTc
   foldM step [] (applyStateNeeds needs0 st)
-  where
-    step acc need
-      = do
-          normalized <- normalizeNeedM ctx [] need
-          pure (unionNeeds acc normalized)
+ where
+  step acc need =
+    do
+      normalized <- normalizeNeedM ctx [] need
+      pure (unionNeeds acc normalized)
 
 normalizeNeedM :: TcContext -> [Need] -> Need -> Tc [Need]
 normalizeNeedM ctx seen need
@@ -1580,10 +1948,10 @@ normalizeNeedM ctx seen need
       Nothing
         | needMayRemainOpen need -> pure [need]
         | otherwise -> failTc ("missing given " ++ showNeed need)
-  where
-    step acc nested = do
-      normalized <- normalizeNeedM ctx (need : seen) nested
-      pure (unionNeeds acc normalized)
+ where
+  step acc nested = do
+    normalized <- normalizeNeedM ctx (need : seen) nested
+    pure (unionNeeds acc normalized)
 
 requireNoNeedsM :: TcContext -> [Need] -> Tc Program
 requireNoNeedsM ctx needs = do
@@ -1594,13 +1962,13 @@ requireNoNeedsM ctx needs = do
 
 needResolvedBy :: [Need] -> TcContext -> Need -> Bool
 needResolvedBy expected ctx = go []
-  where
-    go seen need
-      | any (\given -> needCovers ctx [] given need) expected = True
-      | need `elem` seen = False
-      | otherwise = case fleshNeedsForNeed ctx need of
-          Just needs -> all (go (need : seen)) needs
-          Nothing -> False
+ where
+  go seen need
+    | any (\given -> needCovers ctx [] given need) expected = True
+    | need `elem` seen = False
+    | otherwise = case fleshNeedsForNeed ctx need of
+        Just needs -> all (go (need : seen)) needs
+        Nothing -> False
 
 needSubsumes :: Need -> Need -> Bool
 needSubsumes (Need expectedArgs expectedName) (Need actualArgs actualName) =
@@ -1614,23 +1982,23 @@ needCovers ctx seen given@(Need givenArgs givenName) wanted
   | givenName `elem` seen = False
   | otherwise = case findBoneInfo givenName ctx of
       Nothing -> False
-      Just (BoneInfo params needs _) ->
-        any (\need -> needCovers ctx (givenName : seen) (specializeNeed params givenArgs need) wanted) needs
+      Just BoneInfo{boneParams, boneNeeds} ->
+        any (\need -> needCovers ctx (givenName : seen) (specializeNeed boneParams givenArgs need) wanted) boneNeeds
 
 specializeNeed :: [String] -> [Ty] -> BoneNeed -> Need
 specializeNeed params args (BoneNeed needArgs needName) =
   let repls = Map.fromList (zip params args)
-  in Need (map ((`replaceVars` repls) . (`convertTypeExpr` baseContext)) needArgs) needName
+   in Need (map ((`replaceVars` repls) . (`convertTypeExpr` baseContext)) needArgs) needName
 
 fleshNeedsForNeed :: TcContext -> Need -> Maybe [Need]
-fleshNeedsForNeed ctx@(TcContext _ _ _ fleshes) (Need [ty] boneName) =
-  if hasConcreteHead ty then firstJust (map matches fleshes) else Nothing
-  where
-    matches (FleshInfo fleshBone fleshType needs)
-      | not (boneNamesMatch fleshBone boneName) = Nothing
-      | otherwise = do
-          bindings <- typePatternBindings (convertTypeExpr fleshType ctx) ty
-          pure (map (needWithBindings ctx bindings) needs)
+fleshNeedsForNeed ctx@TcContext{tcFleshes} (Need [ty] boneName) =
+  if hasConcreteHead ty then firstJust (map matches tcFleshes) else Nothing
+ where
+  matches FleshInfo{..}
+    | not (boneNamesMatch fleshBone boneName) = Nothing
+    | otherwise = do
+        bindings <- typePatternBindings (convertTypeExpr fleshType ctx) ty
+        pure (map (needWithBindings ctx bindings) fleshNeeds)
 fleshNeedsForNeed _ _ = Nothing
 
 firstJust :: [Maybe a] -> Maybe a
@@ -1662,8 +2030,8 @@ typePatternBindings patternTy actualTy = case (normalizeFun patternTy, normalize
     | isTypeVarName x && length xs == length ys -> Map.insert x (TyCon y) . mergeBindingMaps <$> zipWithMMaybe typePatternBindings xs ys
   (TyRecord xs, TyRecord ys)
     | Map.keys xs == Map.keys ys -> mergeBindingMaps <$> traverse recordField (Map.toList xs)
-    where
-      recordField (name, x) = Map.lookup name ys >>= typePatternBindings x
+   where
+    recordField (name, x) = Map.lookup name ys >>= typePatternBindings x
   (TyFun xs xEffs xRet, TyFun ys yEffs yRet)
     | length xs == length ys && length xEffs == length yEffs ->
         mergeBindingMaps <$> zipWithMMaybe typePatternBindings (NE.toList xs ++ xEffs ++ [xRet]) (NE.toList ys ++ yEffs ++ [yRet])
@@ -1676,13 +2044,14 @@ zipWithMMaybe _ _ _ = Nothing
 
 mergeBindingMaps :: [Map.Map String Ty] -> Map.Map String Ty
 mergeBindingMaps = foldl' (Map.unionWith preferSpecific) Map.empty
-  where
-    preferSpecific old new = if old == new then old else new
+ where
+  preferSpecific left right = if left == right then left else right
 
 hasConcreteHead :: Ty -> Bool
 hasConcreteHead ty = case normalizeFun ty of
   TyCon _ -> True
   TyApp _ _ -> True
+  TyFun _ _ _ -> True
   _ -> False
 
 needMayRemainOpen :: Need -> Bool
@@ -1722,7 +2091,54 @@ generalizeTy :: Ty -> Scheme
 generalizeTy = generalizeTyWithNeeds []
 
 generalizeTyWithNeeds :: [Need] -> Ty -> Scheme
-generalizeTyWithNeeds needs ty = Forall (typeVarsInNeeds needs (typeVarsInTy ty [])) needs ty
+generalizeTyWithNeeds needs ty =
+  let (needs2, ty2) = replaceMetasForGeneralization needs ty
+   in Forall (typeVarsInNeeds needs2 (typeVarsInTy ty2 [])) needs2 ty2
+
+replaceMetasForGeneralization :: [Need] -> Ty -> ([Need], Ty)
+replaceMetasForGeneralization needs ty =
+  let used = typeVarsInNeeds needs (typeVarsInTy ty [])
+      metaIds = metaIdsInNeeds needs (metaIdsInTy ty [])
+      names = metaVarNames used metaIds
+      repls = Map.fromList (zip metaIds names)
+   in (map (replaceNeedMetas repls) needs, replaceTyMetas repls ty)
+
+metaIdsInNeeds :: [Need] -> [Int] -> [Int]
+metaIdsInNeeds needs acc = foldl' (flip metaIdsInNeed) acc needs
+
+metaIdsInNeed :: Need -> [Int] -> [Int]
+metaIdsInNeed (Need args _) acc = foldl' (flip metaIdsInTy) acc args
+
+metaIdsInTy :: Ty -> [Int] -> [Int]
+metaIdsInTy ty acc = case ty of
+  TyMeta ident -> addUnique ident acc
+  TyApp _ args -> foldl' (flip metaIdsInTy) acc args
+  TyRecord fields -> foldl' (flip metaIdsInTy) acc (Map.elems fields)
+  TyFun args effects ret -> metaIdsInTy ret (foldl' (flip metaIdsInTy) (foldl' (flip metaIdsInTy) acc (NE.toList args)) effects)
+  _ -> acc
+
+metaVarNames :: [String] -> [Int] -> [String]
+metaVarNames used ids = reverse names
+ where
+  (_, names) = foldl' step (used, []) ids
+  step (taken, acc) ident =
+    let name = firstMetaVarName taken ident
+     in (name : taken, name : acc)
+
+firstMetaVarName :: [String] -> Int -> String
+firstMetaVarName taken ident = go ident
+ where
+  go n =
+    let name = "m" ++ show n
+     in if name `elem` taken then go (n + 1) else name
+
+replaceNeedMetas :: Map.Map Int String -> Need -> Need
+replaceNeedMetas repls (Need args name) = Need (map (replaceTyMetas repls) args) name
+
+replaceTyMetas :: Map.Map Int String -> Ty -> Ty
+replaceTyMetas repls ty = case ty of
+  TyMeta ident -> TyVar (Map.findWithDefault ("m" ++ show ident) ident repls)
+  _ -> mapTyChildren (replaceTyMetas repls) (replaceTyMetas repls) ty
 
 checkRecursiveLetM :: String -> Expr -> TcContext -> Tc Decl
 checkRecursiveLetM name expr ctx = do
@@ -1787,17 +2203,17 @@ prepareDeclsM ds imports baseCtx = do
 
 collectImportContextsM :: [Decl] -> Map.Map String String -> TcContext -> Tc TcContext
 collectImportContextsM ds imports ctx = foldM step ctx ds
-  where
-    step currentCtx (Import path) = case Map.lookup path imports of
-      Nothing -> failTc ("missing bring '" ++ path ++ "'")
-      Just source -> case parse source of
-        Left msg -> failTc ("in bring '" ++ path ++ "': " ++ msg)
-        Right p -> do
-          importedCtx <- importedContextM path p imports
-          pure (mergeContext (namespaceImportContext (importNamespace path) importedCtx) currentCtx)
-    step currentCtx _ = pure currentCtx
+ where
+  step currentCtx (Import path) = case Map.lookup path imports of
+    Nothing -> failTc ("missing bring '" ++ path ++ "'")
+    Just source -> case parse source of
+      Left msg -> failTc ("in bring '" ++ path ++ "': " ++ msg)
+      Right p -> do
+        importedCtx <- importedContextM path p imports
+        pure (mergeContext (namespaceImportContext (importNamespace path) importedCtx) currentCtx)
+  step currentCtx _ = pure currentCtx
 
 importedContextM :: String -> Program -> Map.Map String String -> Tc TcContext
-importedContextM path p imports = StateT $ \st -> case inferProgramContext p imports baseContext of
+importedContextM path p imports = Tc $ StateT $ \st -> case inferProgramContext p imports baseContext of
   TcErr msg -> Left ("in bring '" ++ path ++ "': " ++ msg)
   TcOk importedCtx _ -> Right (importedCtx, st)

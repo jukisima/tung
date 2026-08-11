@@ -1,0 +1,10 @@
+bring algebra/semigroupoid.jbini;
+
+given morphism semigroupoid
+bone morphism category {
+  identity: a morphism a
+}
+
+flesh func category {
+  let identity = { a | a }
+}

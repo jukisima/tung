@@ -1,8 +1,8 @@
-bring prelude.jbini;
+bring ground.jbini;
 
 let quotient: 𝟙 → integer ! console =
-  { _ ↦ try 1 ÷ 0 {
-    fail ↦ (
+  { _ | try 1 ÷ 0 {
+    _ fail | (
       let _ = 'division by zero caught; using 0' write-line;
       0
     )

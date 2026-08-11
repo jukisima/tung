@@ -1,0 +1,15 @@
+bring collection/functor.jbini;
+bring collection/applicative.jbini;
+
+given f applicative
+bone f monad {
+  ((a f) f) flat: a f;
+  let (a: a f, f: a → b f ! e) map-flat: b f ! e = (a map f) flat
+
+  # (a pure) f map-flat = a f
+  # a pure map-flat = a
+}
+
+flesh (a func) monad {
+  let f flat = { a | a (a f) }
+}

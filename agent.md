@@ -64,6 +64,7 @@ if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the sam
 - evaluator changes should usually include direct eval tests, not only type tests.
 - import changes must be checked in both type checking and evaluation.
 - effect changes must be checked at three levels: inference, handlers, and runnable-file boundary.
+- evaluation is strict call-by-value. do not add lazy or call-by-name behavior unless the specification is changed first.
 - partial application must stay pure. only a saturated call may produce latent effects.
 - match exhaustiveness is compile-time behavior. do not rely on runtime non-exhaustive errors for algebraic data coverage.
 - standard library files in `library/` are real jbini code. they must parse and type check.
@@ -104,7 +105,7 @@ effectful value bindings either omit the annotation or wrap the work in a functi
 do not write an effect annotation on a non-function value type. effects belong to computations and function arrows, not stored values.
 
 ```jbini
-bring prelude.jbini;
+bring ground.jbini;
 bring list.jbini;
 
 let answer: integer = 42
@@ -116,7 +117,7 @@ an imported definition is always available as `namespace@name`.
 
 the namespace is the first component of the import path.
 
-for `bring prelude.jbini;`, the namespace is `prelude`.
+for `bring ground.jbini;`, the namespace is `ground`.
 
 for `bring list.jbini;`, the namespace is `list`.
 
@@ -126,12 +127,16 @@ an imported bare name is accepted only when exactly one visible definition has t
 
 if two visible definitions share a name, the checker must report ambiguity and require qualification.
 
-do not special-case `prelude` as magically bare. imports use the same qualify-if-needed model.
+do not special-case `ground` as magically bare. imports use the same qualify-if-needed model.
+
+`show name;` re-exports a value from the current file.
+
+`show-type name;` re-exports a type name from the current file.
 
 ```jbini
-bring prelude.jbini;
+bring ground.jbini;
 
-let x = prelude@yea;
+let x = ground@yea;
 let y = yea
 ```
 
@@ -203,17 +208,28 @@ this rule is called second-is-function syntax in the code and tests.
 
 `b (a f)` and `a b f` are the same when expanded by the second-is-function rule.
 
-`$` explicitly marks the function term.
+`$` is a low-precedence pipeline separator.
 
-`$` may appear anywhere in the sequence.
+the first chunk uses second-is-function syntax.
 
-there may be only one `$` marker in an application sequence.
+each chunk after `$` is function-first.
+
+the previous chunk is inserted as the first argument of that function.
+
+`x $ f a b` means `x f a b`.
+
+`$` cannot start an expression.
+
+when the following term is a name or operator, `$` must be written as its own token.
+
+`$+` is rejected.
 
 ```jbini
 1 + 2        # (+ 1 2)
-$+ 1 2       # same as 1 + 2
-1 2 $+       # same as 1 + 2
 2 (1 +)      # curried partial application
+1 $ + 2      # same as 1 + 2
+a f b $ g c d $ h
+# means ((a f b) g c d) h
 ```
 
 partial application builds a function value.
@@ -224,25 +240,59 @@ partial application must not run latent effects.
 
 only full application can run latent effects.
 
-for example, `1 divide` is pure and returns a function.
+for example, `1 ÷` is pure and returns a function.
 
-for example, `1 divide 0` is effectful and may perform `fail`.
+for example, `1 ÷ 0` is effectful and may perform `fail`.
+
+## evaluation strategy
+
+jbini is strict call-by-value.
+
+file declarations are evaluated in order.
+
+`let` evaluates its right-hand side before binding the name.
+
+a bare brace function is already a value. its body is not evaluated until the function receives enough arguments.
+
+application evaluates the function expression first.
+
+application evaluates arguments left-to-right.
+
+partial application returns a function value.
+
+partial application does not run latent effects.
+
+only saturated application runs native work or performs an effect operation.
+
+records evaluate fields eagerly.
+
+record updates evaluate the base record first, then replacement fields in order.
+
+`match` evaluates all scrutinees before choosing a case.
+
+match cases are tried top-to-bottom.
+
+only the chosen case body is evaluated.
+
+`try` evaluates the body first.
+
+effect operation arguments are evaluated before the operation is handled.
+
+`resume` continues the captured strict computation.
+
+deep handlers are reinstalled around resumed computation.
 
 ## declarations
 
 `let` always uses `=`.
 
-do not accept old `let` syntax without `=`.
-
-do not remove `=` from `let`.
-
 ```jbini
-let id: a → a = { x ↦ x };
+let id: a → a = { x | x };
 ```
 
 function definition headers use the same sequence rule as expressions.
 
-the second term is the function name unless `$` marks it explicitly.
+the second term is the function name.
 
 a type after a second-position header is the full curried function type.
 
@@ -283,15 +333,15 @@ effect annotations after the result in grouped typed-argument syntax belong to t
 
 ```jbini
 let (f0: a → b ! e0, f1: b → c ! e1) compose: a → c ! e0, e1 =
-  { x ↦ (x f0) f1 };
+  { x | (x f0) f1 };
 ```
 
 second-is-function headers also work with named arguments:
 
 ```jbini
 let value default-option default: a option → a → a = match value {
-  none ↦ default,
-  x some ↦ x
+  none | default,
+  x some | x
 }
 ```
 
@@ -347,7 +397,6 @@ type application follows second-is-function syntax too.
 
 ```jbini
 let pair-value: integer ∏ string = 1 ∏ 'one';
-let pair-value-explicit: integer string $∏ = 1 ∏ 'one'
 ```
 
 constructor application is curried.
@@ -366,8 +415,8 @@ the latent effect is added by the declaration itself.
 
 ```jbini
 effect console {
-  write: string → 𝟙,
-  read: 𝟙 → string
+  string write: 𝟙,
+  𝟙 read: string
 }
 ```
 
@@ -377,8 +426,8 @@ parameterized effects are allowed.
 
 ```jbini
 effect a state {
-  get: 𝟙 → a,
-  set: a → 𝟙
+  𝟙 get: a,
+  a set: 𝟙
 }
 ```
 
@@ -388,7 +437,7 @@ effect a state {
 
 ```jbini
 effect e fail {
-  fail: e → a
+  e fail: a
 }
 ```
 
@@ -402,9 +451,9 @@ data a task {
 }
 
 effect async {
-  fork: (𝟙 → a) → a task,
-  wait: a task → a,
-  sleep: integer → 𝟙
+  (𝟙 → a) fork: a task,
+  (a task) wait: a,
+  integer sleep: 𝟙
 }
 ```
 
@@ -422,7 +471,7 @@ the language keyword for type classes is `bone`.
 
 the language keyword for instances is `flesh`.
 
-do not use removed old terms such as `frame`.
+use current language terms consistently.
 
 `bone` declarations may have requirements introduced by leading `given`.
 
@@ -460,8 +509,8 @@ given a equal bone a order {
 ```
 
 ```jbini
-given a add, a negate bone a subtract {
-  let (a: a, b: a) -: a = a + (b ¯)
+given a add bone a subtract {
+  a - a: a
 }
 ```
 
@@ -481,15 +530,11 @@ members inside `flesh` use semicolon separators.
 
 the final semicolon before `}` may be omitted.
 
-do not accept old flesh member syntax without `let`.
-
-do not accept comma separators between flesh members.
-
 ```jbini
 flesh 𝟚 equal {
   let a ≡ b = match a {
-    yea ↦ b,
-    nay ↦ b ¬
+    yea | b,
+    nay | b ¬
   }
 }
 ```
@@ -534,9 +579,9 @@ strings use single quotes.
 
 anonymous functions use bare braces.
 
-the old `func` keyword is removed.
+type-level `func` is allowed as the binary pure function type constructor.
 
-do not reintroduce `func`.
+`a func b` means `a → b`.
 
 do not use `match` without a scrutinee.
 
@@ -546,16 +591,16 @@ each case takes one or more patterns, separated by commas.
 
 multiple patterns in a bare brace function mean multiple curried arguments.
 
-`{ x, y, z ↦ body }` has a type shaped like `a → b → c → d`.
+`{ x, y, z | body }` has a type shaped like `a → b → c → d`.
 
 the argument order is the pattern order: first `x`, then `y`, then `z`.
 
-each case uses `↦`.
+each case uses `|`.
 
 ```jbini
-{ x ↦ x }
-{ x, y ↦ x + y }
-{ x, y, z ↦ (x + y) + z }
+{ x | x }
+{ x, y | x + y }
+{ x, y, z | (x + y) + z }
 ```
 
 blocks are parenthesized.
@@ -585,8 +630,8 @@ scrutinees are separated by commas.
 
 ```jbini
 let chosen = match yea, nay {
-  yea, b ↦ b,
-  nay, _ ↦ nay
+  yea, b | b,
+  nay, _ | nay
 };
 ```
 
@@ -598,16 +643,14 @@ when a bare brace function case has multiple patterns, the result is a curried f
 
 ```jbini
 let not: 𝟚 → 𝟚 = {
-  yea ↦ nay,
-  nay ↦ yea
+  yea | nay,
+  nay | yea
 };
 ```
 
 this bare brace form is recognized as a function over its pattern inputs.
 
-match cases use `↦`.
-
-do not accept old ambiguous forms where a term before `match` could be read as either function application or the scrutinee.
+match cases use `|`.
 
 the consuming form is `match term { ... }`.
 
@@ -641,12 +684,12 @@ record update can set fields.
 
 record update can remove fields.
 
-field removal uses `-field`.
+field removal uses `- field`.
 
 ```jbini
 let person = [name = 'naoki', age = 35];
 let older = [= person, age = 36];
-let public = [= person, -age];
+let public = [= person, - age];
 ```
 
 closed records mean field sets must match when an annotated record type is checked.
@@ -665,6 +708,14 @@ the keyword is `try`, not `perform`.
 
 handlers use `try body { cases }`.
 
+handlers may include a `return` case.
+
+the `return` case handles the normal value produced by the body.
+
+if no `return` case is written, the default is identity.
+
+there may be at most one `return` case.
+
 handler cases may name an operation.
 
 handler cases may name an effect.
@@ -672,6 +723,18 @@ handler cases may name an effect.
 handler case arguments use the same header rule used by functions.
 
 inside an operation handler, `resume` is bound implicitly.
+
+the type of `resume` is the operation result type to the handler answer type.
+
+for an operation `op: a → b`, inside a handler whose answer type is `c`, `resume` has type `b → c` plus the still-unhandled effects.
+
+when an effect and one of its operations share a name, patterns choose the operation form.
+
+`fail | fallback` handles the `fail` effect without binding the error value.
+
+`message fail | message` handles the `fail` operation and binds the error value.
+
+`_ fail | fallback` handles the `fail` operation and ignores the error value.
 
 do not require explicit `resume` binding in syntax.
 
@@ -691,23 +754,31 @@ deep resuming means the same handler remains installed around the rest of the re
 
 ```jbini
 effect choice {
-  choose: 𝟙 → integer
+  𝟙 choose: integer
 }
 
 let branched: integer =
   try (null choose) + (null choose) {
-    choose ↦ (1 resume) + (2 resume)
+    choose | (1 resume) + (2 resume)
   };
 ```
 
 ```jbini
 effect ask {
-  ask: integer → integer
+  integer ask: integer
 }
 
 let answered: integer =
   try 10 ask {
-    x ask ↦ x resume
+    x ask | x resume
+  };
+```
+
+```jbini
+let answered-text: string =
+  try 10 ask {
+    return n | n to-string,
+    x ask | x resume
   };
 ```
 
@@ -717,7 +788,7 @@ a handler for an absent effect is a type error.
 
 handler cases remove the handled effect.
 
-effects used by the handler body are added to the surrounding computation.
+effects used by the return case and handler bodies are added to the surrounding computation.
 
 `resume` must be type checked.
 
@@ -734,12 +805,12 @@ this is still modeled as an effect, because it is a runner capability.
 ```jbini
 let answer: integer =
   try (
-    let left = ({ _ ↦ 20 }) fork;
-    let right = ({ _ ↦ 22 }) fork;
+    let left = ({ _ | 20 }) fork;
+    let right = ({ _ | 22 }) fork;
     (left wait) + (right wait)
   ) {
-    work fork ↦ ((null work) done) resume,
-    (value done) wait ↦ value resume
+    work fork | ((null work) done) resume,
+    (value done) wait | value resume
   };
 ```
 
@@ -762,9 +833,11 @@ type application uses the same sequence rule as expression application.
 
 `a ∏ b` means `∏<a, b>`.
 
-`a b $∏` is the explicit-marker form.
-
 function types use `→`.
+
+`func` is also available as a type-level binary function constructor.
+
+`a func b` means the same pure function type as `a → b`.
 
 effects appear after `!`.
 
@@ -828,33 +901,55 @@ standard-library type classes may also expose the same symbols generically.
 
 arithmetic operations are defined as type-class members in the library, but the runner also supports them natively for `integer` and `float` where appropriate.
 
-native float surface:
+native numeric surface:
 
 ```jbini
 to-string: float → string
 from-string: string → float ! string fail
-⌊: float → integer
+floor: float → integer
 ≤: float → float → 𝟚
 +: float → float → float
-¯: float → float
+-: integer → integer → integer
+-: float → float → float
 ×: float → float → float
-/: float → float ! string fail
-exp: float → float
-log: float → float
-sin: float → float
-cos: float → float
+÷: integer → integer → integer ! string fail
+÷: float → float → float ! string fail
+exponent: float → float
+logarithm: float → float
+sine: float → float
 ```
 
-native integer and runner surface:
+native runner surface:
 
 ```jbini
-divide: integer → integer → integer ! string fail
-write-line: string → 𝟙 ! console
-read-line: 𝟙 → string ! console
+write: string → 𝟙 ! console
+read: 𝟙 → string ! console
 sleep: integer → 𝟙 ! async
-random-float: 𝟙 → float ! random
-random-integer: 𝟙 → integer ! random
+random: 𝟙 → float ! random
 ```
+
+standard ground helper:
+
+```jbini
+write-line: string → 𝟙 ! console
+```
+
+foreign bindings may be declared in source with `class foreign`.
+
+```jbini
+class foreign {
+  integer add-integer integer: integer;
+  integer divide-integer integer: integer ! string fail
+}
+```
+
+this is not a type class.
+
+it declares host-provided functions with ordinary jbini types.
+
+declared names enter the same name environment as `let` names.
+
+source libraries can use those names inside `flesh` to provide class methods.
 
 `from-string` fails with `string fail`.
 
@@ -864,9 +959,13 @@ division by zero fails with `string fail`.
 
 ## current standard library shape
 
-`library/prelude.jbini` defines core data, effects, and basic classes.
+the built-in public import path `ground.jbini` points at `library/ground.jbini`.
 
-core data includes:
+`foreign.jbini` defines primitive runtime-backed effects and task values.
+
+`ground.jbini` re-exports those effects and task values.
+
+core data is split across:
 
 - `𝟘`
 - `𝟙`
@@ -877,7 +976,7 @@ core data includes:
 - `list`
 - `task`
 
-core effects include:
+core effects in `foreign.jbini`, re-exported by `ground.jbini`, include:
 
 - `fail`
 - `console`
@@ -885,36 +984,45 @@ core effects include:
 - `state`
 - `async`
 
-core type classes include:
+core type classes are split across library files:
 
 - `equal`
 - `order`
 - `add`
 - `zero`
-- `negate`
 - `subtract`
 - `multiply`
 - `one`
 - `semiring`
 - `ring`
-- `reciprocalise`
 - `divide`
 - `mod`
 - `field`
 
-other library files define additional classes and instances:
+library files:
 
-- `algebra.jbini`
+- `ground.jbini`
+- `_foreign.jbini`
+- `data/zero.jbini`
+- `data/one.jbini`
+- `data/two.jbini`
+- `data/product.jbini`
+- `data/sum.jbini`
+- `equal.jbini`
+- `order.jbini`
+- `algebra/*.jbini`
+- `collection/*.jbini`
 - `combinator.jbini`
-- `constant.jbini`
-- `natural.jbini`
+- `numeric/constant.jbini`
+- `data/natural.jbini`
 - `list.jbini`
 - `string.jbini`
-- `monad.jbini`
-- `option.jbini`
-- `complex.jbini`
-- `two.jbini`
-- `one.jbini`
+- `string/*.jbini`
+- `data/option.jbini`
+- `numeric/absolute.jbini`
+- `numeric/complex.jbini`
+- `numeric/float.jbini`
+- `numeric/integer.jbini`
 
 when changing library syntax, check every file in `library/`.
 
@@ -924,7 +1032,7 @@ when changing semantics, check every file in `sample/`.
 
 tests should cover success cases and failure cases.
 
-parser tests should cover new syntax and removed syntax.
+parser tests should cover current syntax and meaningful failure cases.
 
 type tests should cover inference, annotations, polymorphism, effects, handlers, runnable-file boundaries, records, imports, and match coverage.
 

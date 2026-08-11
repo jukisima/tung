@@ -1,0 +1,11 @@
+data a ∏ b {
+  a ∏ b
+}
+
+let project₀: a ∏ b → a = {
+  a ∏ _ | a
+}
+
+let project₁: a ∏ b → b = {
+  _ ∏ b | b
+}

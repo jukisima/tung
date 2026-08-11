@@ -1,8 +1,6 @@
-{-# LANGUAGE LambdaCase #-}
-
-module Jbini.Parse
-  ( parse,
-  )
+module Jbini.Parse (
+  parse,
+)
 where
 
 import Control.Applicative (empty, many, some)
@@ -18,13 +16,12 @@ import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as C
 import qualified Text.Megaparsec.Char.Lexer as L
 
-data AppPart = Arg Expr | Fun Expr deriving (Eq, Show)
-
-data HeaderPart = Plain [Token] | Marked [Token] deriving (Eq, Show)
-
-data TypePart = TypeArg TypeExpr | TypeFun TypeExpr deriving (Eq, Show)
-
-data FunctionResult = FunctionResult TypeExpr [TypeExpr] [BoneNeed] deriving (Eq, Show)
+data FunctionResult = FunctionResult
+  { functionResultType :: TypeExpr
+  , functionResultEffects :: [TypeExpr]
+  , functionResultNeeds :: [BoneNeed]
+  }
+  deriving (Eq, Show)
 
 type P a = [Token] -> Either String (a, [Token])
 
@@ -52,9 +49,17 @@ parseDecls [] = pure ([], [])
 parseDecls ts@(TRBrace : _) = pure ([], ts)
 parseDecls (TSemicolon : rest) = parseDecls rest
 parseDecls ts = do
-  (d, rest) <- parseDecl ts
+  (newDecls, rest) <- parseDeclGroup ts
   (ds, rest2) <- parseDecls (dropSemicolon rest)
-  pure (d : ds, rest2)
+  pure (newDecls ++ ds, rest2)
+
+parseDeclGroup :: P [Decl]
+parseDeclGroup = \case
+  TIdent "show" : rest -> parseShowMany ShowDecl "show" rest
+  TIdent "show-type" : rest -> parseShowMany ShowTypeDecl "show-type" rest
+  ts -> do
+    (d, rest) <- parseDecl ts
+    pure ([d], rest)
 
 parseDecl :: P Decl
 parseDecl = \case
@@ -64,6 +69,7 @@ parseDecl = \case
   TType : TIdent name : TEquals : rest -> parseTypeAlias name rest
   TData : rest -> parseData rest
   TEffect : rest -> parseEffect rest
+  TIdent "class" : TIdent "foreign" : TLBrace : rest -> parseForeign rest
   TBone : rest -> parseBone [] rest
   TFlesh : rest -> parseFlesh [] rest
   ts -> case parseExpr ts of
@@ -115,6 +121,20 @@ parseImportPath (TIdent part : TDot : TIdent next : rest) = do
   pure (part : parts, rest2)
 parseImportPath (TIdent part : rest) = pure ([part], rest)
 parseImportPath _ = Left "expected bring path"
+
+parseShowMany :: (String -> Decl) -> String -> P [Decl]
+parseShowMany makeDecl word ts = do
+  (names, rest) <- parseNameList word ts
+  pure (map makeDecl names, rest)
+
+parseNameList :: String -> [Token] -> Either String ([String], [Token])
+parseNameList word = go []
+ where
+  go names = \case
+    TIdent name : TComma : rest -> go (name : names) rest
+    TIdent name : TSemicolon : rest -> pure (reverse (name : names), rest)
+    TIdent _ : _ -> Left ("expected ';' after " ++ word)
+    _ -> Left ("expected name after " ++ word)
 
 parseTypeAlias :: String -> P Decl
 parseTypeAlias name ts = do
@@ -194,53 +214,52 @@ parseTypedArgumentLet givenNeeds ts = do
 parseTypedLetParams :: P ([Pattern], [Maybe TypeExpr])
 parseTypedLetParams (TRParen : _) = Left "typed function argument list cannot be empty"
 parseTypedLetParams ts = go [] [] ts
-  where
-    go params tys (TRParen : rest)
-      | null params = Left "typed function argument list cannot be empty"
-      | otherwise = Right ((reverse params, reverse tys), rest)
-    go params tys (TComma : rest) = go params tys rest
-    go _ _ (TIdent "need" : _) = Left "use leading 'given' for class constraints"
-    go params tys input = do
-      (patternTokens, rest) <- parseTypedParamPatternTokens input
-      pat <- parseWhole "could not parse typed let argument pattern" parsePattern patternTokens
-      case rest of
-        TColon : typeTokens -> do
-          (argTy, rest2) <- parseTypeUntilCommaOrParen typeTokens
-          go (pat : params) (Just argTy : tys) rest2
-        TComma : _ -> go (pat : params) (Nothing : tys) rest
-        TRParen : _ -> go (pat : params) (Nothing : tys) rest
-        _ -> Left "expected ':', ',' or ')' in typed let argument"
+ where
+  go params tys (TRParen : rest)
+    | null params = Left "typed function argument list cannot be empty"
+    | otherwise = Right ((reverse params, reverse tys), rest)
+  go params tys (TComma : rest) = go params tys rest
+  go params tys input = do
+    (patternTokens, rest) <- parseTypedParamPatternTokens input
+    pat <- parseWhole "could not parse typed let argument pattern" parsePattern patternTokens
+    case rest of
+      TColon : typeTokens -> do
+        (argTy, rest2) <- parseTypeUntilCommaOrParen typeTokens
+        go (pat : params) (Just argTy : tys) rest2
+      TComma : _ -> go (pat : params) (Nothing : tys) rest
+      TRParen : _ -> go (pat : params) (Nothing : tys) rest
+      _ -> Left "expected ':', ',' or ')' in typed let argument"
 
 parseTypedParamPatternTokens :: [Token] -> Either String ([Token], [Token])
 parseTypedParamPatternTokens ts = takeTopLevelUntil ts (\case TColon -> True; TComma -> True; TRParen -> True; _ -> False) "unterminated typed argument"
 
 functionLetAnn :: [BoneNeed] -> [Maybe TypeExpr] -> FunctionResult -> Either String TypeAnn
-functionLetAnn needs [] (FunctionResult result [] resultNeeds) = Right (TypeAnn result (needs ++ resultNeeds))
+functionLetAnn needs [] FunctionResult{functionResultType = result, functionResultEffects = [], functionResultNeeds} = Right (TypeAnn result (needs ++ functionResultNeeds))
 functionLetAnn _ [] _ = Left "effect annotation requires function arguments"
-functionLetAnn needs argTypes (FunctionResult result effects resultNeeds) =
-  TypeAnn <$> makeArrowType (fillMissingTypes argTypes) effects result <*> pure (needs ++ resultNeeds)
+functionLetAnn needs argTypes FunctionResult{..} =
+  TypeAnn <$> makeArrowType (fillMissingTypes argTypes) functionResultEffects functionResultType <*> pure (needs ++ functionResultNeeds)
 
 implicitLetAnn :: [BoneNeed] -> [Maybe TypeExpr] -> Maybe TypeAnn
 implicitLetAnn [] [] = Nothing
 implicitLetAnn needs argTypes = Just (TypeAnn ty needs)
-  where
-    ty = case argTypes of
-      [] -> implicitTypeAt 0
-      _ -> either (const (implicitTypeAt (length argTypes))) id (makeArrowType (fillMissingTypes argTypes) [] (implicitTypeAt (length argTypes)))
+ where
+  ty = case argTypes of
+    [] -> implicitTypeAt 0
+    _ -> either (const (implicitTypeAt (length argTypes))) id (makeArrowType (fillMissingTypes argTypes) [] (implicitTypeAt (length argTypes)))
 
 letWithParams :: String -> [Maybe TypeExpr] -> [BoneNeed] -> Maybe TypeAnn -> [Pattern] -> Expr -> Decl
 letWithParams name paramTypes needs resultAnn params body =
   Let name ann (lambdaIfParams params body)
-  where
-    ann = case resultAnn of
-      Just result -> Just (withGivenNeeds needs result)
-      Nothing -> implicitLetAnn needs paramTypes
+ where
+  ann = case resultAnn of
+    Just result -> Just (withGivenNeeds needs result)
+    Nothing -> implicitLetAnn needs paramTypes
 
 fillMissingTypes :: [Maybe TypeExpr] -> [TypeExpr]
 fillMissingTypes = zipWith fill [0 :: Int ..]
-  where
-    fill _ (Just t) = t
-    fill n Nothing = implicitTypeAt n
+ where
+  fill _ (Just t) = t
+  fill n Nothing = implicitTypeAt n
 
 implicitTypeAt :: Int -> TypeExpr
 implicitTypeAt n = TypeName ("t" ++ show n)
@@ -288,33 +307,57 @@ parseEffectOps :: P [EffectOp]
 parseEffectOps = parseCommaListUntil isRightBrace parseEffectOp
 
 parseEffectOp :: P EffectOp
-parseEffectOp (TIdent name : TColon : rest) = do
-  (t, rest2) <- parseTypeUntilCommaOrBrace rest
-  pure (EffectOp name t, rest2)
-parseEffectOp _ = Left "expected effect operation"
+parseEffectOp ts =
+  case takeUntilColon ts of
+    Right (parts, TColon : rest) -> case boneMemberHeader parts of
+      Nothing -> Left "expected effect operation name"
+      Just (argTypes, name) -> do
+        (result, rest2) <- parseFunctionResultUntilCommaOrBrace rest
+        ann <- functionLetAnn [] (map Just argTypes) result
+        case ann of
+          TypeAnn t _ -> pure (EffectOp name t, rest2)
+    _ -> Left "expected effect operation"
+
+parseForeign :: P Decl
+parseForeign ts = do
+  (members, rest) <- parseForeignMembers ts
+  pure (ForeignDecl members, rest)
+
+parseForeignMembers :: P [ForeignMember]
+parseForeignMembers (TRBrace : rest) = Right ([], rest)
+parseForeignMembers (TSemicolon : rest) = parseForeignMembers rest
+parseForeignMembers ts = do
+  (member, rest) <- parseForeignMember ts
+  (members, rest2) <- parseForeignMembers (dropSemicolon rest)
+  pure (member : members, rest2)
+
+parseForeignMember :: P ForeignMember
+parseForeignMember ts =
+  case takeUntilColon ts of
+    Right (parts, TColon : rest) -> case boneMemberHeader parts of
+      Nothing -> Left "expected foreign function name"
+      Just (argTypes, name) -> do
+        ((result, rest2), _) <- parseBoneMemberResultType rest
+        ann <- functionLetAnn [] (map Just argTypes) result
+        pure (ForeignMember name ann, rest2)
+    _ -> Left "expected foreign function"
 
 parseBone :: [BoneNeed] -> P Decl
 parseBone needs ts = do
   (header, body) <- parseHeaderBody "bone" ts
-  rejectOldNeedHeader "bone" header
   (params, name) <- parseParamHeader "bone" header
   (members, rest) <- parseBoneMembers body
   pure (BoneDecl params name needs members, rest)
 
-rejectOldNeedHeader :: String -> [Token] -> Either String ()
-rejectOldNeedHeader kind header
-  | TIdent "need" `elem` header = Left ("use leading 'given' before " ++ kind ++ " instead of 'need'")
-  | otherwise = Right ()
-
 parseBoneNeeds :: P [BoneNeed]
 parseBoneNeeds ts = go [] ts
-  where
-    go acc [] = Right (reverse acc, [])
-    go acc (TComma : rest) = go acc rest
-    go acc input = do
-      (parts, rest) <- takeTopLevelUntilOrEnd input (\case TComma -> True; _ -> False)
-      (need, _) <- parseBoneNeed parts
-      go (need : acc) (dropComma rest)
+ where
+  go acc [] = Right (reverse acc, [])
+  go acc (TComma : rest) = go acc rest
+  go acc input = do
+    (parts, rest) <- takeTopLevelUntilOrEnd input (\case TComma -> True; _ -> False)
+    (need, _) <- parseBoneNeed parts
+    go (need : acc) (dropComma rest)
 
 parseBoneNeedsWhole :: [Token] -> Either String [BoneNeed]
 parseBoneNeedsWhole [] = Right []
@@ -331,7 +374,6 @@ parseBoneNeed ts = case headerFromTokens ts of
 parseFlesh :: [BoneNeed] -> P Decl
 parseFlesh needs ts = do
   (header, body) <- parseHeaderBody "flesh" ts
-  rejectOldNeedHeader "flesh" header
   (tyTerms, boneName) <- maybeToEither "flesh declaration requires a bone name" (headerFromTokens header)
   (ty, _) <- typeFromHeaderTerms tyTerms
   (ds, rest) <- parseFleshMembers body
@@ -439,7 +481,35 @@ parseBoneDefaultLet ts = do
     _ -> Left "bone default must be a let"
 
 parseExpr :: P Expr
-parseExpr = parsePostfixExpr
+parseExpr = parseDollarExpr
+
+parseDollarExpr :: P Expr
+parseDollarExpr ts = do
+  (headExpr, rest) <- parsePostfixExpr ts
+  parseDollarTail headExpr rest
+
+parseDollarTail :: Expr -> P Expr
+parseDollarTail value = \case
+  TDollar : rest -> do
+    (terms, rest2) <- parseDollarTerms rest
+    case terms of
+      fn : args -> parseDollarTail (applyArgs fn (value : args)) rest2
+      [] -> Left "expected expression after '$'"
+  rest -> Right (value, rest)
+
+parseDollarTerms :: P [Expr]
+parseDollarTerms = go []
+ where
+  go acc ts = case ts of
+    [] -> finish acc ts
+    TDollar : _ -> finish acc ts
+    t : _ | exprStop t -> finish acc ts
+    _ -> case parseExprAtom ts of
+      Right (arg, rest) -> go (arg : acc) rest
+      Left _ -> finish acc ts
+  finish acc rest = case reverse acc of
+    [] -> Left "expected expression after '$'"
+    terms -> Right (terms, rest)
 
 parsePostfixExpr :: P Expr
 parsePostfixExpr ts = do
@@ -449,47 +519,28 @@ parsePostfixExpr ts = do
 applyArgs :: Expr -> [Expr] -> Expr
 applyArgs = foldl' (\expr arg -> EApply expr (arg :| []))
 
-applicationFromParts :: [AppPart] -> [Token] -> Either String (Expr, [Token])
-applicationFromParts parts rest =
-  case splitMarkedFunction parts of
-    Left msg -> Left msg
-    Right (Just f, args) -> Right (applyArgs f args, rest)
-    Right (Nothing, _) -> defaultApplication parts rest
+applicationFromParts :: [Expr] -> [Token] -> Either String (Expr, [Token])
+applicationFromParts = defaultApplication
 
-splitMarkedFunction :: [AppPart] -> Either String (Maybe Expr, [Expr])
-splitMarkedFunction parts = do
-  (args, f) <- foldM step ([], Nothing) parts
-  pure (f, reverse args)
-  where
-    step (args, f) (Arg e) = Right (e : args, f)
-    step (args, Nothing) (Fun e) = Right (args, Just e)
-    step (_, Just _) (Fun _) = Left "application has multiple '$' function markers"
-
-defaultApplication :: [AppPart] -> [Token] -> Either String (Expr, [Token])
-defaultApplication parts rest = case map partExpr parts of
+defaultApplication :: [Expr] -> [Token] -> Either String (Expr, [Token])
+defaultApplication parts rest = case parts of
   [] -> Left "expected expression"
   [x] -> Right (x, rest)
   arg : f : args -> Right (applyArgs f (arg : args), rest)
 
-partExpr :: AppPart -> Expr
-partExpr (Arg e) = e
-partExpr (Fun e) = e
-
-parseExprParts :: P [AppPart]
+parseExprParts :: P [Expr]
 parseExprParts = go []
-  where
-    go acc ts = case ts of
-      [] -> Right (reverse acc, [])
-      TLBrace : _ | not (null acc) -> Right (reverse acc, ts)
-      t : _ | exprStop t -> Right (reverse acc, ts)
-      TDollar : rest -> case parseExprAtom rest of
-        Right (e, rest2) -> go (Fun e : acc) rest2
-        Left _ -> Left "expected expression after '$'"
-      _ -> case parseExprAtom ts of
-        Right (e, rest) -> go (Arg e : acc) rest
-        Left _
-          | null acc -> Left "expected expression atom"
-          | otherwise -> Right (reverse acc, ts)
+ where
+  go acc ts = case ts of
+    [] -> Right (reverse acc, [])
+    TLBrace : _ | not (null acc) -> Right (reverse acc, ts)
+    t : _ | exprStop t -> Right (reverse acc, ts)
+    TDollar : _ -> Right (reverse acc, ts)
+    _ -> case parseExprAtom ts of
+      Right (e, rest) -> go (e : acc) rest
+      Left _
+        | null acc -> Left "expected expression atom"
+        | otherwise -> Right (reverse acc, ts)
 
 exprStop :: Token -> Bool
 exprStop = \case
@@ -558,22 +609,35 @@ parseTry ts = do
   (body, rest) <- parseExpr ts
   case rest of
     TLBrace : rest2 -> do
-      (cases, rest3) <- parseHandlerCases rest2
-      pure (ETry body cases, rest3)
+      ((returnCase, cases), rest3) <- parseHandlerCases rest2
+      pure (ETry body returnCase cases, rest3)
     _ -> pure (body, rest)
 
-parseHandlerCases :: P [HandlerCase]
-parseHandlerCases = parseCommaListUntil isRightBrace parseHandlerCase
+data HandlerItem = HandlerReturnItem ReturnCase | HandlerCaseItem HandlerCase
 
-parseHandlerCase :: P HandlerCase
-parseHandlerCase ts = do
-  (header, rest) <- takeTopLevelUntil ts (\case TMapsTo -> True; _ -> False) "expected '↦' in handler case"
+parseHandlerCases :: P (Maybe ReturnCase, [HandlerCase])
+parseHandlerCases ts = do
+  (items, rest) <- parseCommaListUntil isRightBrace parseHandlerItem ts
+  (returnCase, cases) <- foldM collect (Nothing, []) items
+  pure ((returnCase, reverse cases), rest)
+ where
+  collect (Nothing, cases) (HandlerReturnItem returnCase) = Right (Just returnCase, cases)
+  collect (Just _, _) (HandlerReturnItem _) = Left "handler has more than one return case"
+  collect (returnCase, cases) (HandlerCaseItem handlerCase) = Right (returnCase, handlerCase : cases)
+
+parseHandlerItem :: P HandlerItem
+parseHandlerItem ts = do
+  (header, rest) <- takeTopLevelUntil ts (\case TMapsTo -> True; _ -> False) "expected '|' in handler case"
   case rest of
-    TMapsTo : bodyTokens -> case handlerCaseHeader header of
-      Nothing -> Left "expected handler case"
-      Just (name, params) -> do
+    TMapsTo : bodyTokens -> case returnCaseHeader header of
+      Just returnPattern -> do
         (body, rest2) <- parseExpr bodyTokens
-        pure (HandlerCase name params body, rest2)
+        pure (HandlerReturnItem (ReturnCase returnPattern body), rest2)
+      Nothing -> case handlerCaseHeader header of
+        Nothing -> Left "expected handler case"
+        Just (name, params) -> do
+          (body, rest2) <- parseExpr bodyTokens
+          pure (HandlerCaseItem (HandlerCase name params body), rest2)
     _ -> Left "expected handler case"
 
 handlerCaseHeader :: [Token] -> Maybe (String, [Pattern])
@@ -581,6 +645,12 @@ handlerCaseHeader ts = do
   (argTerms, name) <- headerFromTokens ts
   params <- patternsFromHeaderTerms argTerms
   pure (name, params)
+
+returnCaseHeader :: [Token] -> Maybe Pattern
+returnCaseHeader (TIdent "return" : rest) = case parsePattern rest of
+  Right (pattern, []) -> Just pattern
+  _ -> Nothing
+returnCaseHeader _ = Nothing
 
 parseBlock :: P Expr
 parseBlock ts = do
@@ -628,16 +698,11 @@ parseRecordUpdates :: P [RecordUpdate]
 parseRecordUpdates = parseCommaListUntil isRightBracket parseRecordUpdateItem
 
 parseRecordUpdateItem :: P RecordUpdate
-parseRecordUpdateItem (TIdent name : rest)
-  | Just field <- removedFieldName name = Right (RecordRemove field, rest)
+parseRecordUpdateItem (TIdent "-" : TIdent name : rest) = Right (RecordRemove name, rest)
 parseRecordUpdateItem (TIdent name : TEquals : rest) = do
   (e, rest2) <- parseExpr rest
   pure (RecordSet name e, rest2)
 parseRecordUpdateItem _ = Left "expected record update"
-
-removedFieldName :: String -> Maybe String
-removedFieldName ('-' : c : rest) = Just (c : rest)
-removedFieldName _ = Nothing
 
 parseRecordExprFields :: P [(String, Expr)]
 parseRecordExprFields = parseCommaListUntil isRightBracket parseRecordExprField
@@ -662,40 +727,37 @@ parseMatchCase ts = do
     TMapsTo : bodyTokens -> do
       (e, rest2) <- parseExpr bodyTokens
       pure (MatchCase ps e, rest2)
-    _ -> Left "expected '↦' in match case"
+    _ -> Left "expected '|' in match case"
 
 parseMatchCasePatterns :: P (NonEmpty Pattern)
 parseMatchCasePatterns ts = do
   (firstPattern, rest) <- parsePattern ts
   go (firstPattern :| []) rest
-  where
-    go acc rest = case rest of
-      TComma : rest2 -> do
-        (p, rest3) <- parsePattern rest2
-        go (acc <> (p :| [])) rest3
-      TMapsTo : _ -> Right (acc, rest)
-      _ -> Left "expected ',' or '↦' after match pattern"
+ where
+  go acc rest = case rest of
+    TComma : rest2 -> do
+      (p, rest3) <- parsePattern rest2
+      go (acc <> (p :| [])) rest3
+    TMapsTo : _ -> Right (acc, rest)
+    _ -> Left "expected ',' or '|' after match pattern"
 
 parsePattern :: P Pattern
 parsePattern ts = do
   (parts, rest) <- parsePatternParts ts
   patternFromParts parts rest
 
-parsePatternParts :: P [HeaderPart]
+parsePatternParts :: P [[Token]]
 parsePatternParts = go []
-  where
-    finish acc rest
-      | null acc = Left "expected pattern"
-      | otherwise = Right (reverse acc, rest)
-    go acc ts = case ts of
-      [] -> Right (reverse acc, [])
-      t : _ | patternStop t -> finish acc ts
-      TDollar : rest -> case readHeaderTerm rest of
-        Nothing -> Left "expected pattern after '$'"
-        Just (term, rest2) -> go (Marked term : acc) rest2
-      _ -> case readHeaderTerm ts of
-        Nothing -> finish acc ts
-        Just (term, rest) -> go (Plain term : acc) rest
+ where
+  finish acc rest
+    | null acc = Left "expected pattern"
+    | otherwise = Right (reverse acc, rest)
+  go acc ts = case ts of
+    [] -> Right (reverse acc, [])
+    t : _ | patternStop t -> finish acc ts
+    _ -> case readHeaderTerm ts of
+      Nothing -> finish acc ts
+      Just (term, rest) -> go (term : acc) rest
 
 patternStop :: Token -> Bool
 patternStop = \case
@@ -705,8 +767,8 @@ patternStop = \case
   TRBrace -> True
   _ -> False
 
-patternFromParts :: [HeaderPart] -> [Token] -> Either String (Pattern, [Token])
-patternFromParts [Plain term] rest = case patternFromTerm term of
+patternFromParts :: [[Token]] -> [Token] -> Either String (Pattern, [Token])
+patternFromParts [term] rest = case patternFromTerm term of
   Just (PVar name) | isQualifiedName name -> Right (PCon name [], rest)
   Just p -> Right (p, rest)
   Nothing -> Left "expected pattern"
@@ -725,18 +787,17 @@ patternFromTerm term = parseWholeMaybe parsePattern term
 
 parseTypeUntilExpr :: P TypeExpr
 parseTypeUntilExpr = go []
-  where
-    go _ [] = Left "expected expression after type"
-    go [] (TLParen : rest) = case takeBalanced rest of
-      Right (inner, rest2) | startsExpr rest2 -> (\t -> (t, rest2)) <$> parseWhole "let has no type annotation" parseTypeTokens inner
-      _ -> Left "let has no type annotation"
-    go acc ts@(x : _)
-      | isExprStarter x && not (null acc) = (\t -> (t, ts)) <$> parseWhole "could not parse whole type" parseTypeTokens (reverse acc)
-      | isExprStarter x = Left "let has no type annotation"
-    go acc (x : xs) = go (x : acc) xs
+ where
+  go _ [] = Left "expected expression after type"
+  go [] (TLParen : rest) = case takeBalanced rest of
+    Right (inner, rest2) | startsExpr rest2 -> (\t -> (t, rest2)) <$> parseWhole "let has no type annotation" parseTypeTokens inner
+    _ -> Left "let has no type annotation"
+  go acc ts@(x : _)
+    | isExprStarter x && not (null acc) = (\t -> (t, ts)) <$> parseWhole "could not parse whole type" parseTypeTokens (reverse acc)
+    | isExprStarter x = Left "let has no type annotation"
+  go acc (x : xs) = go (x : acc) xs
 
-parseTypeUntilCommaOrBrace, parseTypeUntilCommaOrParen, parseTypeUntilSemicolon :: P TypeExpr
-parseTypeUntilCommaOrBrace ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRBrace -> True; _ -> False) "unterminated type"
+parseTypeUntilCommaOrParen, parseTypeUntilSemicolon :: P TypeExpr
 parseTypeUntilCommaOrParen ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRParen -> True; _ -> False) "unterminated parameter type"
 parseTypeUntilSemicolon ts = parseTypeUntilTopLevelOrEnd ts (\case TSemicolon -> True; _ -> False) "unterminated type"
 
@@ -753,7 +814,8 @@ parseTypeAnnTokens :: [Token] -> Either String TypeAnn
 parseTypeAnnTokens tokens =
   TypeAnn <$> parseWhole "could not parse whole type" parseTypeTokens tokens <*> pure []
 
-parseFunctionResultUntilSemicolonOrBraceOrEquals, parseFunctionResultUntilEquals :: P FunctionResult
+parseFunctionResultUntilCommaOrBrace, parseFunctionResultUntilSemicolonOrBraceOrEquals, parseFunctionResultUntilEquals :: P FunctionResult
+parseFunctionResultUntilCommaOrBrace ts = parseFunctionResultUntilTopLevel ts (\case TComma -> True; TRBrace -> True; _ -> False) "unterminated type"
 parseFunctionResultUntilSemicolonOrBraceOrEquals ts = parseFunctionResultUntilTopLevel ts (\case TRBrace -> True; TEquals -> True; TSemicolon -> True; _ -> False) "unterminated type"
 parseFunctionResultUntilEquals ts = parseFunctionResultUntilTopLevel ts (\case TEquals -> True; _ -> False) "expected '=' after type"
 
@@ -803,11 +865,11 @@ parseForallType ts = case splitTopLevelForall ts of
 
 parseForallParams :: P [TypeExpr]
 parseForallParams = go []
-  where
-    go acc [] = Right (reverse acc, [])
-    go acc (TComma : rest) = go acc rest
-    go acc (TIdent name : rest) = go (TypeName name : acc) rest
-    go _ _ = Left "forall parameters must be names"
+ where
+  go acc [] = Right (reverse acc, [])
+  go acc (TComma : rest) = go acc rest
+  go acc (TIdent name : rest) = go (TypeName name : acc) rest
+  go _ _ = Left "forall parameters must be names"
 
 parseArrowType :: P TypeExpr
 parseArrowType ts = case splitTopLevelArrow ts of
@@ -857,38 +919,35 @@ parseEffectList = parseCommaTypes
 
 takeEffectTokens :: P [Token]
 takeEffectTokens = go []
-  where
-    go acc (TRBrace : rest) = Right (reverse acc, rest)
-    go acc (x : rest) = go (x : acc) rest
-    go _ [] = Left "expected '}' after effects"
+ where
+  go acc (TRBrace : rest) = Right (reverse acc, rest)
+  go acc (x : rest) = go (x : acc) rest
+  go _ [] = Left "expected '}' after effects"
 
 parseCommaTypes :: P [TypeExpr]
 parseCommaTypes = go []
-  where
-    go acc ts = case splitTopLevelComma ts of
-      Just (left, right) -> do
-        t <- parseWhole "unexpected tokens before comma" parseTypeApplication left
-        go (t : acc) right
-      Nothing -> do
-        t <- parseWhole "unexpected tokens in type" parseTypeApplication ts
-        Right (reverse (t : acc), [])
+ where
+  go acc ts = case splitTopLevelComma ts of
+    Just (left, right) -> do
+      t <- parseWhole "unexpected tokens before comma" parseTypeApplication left
+      go (t : acc) right
+    Nothing -> do
+      t <- parseWhole "unexpected tokens in type" parseTypeApplication ts
+      Right (reverse (t : acc), [])
 
 parseTypeApplication :: P TypeExpr
 parseTypeApplication ts = do
   (parts, rest) <- parseTypeParts ts
   typeFromParts parts rest
 
-parseTypeParts :: P [TypePart]
+parseTypeParts :: P [TypeExpr]
 parseTypeParts = go []
-  where
-    go acc (TDollar : rest) = case parseTypeAtom rest of
-      Right (t, rest2) -> go (TypeFun t : acc) rest2
-      Left _ -> Left "expected type after '$'"
-    go acc ts = case parseTypeAtom ts of
-      Right (t, rest) -> go (TypeArg t : acc) rest
-      Left _
-        | null acc -> Left "expected type"
-        | otherwise -> Right (reverse acc, ts)
+ where
+  go acc ts = case parseTypeAtom ts of
+    Right (t, rest) -> go (t : acc) rest
+    Left _
+      | null acc -> Left "expected type"
+      | otherwise -> Right (reverse acc, ts)
 
 parseTypeAtom :: P TypeExpr
 parseTypeAtom = \case
@@ -921,32 +980,15 @@ parseRecordTypeField _ = Left "expected record field type"
 parseTypeUntilCommaOrBracket :: P TypeExpr
 parseTypeUntilCommaOrBracket ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRBracket -> True; _ -> False) "unterminated record type"
 
-typeFromParts :: [TypePart] -> [Token] -> Either String (TypeExpr, [Token])
-typeFromParts parts rest = case markedType parts of
-  Left msg -> Left msg
-  Right (Just name, args) -> Right (typeApplication name args, rest)
-  Right (Nothing, _) -> defaultType parts rest
+typeFromParts :: [TypeExpr] -> [Token] -> Either String (TypeExpr, [Token])
+typeFromParts = defaultType
 
-markedType :: [TypePart] -> Either String (Maybe String, [TypeExpr])
-markedType parts = do
-  (args, name) <- foldM step ([], Nothing) parts
-  Right (name, reverse args)
-  where
-    step (args, name) (TypeArg t) = Right (t : args, name)
-    step (args, Nothing) (TypeFun (TypeName n)) = Right (args, Just n)
-    step (_, Just _) (TypeFun _) = Left "type application has multiple '$' operator markers"
-    step _ (TypeFun _) = Left "type operator must be a name"
-
-defaultType :: [TypePart] -> [Token] -> Either String (TypeExpr, [Token])
-defaultType parts rest = case map typePartExpr parts of
+defaultType :: [TypeExpr] -> [Token] -> Either String (TypeExpr, [Token])
+defaultType parts rest = case parts of
   [] -> Left "expected type"
   [x] -> Right (x, rest)
   arg : TypeName name : args -> Right (typeApplication name (arg : args), rest)
   arg : f : args -> Right (TypeApply "<type>" (arg : f : args), rest)
-
-typePartExpr :: TypePart -> TypeExpr
-typePartExpr (TypeArg t) = t
-typePartExpr (TypeFun t) = t
 
 typeApplication :: String -> [TypeExpr] -> TypeExpr
 typeApplication name [] = TypeName name
@@ -963,7 +1005,6 @@ isExprStarter = \case
   TLBracket -> True
   TTry -> True
   TMatch -> True
-  TDollar -> True
   _ -> False
 
 startsExpr :: [Token] -> Bool
@@ -989,16 +1030,13 @@ functionHeader ts = do
 headerFromTokens :: [Token] -> Maybe ([[Token]], String)
 headerFromTokens ts = headerParts ts >>= headerFromParts
 
-headerParts :: [Token] -> Maybe [HeaderPart]
+headerParts :: [Token] -> Maybe [[Token]]
 headerParts = go []
-  where
-    go acc [] = Just (reverse acc)
-    go acc (TDollar : rest) = do
-      (term, rest2) <- readHeaderTerm rest
-      go (Marked term : acc) rest2
-    go acc ts = do
-      (term, rest) <- readHeaderTerm ts
-      go (Plain term : acc) rest
+ where
+  go acc [] = Just (reverse acc)
+  go acc ts = do
+    (term, rest) <- readHeaderTerm ts
+    go (term : acc) rest
 
 readHeaderTerm :: [Token] -> Maybe ([Token], [Token])
 readHeaderTerm (TIdent name : rest) = Just ([TIdent name], rest)
@@ -1007,38 +1045,17 @@ readHeaderTerm (TLParen : rest) = do
   Just (TLParen : inner ++ [TRParen], rest2)
 readHeaderTerm _ = Nothing
 
-headerFromParts :: [HeaderPart] -> Maybe ([[Token]], String)
-headerFromParts parts = case markedHeader parts of
-  Nothing -> Nothing
-  Just (Just name, args) -> Just (args, name)
-  Just (Nothing, _) -> defaultHeader parts
+headerFromParts :: [[Token]] -> Maybe ([[Token]], String)
+headerFromParts = defaultHeader
 
-markedHeader :: [HeaderPart] -> Maybe (Maybe String, [[Token]])
-markedHeader parts = do
-  (args, name) <- foldM step ([], Nothing) parts
-  Just (name, reverse args)
-  where
-    step (args, name) (Plain term) = Just (term : args, name)
-    step (args, Nothing) (Marked term) = do
-      name <- headerTermName term
-      Just (args, Just name)
-    step (_, Just _) (Marked _) = Nothing
-
-defaultHeader :: [HeaderPart] -> Maybe ([[Token]], String)
-defaultHeader [Plain term] = do
+defaultHeader :: [[Token]] -> Maybe ([[Token]], String)
+defaultHeader [term] = do
   name <- headerTermName term
   pure ([], name)
-defaultHeader (Plain arg : Plain fun : rest) = do
+defaultHeader (arg : fun : rest) = do
   name <- headerTermName fun
-  after <- plainHeaderTerms rest
-  pure (arg : after, name)
+  pure (arg : rest, name)
 defaultHeader _ = Nothing
-
-plainHeaderTerms :: [HeaderPart] -> Maybe [[Token]]
-plainHeaderTerms parts = reverse <$> foldM step [] parts
-  where
-    step acc (Plain term) = Just (term : acc)
-    step _ (Marked _) = Nothing
 
 headerTermName :: [Token] -> Maybe String
 headerTermName [TIdent name] = Just name
@@ -1083,12 +1100,12 @@ maybeToEither msg Nothing = Left msg
 
 parseCommaListUntil :: (Token -> Bool) -> P a -> P [a]
 parseCommaListUntil stop parseItem = go
-  where
-    go (t : rest) | stop t = Right ([], rest)
-    go ts = do
-      (x, rest) <- parseItem ts
-      (xs, rest2) <- go (dropComma rest)
-      pure (x : xs, rest2)
+ where
+  go (t : rest) | stop t = Right ([], rest)
+  go ts = do
+    (x, rest) <- parseItem ts
+    (xs, rest2) <- go (dropComma rest)
+    pure (x : xs, rest2)
 
 dropComma, dropSemicolon :: [Token] -> [Token]
 dropComma (TComma : rest) = rest
@@ -1102,34 +1119,34 @@ tokenParser :: Lexer Token
 tokenParser =
   lexeme $
     M.choice
-      [ TForall <$ M.try (C.string "\\\\"),
-        TInteger <$> M.try integerParser,
-        TFloat <$> M.try floatParser,
-        TIdent <$> M.try prependNameParser,
-        charParser,
-        stringParser,
-        singleTokenParser,
-        nameParser
+      [ TForall <$ M.try (C.string "\\\\")
+      , TInteger <$> M.try integerParser
+      , TFloat <$> M.try floatParser
+      , TIdent <$> M.try prependNameParser
+      , charParser
+      , stringParser
+      , singleTokenParser
+      , nameParser
       ]
 
 singleTokenParser :: Lexer Token
 singleTokenParser =
   M.choice
-    [ TLParen <$ C.char '(',
-      TRParen <$ C.char ')',
-      TLBrace <$ C.char '{',
-      TRBrace <$ C.char '}',
-      TLBracket <$ C.char '[',
-      TRBracket <$ C.char ']',
-      TColon <$ C.char ':',
-      TComma <$ C.char ',',
-      TMapsTo <$ C.char '↦',
-      TBang <$ C.char '!',
-      TEquals <$ C.char '=',
-      TSemicolon <$ C.char ';',
-      TDot <$ C.char '.',
-      TDollar <$ C.char '$',
-      TArrow <$ C.char '→'
+    [ TLParen <$ C.char '('
+    , TRParen <$ C.char ')'
+    , TLBrace <$ C.char '{'
+    , TRBrace <$ C.char '}'
+    , TLBracket <$ C.char '['
+    , TRBracket <$ C.char ']'
+    , TColon <$ C.char ':'
+    , TComma <$ C.char ','
+    , TMapsTo <$ C.char '|'
+    , TBang <$ C.char '!'
+    , TEquals <$ C.char '='
+    , TSemicolon <$ C.char ';'
+    , TDot <$ C.char '.'
+    , TDollar <$ (C.char '$' <* M.notFollowedBy (M.satisfy isNameChar))
+    , TArrow <$ C.char '→'
     ]
 
 integerParser :: Lexer Int
@@ -1171,9 +1188,10 @@ stringParser = TString <$> (C.char '\'' *> many stringCharParser <* C.char '\'')
 stringCharParser :: Lexer Char
 stringCharParser =
   M.choice
-    [ '\'' <$ C.string "\\'",
-      '\\' <$ C.string "\\\\",
-      M.anySingleBut '\''
+    [ '\n' <$ C.string "\\n"
+    , '\'' <$ C.string "\\'"
+    , '\\' <$ C.string "\\\\"
+    , M.anySingleBut '\''
     ]
 
 nameParser :: Lexer Token
@@ -1210,7 +1228,7 @@ isNameChar :: Char -> Bool
 isNameChar c = not (isSpace c) && not (c `elem` specialNameChars)
 
 specialNameChars :: [Char]
-specialNameChars = "#(){}[]:,↦!=;.$\\→`'"
+specialNameChars = "#(){}[]:,|!=;.$\\→`'"
 
 isQualifiedName :: String -> Bool
 isQualifiedName = elem '@'
@@ -1230,16 +1248,16 @@ splitTopLevelComma ts = splitTopLevel ts (\case TComma -> True; _ -> False)
 
 splitTopLevel :: [Token] -> (Token -> Bool) -> Maybe ([Token], [Token])
 splitTopLevel ts stop = go [] (0 :: Int) ts
-  where
-    go _ _ [] = Nothing
-    go acc depth (x : rest)
-      | depth == 0 && stop x = Just (reverse acc, rest)
-      | otherwise = case x of
-          TLParen -> go (x : acc) (depth + 1) rest
-          TRParen -> go (x : acc) (depth - 1) rest
-          TLBracket -> go (x : acc) (depth + 1) rest
-          TRBracket -> go (x : acc) (depth - 1) rest
-          _ -> go (x : acc) depth rest
+ where
+  go _ _ [] = Nothing
+  go acc depth (x : rest)
+    | depth == 0 && stop x = Just (reverse acc, rest)
+    | otherwise = case x of
+        TLParen -> go (x : acc) (depth + 1) rest
+        TRParen -> go (x : acc) (depth - 1) rest
+        TLBracket -> go (x : acc) (depth + 1) rest
+        TRBracket -> go (x : acc) (depth - 1) rest
+        _ -> go (x : acc) depth rest
 
 takeTopLevelUntil :: [Token] -> (Token -> Bool) -> String -> Either String ([Token], [Token])
 takeTopLevelUntil ts stop message = case takeTopLevelUntilOrEnd ts stop of
@@ -1248,25 +1266,25 @@ takeTopLevelUntil ts stop message = case takeTopLevelUntilOrEnd ts stop of
 
 takeTopLevelUntilOrEnd :: [Token] -> (Token -> Bool) -> Either String ([Token], [Token])
 takeTopLevelUntilOrEnd ts stop = go [] (0 :: Int) ts stop
-  where
-    go acc _ [] _ = Right (reverse acc, [])
-    go acc depth xs@(x : rest) stop
-      | depth == 0 && stop x = Right (reverse acc, xs)
-      | otherwise = case x of
-          TLParen -> go (x : acc) (depth + 1) rest stop
-          TRParen -> go (x : acc) (depth - 1) rest stop
-          TLBracket -> go (x : acc) (depth + 1) rest stop
-          TRBracket -> go (x : acc) (depth - 1) rest stop
-          _ -> go (x : acc) depth rest stop
+ where
+  go acc _ [] _ = Right (reverse acc, [])
+  go acc depth xs@(x : rest) stop
+    | depth == 0 && stop x = Right (reverse acc, xs)
+    | otherwise = case x of
+        TLParen -> go (x : acc) (depth + 1) rest stop
+        TRParen -> go (x : acc) (depth - 1) rest stop
+        TLBracket -> go (x : acc) (depth + 1) rest stop
+        TRBracket -> go (x : acc) (depth - 1) rest stop
+        _ -> go (x : acc) depth rest stop
 
 takeBalanced :: [Token] -> Either String ([Token], [Token])
 takeBalanced = go [] (1 :: Int)
-  where
-    go _ _ [] = Left "unclosed parenthesized type"
-    go acc depth (TLParen : rest) = go (TLParen : acc) (depth + 1) rest
-    go acc 1 (TRParen : rest) = Right (reverse acc, rest)
-    go acc depth (TRParen : rest) = go (TRParen : acc) (depth - 1) rest
-    go acc depth (x : rest) = go (x : acc) depth rest
+ where
+  go _ _ [] = Left "unclosed parenthesized type"
+  go acc depth (TLParen : rest) = go (TLParen : acc) (depth + 1) rest
+  go acc 1 (TRParen : rest) = Right (reverse acc, rest)
+  go acc depth (TRParen : rest) = go (TRParen : acc) (depth - 1) rest
+  go acc depth (x : rest) = go (x : acc) depth rest
 
 takeHeaderTokens :: String -> [Token] -> Either String ([Token], [Token])
 takeHeaderTokens kind ts = takeTopLevelUntil ts (\case TLBrace -> True; _ -> False) ("expected '{' after " ++ kind ++ " header")

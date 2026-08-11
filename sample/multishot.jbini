@@ -1,4 +1,4 @@
-bring prelude.jbini;
+bring ground.jbini;
 
 effect choice {
   choose: 𝟙 → integer
@@ -6,7 +6,7 @@ effect choice {
 
 let branch-sum: integer =
   try (null choose) + (null choose) {
-    choose ↦ (1 resume) + (2 resume)
+    choose | (2 resume) + (3 resume)
   };
 
 let _ = 'multi-shot' write-line;

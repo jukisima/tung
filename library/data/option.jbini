@@ -1,0 +1,58 @@
+bring ground.jbini;
+bring algebra/semigroup.jbini;
+bring algebra/monoid.jbini;
+bring collection/applicative.jbini;
+bring collection/monad.jbini;
+bring collection/filter.jbini;
+
+data a option {
+  none,
+  a some
+}
+
+given a semigroup flesh (a option) semigroup {
+  let * = {
+    none, b | b,
+    a, none | a,
+    a some, b some | (a * b) some
+  }
+}
+
+given a semigroup flesh (a option) monoid {
+  let ∅ = none
+}
+
+flesh option functor {
+  let it map f = match it {
+    none | none,
+    a some | (a f) some
+  }
+}
+
+flesh option applicative {
+  let pure = some;
+  let apply = {
+    a some, f some | (a f) some,
+    _, _ | none
+  }
+}
+
+flesh option monad {
+  let flat = {
+    none | none,
+    in some | in
+  };
+  let a map-flat f = (a map f) flat
+}
+
+flesh option filter {
+  let a filter f = match a {
+    none | none,
+    in some | (in f) if (in some) none
+  }
+}
+
+let (a: a option, b: a) default: a = match a {
+  none | b,
+  in some | in
+}

@@ -1,0 +1,44 @@
+bring foreign.jbini;
+bring one.jbini;
+bring two.jbini;
+bring equal.jbini;
+bring order.jbini;
+bring string/to-string.jbini;
+bring string/from-string.jbini;
+bring algebra/semiring.jbini;
+bring algebra/ring.jbini;
+bring algebra/field.jbini;
+bring collection/functor.jbini;
+bring numeric/float.jbini;
+
+let (text: string) write-line: 𝟙 ! console = (
+  let _ = text write;
+  '\n' write
+);
+
+show-type 𝟙;
+show null;
+
+show-type 𝟚;
+show yea, nay;
+
+show-type task;
+show done;
+
+show ¬, if;
+
+show fail;
+show write, write-line, read;
+show random;
+show get, set;
+show fork, wait, sleep;
+
+show ≡, ≢;
+show ≤, <, ∧, ∨;
+
+show +, zero, ×, one, -, ÷;
+show sine, cosine, exponent, logarithm, floor;
+
+show to-string;
+show from-string;
+show map;

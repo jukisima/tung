@@ -1,4 +1,4 @@
-bring prelude.jbini;
+bring ground.jbini;
 
 data v lambda {
   v var,
@@ -7,9 +7,9 @@ data v lambda {
 }
 
 given v equal let (target: v lambda, x: v, s: v lambda) subst: v lambda = match target {
-  y var ↦ (x ≡ y) if s (y var),
-  y abs t ↦ (x ≡ y) if (y abs t) (y abs (t subst x s)),
-  t0 app t1 ↦ (t0 subst x s) app (t1 subst x s)
+  y var | (x ≡ y) if s (y var),
+  y abs t | (x ≡ y) if (y abs t) (y abs (t subst x s)),
+  t0 app t1 | (t0 subst x s) app (t1 subst x s)
 };
 
 '!' write-line

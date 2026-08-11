@@ -1,0 +1,17 @@
+bring foreign.jbini;
+bring algebra/ring.jbini;
+
+bone a divide {
+  a ÷ a: a ! string fail
+}
+
+given a ring, a divide
+bone a field {}
+
+flesh integer divide {
+  let ÷ = divide-integer
+}
+
+flesh float divide {
+  let ÷ = divide-float
+}
