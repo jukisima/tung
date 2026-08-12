@@ -1,6 +1,6 @@
 # jbini
 
-jbini is a functional programming language with
+jbini is a functional programming tongue with
 
 - static typing
 - algebraic data types
@@ -11,14 +11,18 @@ jbini is a functional programming language with
 ## quick start
 
 ```sh
+cd tongue
+
 cabal build all
 
 cabal test all
 
-cabal run jbini -- sample/fizzbuzz.jbini
+cabal run jbini -- ../sample/fizzbuzz.jbini
 ```
 
-a runnable file must produce `𝟙`. only `console`, `random`, and `async` effects may remain unhandled at the file boundary. user-defined effects and `fail` must be handled before the end of the file.
+vscode syntax highlighting lives in `highlight/`.
+
+a runnable file must produce `𝟙`. only `console`, `random`, `async`, and `file` effects may remain unhandled at the file boundary. user-defined effects and `fail` must be handled before the end of the file.
 
 ## small example
 
@@ -86,7 +90,7 @@ the core implementation knows these primitive value types:
 
 the standard library defines these common data types:
 
-- `𝟘`: empty type
+- `𝟘`: empty type, with eliminator `initial`
 - `𝟙`: unit type, with value `null`
 - `𝟚`: boolean type, with values `yea` and `nay`
 - `a option`: `none` or `a some`
@@ -104,10 +108,17 @@ literals.
 
 # character
 `a
-`\23383 # 字
+`\n
+`\r
+`\t
+`\'
+`\\
+`\{23383} # 字
+`{23383} # 字
 
 # string
 'hello'
+'\n\r\t\'\\\{23383}'
 ```
 
 ## application
@@ -119,7 +130,7 @@ a f       # f a in haskell
 a f b c   # f a b c in haskell
 ```
 
-the language curries all functions.
+the tongue curries all functions.
 
 ```jbini
 let add = { x, y | x + y };
@@ -130,8 +141,11 @@ let one-add = 1 add;
 `$` is a pipeline syntax.
 
 ```jbini
-a f b $ g c d $ h
-# ((a f b) g c d) h
+a f $h b g
+# (a f) h (b g)
+
+a f $(g b c) $h d
+# ((a f) g b c) h d
 ```
 
 ## evaluation
@@ -205,6 +219,12 @@ match a, b {
 
 cases must have the same number of patterns and be exhaustive.
 
+an empty match is allowed only when the scrutinee type has no values. the empty anonymous function `{}` is allowed when its annotated input type is empty.
+
+```jbini
+let initial: 𝟘 → a = {};
+```
+
 ## algebraic data types
 
 ```jbini
@@ -230,6 +250,8 @@ let person: [name: string, age: integer] =
 
 let older = [= person, age = 33];
 
+let age = person@age;
+
 let public = [= person, - age];
 ```
 
@@ -251,6 +273,10 @@ integer → integer ! string fail
 ```
 
 effect annotations belong to function arrows. partial application is pure; only full application can run latent effects.
+
+```jbini
+string → string ! file, string fail
+```
 
 ```jbini
 type string = character list;
@@ -300,7 +326,7 @@ effect console {
 }
 ```
 
-effect operation types must be function types. the effect declaration itself adds the latent effect, so operation signatures do not write the same effect at the top level.
+effect operation types must be function types. the effect declaration itself adds the latent effect. written latent effects are kept, so operations may mention effects besides their own effect.
 
 ```jbini
 string → float ! string fail
@@ -341,6 +367,7 @@ without a `return` case, the normal result is returned unchanged.
 - `console`: `write`, `read`
 - `random`: `random`
 - `async`: `fork`, `wait`, `sleep`
+- `file`: `read-file`, `write-file`, `append-file`
 - `fail`: extensible failure with an error payload
 - `state`: parameterized state effect
 
@@ -352,19 +379,26 @@ the runtime currently provides native operations named:
 - `read`
 - `random`
 - `sleep`
+- `read-file`
+- `write-file`
+- `append-file`
 
 `async` is interpreted synchronously for now: `fork` runs immediately, `wait` unwraps a finished task, and `sleep` blocks the current run.
+
+file operations read and write whole text files. file-system errors perform `string fail`, so callers must handle failure before a runnable file ends.
 
 ## project files
 
 - `jbini.cabal`: haskell package setup
 - `app/Main.hs`: command-line runner
 - `src/Jbini.hs`: public haskell api
-- `src/Jbini/Syntax.hs`: syntax trees and tokens
-- `src/Jbini/Parse.hs`: lexer and parser
-- `src/Jbini/TypeCheck.hs`: imports, name lookup, type inference, classes, match coverage, effects, and runnable-file checks
+- `src/Jbini/Syntax.hs`: syntax trees
+- `src/Jbini/Token.hs`: tokens, keywords, and source lexing
+- `src/Jbini/Parse.hs`: parser from tokens to syntax trees
+- `src/Jbini/Library.hs`: bundled library file list and loading helper
+- `src/Jbini/Type.hs`: imports, name lookup, type inference, classes, match coverage, effects, and runnable-file checks
 - `src/Jbini/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers
 - `test/Main.hs`: tests
 - `library/`: standard library written in jbini
 - `sample/`: runnable examples
-- `agent.md`: maintainer notes and detailed language specification
+- `agent.md`: maintainer notes and detailed tongue specification

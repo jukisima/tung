@@ -2,6 +2,8 @@ data a task {
   a done
 }
 
+effect divergent {}
+
 effect e fail {
   e fail: a
 }
@@ -26,6 +28,12 @@ effect async {
   integer sleep: 𝟙
 }
 
+effect file {
+  string read-file: string ! string fail,
+  string write-file string: 𝟙 ! string fail,
+  string append-file string: 𝟙 ! string fail
+}
+
 class foreign {
   integer add-integer integer: integer;
   integer subtract-integer integer: integer;
@@ -35,9 +43,10 @@ class foreign {
   float subtract-float float: float;
   float multiply-float float: float;
   float divide-float float: float ! string fail;
-  float sine: float;
-  float exponent: float;
-  float logarithm: float;
+  float sine-float: float;
+  float arctan-float float: float;
+  float exponent-float: float;
+  float logarithm-float: float;
   float ⌊: integer;
   integer equal-integer integer: 𝟚;
   integer integer-to-string: string;

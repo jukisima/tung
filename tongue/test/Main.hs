@@ -2,8 +2,9 @@ module Main where
 
 import Data.List (isInfixOf, isPrefixOf)
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Jbini
+import System.Directory (doesFileExist, getTemporaryDirectory, removeFile)
 import System.Exit (exitFailure)
 
 type Test = IO (Maybe String)
@@ -26,16 +27,30 @@ main = do
 parserTests :: IO [String]
 parserTests =
   runGroup "parser" $
-    [ expectExpr "second term is function" "1 + 2" curriedPlus
-    , expectExpr "dollar pipes into following function" "a f b $ g c d $ h" dollarChain
+    [ expectLex "shared lexer keeps field access as a name" "let age = person@age" [TLet, TIdent "age", TEquals, TIdent "person@age"]
+    , expectLex "backslash is an ordinary name" "\\\\" [TIdent "\\\\"]
+    , expectLex "character newline escape" "`\\n" [TChar "\n"]
+    , expectLex "character carriage return escape" "`\\r" [TChar "\r"]
+    , expectLex "character tab escape" "`\\t" [TChar "\t"]
+    , expectLex "character quote escape" "`\\'" [TChar "'"]
+    , expectLex "character backslash escape" "`\\\\" [TChar "\\"]
+    , expectLex "character decimal unicode escape" "`\\{65}" [TChar "A"]
+    , expectLex "character legacy decimal unicode escape" "`{65}" [TChar "A"]
+    , expectLex "string escapes" "'\\n\\r\\t\\'\\\\\\{65}'" [TString "\n\r\t'\\A"]
+    , expectExpr "second term is function" "1 + 2" curriedPlus
+    , expectExpr "dollar bare segment takes ordinary argument expression" "a f $h b g" dollarBareWithComposedArg
+    , expectExpr "dollar chains bare function segments" "a f $g b $h c" dollarBareChain
+    , expectExpr "dollar bare segment groups its tail as one expression" "a f $g b c $h d" dollarBareGroupedTail
+    , expectExpr "dollar paren segment is function first" "a f $(g b c) $h d" dollarParenFunctionFirst
     , expectExpr "dollar pipes into operator" "1 $ + 2" curriedPlus
     , expectParseErr "dollar requires left expression" "$ + 1 2"
     , expectParseOk "multi-scrutinee match" "match 1, 2 { a, b | a }"
     , expectParseOk "bare braces make anonymous function" "{ x | x }"
     , expectParseOk "bare brace function may take three arguments" "{ x, y, z | z }"
+    , expectParseOk "empty scrutinee match" "match x {}"
     , expectParseOk "handler return case" "try 1 { return x | x to-string }"
     , expectParseOk "newline escape in string" "'\\n'"
-    , expectParseOk "foreign declaration" "class foreign { integer add-integer integer: integer; 𝟙 random: float ! random }"
+    , expectParseOk "foreign declaration" "class foreign { integer add-integer integer: integer; integer divide-integer integer: integer ! string fail }"
     , expectParseOk "show declaration" "let answer = 42; show answer;"
     , expectParseOk "grouped show declaration" "let first = 1; let second = 2; show first, second;"
     , expectParseOk "show-type declaration" "data box { box } show-type box;"
@@ -96,8 +111,14 @@ typeTests =
   runGroup
     "typing"
     [ expectEq "literal type mismatch" (check "let bad: integer = 'hello';") "type error:"
+    , expectTypeOk "character primitive literal" "let ok: character = `a"
     , expectEq "non-exhaustive match rejected" (check "data two { yea, nay } let bad: integer = match yea { yea | 1 }") "type error:"
-    , expectTypeOk "dollar expression type checks" "let pick: integer → integer → integer → integer = { x, _, _ | x }; let ok: integer = 1 $ pick 2 3"
+    , expectTypeOk "empty type eliminator" "data 𝟘 {}; let (x: 𝟘) initial: a = match x {}; let ok: 𝟘 → integer = initial"
+    , expectTypeOk "empty anonymous function eliminates empty type" "data 𝟘 {}; let initial: 𝟘 → a = {}; let ok: 𝟘 → integer = initial"
+    , expectTypeErr "empty match on inhabited type rejected" "let bad: integer = match 1 {}"
+    , expectTypeErr "empty anonymous function on inhabited type rejected" "let bad: integer → integer = {}"
+    , expectTypeErr "empty anonymous match rejected" "let bad = {}"
+    , expectTypeOk "dollar expression type checks" "let pick: integer → integer → integer → integer = { x, _, _ | x }; let ok: integer = 1 $(pick 2 3)"
     , expectTypeOk "func type is binary function type" "let id: integer func integer = { x | x }"
     , expectTypeOk "foreign function has source type" "class foreign { integer add-integer integer: integer } let ok: integer = 1 add-integer 2"
     , expectTypeOk "foreign function backs source flesh" "class foreign { integer add-integer integer: integer } bone a plus-host { a plus-host a: a } flesh integer plus-host { let plus-host = add-integer } let ok: integer = 1 plus-host 2"
@@ -119,21 +140,37 @@ typeTests =
     , expectTypeErr "missing concrete flesh need rejected" "bone a add { a + a: a } bone a multiply { a × a: a } data natural { zero } flesh natural multiply { let a × b = a + b }"
     , expectTypeOk "flesh given reduces instance context" "data 𝟚 { yea, nay } bone a equal { a ≡ a: 𝟚 } data a box { a box } given a equal flesh (a box) equal { let (x box) ≡ (y box) = x ≡ y } given a equal let (x: a box, y: a box) same-box: 𝟚 = x ≡ y"
     , expectTypeErr "insufficient flesh given rejected" "data 𝟚 { yea, nay } bone a equal { a ≡ a: 𝟚 } data a box { a box } flesh (a box) equal { let (x box) ≡ (y box) = x ≡ y }"
+    , expectTypeOk "repeated flesh type variable matches consistently" "data a pair b { a pair b } bone x marker { x mark: integer } flesh (a pair a) marker { let x mark = 1 } let ok: integer = (1 pair 2) mark"
+    , expectTypeErr "repeated flesh type variable rejects mismatch" "data a pair b { a pair b } bone x marker { x mark: integer } flesh (a pair a) marker { let x mark = 1 } let bad: integer = (1 pair 'x') mark"
+    , expectTypeErr "given repeated type variable rejects mismatch" "data a pair b { a pair b } bone x marker { x mark: integer } given (a pair a) marker let (x: integer pair string) bad: integer = x mark"
+    , expectTypeOk "multi-parameter flesh accepted" "bone a b absolute { a absolute: b } flesh integer integer absolute { let (x: integer) absolute: integer = x }"
+    , expectTypeErr "multi-parameter flesh arity rejected" "bone a b absolute { a absolute: b } flesh integer absolute { let (x: integer) absolute: integer = x }"
+    , expectTypeErrWithImports "qualified type heads stay distinct in flesh resolution" "bring left.jbini; bring right.jbini; bone a marker { a mark: integer } flesh left@box marker { let x mark = 1 } let bad: integer = right@box mark" (Map.fromList [("left.jbini", "data box { box } show-type box; show box;"), ("right.jbini", "data box { box } show-type box; show box;")])
     , expectTypeErr "closed record rejects extra field" "let bad: [name: string] = [name = 'naoki', age = 35];"
+    , expectTypeOk "record field access" "let person = [name = 'naoki', age = 35]; let ok: integer = person@age"
+    , expectTypeErr "record field access rejects missing field" "let person = [name = 'naoki']; let bad: integer = person@age"
     , expectTypeErr "record update rejects unknown removal" "let person = [name = 'naoki']; let bad = [= person, - age];"
     , expectEq "effect operation must be function" (check "effect bad { tick: integer }") "type error:"
-    , expectEq "effect operation has no extra top-level effects" (check "effect bad { integer op: integer ! console }") "type error:"
+    , expectTypeOk "effect operation keeps extra effects" "effect mine { integer op: integer ! console } let f: integer → integer ! mine, console = op"
     , expectEq "handler removes fail" (check "let ok: integer = try 1 ÷ 0 { fail | 9 }") "type ok"
     , expectTypeOk "fail operation handler may ignore payload" "effect e fail { e fail: a } let ok: integer = try 1 ÷ 0 { _ fail | 9 }"
     , expectTypeOk "handler return clause may change answer type" "effect e fail { e fail: a } let ok: string = try 1 ÷ 0 { return n | n to-string, message fail | message }"
     , expectTypeOk "resume returns handler answer type" "effect ask { integer ask: integer } let ok: string = try 10 ask { return n | n to-string, x ask | (x resume) }"
     , expectTypeOk "operation handler may resume" "effect ask { integer ask: integer } let ok: integer = try 10 ask { x ask | x resume }"
+    , expectTypeOk "operation handler preserves other operation effects" "effect other { integer other: integer } effect mine { integer op: integer ! other } let ok: integer → integer ! other = { _ | try 1 op { x op | x } }"
     , expectEq "resume argument checked" (check "effect ask { integer ask: integer } let bad: integer = try 10 ask { x ask | 'bad' resume }") "type error:"
     , expectTypeErr "handler for absent effect rejected" "let bad: integer = try 1 { fail | 2 }"
+    , expectTypeErr "ordinary effectful function is not a handler operation" "effect ask { integer ask: integer } let f: integer → integer ! ask = { x | x ask } let bad: integer = try 1 f { x f | x }"
+    , expectTypeErr "operation handler does not handle only extra effect" "effect other { integer other: integer } effect mine { integer op: integer ! other } let bad: integer = try 1 other { x op | x }"
     , expectTypeErr "effect-level handler cannot bind arguments" "effect ask { integer op: integer } let bad: integer = try 1 op { x ask | 0 }"
     , expectEq "state effect is parameterized" (check "effect a state { 𝟙 get: a, a set: 𝟙 } let got: 𝟙 → integer ! integer state = get;") "type ok"
     , expectEq "state parameter mismatch" (check "effect a state { 𝟙 get: a, a set: 𝟙 } let got: 𝟙 → integer ! string state = get;") "type error:"
     , expectEq "partial effectful call is pure at file boundary" (checkRunnableWithImports "let half: integer → integer ! string fail = 1 ÷" Map.empty) "type ok"
+    , expectTypeErr "library let cannot erase immediate effects" "let answer = 'hello' write;"
+    , expectTypeErrWithImports "effectful import let rejected" "bring file.jbini; let ok: integer = 1" (Map.fromList [("file.jbini", "let answer = 'hello' write;")])
+    , expectTypeOk "file read has file and fail effects" "let read-text: string → string ! file, string fail = read-file"
+    , expectRunnableOk "runner permits handled file effect" "let _ = (try '/tmp/jbini-missing-file-for-type-test' read-file { fail | '' }) write;"
+    , expectRunnableErr "runnable file read must handle fail" "let _ = '/tmp/jbini-missing-file-for-type-test' read-file;"
     , expectTypeOk "each keeps action effect" "data 𝟙 { null } data a list { empty, a .* (a list) } effect out { integer out: 𝟙 } let (items: a list, action: a → 𝟙 ! e) each: 𝟙 ! e = match items { empty | null, item .* rest | (let _ = item action; rest each action) }; let run: 𝟙 → 𝟙 ! out = { _ | (1 .* empty) each out }"
     , expectRunnableOk "runner permits console effect" "let _ = 'hello' write;"
     , expectRunnableOk "write-line helper is console effect" "let (text: string) write-line: 𝟙 ! console = (let _ = text write; '\\n' write); let _ = 'hello' write-line;"
@@ -172,7 +209,8 @@ evaluationTests = do
     , expectEval "foreign integer division" "class foreign { integer divide-integer integer: integer ! string fail } 4 divide-integer 2" "eval ok: 2"
     , expectEvalWithImports "show reexports runtime value" "bring file.jbini; box" (Map.fromList [("file.jbini", "data box { box } show-type box; show box;")]) "eval ok: box"
     , expectEval "dollar pipes into operator" "1 $ + 2" "eval ok: 3"
-    , expectEval "dollar pipes into multiple arguments" "let add3 = { x, y, z | (x + y) + z }; 1 $ add3 2 3" "eval ok: 6"
+    , expectEval "dollar bare segment evaluates tail as one expression" "let f = { x | x + 1 }; let g = { x | x × 2 }; let h = { x, y | x + y }; 1 f $h 2 g" "eval ok: 6"
+    , expectEval "dollar pipes into multiple arguments" "let add3 = { x, y, z | (x + y) + z }; 1 $(add3 2 3)" "eval ok: 6"
     , expectEval "curried partial application" "let f = { a, b | a + b }; 2 (1 f)" "eval ok: 3"
     , expectEval "three-argument brace function" "let add3 = { x, y, z | (x + y) + z }; 1 add3 2 3" "eval ok: 6"
     , expectEval "partial three-argument brace function" "let add3 = { x, y, z | (x + y) + z }; let add-one = 1 add3; 2 add-one 3" "eval ok: 6"
@@ -181,9 +219,11 @@ evaluationTests = do
     , expectEval "nested constructor pattern" "data two { yea, nay } data a option { none, a some } match nay some { yea some | 1, nay some | 2, none | 0 }" "eval ok: 2"
     , expectEval "float from-string" "'0.25' from-string" "eval ok: 0.25"
     , expectEval "float arithmetic" "let half = '0.5' from-string; let quarter = '0.25' from-string; half + quarter" "eval ok: 0.75"
+    , expectEvalWithImports "arctan-float returns positive angle" "bring foreign.jbini; 0.0 arctan-float -1.0" imports "eval ok: 4.71238898038469"
     , expectEvalWithImports "imported ground keeps native float order" "bring ground.jbini; 0.5 ≤ 0.6" imports "eval ok: yea"
     , expectEval "handled from-string fail" "try 'oops' from-string { fail | 0.0 }" "eval ok: 0.0"
     , expectEval "record update" "let person = [name = 'naoki', age = 35]; [= person, age = 36]" "eval ok: [age = 36, name = 'naoki']"
+    , expectEval "record field access" "let person = [name = 'naoki', age = 35]; person@age" "eval ok: 35"
     , expectEval "record removal" "let person = [name = 'naoki', age = 35]; [= person, - age]" "eval ok: [name = 'naoki']"
     , expectEvalPrefix "record removal error" "let person = [name = 'naoki']; [= person, - age]" "eval error:"
     , expectEval "handled fail" "try 1 ÷ 0 { fail | 9 }" "eval ok: 9"
@@ -194,6 +234,7 @@ evaluationTests = do
     , expectEval "operation handler may skip resume" "effect ask { integer ask: integer } try 10 ask { x ask | x + 1 }" "eval ok: 11"
     , expectEval "multi-shot handler" "data 𝟙 { null } effect choice { 𝟙 choose: integer } try (null choose) + (null choose) { choose | (1 resume) + (2 resume) }" "eval ok: 12"
     , expectEval "sleep native" "data 𝟙 { null } 0 sleep" "eval ok: null"
+    , fileEffectEvaluationTest imports
     , expectEval "each returns null" "data 𝟙 { null } data a list { empty, a .* (a list) } let (items: a list, action: a → 𝟙 ! e) each: 𝟙 ! e = match items { empty | null, item .* rest | (let _ = item action; rest each action) }; let ignore = { _ | null }; (1 .* (2 .* empty)) each ignore" "eval ok: null"
     , expectEvalPrefix "constructor overapplication rejected" "data box { a box } 1 box 2" "eval error:"
     , expectEvalWithImports "imported call" "bring file.jbini; 2 inc" (Map.fromList [("file.jbini", "let inc = { x | x + 1 };")]) "eval ok: 3"
@@ -208,20 +249,29 @@ libraryAndSampleTests = do
     map (expectLibraryFileTypeOk imports) libraryImportFiles
       ++ map
         (expectSampleRunnable imports)
-        [ "sample/asynchronous.jbini"
-        , "sample/division-by-zero.jbini"
-        , "sample/fizzbuzz.jbini"
-        , "sample/lambda.jbini"
-        , "sample/luck.jbini"
-        , "sample/multishot.jbini"
-        , "sample/scoreboard.jbini"
+        [ "../sample/asynchronous.jbini"
+        , "../sample/division-by-zero.jbini"
+        , "../sample/fizzbuzz.jbini"
+        , "../sample/lambda.jbini"
+        , "../sample/luck.jbini"
+        , "../sample/multishot.jbini"
+        , "../sample/scoreboard.jbini"
         ]
 
 curriedPlus :: Expr
 curriedPlus = applyMany (EVar "+") [EInteger 1, EInteger 2]
 
-dollarChain :: Expr
-dollarChain = applyMany (EVar "h") [applyMany (EVar "g") [applyMany (EVar "f") [EVar "a", EVar "b"], EVar "c", EVar "d"]]
+dollarBareWithComposedArg :: Expr
+dollarBareWithComposedArg = applyMany (EVar "h") [applyMany (EVar "f") [EVar "a"], applyMany (EVar "g") [EVar "b"]]
+
+dollarBareChain :: Expr
+dollarBareChain = applyMany (EVar "h") [applyMany (EVar "g") [applyMany (EVar "f") [EVar "a"], EVar "b"], EVar "c"]
+
+dollarBareGroupedTail :: Expr
+dollarBareGroupedTail = applyMany (EVar "h") [applyMany (EVar "g") [applyMany (EVar "f") [EVar "a"], applyMany (EVar "c") [EVar "b"]], EVar "d"]
+
+dollarParenFunctionFirst :: Expr
+dollarParenFunctionFirst = applyMany (EVar "h") [applyMany (EVar "g") [applyMany (EVar "f") [EVar "a"], EVar "b", EVar "c"], EVar "d"]
 
 applyMany :: Expr -> [Expr] -> Expr
 applyMany = foldl (\expr arg -> EApply expr (arg :| []))
@@ -235,6 +285,12 @@ expectParseErr :: String -> String -> Test
 expectParseErr name source = pure $ case parse source of
   Left _ -> Nothing
   Right _ -> Just (name ++ ": parse unexpectedly succeeded")
+
+expectLex :: String -> String -> [Token] -> Test
+expectLex name source expected = pure $ case lexTokens source of
+  Right actual | actual == expected -> Nothing
+  Right actual -> Just (name ++ ": unexpected tokens: " ++ show actual)
+  Left msg -> Just (name ++ ": lex failed: " ++ msg)
 
 expectExpr :: String -> String -> Expr -> Test
 expectExpr name source expected = pure $ case parse source of
@@ -312,20 +368,40 @@ canonicalTypeTest = pure $ case contextOf "bring file.jbini;" imports of
  where
   imports = Map.fromList [("file.jbini", "data file-box { box }")]
 
+fileEffectEvaluationTest :: Map.Map String String -> Test
+fileEffectEvaluationTest imports = do
+  dir <- getTemporaryDirectory
+  let path = dir ++ "/jbini-file-effect-test.txt"
+      source =
+        "bring ground.jbini; "
+          ++ "let _ = '"
+          ++ path
+          ++ "' write-file 'hello'; "
+          ++ "let _ = '"
+          ++ path
+          ++ "' append-file ' world'; "
+          ++ "'"
+          ++ path
+          ++ "' read-file"
+  removeFileIfExists path
+  actual <- evaluateWithImports source imports
+  removeFileIfExists path
+  pure $
+    if actual == "eval ok: 'hello world'"
+      then Nothing
+      else Just ("file effect round trip: expected \"eval ok: 'hello world'\", got " ++ show actual)
+
+removeFileIfExists :: FilePath -> IO ()
+removeFileIfExists path = do
+  exists <- doesFileExist path
+  if exists then removeFile path else pure ()
+
 contextOf :: String -> Map.Map String String -> Either String TcContext
 contextOf source imports = do
   program <- parse source
   case inferProgramContext program imports baseContext of
     TcOk ctx _ -> Right ctx
     TcErr msg -> Left msg
-
-readLibraryImports :: IO (Map.Map String String)
-readLibraryImports =
-  Map.fromList <$> traverse readOne libraryImportFiles
- where
-  readOne (path, name) = do
-    source <- readFile path
-    pure (name, source)
 
 runGroup :: String -> [Test] -> IO [String]
 runGroup group tests = do

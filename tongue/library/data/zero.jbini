@@ -1,0 +1,6 @@
+data 𝟘 {}
+
+let initial: 𝟘 → a = {};
+
+show-type 𝟘;
+show initial;

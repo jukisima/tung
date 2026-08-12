@@ -1,4 +1,5 @@
 bring foreign.jbini;
+bring zero.jbini;
 bring one.jbini;
 bring two.jbini;
 bring equal.jbini;
@@ -9,12 +10,15 @@ bring algebra/semiring.jbini;
 bring algebra/ring.jbini;
 bring algebra/field.jbini;
 bring collection/functor.jbini;
-bring numeric/float.jbini;
+bring numeric/elementary.jbini;
 
 let (text: string) write-line: 𝟙 ! console = (
   let _ = text write;
   '\n' write
 );
+
+show-type 𝟘;
+show initial;
 
 show-type 𝟙;
 show null;
@@ -32,12 +36,13 @@ show write, write-line, read;
 show random;
 show get, set;
 show fork, wait, sleep;
+show read-file, write-file, append-file;
 
 show ≡, ≢;
 show ≤, <, ∧, ∨;
 
 show +, zero, ×, one, -, ÷;
-show sine, cosine, exponent, logarithm, floor;
+show sine, cosine, tangent, exponent, logarithm, ⌊;
 
 show to-string;
 show from-string;

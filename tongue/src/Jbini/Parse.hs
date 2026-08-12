@@ -1,20 +1,15 @@
 module Jbini.Parse (
   parse,
+  parseTokens,
 )
 where
 
-import Control.Applicative (empty, many, some)
 import Control.Monad (foldM)
-import Data.Char (isSpace)
 import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
-import Data.Void (Void)
 import Jbini.Syntax
-import Text.Megaparsec (Parsec)
-import qualified Text.Megaparsec as M
-import qualified Text.Megaparsec.Char as C
-import qualified Text.Megaparsec.Char.Lexer as L
+import Jbini.Token
 
 data FunctionResult = FunctionResult
   { functionResultType :: TypeExpr
@@ -26,18 +21,13 @@ data FunctionResult = FunctionResult
 type P a = [Token] -> Either String (a, [Token])
 
 parse :: String -> Either String Program
-parse source =
-  case M.parse programParser "source" source of
-    Left err -> Left (M.errorBundlePretty err)
-    Right program -> Right program
+parse source = lexTokens source >>= parseTokens
 
-programParser :: Lexer Program
-programParser = do
-  toks <- spaceConsumer *> many tokenParser <* M.eof
-  case parseProgram toks of
-    Right (program, []) -> pure program
-    Right _ -> fail "unexpected tokens after program"
-    Left msg -> fail msg
+parseTokens :: [Token] -> Either String Program
+parseTokens toks = case parseProgram toks of
+  Right (program, []) -> pure program
+  Right _ -> Left "unexpected tokens after program"
+  Left msg -> Left msg
 
 parseProgram :: P Program
 parseProgram ts = do
@@ -345,7 +335,8 @@ parseForeignMember ts =
 parseBone :: [BoneNeed] -> P Decl
 parseBone needs ts = do
   (header, body) <- parseHeaderBody "bone" ts
-  (params, name) <- parseParamHeader "bone" header
+  (paramTerms, name) <- maybeToEither "bone declaration requires a name" (trailingHeaderFromTokens header)
+  params <- maybeToEither "bone parameters must be names" (namesFromHeaderTerms paramTerms)
   (members, rest) <- parseBoneMembers body
   pure (BoneDecl params name needs members, rest)
 
@@ -365,7 +356,7 @@ parseBoneNeedsWhole tokens = parseWhole "unexpected tokens after given" parseBon
 
 parseBoneNeed :: P BoneNeed
 parseBoneNeed [] = Left "empty given"
-parseBoneNeed ts = case headerFromTokens ts of
+parseBoneNeed ts = case trailingHeaderFromTokens ts of
   Nothing -> Left "invalid given"
   Just (argTerms, name) -> case typesFromHeaderTerms argTerms of
     Nothing -> Left "given arguments must be types"
@@ -374,11 +365,14 @@ parseBoneNeed ts = case headerFromTokens ts of
 parseFlesh :: [BoneNeed] -> P Decl
 parseFlesh needs ts = do
   (header, body) <- parseHeaderBody "flesh" ts
-  (tyTerms, boneName) <- maybeToEither "flesh declaration requires a bone name" (headerFromTokens header)
-  (ty, _) <- typeFromHeaderTerms tyTerms
+  (tyTerms, boneName) <- maybeToEither "flesh declaration requires a bone name" (trailingHeaderFromTokens header)
+  tyArgs <- maybeToEither "flesh type arguments must be types" (typesFromHeaderTerms tyTerms)
+  case tyArgs of
+    [] -> Left "flesh declaration requires at least one type argument"
+    _ -> pure ()
   (ds, rest) <- parseFleshMembers body
   case rest of
-    TRBrace : rest2 -> pure (FleshDecl ty boneName needs ds, rest2)
+    TRBrace : rest2 -> pure (FleshDecl tyArgs boneName needs ds, rest2)
     _ -> Left "expected '}' after flesh body"
 
 parseFleshMembers :: P [Decl]
@@ -405,7 +399,7 @@ lambdaIfParams [] expr = expr
 lambdaIfParams (p : ps) expr = anonymousMatch (p :| ps) expr
 
 anonymousMatch :: NonEmpty Pattern -> Expr -> Expr
-anonymousMatch params expr = EMatch [] (MatchCase params expr :| [])
+anonymousMatch params expr = EMatch [] [MatchCase params expr]
 
 parseCtors :: P [Ctor]
 parseCtors = parseCommaListUntil isRightBrace parseCtor
@@ -491,25 +485,39 @@ parseDollarExpr ts = do
 parseDollarTail :: Expr -> P Expr
 parseDollarTail value = \case
   TDollar : rest -> do
-    (terms, rest2) <- parseDollarTerms rest
-    case terms of
-      fn : args -> parseDollarTail (applyArgs fn (value : args)) rest2
-      [] -> Left "expected expression after '$'"
+    (piped, rest2) <- parseDollarSegment value rest
+    parseDollarTail piped rest2
   rest -> Right (value, rest)
 
-parseDollarTerms :: P [Expr]
-parseDollarTerms = go []
+parseDollarSegment :: Expr -> P Expr
+parseDollarSegment value = \case
+  TLParen : rest -> parseDollarParenSegment value rest
+  rest -> parseDollarBareSegment value rest
+
+parseDollarBareSegment :: Expr -> P Expr
+parseDollarBareSegment value ts = do
+  (fn, rest) <- parseExprAtom ts
+  case parsePostfixExpr rest of
+    Right (arg, rest2) -> Right (applyArgs fn [value, arg], rest2)
+    Left _ -> Right (applyArgs fn [value], rest)
+
+parseDollarParenSegment :: Expr -> P Expr
+parseDollarParenSegment value ts = do
+  (terms, rest) <- parseFunctionFirstTerms ts
+  case (terms, rest) of
+    (fn : args, TRParen : rest2) -> Right (applyArgs fn (value : args), rest2)
+    ([], _) -> Left "expected function after '$('"
+    (_, _) -> Left "expected ')' after '$('"
+
+parseFunctionFirstTerms :: P [Expr]
+parseFunctionFirstTerms = go []
  where
   go acc ts = case ts of
-    [] -> finish acc ts
-    TDollar : _ -> finish acc ts
-    t : _ | exprStop t -> finish acc ts
+    [] -> Right (reverse acc, [])
+    TRParen : _ -> Right (reverse acc, ts)
     _ -> case parseExprAtom ts of
       Right (arg, rest) -> go (arg : acc) rest
-      Left _ -> finish acc ts
-  finish acc rest = case reverse acc of
-    [] -> Left "expected expression after '$'"
-    terms -> Right (terms, rest)
+      Left _ -> Right (reverse acc, ts)
 
 parsePostfixExpr :: P Expr
 parsePostfixExpr ts = do
@@ -713,12 +721,8 @@ parseRecordExprField (TIdent name : TEquals : rest) = do
   pure ((name, e), rest2)
 parseRecordExprField _ = Left "expected record field"
 
-parseMatchCases :: P (NonEmpty MatchCase)
-parseMatchCases ts = do
-  (cases, rest) <- parseCommaListUntil isRightBrace parseMatchCase ts
-  case NE.nonEmpty cases of
-    Just nonEmptyCases -> pure (nonEmptyCases, rest)
-    Nothing -> Left "match requires at least one case"
+parseMatchCases :: P [MatchCase]
+parseMatchCases = parseCommaListUntil isRightBrace parseMatchCase
 
 parseMatchCase :: P MatchCase
 parseMatchCase ts = do
@@ -853,23 +857,7 @@ finishFunctionResult tokens rest =
         Right (FunctionResult ret effects [], rest)
 
 parseTypeTokens :: P TypeExpr
-parseTypeTokens = parseForallType
-
-parseForallType :: P TypeExpr
-parseForallType ts = case splitTopLevelForall ts of
-  Just (left, right) -> do
-    params <- parseWhole "unexpected tokens in forall parameters" parseForallParams left
-    body <- parseWhole "unexpected tokens in forall body" parseForallType right
-    pure (TypeForall params body, [])
-  Nothing -> parseArrowType ts
-
-parseForallParams :: P [TypeExpr]
-parseForallParams = go []
- where
-  go acc [] = Right (reverse acc, [])
-  go acc (TComma : rest) = go acc rest
-  go acc (TIdent name : rest) = go (TypeName name : acc) rest
-  go _ _ = Left "forall parameters must be names"
+parseTypeTokens = parseArrowType
 
 parseArrowType :: P TypeExpr
 parseArrowType ts = case splitTopLevelArrow ts of
@@ -1030,6 +1018,9 @@ functionHeader ts = do
 headerFromTokens :: [Token] -> Maybe ([[Token]], String)
 headerFromTokens ts = headerParts ts >>= headerFromParts
 
+trailingHeaderFromTokens :: [Token] -> Maybe ([[Token]], String)
+trailingHeaderFromTokens ts = headerParts ts >>= trailingHeaderFromParts
+
 headerParts :: [Token] -> Maybe [[Token]]
 headerParts = go []
  where
@@ -1057,12 +1048,15 @@ defaultHeader (arg : fun : rest) = do
   pure (arg : rest, name)
 defaultHeader _ = Nothing
 
+trailingHeaderFromParts :: [[Token]] -> Maybe ([[Token]], String)
+trailingHeaderFromParts [] = Nothing
+trailingHeaderFromParts parts = do
+  name <- headerTermName (last parts)
+  pure (init parts, name)
+
 headerTermName :: [Token] -> Maybe String
 headerTermName [TIdent name] = Just name
 headerTermName _ = Nothing
-
-typeFromHeaderTerms :: [[Token]] -> Either String (TypeExpr, [Token])
-typeFromHeaderTerms terms = (\t -> (t, [])) <$> parseWhole "could not parse flesh type" parseTypeTokens (concat terms)
 
 typesFromHeaderTerms :: [[Token]] -> Maybe [TypeExpr]
 typesFromHeaderTerms = traverse (parseWholeMaybe parseTypeTokens)
@@ -1113,123 +1107,6 @@ dropComma ts = ts
 dropSemicolon (TSemicolon : rest) = rest
 dropSemicolon ts = ts
 
-type Lexer = Parsec Void String
-
-tokenParser :: Lexer Token
-tokenParser =
-  lexeme $
-    M.choice
-      [ TForall <$ M.try (C.string "\\\\")
-      , TInteger <$> M.try integerParser
-      , TFloat <$> M.try floatParser
-      , TIdent <$> M.try prependNameParser
-      , charParser
-      , stringParser
-      , singleTokenParser
-      , nameParser
-      ]
-
-singleTokenParser :: Lexer Token
-singleTokenParser =
-  M.choice
-    [ TLParen <$ C.char '('
-    , TRParen <$ C.char ')'
-    , TLBrace <$ C.char '{'
-    , TRBrace <$ C.char '}'
-    , TLBracket <$ C.char '['
-    , TRBracket <$ C.char ']'
-    , TColon <$ C.char ':'
-    , TComma <$ C.char ','
-    , TMapsTo <$ C.char '|'
-    , TBang <$ C.char '!'
-    , TEquals <$ C.char '='
-    , TSemicolon <$ C.char ';'
-    , TDot <$ C.char '.'
-    , TDollar <$ (C.char '$' <* M.notFollowedBy (M.satisfy isNameChar))
-    , TArrow <$ C.char '→'
-    ]
-
-integerParser :: Lexer Int
-integerParser = do
-  sign <- optionalChar '-'
-  digits <- some C.digitChar
-  M.notFollowedBy (C.char '.' *> C.digitChar)
-  pure (signed sign (read digits))
-
-floatParser :: Lexer String
-floatParser = do
-  sign <- optionalChar '-'
-  whole <- some C.digitChar
-  _ <- C.char '.'
-  frac <- some C.digitChar
-  pure (maybe "" (: []) sign ++ whole ++ "." ++ frac)
-
-prependNameParser :: Lexer String
-prependNameParser = do
-  _ <- C.string ".*"
-  rest <- many (M.satisfy isNameChar)
-  pure (".*" ++ rest)
-
-charParser :: Lexer Token
-charParser = do
-  _ <- C.char '`'
-  TChar <$> M.choice [unicodeCharParser, (: []) <$> M.anySingle]
-
-unicodeCharParser :: Lexer String
-unicodeCharParser = do
-  _ <- C.char '{'
-  digits <- many C.digitChar
-  _ <- C.char '}'
-  pure ("{" ++ digits ++ "}")
-
-stringParser :: Lexer Token
-stringParser = TString <$> (C.char '\'' *> many stringCharParser <* C.char '\'')
-
-stringCharParser :: Lexer Char
-stringCharParser =
-  M.choice
-    [ '\n' <$ C.string "\\n"
-    , '\'' <$ C.string "\\'"
-    , '\\' <$ C.string "\\\\"
-    , M.anySingleBut '\''
-    ]
-
-nameParser :: Lexer Token
-nameParser = keywordOrIdent <$> some (M.satisfy isNameChar)
-
-spaceConsumer :: Lexer ()
-spaceConsumer = L.space C.space1 (L.skipLineComment "#") empty
-
-lexeme :: Lexer a -> Lexer a
-lexeme = L.lexeme spaceConsumer
-
-optionalChar :: Char -> Lexer (Maybe Char)
-optionalChar c = M.optional (C.char c)
-
-signed :: Maybe Char -> Int -> Int
-signed (Just '-') n = -n
-signed _ n = n
-
-keywordOrIdent :: String -> Token
-keywordOrIdent = \case
-  "let" -> TLet
-  "given" -> TGiven
-  "bring" -> TBring
-  "type" -> TType
-  "data" -> TData
-  "effect" -> TEffect
-  "bone" -> TBone
-  "flesh" -> TFlesh
-  "match" -> TMatch
-  "try" -> TTry
-  s -> TIdent s
-
-isNameChar :: Char -> Bool
-isNameChar c = not (isSpace c) && not (c `elem` specialNameChars)
-
-specialNameChars :: [Char]
-specialNameChars = "#(){}[]:,|!=;.$\\→`'"
-
 isQualifiedName :: String -> Bool
 isQualifiedName = elem '@'
 
@@ -1239,8 +1116,7 @@ isRightBrace _ = False
 isRightBracket TRBracket = True
 isRightBracket _ = False
 
-splitTopLevelForall, splitTopLevelArrow, splitTopLevelBang, splitTopLevelColon, splitTopLevelComma :: [Token] -> Maybe ([Token], [Token])
-splitTopLevelForall ts = splitTopLevel ts (\case TForall -> True; _ -> False)
+splitTopLevelArrow, splitTopLevelBang, splitTopLevelColon, splitTopLevelComma :: [Token] -> Maybe ([Token], [Token])
 splitTopLevelArrow ts = splitTopLevel ts (\case TArrow -> True; _ -> False)
 splitTopLevelBang ts = splitTopLevel ts (\case TBang -> True; _ -> False)
 splitTopLevelColon ts = splitTopLevel ts (\case TColon -> True; _ -> False)

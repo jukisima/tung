@@ -1,0 +1,5 @@
+bring natural.jbini;
+
+bone a size {
+  a size: natural@natural
+}

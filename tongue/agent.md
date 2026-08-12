@@ -31,7 +31,7 @@ cabal test all
 run a jbini file:
 
 ```sh
-cabal run jbini -- sample/fizzbuzz.jbini
+cabal run jbini -- ../sample/fizzbuzz.jbini
 ```
 
 run any jbini file:
@@ -47,15 +47,17 @@ if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the sam
 - `jbini.cabal`: haskell package setup for library, command-line runner, and tests.
 - `app/Main.hs`: command-line runner. it loads bundled libraries, checks that a file is runnable, then evaluates it.
 - `src/Jbini.hs`: public haskell api.
-- `src/Jbini/Syntax.hs`: syntax trees and tokens.
-- `src/Jbini/Parse.hs`: megaparsec-backed source parser plus token grammar.
-- `src/Jbini/TypeCheck.hs`: imports, name lookup, type inference, type classes, instances, match coverage, effects, and runnable-file checks.
+- `src/Jbini/Syntax.hs`: syntax trees.
+- `src/Jbini/Token.hs`: tokens, keywords, name characters, and source lexing.
+- `src/Jbini/Parse.hs`: parser from token streams to syntax trees.
+- `src/Jbini/Library.hs`: bundled library file list and loading helper.
+- `src/Jbini/Type.hs`: imports, name lookup, type inference, type classes, instances, match coverage, effects, and runnable-file checks.
 - `src/Jbini/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers.
 - `test/Main.hs`: tests for parsing, typing, name lookup, evaluation, libraries, and samples.
 - `library/`: standard library written in jbini.
 - `sample/`: runnable example programs.
 - `readme.md`: user-facing overview and commands.
-- `agent.md`: agent notes and the full language specification.
+- `agent.md`: agent notes and the full tongue specification.
 
 ## implementation reminders
 
@@ -146,7 +148,7 @@ declarations without a final expression count as a pure `𝟙` file.
 
 only runner-provided effects may remain at the runnable file boundary.
 
-the runner-provided effects are `console`, `random`, and `async`.
+the runner-provided effects are `console`, `random`, `async`, and `file`.
 
 user-defined effects must be handled before the end of the file.
 
@@ -212,24 +214,33 @@ this rule is called second-is-function syntax in the code and tests.
 
 the first chunk uses second-is-function syntax.
 
-each chunk after `$` is function-first.
+after `$`, the next atom is the function.
 
 the previous chunk is inserted as the first argument of that function.
 
-`x $ f a b` means `x f a b`.
+the remaining unparenthesized tail before the next `$` is parsed as one ordinary second-is-function expression.
+
+`$(` starts a function-first segment.
+
+inside `$(`, the first term is the function and later terms are ordinary arguments.
+
+`x $f a b` means `x f (a b)`.
+
+`x $(f a b)` means `x f a b`.
 
 `$` cannot start an expression.
 
-when the following term is a name or operator, `$` must be written as its own token.
-
-`$+` is rejected.
+`$h` and `$ h` are both accepted.
 
 ```jbini
 1 + 2        # (+ 1 2)
 2 (1 +)      # curried partial application
 1 $ + 2      # same as 1 + 2
-a f b $ g c d $ h
-# means ((a f b) g c d) h
+a f $h b g
+# means (a f) h (b g)
+
+a f $(g b c) $h d
+# means ((a f) g b c) h d
 ```
 
 partial application builds a function value.
@@ -409,9 +420,9 @@ effect declarations use `effect`.
 
 effect operation types must be function types.
 
-effect operation types must not declare extra top-level effects.
-
 the latent effect is added by the declaration itself.
+
+written latent effects are kept, so operations may mention effects besides their own effect.
 
 ```jbini
 effect console {
@@ -464,6 +475,20 @@ the default runner interprets `async` synchronously.
 `fork` runs the work immediately and wraps the answer in `done`.
 
 `wait` unwraps `done`.
+
+`file` is a standard effect.
+
+the default runner handles whole-text file operations directly.
+
+file-system errors perform `string fail`.
+
+```jbini
+effect file {
+  string read-file: string ! string fail,
+  string write-file string: 𝟙 ! string fail,
+  string append-file string: 𝟙 ! string fail
+}
+```
 
 ## type classes
 
@@ -565,16 +590,22 @@ float literals contain a decimal point.
 
 character literals start with backtick.
 
-unicode codepoint character literals use backtick plus braces.
+character escapes are `\n`, `\r`, `\t`, `\'`, `\\`, and decimal unicode `\{123}`.
+
+unicode codepoint character literals may also use backtick plus braces.
 
 strings use single quotes.
+
+string escapes are `\n`, `\r`, `\t`, `\'`, `\\`, and decimal unicode `\{123}`.
 
 ```jbini
 42
 3.14
 `c
+`\n
+`\{23383}
 `{23383}
-'text'
+'text \{23383}'
 ```
 
 anonymous functions use bare braces.
@@ -662,6 +693,18 @@ coverage checking must include multi-scrutinee matches.
 
 coverage checking must include nested constructor patterns.
 
+an empty match is allowed when the scrutinee type is uninhabited.
+
+the empty anonymous function `{}` is allowed when its annotated input type is uninhabited.
+
+this is the eliminator for `𝟘`.
+
+```jbini
+let initial: 𝟘 → a = {};
+```
+
+an unannotated empty anonymous match `{}` is not allowed, because it has no pattern arity.
+
 variable patterns are catch-all patterns.
 
 `_` patterns are catch-all patterns.
@@ -683,6 +726,12 @@ record update starts with `[= base, ...]`.
 record update can set fields.
 
 record update can remove fields.
+
+record field access uses `@`.
+
+normal qualified-name lookup wins first, so `file@name` still means an imported qualified name when such a name exists.
+
+if no exact name is found, `record@field` reads `field` from `record`.
 
 field removal uses `- field`.
 
@@ -856,6 +905,7 @@ a → b
 a → b ! console
 a → b ! console, string fail
 a → b ! integer state
+a → b ! file, string fail
 (a → b ! e) → a list → b list ! e
 ```
 
@@ -868,12 +918,6 @@ effect entries use the same type application rule as types.
 `e` is an open effect variable.
 
 type variables are implicit.
-
-`\\` is explicit forall.
-
-```jbini
-a, b \\ a → b → a
-```
 
 the checker supports hindley-milner style polymorphism.
 
@@ -906,7 +950,7 @@ native numeric surface:
 ```jbini
 to-string: float → string
 from-string: string → float ! string fail
-floor: float → integer
+⌊: float → integer
 ≤: float → float → 𝟚
 +: float → float → float
 -: integer → integer → integer
@@ -917,7 +961,10 @@ floor: float → integer
 exponent: float → float
 logarithm: float → float
 sine: float → float
+arctan-float: float → float → float
 ```
+
+`arctan-float` takes real part then imaginary part, and returns an angle in the range `0` to `τ`.
 
 native runner surface:
 
@@ -926,6 +973,9 @@ write: string → 𝟙 ! console
 read: 𝟙 → string ! console
 sleep: integer → 𝟙 ! async
 random: 𝟙 → float ! random
+read-file: string → string ! file, string fail
+write-file: string → string → 𝟙 ! file, string fail
+append-file: string → string → 𝟙 ! file, string fail
 ```
 
 standard ground helper:
@@ -976,6 +1026,8 @@ core data is split across:
 - `list`
 - `task`
 
+`𝟘` exports `initial: 𝟘 → a`.
+
 core effects in `foreign.jbini`, re-exported by `ground.jbini`, include:
 
 - `fail`
@@ -983,6 +1035,7 @@ core effects in `foreign.jbini`, re-exported by `ground.jbini`, include:
 - `random`
 - `state`
 - `async`
+- `file`
 
 core type classes are split across library files:
 
@@ -1021,7 +1074,7 @@ library files:
 - `data/option.jbini`
 - `numeric/absolute.jbini`
 - `numeric/complex.jbini`
-- `numeric/float.jbini`
+- `numeric/elementary.jbini`
 - `numeric/integer.jbini`
 
 when changing library syntax, check every file in `library/`.

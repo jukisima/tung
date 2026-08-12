@@ -5,16 +5,17 @@ module Jbini.Evaluate (
 where
 
 import Control.Concurrent (threadDelay)
+import Control.Exception (IOException, try)
 import Data.List (find, intercalate, isPrefixOf)
-import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Jbini.Parse (parse)
 import Jbini.Syntax
-import Jbini.TypeCheck
+import Jbini.Type
 import System.IO (hFlush, stdout)
+import qualified System.IO as IO
 import Text.Read (readMaybe)
 
 data RuntimeValue
@@ -24,8 +25,8 @@ data RuntimeValue
   | VCharacter String
   | VText String
   | VRecord (Map.Map String RuntimeValue)
-  | VMatcher (NonEmpty MatchCase) RuntimeEnv [RuntimeValue]
-  | VRecursiveMatcher String (NonEmpty MatchCase) RuntimeEnv [RuntimeValue]
+  | VMatcher [MatchCase] RuntimeEnv [RuntimeValue]
+  | VRecursiveMatcher String [MatchCase] RuntimeEnv [RuntimeValue]
   | VConstructor String String Int [RuntimeValue]
   | VData String String [RuntimeValue]
   | VNative String Int [RuntimeValue]
@@ -218,7 +219,22 @@ evalExpr expr env = case expr of
   EBlock ds body -> evalBlock ds body env
 
 evalVar :: String -> RuntimeEnv -> IO (RuntimeResult RuntimeValue)
-evalVar name env = pure $ maybe (RuntimeErr (RuntimeMessage ("unknown name '" ++ name ++ "'"))) RuntimeOk (lookupValue name env)
+evalVar name env = case lookupValue name env of
+  Just value -> pure (RuntimeOk value)
+  Nothing -> evalFieldAccessName name env
+
+evalFieldAccessName :: String -> RuntimeEnv -> IO (RuntimeResult RuntimeValue)
+evalFieldAccessName name env = case splitFieldAccessName name of
+  Just (baseName, fieldName) -> bindRuntimeResult (evalVar baseName env) \case
+    VRecord fields -> pure $ maybe (RuntimeErr (RuntimeMessage ("unknown record field '" ++ fieldName ++ "'"))) RuntimeOk (Map.lookup fieldName fields)
+    value -> pure (RuntimeErr (RuntimeMessage ("record field access expected record, found " ++ showRuntimeValue value)))
+  Nothing -> pure (RuntimeErr (RuntimeMessage ("unknown name '" ++ name ++ "'")))
+
+splitFieldAccessName :: String -> Maybe (String, String)
+splitFieldAccessName name =
+  case break (== '@') (reverse name) of
+    (fieldRev, '@' : baseRev) | not (null fieldRev) && not (null baseRev) -> Just (reverse baseRev, reverse fieldRev)
+    _ -> Nothing
 
 evalApply :: Expr -> [Expr] -> RuntimeEnv -> IO (RuntimeResult RuntimeValue)
 evalApply f args env = bindRuntimeResult (evalExpr f env) (\fn -> evalApplyArgs fn args env)
@@ -252,7 +268,7 @@ applyArity arity supplied arg partial full =
             then full supplied2
             else pure (RuntimeErr (RuntimeMessage "too many arguments"))
 
-applyMatcher :: Maybe String -> NonEmpty MatchCase -> RuntimeEnv -> [RuntimeValue] -> RuntimeValue -> IO (RuntimeResult RuntimeValue)
+applyMatcher :: Maybe String -> [MatchCase] -> RuntimeEnv -> [RuntimeValue] -> RuntimeValue -> IO (RuntimeResult RuntimeValue)
 applyMatcher maybeName cases matchEnv supplied arg =
   let supplied2 = supplied ++ [arg]
       selfEnv = case maybeName of
@@ -261,13 +277,17 @@ applyMatcher maybeName cases matchEnv supplied arg =
       nextMatcher = case maybeName of
         Nothing -> VMatcher cases matchEnv supplied2
         Just name -> VRecursiveMatcher name cases matchEnv supplied2
-      arity = matchCaseArity cases
+      arity = length patterns
    in if length supplied2 < arity
         then pure (RuntimeOk nextMatcher)
         else
           if length supplied2 == arity
-            then evalMatchCases (NE.toList cases) supplied2 selfEnv
+            then evalMatchCases cases supplied2 selfEnv
             else pure (RuntimeErr (RuntimeMessage "too many arguments for match"))
+ where
+  patterns = case cases of
+    MatchCase ps _ : _ -> NE.toList ps
+    [] -> []
 
 evalRecord :: [(String, Expr)] -> RuntimeEnv -> Map.Map String RuntimeValue -> IO (RuntimeResult RuntimeValue)
 evalRecord fields env acc = mapRuntimeResult (foldRuntimeResult step acc fields) VRecord
@@ -329,10 +349,10 @@ bindHandlerRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> Patte
 bindHandlerRuntimePatterns [] _ env = PatternMatched env
 bindHandlerRuntimePatterns patterns values env = bindRuntimePatterns patterns values env
 
-evalMatchExpr :: [Expr] -> NonEmpty MatchCase -> RuntimeEnv -> IO (RuntimeResult RuntimeValue)
+evalMatchExpr :: [Expr] -> [MatchCase] -> RuntimeEnv -> IO (RuntimeResult RuntimeValue)
 evalMatchExpr [] cases env = pure (RuntimeOk (VMatcher cases env []))
 evalMatchExpr scrutinees cases env =
-  bindRuntimeResult (evalExprList scrutinees env) $ \values -> evalMatchCases (NE.toList cases) values env
+  bindRuntimeResult (evalExprList scrutinees env) $ \values -> evalMatchCases cases values env
 
 evalExprList :: [Expr] -> RuntimeEnv -> IO (RuntimeResult [RuntimeValue])
 evalExprList exprs env = mapRuntimeResult (foldRuntimeResult step [] exprs) reverse
@@ -398,11 +418,15 @@ evalNative name args = case (name, args) of
   ("subtract-float", [VFloat a, VFloat b]) -> evalFloatBinary (-) a b
   ("multiply-float", [VFloat a, VFloat b]) -> evalFloatBinary (*) a b
   ("divide-float", [VFloat a, VFloat b]) -> evalFloatDivide a b
+  ("exponent-float", [VFloat a]) -> evalFloatUnary a (show . exp)
+  ("sine-float", [VFloat a]) -> evalFloatUnary a (show . sin)
+  ("arctan-float", [VFloat a, VFloat b]) -> evalFloatBinary arctanFloat a b
+  ("logarithm-float", [VFloat a]) -> evalFloatUnary a (show . log)
   ("exponent", [VFloat a]) -> evalFloatUnary a (show . exp)
   ("sine", [VFloat a]) -> evalFloatUnary a (show . sin)
   ("cosine", [VFloat a]) -> evalFloatUnary a (show . cos)
   ("logarithm", [VFloat a]) -> evalFloatUnary a (show . log)
-  ("floor", [VFloat a]) -> evalFloatFloor a
+  ("⌊", [VFloat a]) -> evalFloatFloor a
   ("integer-to-string", [VInteger a]) -> pure (RuntimeOk (VText (show a)))
   ("float-to-string", [VFloat a]) -> pure (RuntimeOk (VText a))
   ("equal-integer", [VInteger a, VInteger b]) -> pure (RuntimeOk (runtimeBool (a == b)))
@@ -429,10 +453,20 @@ evalEffectOp effectName opName args = case (effectName, opName, args) of
   ("async", "sleep", [VInteger ms]) -> sleepMilliseconds ms
   ("async", "fork", [work]) -> forkSync work
   ("async", "wait", [VData _ "done" [value]]) -> pure (RuntimeOk value)
+  ("file", "read-file", [VText path]) -> fileRuntime (VText <$> IO.readFile path)
+  ("file", "write-file", [VText path, VText text]) -> fileRuntime (IO.writeFile path text >> pure runtimeNull)
+  ("file", "append-file", [VText path, VText text]) -> fileRuntime (IO.appendFile path text >> pure runtimeNull)
   _ -> performRuntime effectName opName args
 
 failRuntime :: String -> IO (RuntimeResult RuntimeValue)
 failRuntime message = performRuntime "fail" "fail" [VText message]
+
+fileRuntime :: IO RuntimeValue -> IO (RuntimeResult RuntimeValue)
+fileRuntime action = do
+  result <- try action
+  case (result :: Either IOException RuntimeValue) of
+    Left err -> failRuntime (show err)
+    Right value -> pure (RuntimeOk value)
 
 writeConsole :: String -> IO (RuntimeResult RuntimeValue)
 writeConsole text = putStr text >> hFlush stdout >> pure (RuntimeOk runtimeNull)
@@ -466,6 +500,12 @@ evalFloatBinary :: (Double -> Double -> Double) -> String -> String -> IO (Runti
 evalFloatBinary f left right = case (readMaybe left, readMaybe right) of
   (Just x, Just y) -> pure (RuntimeOk (VFloat (show (f x y))))
   _ -> pure (RuntimeErr (RuntimeMessage "invalid float"))
+
+arctanFloat :: Double -> Double -> Double
+arctanFloat real imaginary =
+  let angle = atan2 imaginary real
+      tau = 2 * pi
+   in if angle < 0 then angle + tau else angle
 
 evalIntegerDivide :: Int -> Int -> IO (RuntimeResult RuntimeValue)
 evalIntegerDivide _ 0 = failRuntime "division by zero"
@@ -519,19 +559,9 @@ addForeignMembers members env = foldl' step env members
   step current (ForeignMember name (TypeAnn t _)) = addValue name (foreignRuntimeValue name (typeArity t)) current
 
 foreignRuntimeValue :: String -> Int -> RuntimeValue
-foreignRuntimeValue name arity = case foreignEffectOp name of
-  Just (effectName, opName) -> VEffectOp effectName opName arity []
-  Nothing -> VNative name arity []
-
-foreignEffectOp :: String -> Maybe (String, String)
-foreignEffectOp = \case
-  "random" -> Just ("random", "random")
-  "read" -> Just ("console", "read")
-  "write" -> Just ("console", "write")
-  _ -> Nothing
+foreignRuntimeValue name arity = VNative name arity []
 
 typeArity :: TypeExpr -> Int
-typeArity (TypeForall _ body) = typeArity body
 typeArity (TypeArrow args _ _) = NE.length args
 typeArity _ = 0
 

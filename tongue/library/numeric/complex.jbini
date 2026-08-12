@@ -1,8 +1,17 @@
 bring ground.jbini;
+bring foreign.jbini;
+bring numeric/absolute.jbini;
 
 data a complex {
   a complex a
 }
+
+let (a complex _: a complex) real: a = a;
+
+let (_ complex b: a complex) imaginary: a = b;
+
+given a zero, a one
+let unit: a complex = zero complex one;
 
 given a add
 flesh (a complex) add {
@@ -30,12 +39,23 @@ given a one, a zero flesh (a complex) one {
 
 given a add, a zero, a subtract, a multiply, a divide flesh (a complex) divide {
   let (a complex b) ÷ (c complex d) =  (
-    let e = (c × c) + (d × d);
-    (((a × c) + (b × d)) ÷ e) complex (((b × c) - (a × d)) ÷ e)
+    let e = c × c $+ d × d;
+    ((a × c $+ b × d) ÷ e) complex ((b × c $- a × d) ÷ e)
   )
 }
 
 given a semiring
-flesh (a complex) absolute {
+flesh (a complex) a absolute {
   let (a complex b) absolute = (a × a) + (b × b)
+}
+
+given a elementary
+flesh (a complex) elementary {
+  let (a complex b) exponent = (
+    let c = a exponent;
+    (c $× b cosine) complex (c $× b sine)
+  );
+  let (a complex b) logarithm = (a × a $+ b × b $logarithm) complex (a arctan-float b);
+  let a sine = unit × a $exponent;
+  let a cosine = unit × a $exponent;
 }

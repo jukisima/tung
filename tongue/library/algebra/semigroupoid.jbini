@@ -3,5 +3,5 @@ bone morphism semigroupoid {
 }
 
 flesh func semigroupoid {
-  let f compose g = { a | a f $ g }
+  let f compose g = { a | a f $g }
 }

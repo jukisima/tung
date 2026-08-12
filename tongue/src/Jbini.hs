@@ -11,6 +11,7 @@ module Jbini (
   Ctor (..),
   BoneMember (..),
   BoneNeed (..),
+  Token (..),
   Ty (..),
   Scheme (..),
   EnvLookup (..),
@@ -18,6 +19,10 @@ module Jbini (
   TcState (..),
   TcResult (..),
   parse,
+  parseTokens,
+  lexTokens,
+  keywordNames,
+  specialNameChars,
   check,
   checkWithImports,
   checkRunnableWithImports,
@@ -30,9 +35,12 @@ module Jbini (
   evaluate,
   evaluateWithImports,
   libraryImportFiles,
+  readLibraryImports,
 ) where
 
 import Jbini.Evaluate (evaluate, evaluateWithImports)
-import Jbini.Parse (parse)
+import Jbini.Library (libraryImportFiles, readLibraryImports)
+import Jbini.Parse (parse, parseTokens)
 import Jbini.Syntax
-import Jbini.TypeCheck
+import Jbini.Token (Token (..), keywordNames, lexTokens, specialNameChars)
+import Jbini.Type

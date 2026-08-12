@@ -5,9 +5,9 @@ effect choice {
 }
 
 let branch-sum: integer =
-  try (null choose) + (null choose) {
-    choose | (2 resume) + (3 resume)
+  try null choose $+ null choose {
+    choose | 2 resume $+ 3 resume
   };
 
 let _ = 'multi-shot' write-line;
-(branch-sum to-string) write-line
+branch-sum to-string $write-line

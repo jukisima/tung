@@ -14,7 +14,6 @@ module Jbini.Syntax (
   RecordUpdate (..),
   Pattern (..),
   MatchCase (..),
-  Token (..),
   matchCaseArity,
   matchRows,
 )
@@ -35,7 +34,7 @@ data Decl
   | EffectDecl [String] String [EffectOp]
   | ForeignDecl [ForeignMember]
   | BoneDecl [String] String [BoneNeed] [BoneMember]
-  | FleshDecl TypeExpr String [BoneNeed] [Decl]
+  | FleshDecl [TypeExpr] String [BoneNeed] [Decl]
   deriving (Eq, Show)
 
 data EffectOp = EffectOp String TypeExpr deriving (Eq, Show)
@@ -55,7 +54,6 @@ data TypeExpr
   | TypeApply String [TypeExpr]
   | TypeRecord [(String, TypeExpr)]
   | TypeArrow (NonEmpty TypeExpr) [TypeExpr] TypeExpr
-  | TypeForall [TypeExpr] TypeExpr
   deriving (Eq, Show)
 
 data Expr
@@ -68,7 +66,7 @@ data Expr
   | ERecord [(String, Expr)]
   | EUpdate Expr [RecordUpdate]
   | ETry Expr (Maybe ReturnCase) [HandlerCase]
-  | EMatch [Expr] (NonEmpty MatchCase)
+  | EMatch [Expr] [MatchCase]
   | EBlock [Decl] Expr
   deriving (Eq, Show)
 
@@ -82,42 +80,9 @@ data Pattern = PVar String | PCon String [Pattern] deriving (Eq, Show)
 
 data MatchCase = MatchCase (NonEmpty Pattern) Expr deriving (Eq, Show)
 
-matchCaseArity :: NonEmpty MatchCase -> Int
-matchCaseArity (MatchCase ps _ :| _) = NE.length ps
+matchCaseArity :: [MatchCase] -> Maybe Int
+matchCaseArity (MatchCase ps _ : _) = Just (NE.length ps)
+matchCaseArity [] = Nothing
 
-matchRows :: NonEmpty MatchCase -> [[Pattern]]
-matchRows = map (\(MatchCase ps _) -> NE.toList ps) . NE.toList
-
-data Token
-  = TIdent String
-  | TInteger Int
-  | TFloat String
-  | TChar String
-  | TString String
-  | TLet
-  | TGiven
-  | TBring
-  | TType
-  | TData
-  | TEffect
-  | TBone
-  | TFlesh
-  | TMatch
-  | TTry
-  | TLParen
-  | TRParen
-  | TLBrace
-  | TRBrace
-  | TLBracket
-  | TRBracket
-  | TColon
-  | TComma
-  | TMapsTo
-  | TArrow
-  | TForall
-  | TBang
-  | TEquals
-  | TSemicolon
-  | TDot
-  | TDollar
-  deriving (Eq, Show)
+matchRows :: [MatchCase] -> [[Pattern]]
+matchRows = map (\(MatchCase ps _) -> NE.toList ps)
