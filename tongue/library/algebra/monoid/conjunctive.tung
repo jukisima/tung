@@ -1,0 +1,19 @@
+bring two.tung;
+bring algebra/monoid.tung;
+bring algebra/semigroup.tung;
+
+show choose conjunctive {
+  𝟚 conjunctive
+}
+
+fill conjunctive semigroup {
+  let (x: conjunctive, y: conjunctive) *: conjunctive = match x, y {
+    nay conjunctive, _ | nay conjunctive,
+    _, nay conjunctive | nay conjunctive,
+    _, _ | yea conjunctive
+  }
+}
+
+fill conjunctive monoid {
+  let ∅ = yea conjunctive
+}

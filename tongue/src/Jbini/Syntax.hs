@@ -4,8 +4,8 @@ module Jbini.Syntax (
   EffectOp (..),
   ForeignMember (..),
   Ctor (..),
-  BoneMember (..),
-  BoneNeed (..),
+  ShapeMember (..),
+  ShapeNeed (..),
   TypeAnn (..),
   TypeExpr (..),
   Expr (..),
@@ -20,21 +20,22 @@ module Jbini.Syntax (
 where
 
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 
-data Program = Program [Decl] deriving (Eq, Show)
+newtype Program = Program [Decl] deriving (Eq, Show)
 
 data Decl
   = Import String
-  | ShowDecl String
-  | ShowTypeDecl String
+  | Export Decl
+  | ReExport String
+  | ReExportType String
   | Let String (Maybe TypeAnn) Expr
   | TypeAlias String TypeExpr
   | DataDecl [String] String [Ctor]
   | EffectDecl [String] String [EffectOp]
   | ForeignDecl [ForeignMember]
-  | BoneDecl [String] String [BoneNeed] [BoneMember]
-  | FleshDecl [TypeExpr] String [BoneNeed] [Decl]
+  | ShapeDecl [String] String [ShapeNeed] [ShapeMember]
+  | FillDecl [TypeExpr] String [ShapeNeed] [Decl]
   deriving (Eq, Show)
 
 data EffectOp = EffectOp String TypeExpr deriving (Eq, Show)
@@ -43,11 +44,11 @@ data ForeignMember = ForeignMember String TypeAnn deriving (Eq, Show)
 
 data Ctor = Ctor String [TypeExpr] deriving (Eq, Show)
 
-data BoneNeed = BoneNeed [TypeExpr] String deriving (Eq, Show)
+data ShapeNeed = ShapeNeed [TypeExpr] String deriving (Eq, Show)
 
-data TypeAnn = TypeAnn TypeExpr [BoneNeed] deriving (Eq, Show)
+data TypeAnn = TypeAnn TypeExpr [ShapeNeed] deriving (Eq, Show)
 
-data BoneMember = BoneSpec String TypeAnn | BoneDefault String (Maybe TypeAnn) Expr deriving (Eq, Show)
+data ShapeMember = ShapeSpec String TypeAnn | ShapeDefault String (Maybe TypeAnn) Expr deriving (Eq, Show)
 
 data TypeExpr
   = TypeName String

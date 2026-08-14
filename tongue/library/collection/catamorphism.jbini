@@ -1,8 +1,0 @@
-bring algebra/semigroup.jbini;
-bring algebra/monoid.jbini;
-
-bone f cata {
-  (a f) foldr b (a → b → b ! e): b ! e;
-  (a f) foldl b (b → a → b ! e): b ! e;
-  given a monoid let (l: a f) fold: a = l foldr ∅ *
-}

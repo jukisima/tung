@@ -1,9 +1,0 @@
-bring algebra/semigroupoid.jbini;
-
-bone f functor {
-  (a f) map (a → b ! e): b f ! e
-}
-
-flesh (a func) functor {
-  let f map g = f compose g
-}

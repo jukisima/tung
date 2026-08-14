@@ -1,0 +1,9 @@
+bring algebra/semigroup.tung;
+bring algebra/monoid.tung;
+
+graith a monoid
+show shape a group {
+  a / a: a
+
+  # a / a ≡ ∅
+}

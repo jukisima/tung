@@ -1,5 +1,0 @@
-bring string.jbini;
-
-bone a to-string {
-  a to-string: string
-}

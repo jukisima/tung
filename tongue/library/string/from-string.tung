@@ -1,0 +1,5 @@
+bring string.tung;
+
+show shape a from-string {
+  string from-string: a ! string fail
+}

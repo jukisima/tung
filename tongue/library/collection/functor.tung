@@ -1,0 +1,5 @@
+bring algebra/semigroupoid.tung;
+
+show shape f functor {
+  (a f) map (a → b ! e): b f ! e
+}

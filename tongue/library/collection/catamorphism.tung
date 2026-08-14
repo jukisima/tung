@@ -1,0 +1,8 @@
+bring algebra/semigroup.tung;
+bring algebra/monoid.tung;
+
+show shape f cata {
+  (a f) foldr b (a → b → b ! e): b ! e;
+  (a f) foldl b (b → a → b ! e): b ! e;
+  graith a monoid let (l: a f) fold: a = l foldr ∅ *
+}

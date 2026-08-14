@@ -1,0 +1,52 @@
+bring foreign.tung;
+bring zero.tung;
+bring one.tung;
+bring two.tung;
+bring equal.tung;
+bring order.tung;
+bring string/to-string.tung;
+bring string/from-string.tung;
+bring algebra/semiring.tung;
+bring algebra/ring.tung;
+bring algebra/field.tung;
+bring collection/functor.tung;
+bring numeric/elementary.tung;
+
+show let (a: string) write-line: 𝟙 ! console = (
+  let _ = a write;
+  '\n' write
+);
+
+show-ilk 𝟘;
+show initial;
+
+show-ilk 𝟙;
+show null;
+show terminal;
+
+show-ilk 𝟚;
+show yea, nay;
+
+show-ilk task;
+show done;
+
+show-ilk fail, console, random, state, async, file;
+
+show ¬, if;
+
+show fail;
+show write, write-line, read;
+show random;
+show get, set;
+show fork, wait, sleep;
+show read-file, write-file, append-file;
+
+show ≡, ≢;
+show ≤, <, ∧, ∨;
+
+show +, zero, ×, one, -, ÷;
+show sine, cosine, tangent, exponent, logarithm, ⌊;
+
+show to-string;
+show from-string;
+show map;

@@ -1,0 +1,111 @@
+bring one.tung;
+bring two.tung;
+bring order.tung;
+bring product.tung;
+bring algebra/semigroup.tung;
+bring algebra/monoid.tung;
+bring algebra/semiring.tung;
+bring natural.tung;
+bring collection/size.tung;
+bring collection/catamorphism.tung;
+bring collection/functor.tung;
+bring collection/applicative.tung;
+bring collection/monad.tung;
+bring collection/filter.tung;
+
+show choose a list {
+  empty,
+  a .* (a list)
+}
+
+show let (start: integer, stop: integer) till: integer list = match start ≤ stop {
+  yea | start .* ((start + 1) till stop),
+  nay | empty
+};
+
+fill (a list) semigroup {
+  let a… * b… = match a… {
+    empty | b…,
+    a .* l | a .* (l * b…)
+  }
+}
+
+fill (a list) monoid {
+  let ∅ = empty
+}
+
+fill list functor {
+  let it map f = match it {
+    empty | empty,
+    a .* l | (a f) .* (l map f)
+  }
+}
+
+fill list monad {
+  let a pure = a .* empty;
+  let a… apply = {
+    empty | empty,
+    f .* f… | (a… map f) * (a… apply f…)
+  };
+  let flat = {
+    empty | empty,
+    a… .* a…… | a… * (a…… flat)
+  };
+  let a… map-flat f = (a… map f) flat
+}
+
+fill list filter {
+  let a… filter f = match a… {
+    empty | empty,
+    a .* a…′ | (a f) if (a .* (a…′ filter f)) (a…′ filter f)
+  }
+}
+
+show let (a…: a list, action: a → 𝟙 ! e) each: 𝟙 ! e = match a… {
+  empty | null,
+  a .* a…′ | (
+    let _ = a action;
+    a…′ each action
+  )
+}
+
+fill list cata {
+  let a… foldr b f = match a… {
+    empty | b,
+    a .* rest | a f (rest foldr b f)
+  };
+  let a… foldl b f = match a… {
+    empty | b,
+    a .* rest | rest foldl (b f a) f
+  }
+}
+
+fill (a list) size {
+  let l size = l foldl natural@zero { n, _ | n suc }
+}
+
+show let reverse: a list → a list = (
+  let help = {
+    outcome, empty | outcome,
+    outcome, a .* a… | (a .* outcome) help a…
+  };
+  empty help
+);
+
+show let every: 𝟚 list → 𝟚 = {
+  empty | yea,
+  yea .* l | l every,
+  nay .* _ | nay
+};
+
+show let some: 𝟚 list → 𝟚 = {
+  empty | nay,
+  nay .* l | l some,
+  yea .* _ | yea
+};
+
+show let zip: a list → b list → (a ∏ b) list = {
+  empty, _ | empty,
+  _, empty | empty,
+  a .* a…, b .* b… | (a ∏ b) .* (a… zip b…)
+}

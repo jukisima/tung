@@ -9,11 +9,12 @@ where
 
 import Control.Applicative (empty, many, some)
 import Data.Char (chr, isSpace)
+import Data.Maybe (fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (Parsec)
-import qualified Text.Megaparsec as M
-import qualified Text.Megaparsec.Char as C
-import qualified Text.Megaparsec.Char.Lexer as L
+import Text.Megaparsec qualified as M
+import Text.Megaparsec.Char qualified as C
+import Text.Megaparsec.Char.Lexer qualified as L
 
 data Token
   = TIdent String
@@ -22,13 +23,15 @@ data Token
   | TChar String
   | TString String
   | TLet
-  | TGiven
+  | TGraith
+  | TShow
+  | TShowIlk
   | TBring
-  | TType
-  | TData
-  | TEffect
-  | TBone
-  | TFlesh
+  | TLetIlk
+  | TChoose
+  | TDeed
+  | TShape
+  | TFill
   | TMatch
   | TTry
   | TLParen
@@ -62,11 +65,10 @@ tokenParser =
     M.choice
       [ TInteger <$> M.try integerParser
       , TFloat <$> M.try floatParser
-      , TIdent <$> M.try prependNameParser
       , charParser
       , stringParser
-      , singleTokenParser
       , nameParser
+      , singleTokenParser
       ]
 
 singleTokenParser :: Lexer Token
@@ -91,24 +93,18 @@ singleTokenParser =
 
 integerParser :: Lexer Int
 integerParser = do
-  sign <- optionalChar '-'
-  digits <- some C.digitChar
+  sign <- M.optional (C.char '-')
+  value <- L.decimal
   M.notFollowedBy (C.char '.' *> C.digitChar)
-  pure (signed sign (read digits))
+  pure (maybe value (const (-value)) sign)
 
 floatParser :: Lexer String
 floatParser = do
-  sign <- optionalChar '-'
+  sign <- M.optional (C.char '-')
   whole <- some C.digitChar
   _ <- C.char '.'
   frac <- some C.digitChar
   pure (maybe "" (: []) sign ++ whole ++ "." ++ frac)
-
-prependNameParser :: Lexer String
-prependNameParser = do
-  _ <- C.string ".*"
-  rest <- many (M.satisfy isNameChar)
-  pure (".*" ++ rest)
 
 charParser :: Lexer Token
 charParser = do
@@ -161,7 +157,10 @@ decimalUnicode digits =
     _ -> fail "decimal unicode escape out of range"
 
 nameParser :: Lexer Token
-nameParser = keywordOrIdent <$> some (M.satisfy isNameChar)
+nameParser = keywordOrIdent . concat <$> some nameChunk
+
+nameChunk :: Lexer String
+nameChunk = M.try (C.string ".*") M.<|> ((: []) <$> M.satisfy isNameChar)
 
 spaceConsumer :: Lexer ()
 spaceConsumer = L.space C.space1 (L.skipLineComment "#") empty
@@ -169,43 +168,30 @@ spaceConsumer = L.space C.space1 (L.skipLineComment "#") empty
 lexeme :: Lexer a -> Lexer a
 lexeme = L.lexeme spaceConsumer
 
-optionalChar :: Char -> Lexer (Maybe Char)
-optionalChar c = M.optional (C.char c)
-
-signed :: Maybe Char -> Int -> Int
-signed (Just '-') n = -n
-signed _ n = n
-
 keywordNames :: [String]
-keywordNames =
-  [ "let"
-  , "given"
-  , "bring"
-  , "type"
-  , "data"
-  , "effect"
-  , "bone"
-  , "flesh"
-  , "match"
-  , "try"
-  ]
+keywordNames = map fst keywordTokens
 
 keywordOrIdent :: String -> Token
-keywordOrIdent = \case
-  "let" -> TLet
-  "given" -> TGiven
-  "bring" -> TBring
-  "type" -> TType
-  "data" -> TData
-  "effect" -> TEffect
-  "bone" -> TBone
-  "flesh" -> TFlesh
-  "match" -> TMatch
-  "try" -> TTry
-  s -> TIdent s
+keywordOrIdent name = fromMaybe (TIdent name) (lookup name keywordTokens)
+
+keywordTokens :: [(String, Token)]
+keywordTokens =
+  [ ("let", TLet)
+  , ("graith", TGraith)
+  , ("show", TShow)
+  , ("show-ilk", TShowIlk)
+  , ("bring", TBring)
+  , ("let-ilk", TLetIlk)
+  , ("choose", TChoose)
+  , ("deed", TDeed)
+  , ("shape", TShape)
+  , ("fill", TFill)
+  , ("match", TMatch)
+  , ("try", TTry)
+  ]
 
 isNameChar :: Char -> Bool
-isNameChar c = not (isSpace c) && not (c `elem` specialNameChars)
+isNameChar c = not (isSpace c) && c `notElem` specialNameChars
 
 specialNameChars :: [Char]
 specialNameChars = "#(){}[]:,|!=;.$→`'"

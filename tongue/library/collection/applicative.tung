@@ -1,0 +1,7 @@
+bring combinator.tung;
+bring collection/functor.tung;
+
+graith f functor show shape f applicative {
+  a pure: a f;
+  (a f) apply ((a → b ! e) f): b f ! e
+}

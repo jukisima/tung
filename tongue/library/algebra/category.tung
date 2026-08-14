@@ -1,0 +1,10 @@
+bring algebra/semigroupoid.tung;
+
+graith morphism semigroupoid
+show shape morphism category {
+  identity: a morphism a
+}
+
+fill func category {
+  let a identity = a
+}

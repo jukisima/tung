@@ -1,0 +1,14 @@
+bring algebra/semigroup.tung;
+
+graith a semigroup
+show shape a monoid {
+  ∅: a
+
+  # ∅ * a ≡ a
+  # a * ∅ ≡ a
+}
+
+graith b monoid
+fill (a func b) monoid {
+  let ∅ = { _ | ∅ }
+}

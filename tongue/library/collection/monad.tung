@@ -1,0 +1,13 @@
+bring collection/functor.tung;
+bring collection/applicative.tung;
+
+graith f applicative
+show shape f monad {
+  ((a f) f) flat: a f;
+  let (a: a f, f: a → b f ! e) map-flat
+    : b f ! e
+    = (a map f) flat
+
+  # (a pure) f map-flat ≡ a f
+  # a map-flat pure ≡ a
+}

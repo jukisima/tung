@@ -1,0 +1,150 @@
+{
+  "name": "tung-vscode",
+  "displayName": "tung",
+  "description": "language support for tung source files",
+  "version": "0.1.0",
+  "publisher": "tung",
+  "license": "UNLICENSED",
+  "main": "./client/extension.js",
+  "scripts": {
+    "setup": "bash ../setup.sh",
+    "check": "npm run check:client && npm run check:server",
+    "check:client": "node --check client/extension.js",
+    "check:server": "node --check server/main.js && node --check server/analysis.js && node --check server/checker.js && node --check server/format.js && node --check server/semantic.js && node --check server/workspace.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "activationEvents": [
+    "onLanguage:tung"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tung",
+        "aliases": [
+          "tung",
+          "Tung"
+        ],
+        "extensions": [
+          ".tung"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tung",
+        "scopeName": "source.tung",
+        "path": "./syntaxes/tung.tmLanguage.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "shape",
+        "superType": "type",
+        "description": "tung type class name"
+      },
+      {
+        "id": "call",
+        "superType": "function",
+        "description": "term used in tung function position"
+      }
+    ],
+    "semanticTokenModifiers": [
+      {
+        "id": "effect",
+        "description": "effect operation or effect type"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "tung",
+        "scopes": {
+          "type": [
+            "support.type.tung",
+            "support.type"
+          ],
+          "type.effect": [
+            "support.type.effect.tung",
+            "support.type.effect",
+            "support.type"
+          ],
+          "shape": [
+            "support.type.tung",
+            "support.type"
+          ],
+          "function": [
+            "entity.name.function.tung",
+            "entity.name.function"
+          ],
+          "method": [
+            "entity.name.function.member.tung",
+            "entity.name.function.member"
+          ],
+          "method.effect": [
+            "support.function.effect.tung",
+            "support.function.effect",
+            "entity.name.function.member"
+          ],
+          "call": [
+            "entity.name.function.tung",
+            "entity.name.function"
+          ],
+          "call.effect": [
+            "support.function.effect.tung",
+            "support.function.effect",
+            "entity.name.function"
+          ],
+          "variable": [
+            "variable.other.tung",
+            "variable.other"
+          ],
+          "variable.effect": [
+            "support.function.effect.tung",
+            "support.function.effect",
+            "variable.other"
+          ],
+          "parameter": [
+            "variable.parameter.tung",
+            "variable.parameter"
+          ],
+          "property": [
+            "variable.other.member.tung",
+            "variable.other.member"
+          ]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[tung]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
+    "configuration": {
+      "title": "tung",
+      "properties": {
+        "tung.tonguePath": {
+          "type": "string",
+          "default": "",
+          "description": "absolute path to the tung tongue folder containing tung.cabal and library/"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "3.9.2",
+    "vscode-jsonrpc": "8.2.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}

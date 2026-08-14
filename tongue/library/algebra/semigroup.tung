@@ -1,0 +1,9 @@
+show shape a semigroup {
+  a * a: a
+  # a * (b * c) ≡ (a * b) * c
+}
+
+graith b semigroup
+fill (a func b) semigroup {
+  let f * g = { a | (a f) * (a g) }
+}

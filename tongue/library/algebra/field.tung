@@ -1,0 +1,17 @@
+bring foreign.tung;
+bring algebra/ring.tung;
+
+show shape a divide {
+  a ÷ a: a ! string fail
+}
+
+graith a ring, a divide
+show shape a field {}
+
+fill integer divide {
+  let ÷ = divide-integer
+}
+
+fill float divide {
+  let ÷ = divide-float
+}

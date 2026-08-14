@@ -1,0 +1,6 @@
+.gitignore
+.npmignore
+.npm-cache/**
+dist/**
+test/**
+setup.sh

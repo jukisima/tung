@@ -1,0 +1,6 @@
+pre-commit:
+  jobs:
+    - name: fourmolu
+      glob: "**/*.hs"
+      run: fourmolu --mode inplace {staged_files}
+      stage_fixed: true

@@ -1,6 +1,6 @@
-# jbini
+# tung
 
-jbini is a functional programming tongue with
+tung is a functional programming tongue with
 
 - static typing
 - algebraic data types
@@ -17,18 +17,31 @@ cabal build all
 
 cabal test all
 
-cabal run jbini -- ../sample/fizzbuzz.jbini
+cabal run tung -- ../sample/fizzbuzz.tung
 ```
 
-vscode syntax highlighting lives in `highlight/`.
+vscode and lsp support lives in `support/`. it provides compiler diagnostics, inferred hover types, semantic highlighting, completion, navigation, symbols, rename, import links, folding, and formatting.
+
+prepare or update the language support with:
+
+```sh
+./setup.sh
+```
+
+install the development tools and git hooks with:
+
+```sh
+brew bundle
+lefthook install
+```
 
 a runnable file must produce `𝟙`. only `console`, `random`, `async`, and `file` effects may remain unhandled at the file boundary. user-defined effects and `fail` must be handled before the end of the file.
 
 ## small example
 
-```jbini
-bring ground.jbini;
-bring list.jbini;
+```tung
+bring ground.tung;
+bring list.tung;
 
 let (i: integer) fizzbuzz: string =
   match 3 can-divide i, 5 can-divide i {
@@ -47,30 +60,52 @@ a file is a sequence of declarations and an optional final expression.
 
 `bring` imports another file.
 
-```jbini
-bring ground.jbini;
-bring list.jbini;
+```tung
+bring ground.tung;
+bring list.tung;
 ```
 
-imported names are always available as `namespace@name`, where the namespace is the file name before `.jbini`.
+imports must form an acyclic graph. the checker rejects both direct and indirect bring cycles.
 
-```jbini
+shown names are imported as `namespace@name`, where the namespace is the file name before `.tung`.
+
+```tung
 ground@yea
 list@empty
 ```
 
-an imported name may also be used bare when it is unambiguous. if two imported files expose the same bare name, the checker asks for qualification.
+an imported name may also be used bare when it is unambiguous. if two imported files expose the same bare name, the checker asks for qualification. private names are unavailable both bare and qualified.
 
-`show` re-exports a value from the current file. `show-type` re-exports a type name.
+tung has two namespaces. values, functions, data constructors, and effect operations are terms. primitive types, aliases, data types, and effect constructors are types. both namespaces are private by default. put `show` before a declaration to publish it.
 
-```jbini
-show-type 𝟙;
-show null;
+```tung
+show let answer = 42;
+graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y;
+show let-ilk count = integer;
+show choose 𝟙 { null }
+show deed ask { integer ask: integer }
+show shape a identity { a identity: a }
+graith a equal show shape a order { a ≤ a: 𝟚 }
 ```
+
+for a declaration with `graith`, put `show` after the requirements and directly before `let` or `shape`.
+
+showing a `choose` declaration shows its type and constructors. showing a `deed` declaration shows its effect type and operations. showing a shape shows its methods. fill evidence follows imports without `show`.
+
+`show name;` re-exports an already visible term. `show-ilk name;` re-exports an already visible type, including an effect constructor. use a qualified name when imports make the bare name ambiguous within that namespace. data constructors and effect operations are terms and must be shown separately from their type.
+
+```tung
+bring one.tung;
+show-ilk one@𝟙;
+show one@null;
+show one@terminal;
+```
+
+`show bring file.tung;` re-exports the whole shown surface of that file.
 
 ## comments and names
 
-```jbini
+```tung
 # this is a comment
 ```
 
@@ -99,7 +134,7 @@ the standard library defines these common data types:
 
 literals.
 
-```jbini
+```tung
 # integer
 42
 
@@ -125,14 +160,14 @@ literals.
 
 a sequence of terms separated by space is an application with the second being the function.
 
-```jbini
+```tung
 a f       # f a in haskell
 a f b c   # f a b c in haskell
 ```
 
 the tongue curries all functions.
 
-```jbini
+```tung
 let add = { x, y | x + y };
 let one-add = 1 add;
 2 one-add # 3
@@ -140,9 +175,9 @@ let one-add = 1 add;
 
 `$` is a pipeline syntax.
 
-```jbini
+```tung
 a f $h b g
-# (a f) h (b g)
+# (a f) h b g
 
 a f $(g b c) $h d
 # ((a f) g b c) h d
@@ -150,7 +185,7 @@ a f $(g b c) $h d
 
 ## evaluation
 
-jbini is strict call-by-value.
+tung is strict call-by-value.
 
 - declarations run in order
 - `let` evaluates the right-hand side before binding
@@ -164,35 +199,35 @@ jbini is strict call-by-value.
 
 ## declarations
 
-```jbini
+```tung
 let answer: integer = 42;
-let name = 'jbini';
+let name = 'tung';
 ```
 
 definitions can use the same sequence rule as applications.
 
-```jbini
+```tung
 let x add y = x + y;
 let x add-typed y: integer → integer → integer = x + y;
 ```
 
 or thou canst annotate each argument with a type.
 
-```jbini
+```tung
 let (x: integer, y: integer) add: integer = x + y;
 ```
 
 definitions can require type-class.
 
-```jbini
-given a equal let (x: a, y: a) same: 𝟚 = x ≡ y;
+```tung
+graith a equal let (x: a, y: a) same: 𝟚 = x ≡ y;
 ```
 
 ## functions and match
 
 function literal.
 
-```jbini
+```tung
 let id = { x | x };
 
 let if = {
@@ -203,7 +238,7 @@ let if = {
 
 `match` consumes one or more scrutinees.
 
-```jbini
+```tung
 match x {
   none | 0,
   n some | n
@@ -221,19 +256,19 @@ cases must have the same number of patterns and be exhaustive.
 
 an empty match is allowed only when the scrutinee type has no values. the empty anonymous function `{}` is allowed when its annotated input type is empty.
 
-```jbini
+```tung
 let initial: 𝟘 → a = {};
 ```
 
 ## algebraic data types
 
-```jbini
-data a option {
+```tung
+choose a option {
   none,
   a some
 }
 
-data a ∏ b {
+choose a ∏ b {
   a ∏ b
 }
 
@@ -244,7 +279,7 @@ let pair: integer ∏ string = 0 ∏ 'zero';
 
 records are closed.
 
-```jbini
+```tung
 let person: [name: string, age: integer] =
   [name = 'john', age = 32];
 
@@ -257,40 +292,40 @@ let public = [= person, - age];
 
 ## types
 
-```jbini
+```tung
 integer → integer
 integer → integer → integer
 (integer func integer) func integer
 ```
 
-```jbini
+```tung
 string → 𝟙 ! console
 integer → integer ! string fail
 ```
 
-```jbini
+```tung
 𝟙 → string ! console, random
 ```
 
 effect annotations belong to function arrows. partial application is pure; only full application can run latent effects.
 
-```jbini
+```tung
 string → string ! file, string fail
 ```
 
-```jbini
-type string = character list;
+```tung
+let-ilk string = character list;
 ```
 
 ## type classes
 
-```jbini
-bone a equal {
+```tung
+shape a equal {
   a ≡ a: 𝟚;
   let a ≢ b = (a ≡ b) ¬
 }
 
-flesh 𝟚 equal {
+fill 𝟚 equal {
   let ≡ = {
     yea, yea | yea,
     nay, nay | yea,
@@ -298,13 +333,13 @@ flesh 𝟚 equal {
   }
 }
 
-given a equal
-bone a order {
+graith a equal
+shape a order {
   a ≤ a: 𝟚
 }
 
-given a semigroup
-flesh (a option) semigroup {
+graith a semigroup
+fill (a option) semigroup {
   let * = {
     none, b | b,
     a, none | a,
@@ -315,12 +350,12 @@ flesh (a option) semigroup {
 
 ## effects and handlers
 
-```jbini
-effect e fail {
+```tung
+deed e fail {
   e fail: a
 }
 
-effect console {
+deed console {
   string write: 𝟙,
   𝟙 read: string
 }
@@ -328,11 +363,11 @@ effect console {
 
 effect operation types must be function types. the effect declaration itself adds the latent effect. written latent effects are kept, so operations may mention effects besides their own effect.
 
-```jbini
+```tung
 string → float ! string fail
 ```
 
-```jbini
+```tung
 try 1 ÷ 0 {
   _ fail | 0
 }
@@ -340,19 +375,19 @@ try 1 ÷ 0 {
 
 operation handlers may use the implicit `resume` function. `resume` is multi-shot, so it may be called more than once.
 
-```jbini
-effect choice {
-  𝟙 choose: integer
+```tung
+deed choice {
+  𝟙 pick: integer
 }
 
-try (null choose) + (null choose) {
-  choose | (1 resume) + (2 resume)
+try (null pick) + (null pick) {
+  pick | (1 resume) + (2 resume)
 }
 ```
 
 a handler may include one `return` case. it handles the normal result and may change the answer type of the whole `try`.
 
-```jbini
+```tung
 try 2 + 3 {
   return n | n to-string
 }
@@ -362,7 +397,7 @@ without a `return` case, the normal result is returned unchanged.
 
 ## standard effects
 
-`foreign.jbini` declares the runtime-backed standard effects:
+`foreign.tung` declares the runtime-backed standard effects:
 
 - `console`: `write`, `read`
 - `random`: `random`
@@ -371,7 +406,7 @@ without a `return` case, the normal result is returned unchanged.
 - `fail`: extensible failure with an error payload
 - `state`: parameterized state effect
 
-`ground.jbini` re-exports those effects and defines `write-line`, which writes the text and then a newline.
+`ground.tung` re-exports those effects and defines `write-line`, which writes the text and then a newline.
 
 the runtime currently provides native operations named:
 
@@ -389,7 +424,7 @@ file operations read and write whole text files. file-system errors perform `str
 
 ## project files
 
-- `jbini.cabal`: haskell package setup
+- `tung.cabal`: haskell package setup
 - `app/Main.hs`: command-line runner
 - `src/Jbini.hs`: public haskell api
 - `src/Jbini/Syntax.hs`: syntax trees
@@ -399,6 +434,6 @@ file operations read and write whole text files. file-system errors perform `str
 - `src/Jbini/Type.hs`: imports, name lookup, type inference, classes, match coverage, effects, and runnable-file checks
 - `src/Jbini/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers
 - `test/Main.hs`: tests
-- `library/`: standard library written in jbini
+- `library/`: standard library written in tung
 - `sample/`: runnable examples
 - `agent.md`: maintainer notes and detailed tongue specification

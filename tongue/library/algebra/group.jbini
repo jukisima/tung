@@ -1,9 +1,0 @@
-bring algebra/semigroup.jbini;
-bring algebra/monoid.jbini;
-
-given a monoid
-bone a group {
-  a / a: a
-
-  # a / a ≡ ∅
-}

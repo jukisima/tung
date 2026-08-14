@@ -9,8 +9,8 @@ module Jbini (
   RecordUpdate (..),
   EffectOp (..),
   Ctor (..),
-  BoneMember (..),
-  BoneNeed (..),
+  ShapeMember (..),
+  ShapeNeed (..),
   Token (..),
   Ty (..),
   Scheme (..),
@@ -23,9 +23,14 @@ module Jbini (
   lexTokens,
   keywordNames,
   specialNameChars,
+  ImportStack,
+  enterImport,
+  validateProgram,
   check,
   checkWithImports,
+  checkEditorWithImports,
   checkRunnableWithImports,
+  typeOfWithImports,
   baseContext,
   inferProgramContext,
   lookupEnv,
@@ -39,8 +44,10 @@ module Jbini (
 ) where
 
 import Jbini.Evaluate (evaluate, evaluateWithImports)
+import Jbini.Import (ImportStack, enterImport)
 import Jbini.Library (libraryImportFiles, readLibraryImports)
 import Jbini.Parse (parse, parseTokens)
 import Jbini.Syntax
 import Jbini.Token (Token (..), keywordNames, lexTokens, specialNameChars)
 import Jbini.Type
+import Jbini.Validate (validateProgram)

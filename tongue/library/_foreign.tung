@@ -1,0 +1,54 @@
+show choose a task {
+  a done
+}
+
+show deed divergent {}
+
+show deed e fail {
+  e fail: a
+}
+
+show deed console {
+  string write: 𝟙,
+  𝟙 read: string
+}
+
+show deed random {
+  𝟙 random: float
+}
+
+show deed a state {
+  𝟙 get: a,
+  a set: 𝟙
+}
+
+show deed async {
+  (𝟙 → a) fork: a task,
+  (a task) wait: a,
+  integer sleep: 𝟙
+}
+
+show deed file {
+  string read-file: string ! string fail,
+  string write-file string: 𝟙 ! string fail,
+  string append-file string: 𝟙 ! string fail
+}
+
+show class foreign {
+  integer add-integer integer: integer;
+  integer subtract-integer integer: integer;
+  integer multiply-integer integer: integer;
+  integer divide-integer integer: integer ! string fail;
+  float add-float float: float;
+  float subtract-float float: float;
+  float multiply-float float: float;
+  float divide-float float: float ! string fail;
+  float sine-float: float;
+  float arctan-float float: float;
+  float exponent-float: float;
+  float logarithm-float: float;
+  float ⌊: integer;
+  integer equal-integer integer: 𝟚;
+  integer integer-to-string: string;
+  float float-to-string: string;
+}

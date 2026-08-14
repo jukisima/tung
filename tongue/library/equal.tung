@@ -1,0 +1,14 @@
+bring two.tung;
+
+show shape a equal {
+  a ≡ a: 𝟚;
+  let a ≢ b = (a ≡ b) ¬
+}
+
+fill 𝟚 equal {
+  let ≡ = {
+    yea, yea | yea,
+    nay, nay | yea,
+    _, _ | nay
+  }
+}

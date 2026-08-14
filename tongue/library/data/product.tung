@@ -1,0 +1,11 @@
+show choose a ∏ b {
+  a ∏ b
+}
+
+show let project₀: a ∏ b → a = {
+  a ∏ _ | a
+}
+
+show let project₁: a ∏ b → b = {
+  _ ∏ b | b
+}

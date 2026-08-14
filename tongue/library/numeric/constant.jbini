@@ -1,5 +1,0 @@
-let circumference: float = 6.28318530717958647692;
-
-let napier: float = 2.71828182845904523536;
-
-let light: float = 299792458.0

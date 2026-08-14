@@ -1,0 +1,18 @@
+bring ground.tung;
+bring list.tung;
+
+graith a divide, a multiply, a equal
+let (divisor: a, dividend: a) can-divide: 𝟚 =
+  try dividend ≡ (dividend ÷ divisor $ × divisor) {
+    _ fail | nay
+  };
+
+let (i: integer) fizzbuzz: string =
+  match 3 can-divide i, 5 can-divide i {
+    yea, yea | 'fizzbuzz',
+    yea, nay | 'fizz',
+    nay, yea | 'buzz',
+    nay, nay | i to-string
+  };
+
+0 till 32 $ map fizzbuzz $ each write-line

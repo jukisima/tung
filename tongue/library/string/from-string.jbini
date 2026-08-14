@@ -1,5 +1,0 @@
-bring string.jbini;
-
-bone a from-string {
-  string from-string: a ! string fail
-}
