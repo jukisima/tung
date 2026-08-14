@@ -1,4 +1,4 @@
-module Jbini.Name (
+module Tung.Name (
   importNamespace,
   isQualifiedName,
   lastQualifiedSegment,

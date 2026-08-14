@@ -1,8 +1,8 @@
 module Test.Validate (group) where
 
-import Jbini
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
+import Tung
 
 group :: IO Group
 group =

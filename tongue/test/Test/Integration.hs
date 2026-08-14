@@ -2,10 +2,10 @@ module Test.Integration (group) where
 
 import Control.Monad (when)
 import Data.Map.Strict qualified as Map
-import Jbini
 import System.Directory (doesFileExist, getTemporaryDirectory, removeFile)
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
+import Tung
 
 group :: IO Group
 group = do

@@ -1,9 +1,9 @@
 module Test.Parse (group) where
 
 import Data.List.NonEmpty (NonEmpty (..))
-import Jbini
 import Test.Harness (Group, Test, expectEq, parseErr, parseOk)
 import Test.Harness qualified as Harness
+import Tung
 
 group :: IO Group
 group =

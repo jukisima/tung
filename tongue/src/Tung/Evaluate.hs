@@ -1,4 +1,4 @@
-module Jbini.Evaluate (
+module Tung.Evaluate (
   evaluate,
   evaluateWithImports,
 )
@@ -13,14 +13,14 @@ import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Time.Clock.POSIX (getPOSIXTime)
-import Jbini.Import (ImportStack, enterImport)
-import Jbini.Name (importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
-import Jbini.Parse (parse)
-import Jbini.Syntax
-import Jbini.Type
 import System.IO (hFlush, stdout)
 import System.IO qualified as IO
 import Text.Read (readMaybe)
+import Tung.Import (ImportStack, enterImport)
+import Tung.Name (importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
+import Tung.Parse (parse)
+import Tung.Syntax
+import Tung.Type
 
 data RuntimeValue
   = VUnit

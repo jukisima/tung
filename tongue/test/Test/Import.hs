@@ -1,8 +1,8 @@
 module Test.Import (group) where
 
-import Jbini (enterImport)
 import Test.Harness (Group, expectEq)
 import Test.Harness qualified as Harness
+import Tung (enterImport)
 
 group :: IO Group
 group =

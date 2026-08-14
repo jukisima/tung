@@ -1,4 +1,4 @@
-module Jbini.Token (
+module Tung.Token (
   Token (..),
   lexTokens,
   keywordNames,

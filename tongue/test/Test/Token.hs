@@ -1,8 +1,8 @@
 module Test.Token (group) where
 
-import Jbini
 import Test.Harness (Group, Test, expectEq, expectPrefix)
 import Test.Harness qualified as Harness
+import Tung
 
 group :: IO Group
 group = Harness.group "token" (map lexCase lexCases ++ map lexError lexErrors)

@@ -2,11 +2,11 @@ module Main where
 
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Jbini
 import System.Directory (doesFileExist, makeAbsolute)
 import System.Environment (getArgs)
 import System.FilePath (normalise, takeDirectory, (</>))
 import Text.Read (readMaybe)
+import Tung
 
 main :: IO ()
 main = do

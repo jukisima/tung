@@ -1,4 +1,4 @@
-module Jbini.Type (
+module Tung.Type (
   Ty (..),
   Scheme (..),
   EnvLookup (..),
@@ -36,11 +36,11 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, isJust, listToMaybe, mapMaybe, maybeToList)
-import Jbini.Import (ImportStack, enterImport)
-import Jbini.Name (importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
-import Jbini.Parse (parse)
-import Jbini.Syntax
-import Jbini.Validate (validateProgram)
+import Tung.Import (ImportStack, enterImport)
+import Tung.Name (importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
+import Tung.Parse (parse)
+import Tung.Syntax
+import Tung.Validate (validateProgram)
 
 data Ty
   = TyMeta Int

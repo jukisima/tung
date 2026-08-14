@@ -16,6 +16,92 @@ this file is meant to be self-contained. read this before changing the repo. it 
 - run tests after parser, type checker, evaluator, library, or sample changes.
 - when syntax changes, update parser tests, type tests, eval tests, samples, library files, readme, and this file.
 
+## current naming
+
+- the language is named `tung`.
+- source files use `.tung`.
+- the cabal package and executable are named `tung`.
+- vscode uses language id `tung`, file extension `.tung`, and setting key `tung.tonguePath`.
+- the public import paths in tung code use `.tung`.
+- the haskell module tree is still `Tung.*`. this is an implementation namespace only. do not rename it during ordinary language work unless the task specifically asks for an internal haskell namespace migration.
+- do not reintroduce `.tung` paths, language ids, command names, or user-facing docs.
+
+## source of truth
+
+- the implementation is authoritative when it conflicts with old discussion.
+- this file is the broad language and maintainer spec.
+- `readme.md` is the shorter user-facing language guide.
+- `support/readme.md` is the editor-tooling guide.
+- `library/` files are not examples. they are real standard-library source and must type check.
+- `sample/` files are runnable examples and must pass runnable-file checking.
+- tests are part of the specification. when behavior changes, update tests to describe the intended rule.
+- if a source file and this file disagree, inspect parser, type checker, evaluator, tests, and library before choosing which side is stale.
+
+## agent workflow
+
+when starting a task:
+
+- read this file.
+- inspect the touched area with `rg` before editing.
+- check the current git status and assume unrelated dirty files belong to the user.
+- locate existing tests for the behavior before adding new ones.
+- prefer changing one stage at a time: token, parse, validate, type, name, evaluate, library, editor.
+- keep syntax and semantics aligned. a parser-only change is rarely enough.
+- use the smallest change that preserves the language invariants below.
+
+when ending a task:
+
+- run the narrowest useful tests first.
+- run `cabal test all` after compiler, library, or sample changes.
+- run `npm run check` and `npm test` after editor, lsp, syntax-highlight, or formatter changes.
+- run `git diff --check`.
+- run at least one sample when changing runner behavior.
+- report any command that could not be run.
+
+if cabal succeeds but exits nonzero only because it cannot write `~/.cabal/logs/build.log`, rerun the same cabal command with permission. do not change source to work around that cabal log path.
+
+## core invariants
+
+- syntax must remain unambiguous.
+- every function is curried.
+- second-is-function application is used consistently for expressions, type application, constructor declarations, function headers, and fill headers.
+- `$` is low-precedence application grouping, not function-position swapping.
+- partial application is pure.
+- only saturated application may perform latent effects.
+- effects are computation labels on function arrows, not stored value types.
+- file evaluation is strict call-by-value.
+- imports use qualify-if-needed lookup. bare imported names are allowed only when unambiguous.
+- `ground.tung` is an ordinary import, not a magic prelude.
+- exports are explicit. declarations are private unless shown.
+- type and term namespaces are separate.
+- data types and effects share the type namespace.
+- match exhaustiveness is checked at compile time where the type is algebraic.
+- records are closed.
+- handlers are deep and `resume` is multi-shot.
+- library modules must stay acyclic and bottom-up.
+- object-language syntax should stay small even if the implementation uses normal compiler terminology.
+
+## common traps
+
+- do not treat `ground.tung` as a prelude. users must bring it.
+- do not force qualification for unique imported names or unique operators.
+- do not color or resolve a `bring` file path as ordinary names in editor tooling.
+- do not make a non-function binding have a type like `integer ! console`. only function arrows carry effects.
+- do not let partial application run native effects. `1 ÷` is pure; `1 ÷ 0` may fail.
+- do not encode `fail` as one fixed division-by-zero error. `fail` is a parameterized effect with an error value and polymorphic answer.
+- do not remove the type parameter from `state`.
+- do not make handler `resume` one-shot unless the language spec changes. current resume is multi-shot.
+- do not make handlers shallow. current handlers are deep.
+- do not add `perform`; effects are called as ordinary operations and handled by `try`.
+- do not restore scrutinee-less `match`. anonymous functions are bare braces.
+- do not restore a general infix escape. `.*` is an ordinary name.
+- do not restore old `$` function-swapping behavior. current `$` groups low-precedence application.
+- do not add explicit type-parameter syntax unless the spec changes.
+- do not change object-language keywords to common compiler terms without checking the desired anglish direction.
+- do not copy old examples blindly after syntax changes. update library, samples, tests, readme, and this file together.
+- do not trust editor semantic analysis as the compiler. it is intentionally tolerant.
+- do not hide a type-system weakness by changing the library to fit it. decide against the reference model first.
+
 ## commands
 
 build everything:
@@ -64,15 +150,15 @@ if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the sam
 
 - `tung.cabal`: haskell package setup for library, command-line runner, and tests.
 - `app/Main.hs`: command-line runner. it loads bundled libraries, checks that a file is runnable, then evaluates it.
-- `src/Jbini.hs`: public haskell api.
-- `src/Jbini/Syntax.hs`: syntax trees.
-- `src/Jbini/Token.hs`: tokens, keywords, name characters, and source lexing.
-- `src/Jbini/Parse.hs`: parser from token streams to syntax trees.
-- `src/Jbini/Validate.hs`: structural checks over parsed trees, including duplicate labels and members.
-- `src/Jbini/Import.hs`: shared import-stack handling and cycle errors.
-- `src/Jbini/Library.hs`: bundled library file list and loading helper.
-- `src/Jbini/Type.hs`: imports, name lookup, type inference, type classes, instances, match coverage, effects, and runnable-file checks.
-- `src/Jbini/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers.
+- `src/Tung.hs`: public haskell api.
+- `src/Tung/Syntax.hs`: syntax trees.
+- `src/Tung/Token.hs`: tokens, keywords, name characters, and source lexing.
+- `src/Tung/Parse.hs`: parser from token streams to syntax trees.
+- `src/Tung/Validate.hs`: structural checks over parsed trees, including duplicate labels and members.
+- `src/Tung/Import.hs`: shared import-stack handling and cycle errors.
+- `src/Tung/Library.hs`: bundled library file list and loading helper.
+- `src/Tung/Type.hs`: imports, name lookup, type inference, type classes, instances, match coverage, effects, and runnable-file checks.
+- `src/Tung/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers.
 - `test/Main.hs`: small test runner entry point.
 - `test/Test/Harness.hs`: shared test assertions and grouped failure output.
 - `test/Test/Token.hs`: source lexing and escape tests.
@@ -93,6 +179,51 @@ if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the sam
 - `../support/syntaxes/`: textmate fallback highlighting.
 - `../support/test/`: editor tooling tests.
 
+## compiler architecture
+
+the compiler is a small staged implementation.
+
+the main data flow is:
+
+```text
+source text
+  -> lexTokens
+  -> parseTokens
+  -> validateProgram
+  -> import expansion and name lookup
+  -> type inference and checking
+  -> runnable-file check
+  -> evaluation
+```
+
+`src/Tung/Token.hs` owns source characters, comments, string and character escapes, keywords, numbers, and names.
+
+`src/Tung/Parse.hs` owns grammar, precedence, declaration forms, expression forms, pattern forms, type syntax, and desugaring from definition headers into curried functions.
+
+`src/Tung/Syntax.hs` owns the abstract syntax tree. keep this tree small and semantic. do not add parser trivia unless the formatter or lsp truly needs it.
+
+`src/Tung/Validate.hs` owns checks that do not need types: duplicate labels, duplicate members, duplicate handler cases, malformed repeated binders, and similar local shape errors.
+
+`src/Tung/Import.hs` owns import-stack cycle detection.
+
+`src/Tung/Name.hs` owns shared name helpers: import namespaces, qualification, field-access splitting, and last-segment lookup.
+
+`src/Tung/Library.hs` owns bundled library path aliases. it maps public import paths like `list.tung` to real files like `library/collection/list.tung`.
+
+`src/Tung/Type.hs` owns almost all static semantics: imports, visibility, name resolution, inference, unification, classes, fills, effects, handlers, match coverage, records, aliases, and runnable boundaries.
+
+`src/Tung/Evaluate.hs` owns runtime values, strict evaluation, closures, partial application, native functions, standard effect interpretation, imports at runtime, handlers, and resume.
+
+`app/Main.hs` is a thin command-line boundary. it loads bundled imports, reads local imports for editor checks, asks the type checker first, and evaluates only runnable source.
+
+keep this layering:
+
+- tokenization must not need parser state.
+- parsing must not need type information.
+- validation must not need inference.
+- evaluation should not repair static errors.
+- the lsp server may approximate, but the haskell compiler is authoritative.
+
 ## implementation reminders
 
 - parser changes often need type checker and evaluator changes too.
@@ -100,7 +231,7 @@ if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the sam
 - evaluator changes should usually include direct eval tests, not only type tests.
 - import changes must be checked in both type checking and evaluation.
 - effect changes must be checked at three levels: inference, handlers, and runnable-file boundary.
-- structural rules which do not require inference belong in `Jbini.Validate`.
+- structural rules which do not require inference belong in `Tung.Validate`.
 - user-written polymorphic annotations are rigid while they are checked. parser-made `t0`, `t1`, and later holes stay flexible.
 - a pure expression may be checked where a larger latent effect row is expected. actual effects must be a subset of the declared row.
 - evaluation is strict call-by-value. do not add lazy or call-by-name behavior unless the specification is changed first.
@@ -108,6 +239,107 @@ if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the sam
 - match exhaustiveness is compile-time behavior. do not rely on runtime non-exhaustive errors for algebraic data coverage.
 - standard library files in `library/` are real tung code. they must parse and type check.
 - sample files in `sample/` must be runnable files. they must pass runnable-file type checking.
+
+## change recipes
+
+### keyword or syntax change
+
+touch these areas together:
+
+- `src/Tung/Token.hs` when a new word, delimiter, literal, comment form, or name-character rule changes.
+- `src/Tung/Parse.hs` when token order, precedence, declaration shape, expression shape, pattern shape, type syntax, or separators change.
+- `src/Tung/Syntax.hs` when the tree cannot represent the new form cleanly.
+- `src/Tung/Validate.hs` when the new form has structural errors independent of inference.
+- `src/Tung/Type.hs` when the syntax has type meaning.
+- `src/Tung/Evaluate.hs` when the syntax has runtime meaning.
+- `library/**/*.tung` and `sample/**/*.tung` when source syntax changes.
+- `test/Test/Token.hs`, `test/Test/Parse.hs`, `test/Test/Type.hs`, `test/Test/Evaluate.hs`, and `test/Test/Validate.hs` as appropriate.
+- `readme.md` and this file.
+- `../support/server/analysis.js`, `../support/server/semantic.js`, `../support/syntaxes/tung.tmLanguage.json`, and `../support/test/*.test.js` when editor understanding changes.
+
+syntax changes are not done until bundled libraries, samples, compiler tests, and support tests all agree.
+
+### type system change
+
+start in `src/Tung/Type.hs`.
+
+also inspect:
+
+- `src/Tung/Syntax.hs` for type representation.
+- `src/Tung/Parse.hs` for annotations.
+- `src/Tung/Name.hs` for qualification and namespace behavior.
+- `src/Tung/Library.hs` plus all `library/**/*.tung` files for standard-library assumptions.
+- `test/Test/Type.hs` for success and failure cases.
+- `test/Test/Name.hs` for import and ambiguity cases.
+- `test/Test/Library.hs` for standard-library validity.
+
+type tests should assert the intended accepted program or failure category, not overspecify incidental fresh type variable names.
+
+### evaluator or runtime change
+
+start in `src/Tung/Evaluate.hs`.
+
+also inspect:
+
+- `src/Tung/Type.hs`, because runtime behavior should already be permitted by the type system.
+- `library/_foreign.tung` and `library/ground.tung` for host-provided surface.
+- `test/Test/Evaluate.hs` for exact deterministic results.
+- `test/Test/Integration.hs` for runnable samples and host file effects.
+- `sample/**/*.tung` when behavior is user visible.
+
+do not make the evaluator accept behavior the type checker rejects unless it is a defensive runtime error for impossible states.
+
+### import, export, or name-resolution change
+
+start in `src/Tung/Name.hs`, `src/Tung/Type.hs`, and `src/Tung/Evaluate.hs`.
+
+also inspect:
+
+- `src/Tung/Import.hs` for cycle reporting.
+- `src/Tung/Library.hs` for bundled aliases.
+- `test/Test/Import.hs`.
+- `test/Test/Name.hs`.
+- `test/Test/Evaluate.hs` import cases.
+- `../support/server/workspace.js` for editor-side visibility and navigation.
+
+keep type-checking and evaluation import behavior equivalent.
+
+### standard-library change
+
+edit `library/**/*.tung` with the dependency graph in mind.
+
+rules:
+
+- do not bring `ground.tung` from a library dependency.
+- put one owned algebraic data declaration per source file.
+- keep alternate interpretations in wrapper modules.
+- prefer direct imports over umbrella imports.
+- update `src/Tung/Library.hs` when adding or renaming bundled import paths or aliases.
+- add a library test when adding an invariant not already checked.
+
+### editor-tooling change
+
+the support layer is intentionally tolerant and approximate. the compiler remains authoritative for diagnostics and inferred types.
+
+touch these files by feature:
+
+- `../support/client/extension.js`: vscode activation, language client setup, custom notifications, file watchers.
+- `../support/package.json`: language id, extension contribution points, semantic-token scope mapping, settings.
+- `../support/syntaxes/tung.tmLanguage.json`: textmate fallback highlighting before semantic tokens arrive.
+- `../support/server/main.js`: lsp protocol handlers and capability advertisement.
+- `../support/server/analysis.js`: tolerant lexical and declaration model for navigation.
+- `../support/server/semantic.js`: semantic token classification.
+- `../support/server/workspace.js`: workspace file index, import resolution, visible definitions, references.
+- `../support/server/checker.js`: bridge to the haskell executable.
+- `../support/server/format.js`: formatter.
+- `../support/test/*.test.js`: editor tests.
+
+highlighting has two layers:
+
+- textmate scopes color incomplete or unopened code.
+- semantic tokens refine names after server analysis.
+
+when color or classification looks wrong, test both layers. do not fix a semantic-token problem only in textmate, or a textmate fallback problem only in semantic tokens.
 
 ## language overview
 

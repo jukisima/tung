@@ -1,4 +1,4 @@
-module Jbini.Syntax (
+module Tung.Syntax (
   Program (..),
   Decl (..),
   EffectOp (..),

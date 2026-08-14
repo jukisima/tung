@@ -4,9 +4,9 @@ import Data.Foldable (traverse_)
 import Data.List (nub)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, listToMaybe)
-import Jbini
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
+import Tung
 
 group :: IO Group
 group = do

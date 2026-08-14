@@ -1,4 +1,4 @@
-module Jbini.Library (
+module Tung.Library (
   libraryImportFiles,
   readLibraryImports,
 )

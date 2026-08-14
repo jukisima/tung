@@ -426,13 +426,13 @@ file operations read and write whole text files. file-system errors perform `str
 
 - `tung.cabal`: haskell package setup
 - `app/Main.hs`: command-line runner
-- `src/Jbini.hs`: public haskell api
-- `src/Jbini/Syntax.hs`: syntax trees
-- `src/Jbini/Token.hs`: tokens, keywords, and source lexing
-- `src/Jbini/Parse.hs`: parser from tokens to syntax trees
-- `src/Jbini/Library.hs`: bundled library file list and loading helper
-- `src/Jbini/Type.hs`: imports, name lookup, type inference, classes, match coverage, effects, and runnable-file checks
-- `src/Jbini/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers
+- `src/Tung.hs`: public haskell api
+- `src/Tung/Syntax.hs`: syntax trees
+- `src/Tung/Token.hs`: tokens, keywords, and source lexing
+- `src/Tung/Parse.hs`: parser from tokens to syntax trees
+- `src/Tung/Library.hs`: bundled library file list and loading helper
+- `src/Tung/Type.hs`: imports, name lookup, type inference, classes, match coverage, effects, and runnable-file checks
+- `src/Tung/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers
 - `test/Main.hs`: tests
 - `library/`: standard library written in tung
 - `sample/`: runnable examples

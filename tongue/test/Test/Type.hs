@@ -1,9 +1,9 @@
 module Test.Type (group) where
 
 import Data.Map.Strict qualified as Map
-import Jbini (typeOfWithImports)
 import Test.Harness (Group, Test, expectEq, runnableErr, runnableOk, typeErr, typeErrWith, typeOk, typeOkWith)
 import Test.Harness qualified as Harness
+import Tung (typeOfWithImports)
 
 group :: IO Group
 group =

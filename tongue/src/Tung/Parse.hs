@@ -1,4 +1,4 @@
-module Jbini.Parse (
+module Tung.Parse (
   parse,
   parseTokens,
 )
@@ -10,9 +10,9 @@ import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (isNothing)
-import Jbini.Name (isQualifiedName)
-import Jbini.Syntax
-import Jbini.Token
+import Tung.Name (isQualifiedName)
+import Tung.Syntax
+import Tung.Token
 
 data FunctionResult = FunctionResult
   { functionResultType :: TypeExpr

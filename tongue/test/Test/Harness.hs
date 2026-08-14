@@ -23,8 +23,8 @@ where
 
 import Data.List (isPrefixOf)
 import Data.Map.Strict qualified as Map
-import Jbini
 import System.Exit (exitFailure)
+import Tung
 
 type Test = IO (Maybe String)
 

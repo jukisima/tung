@@ -1,8 +1,8 @@
-module Jbini.Validate (validateProgram) where
+module Tung.Validate (validateProgram) where
 
 import Data.Foldable (traverse_)
 import Data.List (group, sort)
-import Jbini.Syntax
+import Tung.Syntax
 
 validateProgram :: Program -> Either String ()
 validateProgram (Program declarations) = traverse_ validateDecl declarations

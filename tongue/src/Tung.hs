@@ -1,4 +1,4 @@
-module Jbini (
+module Tung (
   Program (..),
   Decl (..),
   TypeExpr (..),
@@ -43,11 +43,11 @@ module Jbini (
   readLibraryImports,
 ) where
 
-import Jbini.Evaluate (evaluate, evaluateWithImports)
-import Jbini.Import (ImportStack, enterImport)
-import Jbini.Library (libraryImportFiles, readLibraryImports)
-import Jbini.Parse (parse, parseTokens)
-import Jbini.Syntax
-import Jbini.Token (Token (..), keywordNames, lexTokens, specialNameChars)
-import Jbini.Type
-import Jbini.Validate (validateProgram)
+import Tung.Evaluate (evaluate, evaluateWithImports)
+import Tung.Import (ImportStack, enterImport)
+import Tung.Library (libraryImportFiles, readLibraryImports)
+import Tung.Parse (parse, parseTokens)
+import Tung.Syntax
+import Tung.Token (Token (..), keywordNames, lexTokens, specialNameChars)
+import Tung.Type
+import Tung.Validate (validateProgram)

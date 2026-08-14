@@ -2,10 +2,10 @@ module Test.Evaluate (group) where
 
 import Data.List (stripPrefix)
 import Data.Map.Strict qualified as Map
-import Jbini
 import Test.Harness (Group, Test, evalErr, evalErrWith, evalOk, evalOkWith)
 import Test.Harness qualified as Harness
 import Text.Read (readMaybe)
+import Tung
 
 group :: IO Group
 group = do

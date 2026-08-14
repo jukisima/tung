@@ -1,9 +1,9 @@
 module Test.Name (group) where
 
 import Data.Map.Strict qualified as Map
-import Jbini
 import Test.Harness (Group, Test, expect, expectEq, typeErrWith, typeOkWith)
 import Test.Harness qualified as Harness
+import Tung
 
 group :: IO Group
 group = Harness.group "name" (resolutionCases ++ [lookupCase, canonicalTypeCase])
