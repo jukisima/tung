@@ -4,17 +4,18 @@ this file is meant to be self-contained. read this before changing the repo. it 
 
 ## work style
 
-- write prose in lowercase unless a name, tool, or code sample requires otherwise.
+- never capitalise sentence starts in prose or source comments. preserve case only when syntax or an identifier requires it.
+- use british spelling in prose and source comments. preserve fixed spellings in syntax, protocols, apis, and identifiers.
 - prefer plain words and simple explanations.
-- tung keywords and user-facing library names belong to the object language and may be anglishized.
+- tung keywords and user-facing bookhoard names belong to the object language and may be anglishised.
 - haskell compiler names, tests, and tooling have no anglish naming rule. use standard technical terms there, or mirror a tung term when that makes the source-to-implementation link clearer.
-- keep source changes tied to the asked-for behavior.
+- keep source changes tied to the asked-for behaviour.
 - prefer simpler code over broad abstraction.
 - do not reset, remove, or revert unrelated user edits.
 - use `rg` for search.
 - use `apply_patch` for hand edits.
-- run tests after parser, type checker, evaluator, library, or sample changes.
-- when syntax changes, update parser tests, type tests, eval tests, samples, library files, readme, and this file.
+- run tests after parser, type checker, evaluator, bookhoard, or byspel changes.
+- when syntax changes, update tests, byspels, bookhoard files, readme, and this file.
 
 ## current naming
 
@@ -24,18 +25,20 @@ this file is meant to be self-contained. read this before changing the repo. it 
 - vscode uses language id `tung`, file extension `.tung`, and setting key `tung.tonguePath`.
 - the public import paths in tung code use `.tung`.
 - the haskell module tree is still `Tung.*`. this is an implementation namespace only. do not rename it during ordinary language work unless the task specifically asks for an internal haskell namespace migration.
-- do not reintroduce `.tung` paths, language ids, command names, or user-facing docs.
+- do not reintroduce earlier language names, extensions, language ids, or command names.
 
 ## source of truth
 
 - the implementation is authoritative when it conflicts with old discussion.
 - this file is the broad language and maintainer spec.
 - `readme.md` is the shorter user-facing language guide.
-- `support/readme.md` is the editor-tooling guide.
-- `library/` files are not examples. they are real standard-library source and must type check.
-- `sample/` files are runnable examples and must pass runnable-file checking.
-- tests are part of the specification. when behavior changes, update tests to describe the intended rule.
-- if a source file and this file disagree, inspect parser, type checker, evaluator, tests, and library before choosing which side is stale.
+- `vscode/readme.md` is the editor-tooling guide.
+- `vscode/client/`, `vscode/server/`, and `vscode/test/` contain typescript source; `vscode/out/` is generated commonjs and must not be edited.
+- typescript uses `const` arrow functions by default, including exported helpers; use a function declaration only when its hoisting is required.
+- `bookhoard/` files are not byspels. they are real standard-bookhoard source and must type check.
+- `byspel/` files are runnable byspels and must pass runnable-file checking.
+- tests are part of the specification. when behaviour changes, update tests to describe the intended rule.
+- if a source file and this file disagree, inspect parser, type checker, evaluator, tests, and bookhoard before choosing which side is stale.
 
 ## agent workflow
 
@@ -44,21 +47,19 @@ when starting a task:
 - read this file.
 - inspect the touched area with `rg` before editing.
 - check the current git status and assume unrelated dirty files belong to the user.
-- locate existing tests for the behavior before adding new ones.
-- prefer changing one stage at a time: token, parse, validate, type, name, evaluate, library, editor.
+- locate existing tests for the behaviour before adding new ones.
+- prefer changing one stage at a time: token, parse, validate, type, name, evaluate, bookhoard, editor.
 - keep syntax and semantics aligned. a parser-only change is rarely enough.
 - use the smallest change that preserves the language invariants below.
 
 when ending a task:
 
 - run the narrowest useful tests first.
-- run `cabal test all` after compiler, library, or sample changes.
+- run `cabal test all` after compiler, bookhoard, or byspel changes.
 - run `npm run check` and `npm test` after editor, lsp, syntax-highlight, or formatter changes.
 - run `git diff --check`.
-- run at least one sample when changing runner behavior.
+- run at least one byspel when changing runner behaviour.
 - report any command that could not be run.
-
-if cabal succeeds but exits nonzero only because it cannot write `~/.cabal/logs/build.log`, rerun the same cabal command with permission. do not change source to work around that cabal log path.
 
 ## core invariants
 
@@ -70,6 +71,7 @@ if cabal succeeds but exits nonzero only because it cannot write `~/.cabal/logs/
 - only saturated application may perform latent effects.
 - effects are computation labels on function arrows, not stored value types.
 - file evaluation is strict call-by-value.
+- the cli requires a local `main` with one `𝟙` input, a `𝟙` result, and only runner-supported latent effects.
 - imports use qualify-if-needed lookup. bare imported names are allowed only when unambiguous.
 - `ground.tung` is an ordinary import, not a magic prelude.
 - exports are explicit. declarations are private unless shown.
@@ -78,29 +80,30 @@ if cabal succeeds but exits nonzero only because it cannot write `~/.cabal/logs/
 - match exhaustiveness is checked at compile time where the type is algebraic.
 - records are closed.
 - handlers are deep and `resume` is multi-shot.
-- library modules must stay acyclic and bottom-up.
+- bookhoard modules must stay acyclic and bottom-up.
 - object-language syntax should stay small even if the implementation uses normal compiler terminology.
 
 ## common traps
 
 - do not treat `ground.tung` as a prelude. users must bring it.
 - do not force qualification for unique imported names or unique operators.
-- do not color or resolve a `bring` file path as ordinary names in editor tooling.
+- do not colour or resolve a `bring` file path as ordinary names in editor tooling.
 - do not make a non-function binding have a type like `integer ! console`. only function arrows carry effects.
+- do not restore the final expression as an implicit program entry point. runnable files enter through `null main`.
 - do not let partial application run native effects. `1 ÷` is pure; `1 ÷ 0` may fail.
-- do not encode `fail` as one fixed division-by-zero error. `fail` is a parameterized effect with an error value and polymorphic answer.
+- do not encode `fail` as one fixed division-by-zero error. `fail` is a parameterised effect with an error value and polymorphic answer.
 - do not remove the type parameter from `state`.
 - do not make handler `resume` one-shot unless the language spec changes. current resume is multi-shot.
 - do not make handlers shallow. current handlers are deep.
 - do not add `perform`; effects are called as ordinary operations and handled by `try`.
 - do not restore scrutinee-less `match`. anonymous functions are bare braces.
 - do not restore a general infix escape. `.*` is an ordinary name.
-- do not restore old `$` function-swapping behavior. current `$` groups low-precedence application.
+- do not restore old `$` function-swapping behaviour. current `$` groups low-precedence application.
 - do not add explicit type-parameter syntax unless the spec changes.
 - do not change object-language keywords to common compiler terms without checking the desired anglish direction.
-- do not copy old examples blindly after syntax changes. update library, samples, tests, readme, and this file together.
+- do not copy old byspels blindly after syntax changes. update bookhoard, byspels, tests, readme, and this file together.
 - do not trust editor semantic analysis as the compiler. it is intentionally tolerant.
-- do not hide a type-system weakness by changing the library to fit it. decide against the reference model first.
+- do not hide a type-system weakness by changing the bookhoard to fit it. decide against the reference model first.
 
 ## commands
 
@@ -119,16 +122,16 @@ cabal test all
 run a tung file:
 
 ```sh
-cabal run tung -- ../sample/fizzbuzz.tung
+cabal run tung -- ../byspel/fizzbuzz.tung
 ```
 
 run any tung file:
 
 ```sh
-cabal run tung -- path/to/file.tung
+cabal run tung -- path/to/file.tung [arguments...]
 ```
 
-check the vscode extension and lsp server from `../support`:
+check the vscode extension and lsp server from `../vscode`:
 
 ```sh
 npm run check
@@ -146,39 +149,6 @@ the pre-commit hook runs fourmolu on staged haskell files and re-stages formatti
 
 if cabal fails only because it cannot write under `~/.cabal/logs`, rerun the same cabal command with the needed permission. do not change source to work around cabal log permissions.
 
-## project map
-
-- `tung.cabal`: haskell package setup for library, command-line runner, and tests.
-- `app/Main.hs`: command-line runner. it loads bundled libraries, checks that a file is runnable, then evaluates it.
-- `src/Tung.hs`: public haskell api.
-- `src/Tung/Syntax.hs`: syntax trees.
-- `src/Tung/Token.hs`: tokens, keywords, name characters, and source lexing.
-- `src/Tung/Parse.hs`: parser from token streams to syntax trees.
-- `src/Tung/Validate.hs`: structural checks over parsed trees, including duplicate labels and members.
-- `src/Tung/Import.hs`: shared import-stack handling and cycle errors.
-- `src/Tung/Library.hs`: bundled library file list and loading helper.
-- `src/Tung/Type.hs`: imports, name lookup, type inference, type classes, instances, match coverage, effects, and runnable-file checks.
-- `src/Tung/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers.
-- `test/Main.hs`: small test runner entry point.
-- `test/Test/Harness.hs`: shared test assertions and grouped failure output.
-- `test/Test/Token.hs`: source lexing and escape tests.
-- `test/Test/Parse.hs`: syntax and exact tree-shape tests.
-- `test/Test/Validate.hs`: structural tree checks, chiefly duplicate-name failures.
-- `test/Test/Import.hs`: import-stack growth and direct or indirect cycle failures.
-- `test/Test/Type.hs`: inference, checking, class, record, match, effect, and runner-boundary tests.
-- `test/Test/Name.hs`: import, export, ambiguity, qualification, and field-fallback tests.
-- `test/Test/Evaluate.hs`: strict evaluation, data, records, native calls, and handler tests.
-- `test/Test/Library.hs`: every library path, import-graph checks, and module ownership checks.
-- `test/Test/Integration.hs`: every sample and host file-effect tests.
-- `library/`: standard library written in tung.
-- `sample/`: runnable example programs.
-- `readme.md`: user-facing overview and commands.
-- `agent.md`: agent notes and the full tongue specification.
-- `../support/client/`: vscode extension client.
-- `../support/server/`: lsp server and editor analysis.
-- `../support/syntaxes/`: textmate fallback highlighting.
-- `../support/test/`: editor tooling tests.
-
 ## compiler architecture
 
 the compiler is a small staged implementation.
@@ -192,154 +162,42 @@ source text
   -> validateProgram
   -> import expansion and name lookup
   -> type inference and checking
-  -> runnable-file check
+  -> runnable boundary checking when requested
+  -> type-directed elaboration and evidence resolution
+  -> CoreProgram validation
   -> evaluation
 ```
 
-`src/Tung/Token.hs` owns source characters, comments, string and character escapes, keywords, numbers, and names.
-
-`src/Tung/Parse.hs` owns grammar, precedence, declaration forms, expression forms, pattern forms, type syntax, and desugaring from definition headers into curried functions.
-
-`src/Tung/Syntax.hs` owns the abstract syntax tree. keep this tree small and semantic. do not add parser trivia unless the formatter or lsp truly needs it.
-
-`src/Tung/Validate.hs` owns checks that do not need types: duplicate labels, duplicate members, duplicate handler cases, malformed repeated binders, and similar local shape errors.
-
-`src/Tung/Import.hs` owns import-stack cycle detection.
-
-`src/Tung/Name.hs` owns shared name helpers: import namespaces, qualification, field-access splitting, and last-segment lookup.
-
-`src/Tung/Library.hs` owns bundled library path aliases. it maps public import paths like `list.tung` to real files like `library/collection/list.tung`.
-
-`src/Tung/Type.hs` owns almost all static semantics: imports, visibility, name resolution, inference, unification, classes, fills, effects, handlers, match coverage, records, aliases, and runnable boundaries.
-
-`src/Tung/Evaluate.hs` owns runtime values, strict evaluation, closures, partial application, native functions, standard effect interpretation, imports at runtime, handlers, and resume.
-
-`app/Main.hs` is a thin command-line boundary. it loads bundled imports, reads local imports for editor checks, asks the type checker first, and evaluates only runnable source.
-
 keep this layering:
 
-- tokenization must not need parser state.
+- tokenisation must not need parser state.
 - parsing must not need type information.
 - validation must not need inference.
+- only the type checker may construct `CoreProgram`.
 - evaluation should not repair static errors.
 - the lsp server may approximate, but the haskell compiler is authoritative.
 
-## implementation reminders
+## editor architecture
 
-- parser changes often need type checker and evaluator changes too.
-- type checker changes often need both success and failure tests.
-- evaluator changes should usually include direct eval tests, not only type tests.
-- import changes must be checked in both type checking and evaluation.
-- effect changes must be checked at three levels: inference, handlers, and runnable-file boundary.
-- structural rules which do not require inference belong in `Tung.Validate`.
-- user-written polymorphic annotations are rigid while they are checked. parser-made `t0`, `t1`, and later holes stay flexible.
-- a pure expression may be checked where a larger latent effect row is expected. actual effects must be a subset of the declared row.
-- evaluation is strict call-by-value. do not add lazy or call-by-name behavior unless the specification is changed first.
-- partial application must stay pure. only a saturated call may produce latent effects.
-- match exhaustiveness is compile-time behavior. do not rely on runtime non-exhaustive errors for algebraic data coverage.
-- standard library files in `library/` are real tung code. they must parse and type check.
-- sample files in `sample/` must be runnable files. they must pass runnable-file type checking.
+the editor has two deliberately different sources of knowledge.
 
-## change recipes
+the tolerant path tokenises incomplete buffers, assigns lexical and structural roles, builds declaration and import models, and resolves visible workspace names. semantic highlighting, navigation, completion, symbols, folding, rename, and documentation remain available while a file is unfinished.
 
-### keyword or syntax change
+the authoritative path sends complete source bundles to the haskell compiler for diagnostics and inferred types. editor analysis must not silently become a second type checker, and compiler failure must not erase useful tolerant highlighting.
 
-touch these areas together:
+document changes invalidate the affected model, imported-name views, semantic tokens, diagnostics, and inferred-type cache. changes to a brought file must also refresh open dependants.
 
-- `src/Tung/Token.hs` when a new word, delimiter, literal, comment form, or name-character rule changes.
-- `src/Tung/Parse.hs` when token order, precedence, declaration shape, expression shape, pattern shape, type syntax, or separators change.
-- `src/Tung/Syntax.hs` when the tree cannot represent the new form cleanly.
-- `src/Tung/Validate.hs` when the new form has structural errors independent of inference.
-- `src/Tung/Type.hs` when the syntax has type meaning.
-- `src/Tung/Evaluate.hs` when the syntax has runtime meaning.
-- `library/**/*.tung` and `sample/**/*.tung` when source syntax changes.
-- `test/Test/Token.hs`, `test/Test/Parse.hs`, `test/Test/Type.hs`, `test/Test/Evaluate.hs`, and `test/Test/Validate.hs` as appropriate.
-- `readme.md` and this file.
-- `../support/server/analysis.js`, `../support/server/semantic.js`, `../support/syntaxes/tung.tmLanguage.json`, and `../support/test/*.test.js` when editor understanding changes.
+formatting is a fast structural operation over source text. it must preserve syntax and comments, remain idempotent, and must not invoke the compiler.
 
-syntax changes are not done until bundled libraries, samples, compiler tests, and support tests all agree.
+bookhoard documentation is derived from the same public-definition and doc-comment model used by editor help. `npm run docs` regenerates the ignored html wiki from current source; generated output is never a source of truth.
 
-### type system change
+## change discipline
 
-start in `src/Tung/Type.hs`.
-
-also inspect:
-
-- `src/Tung/Syntax.hs` for type representation.
-- `src/Tung/Parse.hs` for annotations.
-- `src/Tung/Name.hs` for qualification and namespace behavior.
-- `src/Tung/Library.hs` plus all `library/**/*.tung` files for standard-library assumptions.
-- `test/Test/Type.hs` for success and failure cases.
-- `test/Test/Name.hs` for import and ambiguity cases.
-- `test/Test/Library.hs` for standard-library validity.
-
-type tests should assert the intended accepted program or failure category, not overspecify incidental fresh type variable names.
-
-### evaluator or runtime change
-
-start in `src/Tung/Evaluate.hs`.
-
-also inspect:
-
-- `src/Tung/Type.hs`, because runtime behavior should already be permitted by the type system.
-- `library/_foreign.tung` and `library/ground.tung` for host-provided surface.
-- `test/Test/Evaluate.hs` for exact deterministic results.
-- `test/Test/Integration.hs` for runnable samples and host file effects.
-- `sample/**/*.tung` when behavior is user visible.
-
-do not make the evaluator accept behavior the type checker rejects unless it is a defensive runtime error for impossible states.
-
-### import, export, or name-resolution change
-
-start in `src/Tung/Name.hs`, `src/Tung/Type.hs`, and `src/Tung/Evaluate.hs`.
-
-also inspect:
-
-- `src/Tung/Import.hs` for cycle reporting.
-- `src/Tung/Library.hs` for bundled aliases.
-- `test/Test/Import.hs`.
-- `test/Test/Name.hs`.
-- `test/Test/Evaluate.hs` import cases.
-- `../support/server/workspace.js` for editor-side visibility and navigation.
-
-keep type-checking and evaluation import behavior equivalent.
-
-### standard-library change
-
-edit `library/**/*.tung` with the dependency graph in mind.
-
-rules:
-
-- do not bring `ground.tung` from a library dependency.
-- put one owned algebraic data declaration per source file.
-- keep alternate interpretations in wrapper modules.
-- prefer direct imports over umbrella imports.
-- update `src/Tung/Library.hs` when adding or renaming bundled import paths or aliases.
-- add a library test when adding an invariant not already checked.
-
-### editor-tooling change
-
-the support layer is intentionally tolerant and approximate. the compiler remains authoritative for diagnostics and inferred types.
-
-touch these files by feature:
-
-- `../support/client/extension.js`: vscode activation, language client setup, custom notifications, file watchers.
-- `../support/package.json`: language id, extension contribution points, semantic-token scope mapping, settings.
-- `../support/syntaxes/tung.tmLanguage.json`: textmate fallback highlighting before semantic tokens arrive.
-- `../support/server/main.js`: lsp protocol handlers and capability advertisement.
-- `../support/server/analysis.js`: tolerant lexical and declaration model for navigation.
-- `../support/server/semantic.js`: semantic token classification.
-- `../support/server/workspace.js`: workspace file index, import resolution, visible definitions, references.
-- `../support/server/checker.js`: bridge to the haskell executable.
-- `../support/server/format.js`: formatter.
-- `../support/test/*.test.js`: editor tests.
-
-highlighting has two layers:
-
-- textmate scopes color incomplete or unopened code.
-- semantic tokens refine names after server analysis.
-
-when color or classification looks wrong, test both layers. do not fix a semantic-token problem only in textmate, or a textmate fallback problem only in semantic tokens.
+- follow the compiler stages in order and keep every affected stage consistent.
+- keep static rejection separate from deliberate runtime failure.
+- test both successful and adversarial forms of semantic changes.
+- keep bookhoards type-correct, byspels runnable, and editor analysis compatible with incomplete source.
+- keep module-local invariants in source comments beside their implementation.
 
 ## language overview
 
@@ -373,13 +231,13 @@ later expressions see earlier bound values.
 
 effect annotations appear on function types.
 
-effectful value bindings either omit the annotation or wrap the work in a function.
+effectful work must be wrapped in a function. module initialisation is pure.
 
 do not write an effect annotation on a non-function value type. effects belong to computations and function arrows, not stored values.
 
 ```tung
 bring ground.tung;
-bring list.tung;
+bring data/list.tung;
 
 let answer: integer = 42
 ```
@@ -390,11 +248,11 @@ the import graph must be acyclic. a direct or indirect bring cycle is a type err
 
 a shown imported definition is available as `namespace@name`.
 
-the namespace is the first component of the import path.
+the namespace is the full import path before `.tung`.
 
 for `bring ground.tung;`, the namespace is `ground`.
 
-for `bring list.tung;`, the namespace is `list`.
+for `bring data/list.tung;`, the namespace is `data/list`.
 
 an imported name may also be used bare when it is unambiguous.
 
@@ -420,7 +278,7 @@ when a declaration starts with `graith`, put `show` after the requirements and d
 show let answer = 42;
 graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y;
 show let-ilk count = integer;
-show choose a option { none, a some }
+show kin a option { none, a some }
 show deed ask { integer ask: integer }
 show class foreign { integer add-integer integer: integer }
 show shape a identity { a identity: a }
@@ -444,12 +302,12 @@ fill declarations are instance evidence rather than named api entries. fill evid
 term and type names are looked up in separate namespaces. data types and effect constructors share the type namespace. if a bare name is ambiguous within its namespace, the re-export is an error and the source must use a qualified name.
 
 ```tung
-bring option.tung;
-show-ilk option@option;
-show option@default;
+bring data/option.tung;
+show-ilk data/option@option;
+show data/option@default;
 ```
 
-`show bring path;` re-exports the whole shown surface imported from `path`.
+there is no wildcard re-export. re-export each term or type with `show name;` or `show-ilk name;`.
 
 an ordinary `bring` never re-exports its imported surface.
 
@@ -462,19 +320,41 @@ let x = ground@yea;
 let y = yea
 ```
 
-when a file is run as a program, its final expression must return `𝟙`.
+when a file is run as a program, it must declare `main` locally.
 
-declarations without a final expression count as a pure `𝟙` file.
+`main` must take exactly one `𝟙` argument and return `𝟙`.
 
-only runner-provided effects may remain at the runnable file boundary.
+the runner evaluates the module and then calls `null main`.
 
-the runner-provided effects are `console`, `random`, `async`, and `file`.
+only runner-provided effects may appear on the `main` arrow.
 
-user-defined effects must be handled before the end of the file.
+the runner-provided effects are `console`, `random`, `async`, `file`, `system`, and `clock`.
 
-`fail` must be handled before the end of the file.
+`arguments` receives only the command-line arguments after the source path.
 
-an unhandled `fail` is not allowed at the runnable file boundary.
+user-defined effects must be handled inside `main`.
+
+`fail` must be handled inside `main`.
+
+an unhandled `fail` is not allowed on `main`.
+
+## comments
+
+`#` starts a line comment.
+
+`/*` starts a block comment and `*/` ends it.
+
+block comments are not nested.
+
+`##` starts a line doc comment.
+
+`/** ... */` is a block doc comment.
+
+doc comments attach to the next declaration when no other declaration appears between the comment and that declaration.
+
+the lsp exposes attached docs in hover and completion.
+
+the bookhoard html wiki includes only shown declarations and attached docs. change the declaration or its doc comment, then regenerate the wiki; do not hand-edit generated html.
 
 ## names
 
@@ -489,8 +369,8 @@ the parser treats delimiters, arrows, and separators as syntax, not as names.
 qualified names are ordinary names after parsing.
 
 ```tung
-list@empty
-list@.*
+data/list@empty
+data/list@.*
 console@write
 ```
 
@@ -538,7 +418,7 @@ after `$`, the next atom is the function.
 
 the previous chunk is inserted as the first argument of that function.
 
-the remaining unparenthesized tail before the next `$` is parsed as function-first arguments to the function after `$`.
+the remaining unparenthesised tail before the next `$` is parsed as function-first arguments to the function after `$`.
 
 `$(` starts a function-first segment.
 
@@ -575,15 +455,17 @@ checking effects uses subsumption: a computation with fewer effects may stand wh
 
 effect subsumption never hides an effect outside the declared row.
 
-for example, `1 ÷` is pure and returns a function.
+for byspel, `1 ÷` is pure and returns a function.
 
-for example, `1 ÷ 0` is effectful and may perform `fail`.
+for byspel, `1 ÷ 0` is effectful and may perform `fail`.
 
 ## evaluation strategy
 
 tung is strict call-by-value.
 
 file declarations are evaluated in order.
+
+after module initialisation, the cli applies `main` to `null`.
 
 `let` evaluates its right-hand side before binding the name.
 
@@ -688,17 +570,15 @@ type aliases use `let-ilk`.
 let-ilk string = character list;
 ```
 
-`string` is also provided as a primitive name in the implementation surface, and the standard library defines it as `character list`.
+`string` is the standard alias for `character list` and is available before that alias is brought.
 
 aliases are transparent during unification.
 
 an alias is not a fresh nominal type.
 
-keep parser and type checker behavior simple around aliases. do not add type alias complexity unless needed.
-
 ## algebraic data
 
-data declarations use `choose`.
+data declarations use `kin`.
 
 data type parameters are implicit names before the data type name.
 
@@ -707,24 +587,24 @@ constructors use the same second-is-function sequence rule.
 multi-argument type and constructor operators use the same sequence rule as expressions.
 
 ```tung
-choose a option {
+kin a option {
   none,
   a some
 }
 ```
 
 ```tung
-choose a ∏ b {
+kin a ∏ b {
   a ∏ b
 }
 
-choose a ∐ b {
+kin a ∐ b {
   a first,
   b other
 }
 ```
 
-these examples mean:
+these byspels mean:
 
 - `option` has one type parameter.
 - `none` is a nullary constructor.
@@ -746,7 +626,11 @@ nullary constructors behave like values.
 
 effect declarations use `deed`.
 
-effect operation types must be function types.
+effect operations are nonempty functions.
+
+an operation with no information to receive takes `𝟙` and is called through ordinary second-is-function application, such as `null read`.
+
+an operation with inputs has a function type. partial application stays pure and only full application performs the operation.
 
 the latent effect is added by the declaration itself.
 
@@ -759,9 +643,9 @@ deed console {
 }
 ```
 
-parameterized effects are allowed.
+parameterised effects are allowed.
 
-`state` is parameterized.
+`state` is parameterised.
 
 ```tung
 deed a state {
@@ -770,7 +654,7 @@ deed a state {
 }
 ```
 
-`fail` is extensible and parameterized by the error type.
+`fail` is extensible and parameterised by the error type.
 
 `fail` operations carry an error value and have a polymorphic answer type.
 
@@ -785,7 +669,7 @@ deed e fail {
 `async` uses `task`.
 
 ```tung
-choose a task {
+kin a task {
   a done
 }
 
@@ -846,12 +730,37 @@ a default implementation is checked like an ordinary member.
 
 a default implementation is visible by the same bare or qualified name.
 
+laws use `law (name: ilk, ...): left ~ right` inside a `shape`.
+
+law parameters are comma-separated local term names and each parameter requires
+a type annotation.
+
+law entries use the same semicolon separators as other shape members. the final
+law may omit its semicolon before `}`.
+
+both law sides are inferred in one shared local context. they must have the same
+value type and the same immediate effect row.
+
+a law may require its enclosing shape and any shape named by the enclosing
+`graith` clause. any other inferred shape requirement is rejected.
+
+law type variables are universally checked. effect-row variables remain
+inferred row variables so written polymorphic latent effects can agree across
+both sides.
+
+laws are static shape metadata. they do not add methods, do not create fill
+obligations, and are erased before evaluation.
+
+the compiler does not perform equational reasoning or prove that law sides are
+equal yet.
+
 when a default uses grouped typed arguments, the annotation after the member name is the result type.
 
 ```tung
 shape a equal {
   a ≡ a: 𝟚;
-  let a ≢ b = (a ≡ b) ¬
+  let a ≢ b = (a ≡ b) ¬;
+  law (x: a): x ≡ x ~ yea
 }
 ```
 
@@ -908,7 +817,7 @@ graith a equal fill (a box) equal {
 }
 ```
 
-the type checker should allow a `fill` of a more specific `shape` to define members required by parent shapes when that simplifies implementation and matches the current model.
+a child `fill` may define inherited parent members. those definitions satisfy the corresponding parent requirement.
 
 type-class member names may be bare if unambiguous.
 
@@ -919,6 +828,10 @@ do not force qualification for unique operators.
 if an operator name is unique, bare use should compile.
 
 only require qualification when the name is ambiguous.
+
+fill selection depends on static inferred types, never runtime values or bring order. result-only members such as `zero` use their expected result type.
+
+one fill brought through a diamond remains one fill, while equally named shapes from distinct qualified modules remain distinct. duplicate, overlapping, or recursively required fills are type errors.
 
 ## expressions
 
@@ -972,7 +885,7 @@ each case uses `|`.
 { x, y, z | (x + y) + z }
 ```
 
-blocks are parenthesized.
+blocks are parenthesised.
 
 blocks contain local `let` declarations plus a final expression.
 
@@ -1017,7 +930,7 @@ let not: 𝟚 → 𝟚 = {
 };
 ```
 
-this bare brace form is recognized as a function over its pattern inputs.
+this bare brace form is recognised as a function over its pattern inputs.
 
 match cases use `|`.
 
@@ -1048,8 +961,6 @@ variable patterns are catch-all patterns.
 `_` patterns are catch-all patterns.
 
 patterns are linear. one match row may not bind the same variable twice.
-
-the evaluator may still have a runtime non-exhaustive error for impossible or unchecked situations, but algebraic data coverage should be caught during type checking.
 
 ## records
 
@@ -1121,7 +1032,7 @@ the type of `resume` is the operation result type to the handler answer type.
 
 for an operation `op: a → b`, inside a handler whose answer type is `c`, `resume` has type `b → c` plus the still-unhandled effects.
 
-when an effect and one of its operations share a name, patterns choose the operation form.
+when an effect and one of its operations share a name, patterns prefer the operation form.
 
 `fail | fallback` handles the `fail` effect without binding the error value.
 
@@ -1195,13 +1106,13 @@ effects used by the return case and handler bodies are added to the surrounding 
 
 the argument passed to `resume` must match the operation result type.
 
-## async sample semantics
+## async byspel semantics
 
 `async` is a standard effect.
 
 the default runner interprets `async` synchronously.
 
-this is still modeled as an effect, because it is a runner capability.
+this is still modelled as an effect, because it is a runner capability.
 
 ```tung
 let answer: integer =
@@ -1273,7 +1184,7 @@ type variables are implicit.
 
 the checker supports hindley-milner style polymorphism.
 
-inferred `let` bindings are generalized after their right-hand side is checked.
+an inferred `let` binding is generalised only when its right-hand side is pure. an immediately effectful right-hand side stays monomorphic. creating a function is pure, so latent function effects do not prevent generalisation.
 
 user-written polymorphic annotations are checked with rigid skolems. an implementation cannot claim `a → a` by returning one fixed concrete type.
 
@@ -1299,9 +1210,9 @@ the checker supports handlers that remove handled effects and add handler-body e
 
 the checker and runner provide these names natively.
 
-standard-library type classes may also expose the same symbols generically.
+standard-bookhoard type classes may also expose the same symbols generically.
 
-arithmetic operations are defined as type-class members in the library, but the runner also supports them natively for `integer` and `float` where appropriate.
+arithmetic operations are defined as type-class members in the bookhoard, but the runner also supports them natively for `integer` and `float` where appropriate.
 
 native numeric surface:
 
@@ -1324,16 +1235,25 @@ arctan-float: float → float → float
 
 `arctan-float` takes real part then imaginary part, and returns an angle in the range `0` to `τ`.
 
-native runner surface:
+native runner function surface:
 
 ```tung
 write: string → 𝟙 ! console
-read: 𝟙 → string ! console
 sleep: integer → 𝟙 ! async
-random: 𝟙 → float ! random
 read-file: string → string ! file, string fail
 write-file: string → string → 𝟙 ! file, string fail
 append-file: string → string → 𝟙 ! file, string fail
+environment: string → string option ! system
+exit: integer → a ! system
+```
+
+native operations without informative inputs still use ordinary unary function types:
+
+```tung
+read: 𝟙 → string ! console
+random: 𝟙 → float ! random
+arguments: 𝟙 → string list ! system
+unix-time: 𝟙 → integer ! clock
 ```
 
 standard ground helper:
@@ -1357,7 +1277,7 @@ it declares host-provided functions with ordinary tung types.
 
 declared names enter the same name environment as `let` names.
 
-source libraries can use those names inside `fill` to provide class methods.
+source bookhoards can use those names inside `fill` to provide class methods.
 
 `from-string` fails with `string fail`.
 
@@ -1365,13 +1285,11 @@ division by zero fails with `string fail`.
 
 `sleep` is an `async` effect in the current design.
 
-## current standard library shape
+`unix-time` returns whole seconds since `1970-01-01 00:00:00 utc`.
 
-the built-in public import path `ground.tung` points at `library/ground.tung`.
+## current standard bookhoard shape
 
-`foreign.tung` defines primitive runtime-backed effects and task values.
-
-`ground.tung` re-exports those effects and task values.
+`ground.tung` is an ordinary optional umbrella import that re-exports core data, effects, classes, and helpers.
 
 core data is split across:
 
@@ -1388,7 +1306,7 @@ core data is split across:
 
 `𝟘` exports `initial: 𝟘 → a`.
 
-core effects in `foreign.tung`, re-exported by `ground.tung`, include:
+core effects re-exported by `ground.tung` include:
 
 - `fail`
 - `console`
@@ -1396,11 +1314,20 @@ core effects in `foreign.tung`, re-exported by `ground.tung`, include:
 - `state`
 - `async`
 - `file`
+- `system`
+- `clock`
 
-core type classes are split across library files:
+core type classes are split across bookhoard files:
 
 - `equal`
 - `order`
+- `magma`
+- `semigroup`
+- `monoid`
+- `group`
+- `semigroupoid`
+- `category`
+- `groupoid`
 - `add`
 - `zero`
 - `subtract`
@@ -1411,46 +1338,6 @@ core type classes are split across library files:
 - `divide`
 - `mod`
 - `field`
-
-library files:
-
-- `ground.tung`
-- `_foreign.tung`
-- `data/zero.tung`
-- `data/one.tung`
-- `data/two.tung`
-- `data/product.tung`
-- `data/sum.tung`
-- `equal.tung`
-- `order.tung`
-- `algebra/*.tung`
-- `algebra/monoid/conjunctive.tung`
-- `algebra/monoid/disjunctive.tung`
-- `collection/*.tung`
-- `combinator.tung`
-- `numeric/constant.tung`
-- `data/natural.tung`
-- `list.tung`
-- `string.tung`
-- `string/*.tung`
-- `data/option.tung`
-- `numeric/absolute.tung`
-- `numeric/complex.tung`
-- `numeric/elementary.tung`
-- `numeric/integer.tung`
-
-when changing library syntax, check every file in `library/`.
-
-when changing semantics, check every file in `sample/`.
-
-library modules follow a bottom-up dependency shape:
-
-- a source file owns at most one algebraic data type.
-- class-only modules do not own wrapper data used to choose among lawful instances.
-- alternate class interpretations live in their own child modules, as `conjunctive` and `disjunctive` do under `algebra/monoid/`.
-- library modules bring their smallest direct needs. they do not bring `ground.tung`.
-- `ground.tung` is a public umbrella at the top of the graph; dependencies do not point back into it.
-- the bundled import graph is checked for missing edges and cycles by `Test.Library`.
 
 ## theory and reference model
 
@@ -1464,7 +1351,7 @@ use these languages as checks on the design, not as syntax templates:
 - koka book: <https://koka-lang.github.io/koka/doc/book.html>
 - koka row-polymorphic effects paper: <https://www.microsoft.com/en-us/research/publication/koka-programming-with-row-polymorphic-effect-types-2/>
 
-use haskell as the reference for hindley-milner generalization, rigid signature checking, algebraic data, exhaustive pattern reasoning, qualified types, and class requirements.
+use haskell as the reference for hindley-milner generalisation, rigid signature checking, algebraic data, exhaustive pattern reasoning, qualified types, and class requirements.
 
 tung differs from haskell by being strict and by tracking algebraic effects directly rather than putting ordinary effects behind `io` values.
 
@@ -1486,34 +1373,12 @@ tests should cover success cases and failure cases.
 
 tests are grouped by the compiler stage which owns the rule. do not repeat a parser-only rule in every later group.
 
-parser tests should cover current syntax and meaningful failure cases.
-
-type tests should cover inference, annotations, polymorphism, effects, handlers, runnable-file boundaries, records, imports, and match coverage.
-
-import tests should reject missing files, malformed brought source, self cycles, and longer cycles.
-
 evaluation tests should check exact results when deterministic.
 
 evaluation tests for errors should check error prefixes when exact wording is not important.
 
-name resolution tests should check bare unique names, ambiguous names, qualified names, and missing qualified names.
-
-library and sample tests should keep all bundled `.tung` files valid.
-
 add tests before or with bug fixes when a bug is discovered.
-
-the compact coverage map is:
-
-- `Test.Token`: every literal form, escape, keyword, comment boundary, broad name rule, and lexical failure.
-- `Test.Parse`: every declaration family, sequence application, dollar grouping, function header family, local block boundary, record form, match form, handler form, and malformed separator.
-- `Test.Validate`: accepted structural reuse across separate scopes and rejected duplicate parameters, constructors, operations, members, record labels, and handler cases.
-- `Test.Import`: stack growth, self cycles, and longer cycle routes.
-- `Test.Type`: primitive and polymorphic inference, rigid annotations, higher-order effects, aliases, curried functions, empty types, coverage, linear patterns, closed records, class requirements, complete instances, parameterized effects, handler coverage, resume typing, and runnable boundaries.
-- `Test.Name`: bare unique names, ambiguity, qualification, exports, constructors, types, local shadowing, and qualified-name precedence over field access.
-- `Test.Evaluate`: exact deterministic answers, lexical scope, strict left-to-right order, branch laziness within strict match, records, failures, partial application, deep handlers, zero/one/many resumes, successful and cyclic imports, synchronous tasks, and the random range.
-- `Test.Library`: every standard library path, acyclic imports, resolvable import edges, and at most one data declaration per source file.
-- `Test.Integration`: every sample and a real file read/write/append round trip.
 
 adversarial tests should try false polymorphic claims, duplicated labels, duplicated members, repeated pattern binders, missing match products, unknown classes, incomplete instances, sibling effect operations, bad resume arguments, and disallowed runnable effects.
 
-when a stricter test breaks a library, decide whether the checker or the library violates the reference model. do not weaken sound checking merely to keep old library code passing.
+when a stricter test breaks a bookhoard, decide whether the checker or the bookhoard violates the reference model. do not weaken sound checking merely to keep old bookhoard code passing.

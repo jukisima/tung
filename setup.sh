@@ -3,10 +3,10 @@
 set -euo pipefail
 
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-support_dir="$root_dir/support"
+extension_dir="$root_dir/vscode"
 tongue_dir="${TUNG_TONGUE:-$root_dir/tongue}"
-cache_dir="$support_dir/.npm-cache"
-output_dir="$support_dir/dist"
+cache_dir="$extension_dir/.npm-cache"
+output_dir="$extension_dir/dist"
 vsix="$output_dir/tung-vscode.vsix"
 
 printf 'building tung compiler\n'
@@ -15,8 +15,9 @@ printf 'building tung compiler\n'
 printf 'preparing vscode client and language server\n'
 mkdir -p "$cache_dir" "$output_dir"
 (
-  cd -- "$support_dir"
+  cd -- "$extension_dir"
   npm install --cache "$cache_dir"
+  npm run build
   npm run check
   npm test
   npm exec -- vsce package --allow-missing-repository --skip-license --out "$vsix"

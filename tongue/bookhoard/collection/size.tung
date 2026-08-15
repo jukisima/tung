@@ -1,0 +1,5 @@
+bring data/natural.tung;
+
+show shape a size {
+  a size: natural
+}

@@ -1,0 +1,33 @@
+bring _foreign.tung;
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup/additive.tung;
+bring algebra/total/semigroup/multiplicative.tung;
+
+graith a magma
+show shape a semigroup {
+  law (a: a, b: a, c: a): a * (b * c) ~ (a * b) * c
+}
+
+show-ilk additive, multiplicative;
+show additive, multiplicative;
+
+graith b semigroup
+fill (a func b) semigroup {
+  let f * g = { a | (a f) * (a g) }
+}
+
+fill (integer additive) semigroup {
+  let (a additive) * (b additive) = a add-integer b $ additive
+}
+
+fill (integer multiplicative) semigroup {
+  let (a multiplicative) * (b multiplicative) = a multiply-integer b $ multiplicative
+}
+
+fill (float additive) semigroup {
+  let (a additive) * (b additive) = a add-float b $ additive
+}
+
+fill (float multiplicative) semigroup {
+  let (a multiplicative) * (b multiplicative) = a multiply-float b $ multiplicative
+}

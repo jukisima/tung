@@ -1,0 +1,13 @@
+bring string.tung;
+bring data/two.tung;
+
+show shape a to-string {
+  a to-string: string
+}
+
+fill 𝟚 to-string {
+  let to-string = {
+    yea | 'yea',
+    nay | 'nay'
+  }
+}

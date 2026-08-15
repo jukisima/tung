@@ -1,0 +1,22 @@
+bring data/two.tung;
+
+show kin a ∐ b {
+  a inject₀,
+  b inject₁
+}
+
+show let (value: a ∐ b, f0: a → c ! e0, f1: b → c ! e1) either: c ! e0, e1 =
+  match value {
+    a inject₀ | a f0,
+    b inject₁ | b f1
+  };
+
+show let is-inject₀: a ∐ b → 𝟚 = {
+  _ inject₀ | yea,
+  _ inject₁ | nay
+};
+
+show let is-inject₁: a ∐ b → 𝟚 = {
+  _ inject₀ | nay,
+  _ inject₁ | yea
+}

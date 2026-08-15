@@ -1,7 +1,11 @@
+{- | public compiler, evaluator, and bookhoard api.
+internal modules remain hidden by the cabal package.
+-}
 module Tung (
   Program (..),
   Decl (..),
   TypeExpr (..),
+  Evidence (..),
   Expr (..),
   Pattern (..),
   MatchCase (..),
@@ -18,36 +22,38 @@ module Tung (
   TcContext (..),
   TcState (..),
   TcResult (..),
+  CoreProgram,
   parse,
-  parseTokens,
   lexTokens,
   keywordNames,
-  specialNameChars,
-  ImportStack,
   enterImport,
   validateProgram,
   check,
   checkWithImports,
   checkEditorWithImports,
   checkRunnableWithImports,
+  elaborateProgramWithImports,
   typeOfWithImports,
   baseContext,
   inferProgramContext,
   lookupEnv,
   canonicalTypeName,
   showTy,
-  showEffects,
   evaluate,
   evaluateWithImports,
-  libraryImportFiles,
-  readLibraryImports,
+  evaluateWithArgsAndImports,
+  evaluateMainWithImports,
+  evaluateMainWithArgsAndImports,
+  bookhoardImportFiles,
+  readBookhoardImports,
 ) where
 
-import Tung.Evaluate (evaluate, evaluateWithImports)
-import Tung.Import (ImportStack, enterImport)
-import Tung.Library (libraryImportFiles, readLibraryImports)
-import Tung.Parse (parse, parseTokens)
+import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
+import Tung.Core (CoreProgram)
+import Tung.Evaluate (evaluate, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
+import Tung.Import (enterImport)
+import Tung.Parse (parse)
 import Tung.Syntax
-import Tung.Token (Token (..), keywordNames, lexTokens, specialNameChars)
+import Tung.Token (Token (..), keywordNames, lexTokens)
 import Tung.Type
 import Tung.Validate (validateProgram)

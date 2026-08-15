@@ -1,0 +1,9 @@
+bring data/list.tung;
+bring data/option.tung;
+
+## host arguments, settings, and process ending.
+show deed system {
+  𝟙 arguments: string list,
+  string environment: string option,
+  integer exit: a
+}

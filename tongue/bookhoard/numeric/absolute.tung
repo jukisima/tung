@@ -1,0 +1,15 @@
+bring data/two.tung;
+bring order.tung;
+bring algebra/arithmetic/ring.tung;
+
+show shape a b absolute {
+  a absolute: b
+}
+
+fill integer integer absolute {
+  let a absolute = (0 ≤ a) if a (0 - a)
+}
+
+fill float float absolute {
+  let a absolute = (0.0 ≤ a) if a (0.0 - a)
+}

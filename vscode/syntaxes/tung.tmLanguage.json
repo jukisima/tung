@@ -1,0 +1,276 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "tung",
+  "scopeName": "source.tung",
+  "patterns": [
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#character"
+    },
+    {
+      "include": "#import-path"
+    },
+    {
+      "include": "#type-export-list"
+    },
+    {
+      "include": "#export-list"
+    },
+    {
+      "include": "#data-declaration"
+    },
+    {
+      "include": "#type-after-marker"
+    },
+    {
+      "include": "#declaration-keyword"
+    },
+    {
+      "include": "#control-keyword"
+    },
+    {
+      "include": "#primitive-type"
+    },
+    {
+      "include": "#number"
+    },
+    {
+      "include": "#operator"
+    },
+    {
+      "include": "#punctuation"
+    },
+    {
+      "include": "#name"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "match": "#.*$",
+          "name": "comment.line.number-sign.tung"
+        },
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.tung"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "begin": "'",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.tung"
+            }
+          },
+          "end": "'",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.tung"
+            }
+          },
+          "name": "string.quoted.single.tung",
+          "patterns": [
+            {
+              "match": "\\\\(?:n|r|t|\\\\|'|\\{[0-9]+\\})",
+              "name": "constant.character.escape.tung"
+            }
+          ]
+        }
+      ]
+    },
+    "character": {
+      "patterns": [
+        {
+          "match": "`(?:\\\\(?:n|r|t|\\\\|'|\\{[0-9]+\\})|\\{[0-9]+\\}|.)",
+          "name": "constant.character.tung"
+        }
+      ]
+    },
+    "import-path": {
+      "patterns": [
+        {
+          "match": "\\b(bring)\\b(\\s+)([^\\s;#]+)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.tung"
+            },
+            "3": {
+              "name": "string.unquoted.import-path.tung"
+            }
+          },
+          "name": "meta.import.tung"
+        }
+      ]
+    },
+    "export-list": {
+      "patterns": [
+        {
+          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graith\\b|kin\\b|deed\\b|shape\\b|fill\\b|class\\b|foreign\\b))",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.declaration.tung"
+            }
+          },
+          "end": ";",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.separator.tung"
+            }
+          },
+          "name": "meta.export.tung"
+        }
+      ]
+    },
+    "type-export-list": {
+      "patterns": [
+        {
+          "begin": "\\b(show-ilk)\\b(?=\\s+)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.declaration.tung"
+            }
+          },
+          "end": ";",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.separator.tung"
+            }
+          },
+          "name": "meta.export.type.tung",
+          "patterns": [
+            {
+              "match": "[^\\s#(){}\\[\\]:,|!=;.$→`']+|[+\\-×÷≤≡¬∅∏∐*]",
+              "name": "support.type.tung"
+            },
+            {
+              "match": ",",
+              "name": "punctuation.separator.tung"
+            }
+          ]
+        }
+      ]
+    },
+    "data-declaration": {
+      "patterns": [
+        {
+          "match": "\\b(kin)\\b(\\s+)([^\\s#(){}\\[\\]:,|!=;.$→`']+)(\\s+)([^\\s#(){}\\[\\]:,|!=;.$→`']+)(?=(?:\\s+[^\\s#(){}\\[\\]:,|!=;.$→`']+)*\\s*\\{)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.tung"
+            },
+            "5": {
+              "name": "support.type.tung"
+            }
+          },
+          "name": "meta.declaration.data.tung"
+        },
+        {
+          "match": "\\b(kin)\\b(\\s+)([^\\s#(){}\\[\\]:,|!=;.$→`']+)(?=\\s*\\{)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.tung"
+            },
+            "3": {
+              "name": "support.type.tung"
+            }
+          },
+          "name": "meta.declaration.data.tung"
+        }
+      ]
+    },
+    "type-after-marker": {
+      "patterns": [
+        {
+          "match": "(?<!\\)\\s*:)(?<=[:→!])(\\s*)([^\\s#(){}\\[\\]:,|!=;.$→`']+)",
+          "captures": {
+            "2": {
+              "name": "support.type.tung"
+            }
+          }
+        }
+      ]
+    },
+    "declaration-keyword": {
+      "patterns": [
+        {
+          "match": "\\b(?:let-ilk|let|graith|bring|kin|deed|shape|fill|law|class|foreign|show-ilk|show)\\b",
+          "name": "keyword.declaration.tung"
+        }
+      ]
+    },
+    "control-keyword": {
+      "patterns": [
+        {
+          "match": "\\b(?:match|try|return|resume)\\b",
+          "name": "keyword.control.tung"
+        }
+      ]
+    },
+    "primitive-type": {
+      "patterns": [
+        {
+          "match": "\\b(?:integer|float|string|character|func)\\b",
+          "name": "support.type.tung"
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        {
+          "match": "(?<![^\\s#(){}\\[\\]:,|!=;.$→`'])-?[0-9]+\\.[0-9]+(?![^\\s#(){}\\[\\]:,|!=;.$→`'])",
+          "name": "constant.numeric.float.tung"
+        },
+        {
+          "match": "(?<![^\\s#(){}\\[\\]:,|!=;.$→`'])-?[0-9]+(?![^\\s#(){}\\[\\]:,|!=;.$→`'])",
+          "name": "constant.numeric.integer.tung"
+        }
+      ]
+    },
+    "operator": {
+      "patterns": [
+        {
+          "match": "→|!|\\$|@|~",
+          "name": "keyword.operator.tung"
+        },
+        {
+          "match": "=",
+          "name": "keyword.operator.assignment.tung"
+        },
+        {
+          "match": "\\|",
+          "name": "keyword.operator.arrow.case.tung"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "match": "[(){}\\[\\]]",
+          "name": "punctuation.section.tung"
+        },
+        {
+          "match": "[:,;]",
+          "name": "punctuation.separator.tung"
+        }
+      ]
+    },
+    "name": {
+      "patterns": [
+        {
+          "match": "\\.\\*|[^\\s#(){}\\[\\]:,|!=;.$→`']+|[+\\-×÷≤≡¬∅∏∐*]",
+          "name": "variable.other.tung"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+bring algebra/arithmetic/semiring.tung;
+bring _foreign.tung;
+
+graith a add
+show shape a subtract {
+  a - a: a;
+}
+
+graith a semiring, a subtract
+show shape a ring {
+  law (a: a): a - a ~ zero
+}
+
+graith b ring
+fill (a func b) ring {
+  let f - g = { a | (a f) - (a g) }
+}
+
+fill integer subtract {
+  let - = subtract-integer
+}
+
+fill float subtract {
+  let - = subtract-float
+}
+
+fill integer ring {}
+
+fill float ring {}

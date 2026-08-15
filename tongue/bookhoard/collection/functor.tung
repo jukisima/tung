@@ -1,0 +1,8 @@
+bring combinator.tung;
+bring algebra/partial/semigroupoid.tung;
+
+show shape f functor {
+  (a f) map (a → b ! e): b f ! e;
+
+  law (af: a f): af map id ~ af id
+}

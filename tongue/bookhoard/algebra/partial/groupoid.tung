@@ -1,0 +1,9 @@
+bring algebra/partial/category.tung;
+bring algebra/partial/semigroupoid.tung;
+
+graith ⇨ category
+show shape ⇨ groupoid {
+  (a ⇨ b) invert: b ⇨ a;
+
+  law (f: a ⇨ b): f ∘ (f invert) ~ identity;
+}

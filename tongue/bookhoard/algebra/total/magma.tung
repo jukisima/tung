@@ -1,0 +1,3 @@
+show shape a magma {
+  a * a: a;
+}

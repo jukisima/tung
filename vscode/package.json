@@ -1,0 +1,154 @@
+{
+  "name": "tung-vscode",
+  "displayName": "tung",
+  "description": "language support for tung source files",
+  "version": "0.1.0",
+  "publisher": "tung",
+  "license": "UNLICENSED",
+  "main": "./out/client/extension.js",
+  "scripts": {
+    "setup": "bash ../setup.sh",
+    "build": "tsc --project tsconfig.json",
+    "check": "tsc --project tsconfig.json --noEmit",
+    "docs": "npm run build --silent && node out/server/docs.js ../tongue ../writ/bookhoard/index.html",
+    "test": "npm run build --silent && node --test out/test/*.test.js",
+    "vscode:prepublish": "npm run build"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "activationEvents": [
+    "onLanguage:tung"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tung",
+        "aliases": [
+          "tung",
+          "Tung"
+        ],
+        "extensions": [
+          ".tung"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tung",
+        "scopeName": "source.tung",
+        "path": "./syntaxes/tung.tmLanguage.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "shape",
+        "superType": "type",
+        "description": "tung type class name"
+      },
+      {
+        "id": "call",
+        "superType": "function",
+        "description": "term used in tung function position"
+      }
+    ],
+    "semanticTokenModifiers": [
+      {
+        "id": "effect",
+        "description": "effect operation or effect type"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "tung",
+        "scopes": {
+          "type": [
+            "support.type.tung",
+            "support.type"
+          ],
+          "type.effect": [
+            "support.type.effect.tung",
+            "support.type.effect",
+            "support.type"
+          ],
+          "shape": [
+            "support.type.tung",
+            "support.type"
+          ],
+          "function": [
+            "entity.name.function.tung",
+            "entity.name.function"
+          ],
+          "method": [
+            "entity.name.function.member.tung",
+            "entity.name.function.member"
+          ],
+          "method.effect": [
+            "support.function.effect.tung",
+            "support.function.effect",
+            "entity.name.function.member"
+          ],
+          "call": [
+            "entity.name.function.tung",
+            "entity.name.function"
+          ],
+          "call.effect": [
+            "support.function.effect.tung",
+            "support.function.effect",
+            "entity.name.function"
+          ],
+          "variable": [
+            "variable.other.tung",
+            "variable.other"
+          ],
+          "variable.effect": [
+            "support.function.effect.tung",
+            "support.function.effect",
+            "variable.other"
+          ],
+          "parameter": [
+            "variable.parameter.tung",
+            "variable.parameter"
+          ],
+          "property": [
+            "variable.other.member.tung",
+            "variable.other.member"
+          ]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[tung]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
+    "configuration": {
+      "title": "tung",
+      "properties": {
+        "tung.tonguePath": {
+          "type": "string",
+          "default": "",
+          "description": "absolute path to the tung tongue folder containing tung.cabal and bookhoard/"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "3.9.2",
+    "typescript": "^7.0.2",
+    "vscode-jsonrpc": "8.2.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}

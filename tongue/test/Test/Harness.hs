@@ -1,3 +1,5 @@
+-- shared assertions preserve the boundary between static evaluator rejection and
+-- deliberate runtime failure from an unhandled deed.
 module Test.Harness (
   Group,
   Test,
@@ -18,6 +20,8 @@ module Test.Harness (
   evalOkWith,
   evalErr,
   evalErrWith,
+  evalTypeErr,
+  evalTypeErrWith,
 )
 where
 
@@ -78,6 +82,12 @@ evalErr name source = evaluate source >>= expectPrefix name "eval error:"
 
 evalErrWith :: String -> String -> Map.Map String String -> Test
 evalErrWith name source imports = evaluateWithImports source imports >>= expectPrefix name "eval error:"
+
+evalTypeErr :: String -> String -> Test
+evalTypeErr name source = evaluate source >>= expectPrefix name "eval error: type error:"
+
+evalTypeErrWith :: String -> String -> Map.Map String String -> Test
+evalTypeErrWith name source imports = evaluateWithImports source imports >>= expectPrefix name "eval error: type error:"
 
 expectEither :: String -> Bool -> Either String a -> Test
 expectEither name wantRight result =

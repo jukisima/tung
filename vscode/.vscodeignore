@@ -1,0 +1,13 @@
+.gitignore
+.npmignore
+.npm-cache/**
+dist/**
+client/**
+server/**
+test/**
+tsconfig.json
+out/test/**
+out/**/*.map
+node_modules/**/*.d.ts
+node_modules/**/*.map
+setup.sh

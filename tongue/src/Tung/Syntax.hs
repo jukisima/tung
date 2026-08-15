@@ -1,3 +1,6 @@
+{- | shared surface and elaboration syntax. the parser emits only surface forms;
+'Evidence', 'ElaboratedFill', 'EField', and 'EWithEvidence' are internal forms.
+-}
 module Tung.Syntax (
   Program (..),
   Decl (..),
@@ -5,9 +8,12 @@ module Tung.Syntax (
   ForeignMember (..),
   Ctor (..),
   ShapeMember (..),
+  shapeMemberSignature,
+  shapeMemberNames,
   ShapeNeed (..),
   TypeAnn (..),
   TypeExpr (..),
+  Evidence (..),
   Expr (..),
   HandlerCase (..),
   ReturnCase (..),
@@ -21,6 +27,7 @@ where
 
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
+import Data.Maybe (mapMaybe)
 
 newtype Program = Program [Decl] deriving (Eq, Show)
 
@@ -36,6 +43,7 @@ data Decl
   | ForeignDecl [ForeignMember]
   | ShapeDecl [String] String [ShapeNeed] [ShapeMember]
   | FillDecl [TypeExpr] String [ShapeNeed] [Decl]
+  | ElaboratedFill String [TypeExpr] String [ShapeNeed] [Decl]
   deriving (Eq, Show)
 
 data EffectOp = EffectOp String TypeExpr deriving (Eq, Show)
@@ -48,13 +56,33 @@ data ShapeNeed = ShapeNeed [TypeExpr] String deriving (Eq, Show)
 
 data TypeAnn = TypeAnn TypeExpr [ShapeNeed] deriving (Eq, Show)
 
-data ShapeMember = ShapeSpec String TypeAnn | ShapeDefault String (Maybe TypeAnn) Expr deriving (Eq, Show)
+data ShapeMember
+  = ShapeSpec String TypeAnn
+  | ShapeDefault String (Maybe TypeAnn) Expr
+  | ShapeLaw [(String, TypeExpr)] Expr Expr
+  deriving (Eq, Show)
+
+shapeMemberSignature :: ShapeMember -> Maybe (String, TypeAnn)
+shapeMemberSignature = \case
+  ShapeSpec name annotation -> Just (name, annotation)
+  ShapeDefault name annotation _ -> (name,) <$> annotation
+  ShapeLaw{} -> Nothing
+
+shapeMemberNames :: [ShapeMember] -> [String]
+shapeMemberNames = mapMaybe (fmap fst . shapeMemberSignature)
 
 data TypeExpr
   = TypeName String
   | TypeApply String [TypeExpr]
   | TypeRecord [(String, TypeExpr)]
   | TypeArrow (NonEmpty TypeExpr) [TypeExpr] TypeExpr
+  deriving (Eq, Show)
+
+-- evidence holes exist only during inference and must be resolved before CoreProgram.
+data Evidence
+  = EvidenceHole Int
+  | EvidenceLocal String
+  | EvidenceFill String [Evidence] [Evidence]
   deriving (Eq, Show)
 
 data Expr
@@ -65,10 +93,12 @@ data Expr
   | EVar String
   | EApply Expr (NonEmpty Expr)
   | ERecord [(String, Expr)]
+  | EField Expr String
   | EUpdate Expr [RecordUpdate]
   | ETry Expr (Maybe ReturnCase) [HandlerCase]
   | EMatch [Expr] [MatchCase]
   | EBlock [Decl] Expr
+  | EWithEvidence Expr [Evidence]
   deriving (Eq, Show)
 
 data HandlerCase = HandlerCase String [Pattern] Expr deriving (Eq, Show)

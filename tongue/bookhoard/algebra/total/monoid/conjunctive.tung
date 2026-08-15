@@ -1,0 +1,19 @@
+bring data/two.tung;
+bring algebra/total/monoid.tung;
+bring algebra/total/semigroup.tung;
+
+show kin conjunctive {
+  𝟚 conjunctive
+}
+
+fill conjunctive semigroup {
+  let (x: conjunctive, y: conjunctive) *: conjunctive = match x, y {
+    nay conjunctive, _ | nay conjunctive,
+    _, nay conjunctive | nay conjunctive,
+    _, _ | yea conjunctive
+  }
+}
+
+fill conjunctive monoid {
+  let ∅ = yea conjunctive
+}

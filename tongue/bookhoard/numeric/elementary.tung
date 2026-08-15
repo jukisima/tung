@@ -1,0 +1,19 @@
+bring _foreign.tung;
+bring algebra/arithmetic/field.tung;
+bring numeric/constant.tung;
+
+graith a field
+show shape a elementary {
+  a exponent: a;
+  a logarithm: a;
+  a sine: a;
+  a cosine: a;
+  let (a: a) tangent: a ! string fail = a sine $ ÷ (a cosine)
+}
+
+fill float elementary {
+  let exponent = exponent-float;
+  let logarithm = logarithm-float;
+  let sine = sine-float;
+  let a cosine = circumference × 0.25 $ - a $ sine;
+}

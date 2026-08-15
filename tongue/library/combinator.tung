@@ -1,9 +1,0 @@
-show let (a: a) id: a = a;
-
-show let (a: a, _: b) const: a = a;
-
-show let (f: a → b → c ! e, b: b, a: a) flip: c ! e = a f b;
-
-show let (f0: a → b ! e0, f1: b → c ! e1) compose: a → c ! e0, e1 = { a | a f0 $ f1 };
-
-show let (a: a, f: a → a → b ! e) duplicate: b ! e = a f a

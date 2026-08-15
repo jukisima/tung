@@ -1,0 +1,161 @@
+bring data/one.tung;
+bring data/two.tung;
+bring order.tung;
+bring data/product.tung;
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup.tung;
+bring algebra/total/monoid.tung;
+bring algebra/arithmetic/semiring.tung;
+bring data/natural.tung;
+bring data/option.tung;
+bring collection/size.tung;
+bring collection/catamorphism.tung;
+bring collection/functor.tung;
+bring collection/applicative.tung;
+bring collection/monad.tung;
+bring collection/filter.tung;
+
+## finite linked lists.
+show kin a list {
+  empty,
+  a .* (a list)
+}
+
+## integer range from start to stop, inclusive.
+show let (start: integer, stop: integer) till: integer list = match start ≤ stop {
+  yea | start .* (start + 1 $ till stop),
+  nay | empty
+};
+
+## build a one-element list.
+show let singleton: a → a list = {
+  a | a .* empty
+};
+
+fill (a list) semigroup {
+  let a… * b… = match a… {
+    empty | b…,
+    a .* l | a .* (l * b…)
+  }
+}
+
+fill (a list) monoid {
+  let ∅ = empty
+}
+
+fill list functor {
+  let it map f = match it {
+    empty | empty,
+    a .* l | (a f) .* (l map f)
+  }
+}
+
+fill list monad {
+  let a pure = a .* empty;
+  let a… apply = {
+    empty | empty,
+    f .* f… | (a… map f) * (a… apply f…)
+  };
+  let flat = {
+    empty | empty,
+    a… .* a…… | a… * (a…… flat)
+  };
+  let a… map-flat f = (a… map f) flat
+}
+
+fill list filter {
+  let a… filter f = match a… {
+    empty | empty,
+    a .* a…′ | (a f) if (a .* (a…′ filter f)) (a…′ filter f)
+  }
+}
+
+show let (a…: a list, action: a → 𝟙 ! e) each: 𝟙 ! e = match a… {
+  empty | null,
+  a .* a…′ | (
+    let _ = a action;
+    a…′ each action
+  )
+};
+
+## first list element, if present.
+show let head: a list → a option = {
+  empty | none,
+  a .* _ | a some
+};
+
+## list without its first element, if present.
+show let tail: a list → (a list) option = {
+  empty | none,
+  _ .* a… | a… some
+};
+
+show let uncons: a list → (a ∏ (a list)) option = {
+  empty | none,
+  a .* a… | (a ∏ a…) some
+};
+
+## first count elements.
+show let (list: a list, count: integer) take: a list = match count ≤ 0 {
+  yea | empty,
+  nay | match list {
+    empty | empty,
+    a .* a… | a .* (a… take (count - 1))
+  }
+};
+
+## list after removing count elements.
+show let (list: a list, count: integer) drop: a list = match count ≤ 0 {
+  yea | list,
+  nay | match list {
+    empty | empty,
+    _ .* a… | a… drop (count - 1)
+  }
+};
+
+## first element accepted by a predicate.
+show let (list: a list, f: a → 𝟚 ! e) find: a option ! e = match list {
+  empty | none,
+  a .* a… | a f $ if (a some) (a… find f)
+};
+
+fill list cata {
+  let a… foldr b f = match a… {
+    empty | b,
+    a .* rest | a f (rest foldr b f)
+  };
+  let a… foldl b f = match a… {
+    empty | b,
+    a .* rest | rest foldl (b f a) f
+  }
+}
+
+fill (a list) size {
+  let l size = l foldl data/natural@zero { n, _ | n suc }
+}
+
+show let reverse: a list → a list = (
+  let help = {
+    outcome, empty | outcome,
+    outcome, a .* a… | (a .* outcome) help a…
+  };
+  empty help
+);
+
+show let every: 𝟚 list → 𝟚 = {
+  empty | yea,
+  yea .* l | l every,
+  nay .* _ | nay
+};
+
+show let some: 𝟚 list → 𝟚 = {
+  empty | nay,
+  nay .* l | l some,
+  yea .* _ | yea
+};
+
+show let zip: a list → b list → (a ∏ b) list = {
+  empty, _ | empty,
+  _, empty | empty,
+  a .* a…, b .* b… | (a ∏ b) .* (a… zip b…)
+}

@@ -1,3 +1,6 @@
+{- | type-independent tree validation, such as repeated fields, binders,
+operations, and members. name and type questions belong to later stages.
+-}
 module Tung.Validate (validateProgram) where
 
 import Data.Foldable (traverse_)
@@ -10,6 +13,7 @@ validateProgram (Program declarations) = traverse_ validateDecl declarations
 validateDecl :: Decl -> Either String ()
 validateDecl = \case
   Import _ -> pure ()
+  Export Import{} -> Left "bring cannot be shown"
   Export FillDecl{} -> Left "fill evidence cannot be shown"
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
@@ -29,7 +33,7 @@ validateDecl = \case
     traverse_ (\(ForeignMember _ annotation) -> validateTypeAnn annotation) members
   ShapeDecl params name needs members -> do
     distinct ("shape '" ++ name ++ "' parameter") params
-    distinct ("shape '" ++ name ++ "' member") (map shapeMemberName members)
+    distinct ("shape '" ++ name ++ "' member") (shapeMemberNames members)
     traverse_ validateNeed needs
     traverse_ validateShapeMember members
   FillDecl types name needs members -> do
@@ -37,6 +41,7 @@ validateDecl = \case
     traverse_ validateType types
     traverse_ validateNeed needs
     traverse_ validateDecl members
+  ElaboratedFill _ types name needs members -> validateDecl (FillDecl types name needs members)
 
 validateCtor :: Ctor -> Either String ()
 validateCtor (Ctor _ fields) = traverse_ validateType fields
@@ -48,6 +53,11 @@ validateShapeMember :: ShapeMember -> Either String ()
 validateShapeMember = \case
   ShapeSpec _ annotation -> validateTypeAnn annotation
   ShapeDefault _ annotation body -> traverse_ validateTypeAnn annotation >> validateExpr body
+  ShapeLaw parameters left right -> do
+    distinct "shape law parameter" (map fst parameters)
+    traverse_ (validateType . snd) parameters
+    validateExpr left
+    validateExpr right
 
 validateTypeAnn :: TypeAnn -> Either String ()
 validateTypeAnn (TypeAnn value needs) = validateType value >> traverse_ validateNeed needs
@@ -71,6 +81,7 @@ validateExpr = \case
   EVar _ -> pure ()
   EApply function arguments -> validateExpr function >> traverse_ validateExpr arguments
   ERecord fields -> distinct "record field" (map fst fields) >> traverse_ (validateExpr . snd) fields
+  EField base _ -> validateExpr base
   EUpdate base updates -> validateExpr base >> traverse_ validateUpdate updates
   ETry body returned cases -> do
     distinct "handler case" [name | HandlerCase name _ _ <- cases]
@@ -79,6 +90,7 @@ validateExpr = \case
     traverse_ validateHandler cases
   EMatch scrutinees cases -> traverse_ validateExpr scrutinees >> traverse_ validateMatch cases
   EBlock declarations body -> traverse_ validateDecl declarations >> validateExpr body
+  EWithEvidence function _ -> validateExpr function
 
 validateUpdate :: RecordUpdate -> Either String ()
 validateUpdate = \case
@@ -106,8 +118,3 @@ constructorName (Ctor name _) = name
 
 operationName :: EffectOp -> String
 operationName (EffectOp name _) = name
-
-shapeMemberName :: ShapeMember -> String
-shapeMemberName = \case
-  ShapeSpec name _ -> name
-  ShapeDefault name _ _ -> name

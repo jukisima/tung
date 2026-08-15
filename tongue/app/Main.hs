@@ -1,3 +1,5 @@
+-- the cli compiles runnable files once. the stdin commands are the stable bridge
+-- used by the editor; local import discovery remains tolerant of broken buffers.
 module Main where
 
 import Data.Map.Strict qualified as Map
@@ -20,51 +22,49 @@ main = do
     ["--type-of-stdin", name] -> typeOfStdin name Nothing
     ["--type-of-stdin", name, path] -> typeOfStdin name (Just path)
     ["--type-of-bundle-stdin", name] -> typeOfBundleStdin name
-    [path] -> do
-      imports <- readLibraryImports
+    path : programArgs -> do
+      imports <- readBookhoardImports
       source <- readFile path
-      case checkRunnableWithImports source imports of
-        "type ok" -> evaluateWithImports source imports >>= putStrLn
-        msg -> putStrLn msg
-    _ -> putStrLn "usage: cabal run tung -- <file.tung>"
+      evaluateMainWithArgsAndImports programArgs source imports >>= putStrLn
+    _ -> putStrLn "usage: cabal run tung -- <file.tung> [arguments...]"
 
 checkStdin :: (String -> Map.Map String String -> String) -> IO ()
 checkStdin checkSource = do
-  imports <- readLibraryImports
+  imports <- readBookhoardImports
   source <- getContents
   putStrLn (checkSource source imports)
 
 checkFileStdin :: FilePath -> IO ()
 checkFileStdin path = do
   source <- getContents
-  libraries <- readLibraryImports
+  bookhoards <- readBookhoardImports
   local <- readLocalImports (takeDirectory path) source
-  putStrLn (checkEditorWithImports source (Map.union local libraries))
+  putStrLn (checkEditorWithImports source (Map.union local bookhoards))
 
 typeOfStdin :: String -> Maybe FilePath -> IO ()
 typeOfStdin name sourcePath = do
   source <- getContents
-  libraries <- readLibraryImports
+  bookhoards <- readBookhoardImports
   local <- maybe (pure Map.empty) (\path -> readLocalImports (takeDirectory path) source) sourcePath
-  putStrLn $ case typeOfWithImports source (Map.union local libraries) name of
+  putStrLn $ case typeOfWithImports source (Map.union local bookhoards) name of
     Right ty -> "type: " ++ ty
     Left message -> "type error: " ++ message
 
 checkBundleStdin :: (String -> Map.Map String String -> String) -> IO ()
 checkBundleStdin checkSource = do
   bundle <- getContents
-  libraries <- readLibraryImports
+  bookhoards <- readBookhoardImports
   putStrLn $ case readMaybe bundle of
     Nothing -> "parse error: invalid editor source bundle"
-    Just (source, imports) -> checkSource source (Map.union (Map.fromList imports) libraries)
+    Just (source, imports) -> checkSource source (Map.union (Map.fromList imports) bookhoards)
 
 typeOfBundleStdin :: String -> IO ()
 typeOfBundleStdin name = do
   bundle <- getContents
-  libraries <- readLibraryImports
+  bookhoards <- readBookhoardImports
   putStrLn $ case readMaybe bundle of
     Nothing -> "type error: invalid editor source bundle"
-    Just (source, imports) -> case typeOfWithImports source (Map.union (Map.fromList imports) libraries) name of
+    Just (source, imports) -> case typeOfWithImports source (Map.union (Map.fromList imports) bookhoards) name of
       Right ty -> "type: " ++ ty
       Left message -> "type error: " ++ message
 

@@ -1,0 +1,4 @@
+## host wall-clock time.
+show deed clock {
+  𝟙 unix-time: integer
+}

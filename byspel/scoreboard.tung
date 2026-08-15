@@ -1,0 +1,174 @@
+bring ground.tung;
+bring data/list.tung;
+bring collection/catamorphism.tung;
+
+kin team {
+  north,
+  south,
+  east,
+  west
+}
+
+fill team to-string {
+  let to-string = {
+    north | 'north',
+    south | 'south',
+    east | 'east',
+    west | 'west'
+  }
+}
+
+let-ilk game = [away: team, away-score: integer, home: team, home-score: integer];
+
+let-ilk scoreline = [
+  away: team,
+  away-points: integer,
+  away-score: integer,
+  home: team,
+  home-points: integer,
+  home-score: integer
+];
+
+let-ilk cancelled-game = [away: team, home: team, reason: string];
+
+kin match-result {
+  scoreline finished,
+  cancelled-game cancelled
+}
+
+let-ilk standing = [played: integer, points: integer, team: team];
+
+let (left: team, right: team) same-team: 𝟚 = match left, right {
+  north, north | yea,
+  south, south | yea,
+  east, east | yea,
+  west, west | yea,
+  _, _ | nay
+};
+
+let (score: integer) checked-score: integer ! string fail =
+  match score < 0 {
+    yea | 'a score cannot be negative' fail,
+    nay | score
+  };
+
+let (game: game) scoreline-of: scoreline ! string fail = (
+  let home-score = game@home-score checked-score;
+  let away-score = game@away-score checked-score;
+  match home-score ≤ away-score, away-score ≤ home-score {
+    yea, yea | [
+      away = game@away,
+      away-points = 1,
+      away-score = away-score,
+      home = game@home,
+      home-points = 1,
+      home-score = home-score
+    ],
+    nay, yea | [
+      away = game@away,
+      away-points = 0,
+      away-score = away-score,
+      home = game@home,
+      home-points = 3,
+      home-score = home-score
+    ],
+    yea, nay | [
+      away = game@away,
+      away-points = 3,
+      away-score = away-score,
+      home = game@home,
+      home-points = 0,
+      home-score = home-score
+    ],
+    nay, nay | 'scores are not ordered' fail
+  }
+);
+
+let (game: game) settle: match-result =
+  try game scoreline-of $ finished {
+    reason fail | [away = game@away, home = game@home, reason = reason] cancelled
+  };
+
+let (game: game) start: match-result task ! random, async = (
+  let delay = ((null random) × 30.0) ⌊;
+  let _ = delay sleep;
+  { _ | game settle } fork
+);
+
+let (standing: standing, outcome: match-result) add-result: standing =
+  match outcome {
+    _ cancelled | standing,
+    scoreline finished | match standing@team same-team scoreline@home, standing@team same-team scoreline@away {
+      yea, _ | [
+        = standing,
+        played = standing@played + 1,
+        points = standing@points + scoreline@home-points
+      ],
+      nay, yea | [
+        = standing,
+        played = standing@played + 1,
+        points = standing@points + scoreline@away-points
+      ],
+      nay, nay | standing
+    }
+  };
+
+let (standings: standing list, outcome: match-result) apply-result: standing list =
+  standings map { standing | standing add-result outcome };
+
+let (outcome: match-result) print-result: 𝟙 ! console =
+  match outcome {
+    scoreline finished | (
+      let _ = (scoreline@home to-string) write;
+      let _ = ' ' write;
+      let _ = (scoreline@home-score to-string) write;
+      let _ = ' - ' write;
+      let _ = (scoreline@away-score to-string) write;
+      let _ = ' ' write;
+      (scoreline@away to-string) write-line
+    ),
+    cancelled-game cancelled | (
+      let _ = (cancelled-game@home to-string) write;
+      let _ = ' - ' write;
+      let _ = (cancelled-game@away to-string) write;
+      let _ = ': cancelled: ' write;
+      cancelled-game@reason write-line
+    )
+  };
+
+let (standing: standing) print-standing: 𝟙 ! console = (
+  let _ = (standing@team to-string) write;
+  let _ = ': ' write;
+  let _ = (standing@points to-string) write;
+  let _ = ' points from ' write;
+  let _ = (standing@played to-string) write;
+  match standing@played ≤ 1 {
+    yea | ' game' write-line,
+    nay | ' games' write-line
+  }
+);
+
+let fixtures: game list =
+  [home = north, home-score = 3, away = south, away-score = 1] .*
+([home = east, home-score = 2, away = west, away-score = 2] .*
+  ([home = south, home-score = -1, away = east, away-score = 4] .*
+    ([home = west, home-score = 1, away = north, away-score = 2] .* empty)));
+
+let initial-standings: standing list =
+  [team = north, played = 0, points = 0] .*
+([team = south, played = 0, points = 0] .*
+  ([team = east, played = 0, points = 0] .*
+    ([team = west, played = 0, points = 0] .* empty)));
+
+let (_: 𝟙) main: 𝟙 ! console, random, async = (
+  let _ = 'launching match jobs' write-line;
+  let tasks = fixtures map start;
+  let results = tasks map wait;
+  let standings: standing list = results foldl initial-standings apply-result;
+  let _ = '' write-line;
+  let _ = 'results' write-line;
+  let _ = results each print-result;
+  let _ = '' write-line;
+  let _ = 'standings' write-line;
+  standings each print-standing
+)

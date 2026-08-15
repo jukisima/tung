@@ -1,0 +1,21 @@
+bring ground.tung;
+
+let read-user: 𝟙 → float ! console =
+  { _ | try (null read) from-string {
+      _ fail | (
+        let _ = 'could not read a float; using 0.0' write-line;
+        0.0
+      )
+    } };
+
+let (_: 𝟙) main: 𝟙 ! console, random = (
+  let _ = 'input a float between 0.0 and 1.0' write-line;
+  let user = null read-user;
+  let hidden = null random;
+  let outcome: string = match user ≤ hidden, hidden ≤ user {
+    yea, nay | 'lose',
+    nay, yea | 'win',
+    _, _ | 'draw'
+  };
+  outcome write-line
+)

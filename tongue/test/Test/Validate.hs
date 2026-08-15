@@ -1,3 +1,4 @@
+-- structural reuse across scopes and duplicate labels, binders, operations, and members.
 module Test.Validate (group) where
 
 import Test.Harness (Group, Test)
@@ -9,23 +10,25 @@ group =
   Harness.group "validate" $
     map (uncurry validationOk) accepted
       ++ map (uncurry validationErr) rejected
+      ++ astCases
 
 accepted :: [(String, String)]
 accepted =
-  [ ("distinct declarations", "choose pair { pair }; deed pulse { integer pulse: integer }; shape a same { a same: a };")
+  [ ("distinct declarations", "kin pair { pair }; deed pulse { integer pulse: integer }; shape a same { a same: a };")
   , ("labels may repeat in separate records", "let first = [x = 1]; let second = [x = 2];")
   , ("handler names may repeat in separate handlers", "try (try 1 { fail | 2 }) { fail | 3 }")
   ]
 
 rejected :: [(String, String)]
 rejected =
-  [ ("duplicate data parameter", "choose a bad a { bad };")
-  , ("duplicate constructor", "choose bad { same, same };")
+  [ ("duplicate data parameter", "kin a bad a { bad };")
+  , ("duplicate constructor", "kin bad { same, same };")
   , ("duplicate effect parameter", "deed a bad a { a op: a };")
   , ("duplicate effect operation", "deed bad { integer op: integer, integer op: integer };")
   , ("duplicate foreign member", "class foreign { integer op: integer; integer op: integer };")
   , ("duplicate shape parameter", "shape a a bad { a op: a };")
   , ("duplicate shape member", "shape a bad { a op: a; a op: a };")
+  , ("duplicate shape law parameter", "shape a bad { law (x: a, x: a): x ~ x };")
   , ("duplicate fill member", "fill integer bad { let x op = x; let y op = y };")
   , ("duplicate record type field", "let bad: [x: integer, x: string] = [x = 1];")
   , ("duplicate record field", "let bad = [x = 1, x = 2];")
@@ -43,3 +46,10 @@ validationCase name shouldPass source = pure $ case parse source of
     (True, Left message) -> Just (name ++ ": unexpected rejection: " ++ message)
     (False, Right ()) -> Just (name ++ ": unexpected acceptance")
     _ -> Nothing
+
+astCases :: [Test]
+astCases =
+  [ pure $ case validateProgram (Program [Export (Import "ground.tung")]) of
+      Left _ -> Nothing
+      Right () -> Just "show bring ast: unexpected acceptance"
+  ]

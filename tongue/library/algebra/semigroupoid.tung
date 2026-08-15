@@ -1,7 +1,0 @@
-show shape morphism semigroupoid {
-  (a morphism b) compose (b morphism c): a morphism c
-}
-
-fill func semigroupoid {
-  let f compose g = { a | a f $ g }
-}

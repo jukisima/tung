@@ -1,3 +1,4 @@
+-- import-stack growth, self cycles, and longer cycle routes.
 module Test.Import (group) where
 
 import Test.Harness (Group, expectEq)

@@ -4,3 +4,10 @@ pre-commit:
       glob: "**/*.hs"
       run: fourmolu --mode inplace {staged_files}
       stage_fixed: true
+
+    - name: oxc
+      glob: "**/*.ts"
+      run: |
+        oxfmt {staged_files}
+        oxlint --fix {staged_files}
+      stage_fixed: true

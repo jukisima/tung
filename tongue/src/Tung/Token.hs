@@ -1,3 +1,6 @@
+{- | source lexer. a name contains any non-space character not reserved by
+'specialNameChars'; literals and comments are consumed before name parsing.
+-}
 module Tung.Token (
   Token (..),
   lexTokens,
@@ -7,7 +10,7 @@ module Tung.Token (
 )
 where
 
-import Control.Applicative (empty, many, some)
+import Control.Applicative (many, some)
 import Data.Char (chr, isSpace)
 import Data.Maybe (fromMaybe)
 import Data.Void (Void)
@@ -28,10 +31,11 @@ data Token
   | TShowIlk
   | TBring
   | TLetIlk
-  | TChoose
+  | TKin
   | TDeed
   | TShape
   | TFill
+  | TLaw
   | TMatch
   | TTry
   | TLParen
@@ -163,7 +167,7 @@ nameChunk :: Lexer String
 nameChunk = M.try (C.string ".*") M.<|> ((: []) <$> M.satisfy isNameChar)
 
 spaceConsumer :: Lexer ()
-spaceConsumer = L.space C.space1 (L.skipLineComment "#") empty
+spaceConsumer = L.space C.space1 (L.skipLineComment "#") (L.skipBlockComment "/*" "*/")
 
 lexeme :: Lexer a -> Lexer a
 lexeme = L.lexeme spaceConsumer
@@ -182,10 +186,11 @@ keywordTokens =
   , ("show-ilk", TShowIlk)
   , ("bring", TBring)
   , ("let-ilk", TLetIlk)
-  , ("choose", TChoose)
+  , ("kin", TKin)
   , ("deed", TDeed)
   , ("shape", TShape)
   , ("fill", TFill)
+  , ("law", TLaw)
   , ("match", TMatch)
   , ("try", TTry)
   ]

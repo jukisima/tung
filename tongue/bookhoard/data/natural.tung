@@ -1,0 +1,44 @@
+bring data/two.tung;
+bring equal.tung;
+bring order.tung;
+bring algebra/arithmetic/semiring.tung;
+
+show kin natural {
+  zero,
+  natural suc
+}
+
+fill natural equal {
+  let ≡ = {
+    zero, zero | yea,
+    a suc, b suc | a ≡ b,
+    _, _ | nay
+  }
+}
+
+fill natural order {
+  let ≤ = {
+    zero, _ | yea,
+    _, zero | nay,
+    a suc, b suc | a ≤ b
+  }
+}
+
+fill natural add {
+  let + = {
+    a, zero | a,
+    a, (b suc) | (a + b) suc
+  }
+}
+
+fill natural multiply {
+  let × = {
+    _, zero | zero,
+    a, b suc | a + (a × b)
+  }
+}
+
+show let natural-to-integer: natural → integer = {
+  zero | 0,
+  a suc | 1 + (a natural-to-integer)
+}

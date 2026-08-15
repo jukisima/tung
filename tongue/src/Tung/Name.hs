@@ -1,3 +1,4 @@
+-- | pure helpers for import namespaces, qualification, and record-field fallback.
 module Tung.Name (
   importNamespace,
   isQualifiedName,

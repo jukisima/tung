@@ -1,3 +1,6 @@
+{- | token parser for surface syntax. this stage lowers definition headers,
+second-is-function sequences, and dollar grouping without consulting types.
+-}
 module Tung.Parse (
   parse,
   parseTokens,
@@ -21,6 +24,8 @@ data FunctionResult = FunctionResult
   }
   deriving (Eq, Show)
 
+-- parsers consume a token prefix and return the untouched suffix. whole-input
+-- helpers are used only where the surrounding delimiter has already been found.
 type P a = [Token] -> Either String (a, [Token])
 
 parse :: String -> Either String Program
@@ -32,6 +37,8 @@ parseTokens toks = case parseDecls toks of
   Right _ -> Left "unexpected tokens after program"
   Left msg -> Left msg
 
+-- declarations are self-delimiting; semicolons are accepted between file-level
+-- declarations and required only by constructs whose grammar says so.
 parseDecls :: P [Decl]
 parseDecls [] = pure ([], [])
 parseDecls ts@(TRBrace : _) = pure ([], ts)
@@ -56,6 +63,7 @@ parseExportGroup ts = case parseReExportNames ts of
   Left _ -> do
     (decl, rest) <- parseDecl ts
     case decl of
+      Import _ -> Left "show cannot precede bring"
       Let "_" _ _ -> Left "show must precede a declaration or name"
       _ -> pure ([Export decl], rest)
 
@@ -78,7 +86,7 @@ parseDecl = \case
   TGraith : rest -> parseGraithDecl rest
   TLet : rest -> parseLetDecl [] rest
   TLetIlk : TIdent name : TEquals : rest -> parseTypeAlias name rest
-  TChoose : rest -> parseData rest
+  TKin : rest -> parseData rest
   TDeed : rest -> parseEffect rest
   TIdent "class" : TIdent "foreign" : TLBrace : rest -> parseForeign rest
   TShape : rest -> parseShape [] rest
@@ -124,6 +132,8 @@ parseGraithPrefix stop message ts = do
   needs <- parseShapeNeedsWhole graithTokens
   pure (needs, rest)
 
+-- let parsing accepts named and positional headers, typed parameter groups, and
+-- graith prefixes, then lowers every parameter list to an anonymous match.
 parseLetDecl :: [ShapeNeed] -> P Decl
 parseLetDecl needs = \case
   TIdent name : rest -> parseLet needs name rest
@@ -287,7 +297,7 @@ parseUntypedLet needs name argTypes ts = do
 
 parseData :: P Decl
 parseData ts = do
-  (params, name, body) <- parseParamHeaderBody "choose" ts
+  (params, name, body) <- parseParamHeaderBody "kin" ts
   (ctors, rest) <- parseCtors body
   pure (DataDecl params name ctors, rest)
 
@@ -456,6 +466,7 @@ parseShapeMembers (TRBrace : rest) = Right ([], rest)
 parseShapeMembers (TSemicolon : rest) = parseShapeMembers rest
 parseShapeMembers ts@(TGraith : _) = parseShapeDefaultLet ts
 parseShapeMembers ts@(TLet : _) = parseShapeDefaultLet ts
+parseShapeMembers ts@(TLaw : _) = parseShapeLaw ts
 parseShapeMembers ts@(TIdent _ : _) = parsePostfixShapeSignature ts
 parseShapeMembers ts@(TLParen : _) = parsePostfixShapeSignature ts
 parseShapeMembers _ = Left "expected shape member"
@@ -497,6 +508,34 @@ parseShapeDefaultLet ts = do
       pure (ShapeDefault name ann expr : members, rest2)
     _ -> Left "shape default must be a let"
 
+parseShapeLaw :: P [ShapeMember]
+parseShapeLaw (TLaw : TLParen : ts) = do
+  ((patterns, annotations), rest) <- parseTypedLetParams ts
+  parameters <- traverse lawParameter (zip patterns annotations)
+  case rest of
+    TColon : body -> do
+      (leftTokens, separator) <- takeTopLevelUntil body isLawSeparator "expected '~' between law sides"
+      (rightTokens, rest2) <- case separator of
+        TIdent "~" : right -> takeTopLevelUntilOrEnd right lawEnd
+        _ -> Left "expected '~' between law sides"
+      left <- parseWhole "unexpected tokens on left side of law" parseExpr leftTokens
+      right <- parseWhole "unexpected tokens on right side of law" parseExpr rightTokens
+      (members, rest3) <- parseShapeMembers rest2
+      pure (ShapeLaw parameters left right : members, rest3)
+    _ -> Left "expected ':' after law parameters"
+ where
+  lawParameter (PVar name, Just annotation) = Right (name, annotation)
+  lawParameter (_, Nothing) = Left "law parameters require type annotations"
+  lawParameter _ = Left "law parameters must be names"
+  isLawSeparator (TIdent "~") = True
+  isLawSeparator _ = False
+  lawEnd TSemicolon = True
+  lawEnd TRBrace = True
+  lawEnd _ = False
+parseShapeLaw _ = Left "expected parenthesised law parameters"
+
+-- '$' is the only lower-precedence application layer. ordinary sequences are
+-- parsed below it and use the second term as their function.
 parseExpr :: P Expr
 parseExpr = parseDollarExprAllowBrace
 
@@ -574,6 +613,7 @@ applyArgs = foldl' (\expr arg -> EApply expr (arg :| []))
 applicationFromParts :: [Expr] -> [Token] -> Either String (Expr, [Token])
 applicationFromParts = defaultApplication
 
+-- a lone term denotes itself; otherwise @a f b c@ lowers to @f a b c@.
 defaultApplication :: [Expr] -> [Token] -> Either String (Expr, [Token])
 defaultApplication parts rest = case parts of
   [] -> Left "expected expression"
@@ -607,7 +647,7 @@ exprStop = \case
   TGraith -> True
   TBring -> True
   TLetIlk -> True
-  TChoose -> True
+  TKin -> True
   TDeed -> True
   TShape -> True
   TFill -> True
@@ -902,6 +942,8 @@ finishFunctionResult tokens rest =
         effects <- parseWhole "unexpected tokens after effects" parseEffectList effectTokens
         Right (FunctionResult ret effects [], rest)
 
+-- arrows are special syntax with non-empty domains. type application otherwise
+-- follows the same second-is-function rule as term application.
 parseTypeTokens :: P TypeExpr
 parseTypeTokens = parseArrowType
 
@@ -989,7 +1031,7 @@ parseTypeAtom = \case
   TLBracket : rest -> parseRecordType rest
   TLParen : rest -> do
     (inner, rest2) <- takeBalanced rest
-    t <- parseWhole "could not parse parenthesized type" parseParenthesizedType inner
+    t <- parseWhole "could not parse parenthesised type" parseParenthesizedType inner
     pure (t, rest2)
   _ -> Left "expected type"
 
@@ -1017,6 +1059,8 @@ parseTypeUntilCommaOrBracket ts = parseTypeUntilTopLevel ts (\case TComma -> Tru
 typeFromParts :: [TypeExpr] -> [Token] -> Either String (TypeExpr, [Token])
 typeFromParts = defaultType
 
+-- @a f b@ is @f<a,b>@; unresolved non-name heads are retained for the checker
+-- to reject with type context rather than by guessing in the parser.
 defaultType :: [TypeExpr] -> [Token] -> Either String (TypeExpr, [Token])
 defaultType parts rest = case parts of
   [] -> Left "expected type"
@@ -1055,6 +1099,8 @@ ctorFromTokens ts = do
   argTypes <- typesFromHeaderTerms args
   pure (Ctor name argTypes)
 
+-- declaration headers share sequence application: the second term names the
+-- declaration and all other terms are its parameters.
 functionHeader :: [Token] -> Maybe ([Pattern], String)
 functionHeader ts = do
   (argTerms, name) <- headerFromTokens ts
@@ -1095,10 +1141,11 @@ defaultHeader (arg : fun : rest) = do
 defaultHeader _ = Nothing
 
 trailingHeaderFromParts :: [[Token]] -> Maybe ([[Token]], String)
-trailingHeaderFromParts [] = Nothing
-trailingHeaderFromParts parts = do
-  name <- headerTermName (last parts)
-  pure (init parts, name)
+trailingHeaderFromParts parts = case reverse parts of
+  [] -> Nothing
+  term : arguments -> do
+    name <- headerTermName term
+    pure (reverse arguments, name)
 
 headerTermName :: [Token] -> Maybe String
 headerTermName [TIdent name] = Just name
@@ -1178,6 +1225,8 @@ splitTopLevel ts stop = go [] (0 :: Int) ts
         TRBracket -> go (x : acc) (depth - 1) rest
         _ -> go (x : acc) depth rest
 
+-- delimiter-aware slicing keeps declaration and type parsers small. callers
+-- decide whether reaching the end is valid for their enclosing construct.
 takeTopLevelUntil :: [Token] -> (Token -> Bool) -> String -> Either String ([Token], [Token])
 takeTopLevelUntil ts stop message = case takeTopLevelUntilOrEnd ts stop of
   Right (_, []) -> Left message
@@ -1194,12 +1243,14 @@ takeTopLevelUntilOrEnd ts stop = go [] (0 :: Int) ts stop
         TRParen -> go (x : acc) (depth - 1) rest stop
         TLBracket -> go (x : acc) (depth + 1) rest stop
         TRBracket -> go (x : acc) (depth - 1) rest stop
+        TLBrace -> go (x : acc) (depth + 1) rest stop
+        TRBrace -> go (x : acc) (depth - 1) rest stop
         _ -> go (x : acc) depth rest stop
 
 takeBalanced :: [Token] -> Either String ([Token], [Token])
 takeBalanced = go [] (1 :: Int)
  where
-  go _ _ [] = Left "unclosed parenthesized type"
+  go _ _ [] = Left "unclosed parenthesised type"
   go acc depth (TLParen : rest) = go (TLParen : acc) (depth + 1) rest
   go acc 1 (TRParen : rest) = Right (reverse acc, rest)
   go acc depth (TRParen : rest) = go (TRParen : acc) (depth - 1) rest
@@ -1209,7 +1260,7 @@ takeHeaderTokens :: String -> [Token] -> Either String ([Token], [Token])
 takeHeaderTokens kind ts = takeTopLevelUntil ts (\case TLBrace -> True; _ -> False) ("expected '{' after " ++ kind ++ " header")
 
 takeCtorTokens :: [Token] -> Either String ([Token], [Token])
-takeCtorTokens [] = Left "unterminated choose declaration"
+takeCtorTokens [] = Left "unterminated kin declaration"
 takeCtorTokens ts@(TComma : _) = Right ([], ts)
 takeCtorTokens ts@(TRBrace : _) = Right ([], ts)
 takeCtorTokens (x : xs) = do

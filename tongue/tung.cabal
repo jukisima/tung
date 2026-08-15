@@ -4,7 +4,7 @@ version: 0.1.0.0
 build-type: Simple
 
 common warnings
-  ghc-options: -Wall -Wno-name-shadowing -Wno-unused-do-bind
+  ghc-options: -O2 -Wall -Wno-name-shadowing -Wno-unused-do-bind
   default-extensions:
       BlockArguments
     , DerivingStrategies
@@ -19,9 +19,10 @@ library
   import: warnings
   exposed-modules: Tung
   other-modules:
-      Tung.Evaluate
+      Tung.Core
+    , Tung.Evaluate
     , Tung.Import
-    , Tung.Library
+    , Tung.Bookhoard
     , Tung.Name
     , Tung.Parse
     , Tung.Syntax
@@ -61,7 +62,7 @@ test-suite tung-test
     , Test.Harness
     , Test.Import
     , Test.Integration
-    , Test.Library
+    , Test.Bookhoard
     , Test.Name
     , Test.Parse
     , Test.Token
@@ -72,4 +73,6 @@ test-suite tung-test
       base >=4.20 && <5
     , containers
     , directory
+    , filepath
+    , time
     , tung

@@ -1,3 +1,4 @@
+-- literal, escape, comment, keyword, broad-name, and lexical failure coverage.
 module Test.Token (group) where
 
 import Test.Harness (Group, Test, expectEq, expectPrefix)
@@ -20,6 +21,7 @@ lexCases =
   , ("standalone dot is syntax", ".", [TDot])
   , ("backslash is an ordinary name", "\\\\", [TIdent "\\\\"])
   , ("comment ends at newline", "1 # hidden\n2", [TInteger 1, TInteger 2])
+  , ("block comment is skipped", "1 /* hidden { = */ 2", [TInteger 1, TInteger 2])
   , ("character escapes", "`\\n `\\r `\\t `\\' `\\\\", map TChar ["\n", "\r", "\t", "'", "\\"])
   , ("character decimal unicode", "`\\{65} `{23383}", [TChar "A", TChar "字"])
   , ("string escapes", "'\\n\\r\\t\\'\\\\\\{65}'", [TString "\n\r\t'\\A"])
@@ -33,17 +35,18 @@ lexErrors =
   , ("unicode escape above range", "`\\{1114112}")
   , ("empty unicode escape", "`\\{}")
   , ("bare character marker", "`")
+  , ("unterminated block comment", "1 /* no")
   ]
 
 lexCase :: (String, String, [Token]) -> Test
 lexCase (name, source, expected) = case lexTokens source of
-  Left message -> expectPrefix name "tokenization should succeed" message
+  Left message -> expectPrefix name "tokenisation should succeed" message
   Right actual -> expectEq name expected actual
 
 lexError :: (String, String) -> Test
 lexError (name, source) = case lexTokens source of
   Left _ -> pure Nothing
-  Right actual -> pure (Just (name ++ ": unexpectedly tokenized as " ++ show actual))
+  Right actual -> pure (Just (name ++ ": unexpectedly tokenised as " ++ show actual))
 
 keywordToken :: String -> Token
 keywordToken = \case
@@ -53,10 +56,11 @@ keywordToken = \case
   "show-ilk" -> TShowIlk
   "bring" -> TBring
   "let-ilk" -> TLetIlk
-  "choose" -> TChoose
+  "kin" -> TKin
   "deed" -> TDeed
   "shape" -> TShape
   "fill" -> TFill
+  "law" -> TLaw
   "match" -> TMatch
   "try" -> TTry
   name -> error ("missing keyword token in test: " ++ name)

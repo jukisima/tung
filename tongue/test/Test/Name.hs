@@ -1,3 +1,4 @@
+-- bare and qualified lookup, ambiguity, exports, shadowing, and field fallback.
 module Test.Name (group) where
 
 import Data.Map.Strict qualified as Map
@@ -45,7 +46,7 @@ resolutionCases =
   , typeOkWith "show-ilk re-exports an effect" "bring ask-middle.tung; let run: integer → integer ! ask = { x | x ask };" effectReexport
   , typeErrWith "effects and data types share the type namespace" "bring data.tung; bring effect.tung; let run: integer → integer ! signal = { x | x effect@signal };" typeKindCollision
   , typeOkWith "qualification resolves an effect and data type collision" "bring data.tung; bring effect.tung; let run: integer → integer ! effect@signal = { x | x effect@signal };" typeKindCollision
-  , typeOkWith "show bring re-exports the shown surface" "bring umbrella.tung; let ok: integer = value + umbrella@value;" wholeReexport
+  , typeOkWith "constructor pattern is exhaustive after re-export" "bring data-middle.tung; let unbox: integer box → integer = { x box | x };" dataWholeReexport
   ]
  where
   leftOnly = Map.fromList [("left.tung", moduleSource 1)]
@@ -64,7 +65,12 @@ resolutionCases =
       ]
   dataReexport =
     Map.fromList
-      [ ("data-base.tung", "show choose a box { a box };")
+      [ ("data-base.tung", "show kin a box { a box };")
+      , ("data-middle.tung", "bring data-base.tung; show-ilk data-base@box; show data-base@box;")
+      ]
+  dataWholeReexport =
+    Map.fromList
+      [ ("data-base.tung", "show kin a box { a box };")
       , ("data-middle.tung", "bring data-base.tung; show-ilk data-base@box; show data-base@box;")
       ]
   selectiveReexports =
@@ -84,7 +90,7 @@ resolutionCases =
       ]
   typeKindCollision =
     Map.fromList
-      [ ("data.tung", "show choose signal { signal-value };")
+      [ ("data.tung", "show kin signal { signal-value };")
       , ("effect.tung", "show deed signal { integer signal: integer };")
       ]
   aliasImports =
@@ -92,14 +98,8 @@ resolutionCases =
       [ ("integer-type.tung", "show let-ilk token = integer;")
       , ("string-type.tung", "show let-ilk token = string;")
       ]
-  wholeReexport =
-    Map.fromList
-      [ ("whole-base.tung", "show let value = 1;")
-      , ("umbrella.tung", "show bring whole-base.tung;")
-      ]
-
 moduleSource :: Int -> String
-moduleSource value = "show choose box { box }; show let foo: integer = " ++ show value ++ ";"
+moduleSource value = "show kin box { box }; show let foo: integer = " ++ show value ++ ";"
 
 lookupCase :: Test
 lookupCase = case contextOf "bring left.tung;" imports of
