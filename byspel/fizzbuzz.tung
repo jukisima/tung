@@ -15,12 +15,12 @@ kin fizzbuzz {
   integer raw
 }
 
-fill fizzbuzz to-string {
-  let to-string = {
+fill fizzbuzz to-text {
+  let to-text = {
     fizz | 'fizz',
     buzz | 'buzz',
     fizzbuzz | 'fizzbuzz',
-    i raw | i to-string
+    i raw | i to-text
   }
 }
 
@@ -33,4 +33,4 @@ let (i: integer) to-fizzbuzz: fizzbuzz =
   };
 
 let _ main: 𝟙 ! console =
-  0 till 32 $ map (to-fizzbuzz ∘ to-string) $ each write-line
+  0 till 32 $ map (to-fizzbuzz ∘ to-text) $ each write-line

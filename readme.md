@@ -8,6 +8,9 @@ tung is a functional programming tongue with
 - effects and handlers
 - infix notation
 
+each push and pull request runneth the full test suite through
+`.github/workflows/test.yml`.
+
 ## quick start
 
 ```sh
@@ -20,19 +23,52 @@ cabal test all
 cabal run tung -- ../byspel/fizzbuzz.tung [arguments...]
 ```
 
-vscode and lsp support lives in `vscode/`. it provides compiler diagnostics, inferred hover types, semantic highlighting, completion, navigation, symbols, rename, import links, folding, and formatting.
+vscode and lsp support liveth in `vscode/`. it provideth compiler diagnostics, inferred hover types, semantic highlighting, completion, navigation, symbols, rename, import links, folding, and formatting.
 
-prepare or update the language support with:
+build and test everything, generate the documentation, and install the runner and vscode extension with:
 
 ```sh
-./setup.sh
+make setup
 ```
 
-generate the searchable standard-bookhoard html wiki with:
+setup installeth the standalone runner at `~/.local/bin/tung`. run a source file
+from any directory with:
 
 ```sh
-cd vscode
-npm run docs
+tung filename.tung
+```
+
+the runner also checketh files without running them, inspecteth inferred term types,
+and starteth an interactive session:
+
+```sh
+tung --check filename.tung
+tung --check-module module.tung
+tung --type-of main filename.tung
+tung --repl
+```
+
+the repl keepeth declarations after they pass checking. ordinary expressions are
+evaluated without being kept. use `:type`, `:load`, `:check`, `:run`, `:clear`,
+and `:quit`; wrap multiline source between `:{` and `:}`.
+
+use `make install` to reinstall without running every test. set `PREFIX` or
+`BIN_DIR` to choose another installation directory:
+
+```sh
+make install PREFIX=/usr/local
+```
+
+to regenerate only the searchable standard-bookhoard html wiki:
+
+```sh
+make docs
+```
+
+run the naive tree-recursive fibonacci benchmark, which prints fibonacci 40:
+
+```sh
+time make benchmark
 ```
 
 install the development tools and git hooks with:
@@ -42,7 +78,7 @@ brew bundle
 lefthook install
 ```
 
-a file run by the cli must declare `main` locally. `main` takes `𝟙`, returns `𝟙`, and may use `console`, `random`, `async`, `file`, `system`, or `clock`. user-defined effects and `fail` must be handled inside `main`.
+a file run by the cli must declare `main` locally. `main` taketh `𝟙`, returneth `𝟙`, and may use `console`, `random`, `async`, `file`, `system`, `clock`, or `process`. user-defined effects and `fail` must be handled inside `main`.
 
 ## small byspel
 
@@ -57,12 +93,12 @@ kin fizzbuzz {
   integer raw
 }
 
-fill fizzbuzz to-string {
-  let to-string = {
+fill fizzbuzz to-text {
+  let to-text = {
     fizz | 'fizz',
     buzz | 'buzz',
     fizzbuzz | 'fizzbuzz',
-    i raw | i to-string
+    i raw | i to-text
   }
 }
 
@@ -75,21 +111,21 @@ let (i: integer) fizzbuzz-of: fizzbuzz =
   };
 
 let main: 𝟙 → 𝟙 ! console = { _ |
-  0 till 32 $ map fizzbuzz-of $ map to-string $ each write-line
+  0 till 32 $ map fizzbuzz-of $ map to-text $ each write-line
 }
 ```
 
 ## files and imports
 
-a file is a module containing declarations and an optional final expression. the cli runs it only when it declares a local `main` function.
+a file is a module containing declarations and an optional final expression. the cli runneth it only when it declareth a local `main` function.
 
 the entry type is:
 
 ```tung
-𝟙 → 𝟙 ! console, random, async, file, system, clock
+𝟙 → 𝟙 ! console, random, async, file, system, clock, process
 ```
 
-`main` may use any subset of those effects, including none. module initialisation must stay pure. after loading the declarations, the runner calls `null main`.
+`main` may use any subset of those effects, including none. module initialisation must stay pure. after loading the declarations, the runner calleth `null main`.
 
 `bring` imports another file.
 
@@ -98,7 +134,22 @@ bring ground.tung;
 bring data/list.tung;
 ```
 
-imports must form an acyclic graph. the checker rejects both direct and indirect bring cycles.
+imports must form an acyclic graph. the checker rejecteth both direct and indirect bring cycles.
+
+the runner resolveth local brings relative to the file containing them and loadeth
+their nested brings before checking. an existing local file taketh precedence
+over an embedded bookhoard path. if the same written bring path resolveth to two
+different local files, loading faileth instead of silently choosing one.
+
+`TUNG_PATH` addeth platform-separated module roots after owner-relative lookup and
+before the embedded bookhoard fallback. for example:
+
+```sh
+TUNG_PATH=../shared:../vendor tung app/main.tung
+```
+
+if more than one module root containeth the same written bring path, loading faileth
+and listeth the competing files.
 
 shown names are imported as `namespace@name`, where the namespace is the full import path before `.tung`.
 
@@ -107,9 +158,9 @@ ground@yea
 data/list@empty
 ```
 
-an imported name may also be used bare when it is unambiguous. if two imported files expose the same bare name, the checker asks for qualification. private names are unavailable both bare and qualified.
+an imported name may also be used bare when it is unambiguous. if two imported files expose the same bare name, the checker asketh for qualification. private names are unavailable both bare and qualified.
 
-tung has two namespaces. values, functions, data constructors, and effect operations are terms. primitive types, aliases, data types, and effect constructors are types. both namespaces are private by default. put `show` before a declaration to publish it.
+tung hath two namespaces. values, functions, data constructors, and effect operations are terms. primitive types, aliases, data types, and effect constructors are types. both namespaces are private by default. put `show` before a declaration to publish it.
 
 ```tung
 show let answer = 42;
@@ -118,12 +169,12 @@ show let-ilk count = integer;
 show kin 𝟙 { null }
 show deed ask { integer ask: integer }
 show shape a identity { a identity: a }
-graith a equal show shape a order { a ≤ a: 𝟚 }
+graith a equal show shape a order-partial { a ≤ a: 𝟚 }
 ```
 
 for a declaration with `graith`, put `show` after the requirements and directly before `let` or `shape`.
 
-showing a `kin` declaration shows its type and constructors. showing a `deed` declaration shows its effect type and operations. showing a shape shows its methods. fill evidence follows imports without `show`.
+showing a `kin` declaration showeth its type and constructors. showing a `deed` declaration showeth its effect type and operations. showing a shape showeth its methods. fill evidence followeth imports without `show`.
 
 `show name;` re-exports an already visible term. `show-ilk name;` re-exports an already visible type, including an effect constructor. use a qualified name when imports make the bare name ambiguous within that namespace. data constructors and effect operations are terms and must be shown separately from their type.
 
@@ -143,17 +194,17 @@ there is no wildcard re-export. re-export each term or type with `show name;` or
 
 /* this is a block comment */
 
-## this doc comment attaches to the next shown declaration.
+## this doc comment attacheth to the next shown declaration.
 show let documented = 1;
 ```
 
 most non-space characters can be part of a name. syntax characters such as `(`, `)`, `{`, `}`, `[`, `]`, `,`, `:`, `;`, `=`, `!`, `→`, `|`, `$`, `.`, `'`, and `\`` are not ordinary name characters.
 
-`##` line comments and `/** ... */` block comments attach documentation to the next declaration. the language server shows attached docs in hover, and `npm run docs` builds a searchable html wiki at `writ/bookhoard/index.html`.
+`##` line comments and `/** ... */` block comments attach documentation to the next declaration. the language server showeth attached docs in hover, and `npm --prefix writ run docs` buildeth a searchable html wiki at `writ/bookhoard/index.html`.
 
 `@` is used inside qualified names.
 
-`_` discards a binding or matches anything in a pattern.
+`_` discardeth a binding or matcheth anything in a pattern.
 
 ## primitive values and types
 
@@ -161,17 +212,25 @@ the core implementation knows these primitive value types:
 
 - `integer`
 - `float`
-- `character`
-- `string`
+- `unicode`
+- `text`
 
-the standard bookhoard defines these common data types:
+the standard bookhoard defineth these common data types:
 
 - `𝟘`: empty type, with eliminator `initial`
 - `𝟙`: unit type, with value `null`
 - `𝟚`: boolean type, with values `yea` and `nay`
+- `three`: comparison result, with values `fore`, `mid`, and `aft`
 - `a option`: `none` or `a some`
 - `a list`: `empty` or `a .* rest`
-- `a task`: async task value, currently represented by `a done`
+- `a nonempty`: list with a statically known first element
+- `k table v`: list-backed finite association table
+- `a powerset`: membership predicate, transparent with `a func 𝟚`
+- `a set`: list-backed finite set
+- `path`: file path kept distinct from arbitrary text
+- `time-span`: duration measured in milliseconds
+- `process-result`: child-process status, output, and error text
+- `a task`: abstract, reusable handle to an asynchronous result
 
 literals.
 
@@ -182,7 +241,7 @@ literals.
 # float
 6.283
 
-# character
+# unicode code point
 `a
 `\n
 `\r
@@ -192,10 +251,31 @@ literals.
 `\{23383} # 字
 `{23383} # 字
 
-# string
+# text
 'hello'
 '\n\r\t\'\\\{23383}'
 ```
+
+`text` is an opaque, strict unicode value backed by haskell `text`.
+
+`integer` is arbitrary precision. `float` is an ieee 754 binary64 value.
+
+the host bindings live in `bookhoard/_foreign.tung`; `text/structure.tung`
+addeth fills over them. `join-text` is the binary joining primitive.
+`text-to-list` changeth
+`text` into `unicode list`; `list-to-text` buildeth `text` from `unicode list`;
+`behead-text` exposeth the first code point without traversing the whole value;
+and `fold-join-text` joineth a text list in one native pass. text and unicode have
+equality and ordering fills, while text also hath semigroup and monoid fills for
+`*` and `∅`. each `unicode` value holds exactly one unicode scalar code point.
+
+```tung
+unicode-to-integer: unicode → integer
+integer-to-unicode: integer → unicode ! text fail
+```
+
+`integer-to-unicode` faileth when its input is negative, a surrogate, or greater
+than `1114111`.
 
 ## application
 
@@ -229,23 +309,30 @@ a f $(g b c) $h d
 tung is strict call-by-value.
 
 - declarations run in order
-- `let` evaluates the right-hand side before binding
-- a bare brace function is a value; its body waits until the function is fully applied
-- application evaluates the function first, then arguments left-to-right
-- partial application is pure and does not run latent effects
+- `let` evaluateth the right-hand side before binding
+- a bare brace function is a value; its body waiteth until the function is fully applied
+- application evaluateth the function first, then arguments left-to-right
+- partial application is pure and doth not run latent effects
 - only full application can run native work or perform an effect
-- `match` evaluates scrutinees before choosing a case, then runs only the chosen body
-- `try` evaluates its body first; handled operation arguments are already values
-- `resume` continues the captured strict computation
-- after loading a runnable module, the cli evaluates `null main`
+- `match` evaluateth scrutinees before choosing a case, then runneth only the chosen body
+- `try` evaluateth its body first; handled operation arguments are already values
+- `resume` continueth the captured strict computation
+- after loading a runnable module, the cli evaluateth `null main`
 
-all evaluation is checked first. module checking forbids immediate top-level effects, runnable checking verifies `main`, and the interactive evaluator permits a checked top-level computation. rejected source is never passed to the runtime.
+all evaluation is checked first. module checking forbiddeth immediate top-level effects, runnable checking verifieth `main`, and the interactive evaluator permitteth a checked top-level computation. rejected source is never passed to the runtime.
 
 ## declarations
 
 ```tung
 let answer: integer = 42;
 let name = 'tung';
+```
+
+a host function useth `foreign` as the direct body of an annotated file-level
+let. the compiler checketh its name and full type against the host registry.
+
+```tung
+show let join-text: text → text → text = foreign;
 ```
 
 definitions can use the same sequence rule as applications.
@@ -280,7 +367,7 @@ let if = {
 };
 ```
 
-`match` consumes one or more scrutinees.
+`match` consumeth one or more scrutinees.
 
 ```tung
 match x {
@@ -298,7 +385,26 @@ match a, b {
 
 cases must have the same number of patterns and be exhaustive.
 
-an empty match is allowed only when the scrutinee type has no values. the empty anonymous function `{}` is allowed when its annotated input type is empty.
+a case wholly covered by earlier cases is rejected as redundant.
+
+integer literals are exact patterns in consuming matches and bare-brace functions.
+
+```tung
+match n {
+  0 | 'zero',
+  _ | 'nonzero'
+}
+
+let sign = {
+  -1 | 'negative one',
+  0 | 'zero',
+  _ | 'other'
+};
+```
+
+an integer hath infinitely many values, so finitely many literal cases still need a catch-all case.
+
+an empty match is allowed only when the scrutinee type hath no values. the empty anonymous function `{}` is allowed when its annotated input type is empty.
 
 ```tung
 let initial: 𝟘 → a = {};
@@ -316,7 +422,7 @@ kin a ∏ b {
   a ∏ b
 }
 
-let pair: integer ∏ string = 0 ∏ 'zero';
+let pair: integer ∏ text = 0 ∏ 'zero';
 ```
 
 ## records
@@ -324,7 +430,7 @@ let pair: integer ∏ string = 0 ∏ 'zero';
 records are closed.
 
 ```tung
-let person: [name: string, age: integer] =
+let person: [name: text, age: integer] =
   [name = 'john', age = 32];
 
 let older = [= person, age = 33];
@@ -343,22 +449,23 @@ integer → integer → integer
 ```
 
 ```tung
-string → 𝟙 ! console
-integer → integer ! string fail
+text → 𝟙 ! console
+integer → integer ! text fail
 ```
 
 ```tung
-𝟙 → string ! console, random
+𝟙 → text ! console, random
 ```
 
 effect annotations belong to function arrows. partial application is pure; only full application can run latent effects.
 
 ```tung
-string → string ! file, string fail
+text → text ! file, text fail
 ```
 
 ```tung
-let-ilk string = character list;
+let-ilk count = integer;
+let-ilk a powerset = a func 𝟚;
 ```
 
 ## type classes
@@ -380,8 +487,17 @@ fill 𝟚 equal {
 }
 
 graith a equal
-shape a order {
+shape a order-partial {
   a ≤ a: 𝟚
+}
+
+graith a order-partial
+shape a order-total {
+  let (a: a, b: a) compare: three = ...
+}
+
+shape f traverse {
+  graith m applicative (a f) traverse (a → b m): (b f) m
 }
 
 graith a semigroup
@@ -394,12 +510,22 @@ fill (a option) semigroup {
 }
 ```
 
-shape requirements use static dictionary passing. the checker chooses one fill from the inferred types and adds hidden evidence arguments; the evaluator never guesses a fill from runtime values or bring order. a child shape receives its required parent dictionaries, and a fill may supply a parent directly only when it defines that parent's member. duplicate fills, overlapping applicable fills, missing fills, and recursive evidence are compile-time errors. this also lets result-only members such as `zero` select their fill from an expected result type.
+shape requirements use static dictionary passing. the checker chooseth one fill from the inferred types and addeth hidden evidence arguments; the evaluator never guesseth a fill from runtime values or bring order. a child shape receiveth its required parent dictionaries, and a fill may supply a parent directly only when it defineth that parent's member. duplicate fills, overlapping applicable fills, missing fills, and recursive evidence are compile-time errors. this also letteth result-only members such as `zero` select their fill from an expected result type.
 
-a `law` belongs to its shape but is not a method that fills must implement. its
-parameters are local typed names. the checker requires both sides of `~` to
+every graith on a `fill` must be needed by one of its members or by construction of a required parent dictionary. redundant fill graiths are compile-time errors.
+
+`order-partial` owneth `≤`, deriveth `<`, and stateth the reflexive,
+antisymmetric, and transitive laws. `order-total` addeth comparability and the
+three-way `compare`; `clamp` therefore requireth `order-total`. algebraic
+semilattices remain independent because some useful representations can
+compute infima and suprema without deciding their induced order.
+`complement` requireth a bounded lattice and owneth `¬`; the function fill lifteth
+complements pointwise, including powersets represented as predicates.
+
+a `law` belongeth to its shape but is not a method that fills must implement. its
+parameters are local typed names. the checker requireth both sides of `~` to
 have the same value type, immediate effects, and only requirements supplied by
-the shape or its parents. laws are erased before evaluation; tung does not yet
+the shape or its parents. laws are erased before evaluation; tung doth not yet
 prove that their two sides are equal.
 
 ## effects and handlers
@@ -410,15 +536,15 @@ deed e fail {
 }
 
 deed console {
-  string write: 𝟙,
-  𝟙 read: string
+  text write: 𝟙,
+  𝟙 read: text
 }
 ```
 
-every operation is a function with at least one input. an operation with no information to receive takes `𝟙` and is called through ordinary second-is-function syntax, such as `null read`. partial application stays pure, and only full application performs the deed. the deed declaration adds its effect. written latent effects are kept.
+every operation is a function with at least one input. an operation with no information to receive taketh `𝟙` and is called through ordinary second-is-function syntax, such as `null read`. partial application stayeth pure, and only full application performeth the deed. the deed declaration addeth its effect. written latent effects are kept.
 
 ```tung
-string → float ! string fail
+text → float ! text fail
 ```
 
 ```tung
@@ -439,11 +565,11 @@ try (null pick) + (null pick) {
 }
 ```
 
-a handler may include one `return` case. it handles the normal result and may change the answer type of the whole `try`.
+a handler may include one `return` case. it handleth the normal result and may change the answer type of the whole `try`.
 
 ```tung
 try 2 + 3 {
-  return n | n to-string
+  return n | n to-text
 }
 ```
 
@@ -451,24 +577,29 @@ without a `return` case, the normal result is returned unchanged.
 
 ## standard effects
 
-the standard bookhoard declares these runtime-backed effects:
+the standard bookhoard declareth these runtime-backed effects:
 
 - `console`: `write`, `read`
 - `random`: `random`
-- `async`: `fork`, `wait`, `sleep`
+- `async`: `fork`, `wait`, `wait-for`, `fordo`, `sleep`
 - `file`: `read-file`, `write-file`, `append-file`
 - `system`: `arguments`, `environment`, `exit`
 - `clock`: `unix-time`
+- `process`: `run-process`
 - `fail`: extensible failure with an error payload
 - `state`: parameterised state effect
 
-`ground.tung` re-exports those effects and defines `write-line`, which writes the text and then a newline.
+`ground.tung` re-exports those effects and defineth `write-line`, which writeth the text and then a newline.
 
-the runtime currently provides native operations named:
+the runtime currently provideth native operations named:
 
 - `write`
 - `read`
 - `random`
+- `fork`
+- `wait`
+- `wait-for`
+- `fordo`
 - `sleep`
 - `read-file`
 - `write-file`
@@ -477,28 +608,46 @@ the runtime currently provides native operations named:
 - `environment`
 - `exit`
 - `unix-time`
+- `run-process`
 
-`async` is interpreted synchronously for now: `fork` runs immediately, `wait` unwraps a finished task, and `sleep` blocks the current run.
+`fork` scheduleth suspended work in a bounded pool. when the pool is full, the caller runneth the new work itself, which keepeth nested forks from deadlocking while limiting background threads. `wait` blocketh until that work finisheth and may be called repeatedly on the same abstract task. `wait-for` returneth `none` after its millisecond timeout, while `fordo` stoppeth unfinished work. cancellation and host-thread failure become `text fail` when a task is observed.
 
-file operations read and write whole text files. file-system errors perform `string fail`, so callers must handle failure before a runnable file ends.
+all unfinished tasks are cancelled and joined when file evaluation endeth. `sleep` blocketh only the thread that performeth it, and independent sleeping tasks overlap.
 
-`arguments` returns only the arguments after the source-file path. `environment` returns `none` when the named host setting is absent. `exit` ends the process with the given status. `unix-time` returns whole seconds since `1970-01-01 00:00:00 utc`.
+file operations read and write whole text files. file-system errors perform `text fail`, so callers must handle failure before a runnable file endeth.
+
+`arguments` returneth only the arguments after the source-file path. `environment` returneth `none` when the named host setting is absent. `exit` endeth the process with the given status. `unix-time` returneth whole seconds since `1970-01-01 00:00:00 utc`.
+
+`run-process` taketh command text and a text list of arguments. it captureth the exit status, standard output, and standard error in `process-result`; host launch failures perform `text fail`.
+
+the wider bookhoard also provideth list-backed tables, finite sets, and non-empty lists; powersets; unicode-aware text operations; typed path wrappers; time spans; and process-result accessors. both finite collection modules show a constructor named `from-list`; bring both and qualify the intended one as `data/table@from-list` or `data/set@from-list`. these are ordinary tung modules and remain private until brought and shown through their source files.
 
 ## project files
 
-- `tung.cabal`: haskell package setup
-- `app/Main.hs`: command-line runner
-- `src/Tung.hs`: public haskell api
-- `src/Tung/Syntax.hs`: syntax trees
-- `src/Tung/Token.hs`: tokens, keywords, and source lexing
-- `src/Tung/Parse.hs`: parser from tokens to syntax trees
-- `src/Tung/Validate.hs`: structural checks over parsed trees
-- `src/Tung/Import.hs`: shared import-stack and cycle handling
-- `src/Tung/Bookhoard.hs`: bundled bookhoard file list and loading helper
-- `src/Tung/Type.hs`: imports, name lookup, type inference, classes, match coverage, effects, and runnable-file checks
-- `src/Tung/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers
-- `test/Main.hs`: tests
-- `bookhoard/`: standard bookhoard written in tung
+- `tongue/tung.cabal`: haskell compiler package setup
+- `tongue/app/Main.hs`: command-line runner
+- `tongue/src/Tung.hs`: public haskell api
+- `tongue/src/Tung/Syntax.hs`: syntax trees
+- `tongue/src/Tung/Token.hs`: tokens, keywords, and source lexing
+- `tongue/src/Tung/Parse.hs`: parser from tokens to syntax trees
+- `tongue/src/Tung/Diagnostic.hs`: source spans and structured compiler diagnostics
+- `tongue/src/Tung/Primitive.hs`: shared host-function names, types, effects, and arities
+- `tongue/src/Tung/Validate.hs`: structural checks over parsed trees
+- `tongue/src/Tung/Import.hs`: shared import-stack and cycle handling
+- `tongue/src/Tung/Name.hs`: qualification, namespace, and field-access name helpers
+- `tongue/src/Tung/Coverage.hs`: pure constructor-matrix match coverage
+- `tongue/src/Tung/Embed.hs`: build-time embedding of the sibling bookhoard
+- `tongue/src/Tung/Bookhoard.hs`: bundled bookhoard file list and loading helper
+- `tongue/src/Tung/Project.hs`: local, search-path, and embedded bring resolution
+- `tongue/src/Tung/Type.hs`: imports, name lookup, type inference, classes, effects, match checking, and runnable-file checks
+- `tongue/src/Tung/Core.hs`: checked evaluator input and core validation
+- `tongue/src/Tung/Evaluate.hs`: interpreter, runtime values, native operations, imports, and effect handlers
+- `tongue/test/Main.hs`: compiler tests
+- `tongue/tool/language-names.tung`: tung program that emitteth editor lexical metadata
+- `bookhoard/`: compiler-independent standard bookhoard written in tung and embedded for distribution
 - `byspel/`: runnable byspels
-- `vscode/server/docs.ts`: standard-bookhoard html wiki generator
-- `agent.md`: maintainer notes and detailed tongue specification
+- `benchmark/`: runnable performance workloads
+- `writ/docs.ts`: standard-bookhoard html wiki generator
+- `tongue/agent.md`: maintainer notes and detailed tongue specification
+
+`make language-metadata` runneth the tung metadata tool and updateth `vscode/generated/language-names.json`. the semantic highlighter consumeth that generated file, so its keywords and primitive type names follow the object-language source instead of a second typescript table.

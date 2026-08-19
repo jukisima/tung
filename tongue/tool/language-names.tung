@@ -1,0 +1,34 @@
+bring ground.tung;
+bring data/list.tung;
+bring algebra/total/magma.tung;
+
+let quote-json: text → text = {
+  value | ('"' * value) * '"'
+};
+
+let join-json: text list → text = {
+  empty | '',
+  value .* empty | value quote-json,
+  value .* rest | ((value quote-json) * ',') * (rest join-json)
+};
+
+let json-array: text list → text = {
+  things | ('[' * (things join-json)) * ']'
+};
+
+let keywords =
+  'let' .* ('graith' .* ('show' .* ('show-ilk' .* ('bring' .* ('let-ilk' .*
+            ('kin' .* ('deed' .* ('foreign' .* ('shape' .* ('fill' .* ('law' .*
+                        ('match' .* ('try' .* ('return' .* ('resume' .* empty)))))))))))))));
+
+let primitive-types =
+  'integer' .* ('float' .* ('text' .* ('unicode' .* ('func' .* empty))));
+
+let main: 𝟙 → 𝟙 ! console = { _ | (
+    let _ = '{"keywords":' write;
+    let _ = (keywords json-array) write;
+    let _ = ',"primitiveTypes":' write;
+    let _ = (primitive-types json-array) write;
+    let _ = ',"specialNameChars":"#(){}[]:,|!=;.$→`\'"}' write-line;
+    null
+  ) }

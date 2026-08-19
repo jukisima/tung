@@ -34,6 +34,9 @@
       "include": "#control-keyword"
     },
     {
+      "include": "#foreign-marker"
+    },
+    {
       "include": "#primitive-type"
     },
     {
@@ -115,7 +118,7 @@
     "export-list": {
       "patterns": [
         {
-          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graith\\b|kin\\b|deed\\b|shape\\b|fill\\b|class\\b|foreign\\b))",
+          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graith\\b|kin\\b|deed\\b|shape\\b|fill\\b))",
           "beginCaptures": {
             "1": {
               "name": "keyword.declaration.tung"
@@ -203,7 +206,7 @@
     "declaration-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:let-ilk|let|graith|bring|kin|deed|shape|fill|law|class|foreign|show-ilk|show)\\b",
+          "match": "\\b(?:let-ilk|let|graith|bring|kin|deed|shape|fill|law|show-ilk|show)\\b",
           "name": "keyword.declaration.tung"
         }
       ]
@@ -216,10 +219,18 @@
         }
       ]
     },
+    "foreign-marker": {
+      "patterns": [
+        {
+          "match": "\\bforeign\\b",
+          "name": "keyword.other.tung"
+        }
+      ]
+    },
     "primitive-type": {
       "patterns": [
         {
-          "match": "\\b(?:integer|float|string|character|func)\\b",
+          "match": "\\b(?:integer|float|text|unicode|func)\\b",
           "name": "support.type.tung"
         }
       ]

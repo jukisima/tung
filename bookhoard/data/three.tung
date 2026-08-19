@@ -1,0 +1,6 @@
+## a three-way ordering result.
+show kin three {
+  fore,
+  mid,
+  aft
+}

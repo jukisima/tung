@@ -1,0 +1,62 @@
+bring data/two.tung;
+bring data/three.tung;
+bring equal.tung;
+
+## a decidable partial order.
+graith a equal
+show shape a order-partial {
+  a ≤ a: 𝟚;
+  law (x: a): x ≤ x ~ yea;
+  law (x: a, y: a): ((x ≤ y) if ((y ≤ x) if (x ≡ y) yea) yea) ~ yea;
+  law (x: a, y: a, z: a): ((x ≤ y) if ((y ≤ z) if (x ≤ z) yea) yea) ~ yea;
+  let a < b = (a ≤ b) if (a ≢ b) nay
+}
+
+## a partial order in which every pair is comparable.
+graith a order-partial
+show shape a order-total {
+  let (a: a, b: a) compare: three = (a ≤ b) if ((b ≤ a) if mid fore) aft;
+  law (x: a, y: a): ((x ≤ y) if yea (y ≤ x)) ~ yea
+}
+
+## keep a value within inclusive bounds of a total order.
+graith a order-total
+show let (lower: a, upper: a, value: a) clamp: a =
+  (
+    let raised = (lower ≤ value) if value lower;
+    (raised ≤ upper) if raised upper
+  );
+
+fill 𝟚 order-partial {
+  let ≤ = {
+    nay, _ | yea,
+    yea, a | a
+  }
+}
+
+fill 𝟚 order-total {}
+
+fill three equal {
+  let ≡ = {
+    fore, fore | yea,
+    mid, mid | yea,
+    aft, aft | yea,
+    _, _ | nay
+  }
+}
+
+fill three order-partial {
+  let ≤ = {
+    fore, _ | yea,
+    mid, fore | nay,
+    mid, _ | yea,
+    aft, aft | yea,
+    aft, _ | nay
+  }
+}
+
+fill three order-total {}
+
+fill integer order-total {}
+
+fill float order-total {}

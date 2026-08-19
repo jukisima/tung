@@ -5,9 +5,9 @@ pre-commit:
       run: fourmolu --mode inplace {staged_files}
       stage_fixed: true
 
-    - name: oxc
-      glob: "**/*.ts"
+    - name: deno
+      glob: "**/*.{ts,html}"
       run: |
-        oxfmt {staged_files}
-        oxlint --fix {staged_files}
+        deno lint {staged_files}
+        deno fmt {staged_files}
       stage_fixed: true

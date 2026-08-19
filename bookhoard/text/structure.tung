@@ -1,0 +1,58 @@
+bring _foreign.tung;
+bring data/list.tung;
+bring data/option.tung;
+bring data/product.tung;
+bring data/two.tung;
+bring equal.tung;
+bring order.tung;
+bring order/lattice.tung;
+bring algebra/total/semigroup.tung;
+bring algebra/total/monoid.tung;
+
+fill text equal {
+  let ≡ = equal-text
+}
+
+fill unicode equal {
+  let ≡ = equal-unicode
+}
+
+fill text order-partial {
+  let ≤ = less-equal-text
+}
+
+fill text order-total {}
+
+fill unicode order-partial {
+  let ≤ = less-equal-unicode
+}
+
+fill unicode order-total {}
+
+fill text semilattice-infimum {
+  let a ∧ b = (a ≤ b) if a b
+}
+
+fill text semilattice-supremum {
+  let a ∨ b = (a ≤ b) if b a
+}
+
+fill text lattice {}
+
+fill unicode semilattice-infimum {
+  let a ∧ b = (a ≤ b) if a b
+}
+
+fill unicode semilattice-supremum {
+  let a ∨ b = (a ≤ b) if b a
+}
+
+fill unicode lattice {}
+
+fill text semigroup {
+  let * = join-text
+}
+
+fill text monoid {
+  let ∅ = ''
+}

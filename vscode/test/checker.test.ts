@@ -3,12 +3,34 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import test from "node:test";
-import { CompilerBridge, haskellString, sourceBundle } from "../server/checker";
-test("checker bundle preserves unicode, quotes, slashes, and control characters", () => {
+import {
+  CompilerBridge,
+  haskellString,
+  parseCompilerDiagnostic,
+  sourceBundle,
+} from "../server/checker.ts";
+test("checker bundle preserveth unicode, quotes, slashes, and control characters", () => {
   assert.equal(haskellString('𝟙\n"\\\t'), '"𝟙\\n\\"\\\\\\t"');
-  assert.equal(sourceBundle("main", [["dep.tung", "source"]]), '("main",[("dep.tung","source")])');
+  assert.equal(
+    sourceBundle("main", [["dep.tung", "source"]]),
+    '("main",[("dep.tung","source")])',
+  );
 });
-test("checker finds a built executable without cabal list-bin", (context) => {
+test("checker protocol carrieth an exact source range", () => {
+  assert.deepEqual(
+    parseCompilerDiagnostic(
+      "tung-diagnostic\ttype\t4\t9\ntype error: in 'value'",
+    ),
+    {
+      kind: "type",
+      start: 4,
+      end: 9,
+      message: "type error: in 'value'",
+    },
+  );
+  assert.equal(parseCompilerDiagnostic("tung-ok\n"), undefined);
+});
+test("checker findeth a built executable without cabal list-bin", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-checker-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const executable = path.join(

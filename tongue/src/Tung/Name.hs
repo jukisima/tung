@@ -1,11 +1,20 @@
 -- | pure helpers for import namespaces, qualification, and record-field fallback.
 module Tung.Name (
+  constructorNamesMatch,
   importNamespace,
   isQualifiedName,
   lastQualifiedSegment,
   splitFieldAccessName,
 )
 where
+
+constructorNamesMatch :: String -> String -> Bool
+constructorNamesMatch patternName constructorName
+  | isQualifiedName patternName = patternName == constructorName || patternName == importedName constructorName
+  | otherwise = patternName == lastQualifiedSegment constructorName
+
+importedName :: String -> String
+importedName name = takeWhile (/= '@') name ++ "@" ++ lastQualifiedSegment name
 
 importNamespace :: String -> String
 importNamespace = takeWhile (/= '.')

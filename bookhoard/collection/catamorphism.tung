@@ -1,0 +1,34 @@
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup.tung;
+bring algebra/total/monoid.tung;
+bring algebra/arithmetic/semiring.tung;
+bring order/lattice.tung;
+
+show shape f cata {
+  (a f) foldr b (a → b → b ! e): b ! e;
+  (a f) foldl b (b → a → b ! e): b ! e;
+}
+
+graith a monoid, f cata
+show let (l: a f) fold: a = l foldr ∅ *
+
+## map values into a monoid and combine them.
+graith b monoid, f cata
+show let (things: a f, transform: a → b ! e) fold-map: b ! e =
+  things foldl ∅ { folded, value | folded * (value transform) };
+
+## combine every value with ∧; an empty collection yieldeth ⊤.
+graith f cata, a semilattice-infimum-bounded
+show let (things: a f) …∧: a = things foldl ⊤ ∧;
+
+## combine every value with ∨; an empty collection yieldeth ⟂.
+graith f cata, a semilattice-supremum-bounded
+show let (things: a f) …∨: a = things foldl ⟂ ∨;
+
+## add every value in a foldable collection.
+graith f cata, a monoid-additive
+show let (things: a f) …+: a = things foldl zero +;
+
+## multiply every value in a foldable collection.
+graith f cata, a monoid-multiplicative
+show let (things: a f) …×: a = things foldl one ×;

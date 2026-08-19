@@ -1,0 +1,43 @@
+bring data/list.tung;
+bring data/option.tung;
+bring collection/functor.tung;
+bring collection/inhold.tung;
+
+## a list with a statically known first element.
+show kin a nonempty {
+  a nonempty (a list)
+}
+
+## build a one-element non-empty list.
+show let singleton-nonempty: a → a nonempty = {
+  value | value nonempty empty
+};
+
+## expose a non-empty list as an ordinary list.
+show let nonempty-to-list: a nonempty → a list = {
+  head nonempty tail | head .* tail
+};
+
+## make a non-empty list when the input hath a first element.
+show let list-to-nonempty: a list → (a nonempty) option = {
+  empty | data/option@none,
+  head .* tail | (head nonempty tail) data/option@some
+};
+
+show let nonempty-head: a nonempty → a = {
+  head nonempty _ | head
+};
+
+show let nonempty-tail: a nonempty → a list = {
+  _ nonempty tail | tail
+};
+
+graith (a list) a inhold
+fill (a nonempty) a inhold {
+  let things ∋ value = (things nonempty-to-list) ∋ value
+}
+
+show let (things: a nonempty, f: a → b ! e) map-nonempty: b nonempty ! e =
+  match things {
+    head nonempty tail | (head f) nonempty (tail map f)
+  }

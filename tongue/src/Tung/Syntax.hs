@@ -1,11 +1,10 @@
-{- | shared surface and elaboration syntax. the parser emits only surface forms;
+{- | shared surface and elaboration syntax. the parser emitteth only surface forms;
 'Evidence', 'ElaboratedFill', 'EField', and 'EWithEvidence' are internal forms.
 -}
 module Tung.Syntax (
   Program (..),
   Decl (..),
   EffectOp (..),
-  ForeignMember (..),
   Ctor (..),
   ShapeMember (..),
   shapeMemberSignature,
@@ -28,6 +27,7 @@ where
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
+import Tung.Token (SourceSpan)
 
 newtype Program = Program [Decl] deriving (Eq, Show)
 
@@ -37,18 +37,15 @@ data Decl
   | ReExport String
   | ReExportType String
   | Let String (Maybe TypeAnn) Expr
-  | TypeAlias String TypeExpr
+  | TypeAlias [String] String TypeExpr
   | DataDecl [String] String [Ctor]
   | EffectDecl [String] String [EffectOp]
-  | ForeignDecl [ForeignMember]
   | ShapeDecl [String] String [ShapeNeed] [ShapeMember]
   | FillDecl [TypeExpr] String [ShapeNeed] [Decl]
   | ElaboratedFill String [TypeExpr] String [ShapeNeed] [Decl]
   deriving (Eq, Show)
 
 data EffectOp = EffectOp String TypeExpr deriving (Eq, Show)
-
-data ForeignMember = ForeignMember String TypeAnn deriving (Eq, Show)
 
 data Ctor = Ctor String [TypeExpr] deriving (Eq, Show)
 
@@ -86,10 +83,12 @@ data Evidence
   deriving (Eq, Show)
 
 data Expr
-  = EInteger Int
-  | EFloat String
-  | EChar String
-  | EString String
+  = ELocated SourceSpan Expr
+  | EInteger Integer
+  | EFloat Double
+  | EUnicode Char
+  | EText String
+  | EForeign
   | EVar String
   | EApply Expr (NonEmpty Expr)
   | ERecord [(String, Expr)]
@@ -107,7 +106,7 @@ data ReturnCase = ReturnCase Pattern Expr deriving (Eq, Show)
 
 data RecordUpdate = RecordSet String Expr | RecordRemove String deriving (Eq, Show)
 
-data Pattern = PVar String | PCon String [Pattern] deriving (Eq, Show)
+data Pattern = PVar String | PInteger Integer | PCon String [Pattern] deriving (Eq, Show)
 
 data MatchCase = MatchCase (NonEmpty Pattern) Expr deriving (Eq, Show)
 

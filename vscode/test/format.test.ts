@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatDocument, formatRange } from "../server/format";
-test("formatter indents nested declarations and keeps comments and strings stable", () => {
-  const source = "show kin a box {\na box\n}\nlet text = '{not a block}'; # }\n";
+import { formatDocument, formatRange } from "../server/format.ts";
+test("formatter indents nested declarations and keepeth comments and strings stable", () => {
+  const source =
+    "show kin a box {\na box\n}\nlet text = '{not a block}'; # }\n";
   assert.equal(
     formatDocument(source, { tabSize: 2, insertSpaces: true }),
     "show kin a box {\n  a box\n}\nlet text = '{not a block}'; # }\n",
@@ -12,7 +13,7 @@ test("formatter is idempotent", () => {
   const source = "deed ask {\n  integer ask: integer\n}\n";
   assert.equal(formatDocument(formatDocument(source)), formatDocument(source));
 });
-test("formatter preserves current application syntax", () => {
+test("formatter preserveth current application syntax", () => {
   const source = [
     "show let (x: a option, f: a → 𝟚) filter: a option = x match {",
     "a some | a f $ if (a some) none",
@@ -101,30 +102,55 @@ test("formatter indents equations after multiline law headers", () => {
     ].join("\n"),
   );
 });
-test("formatter ignores equals signs in strings and comments for continuation indentation", () => {
+test("formatter ignoreth equals signs in strings and comments for continuation indentation", () => {
   const source = ["let text = 'a = b'; # =", "let next = 1;", ""].join("\n");
   assert.equal(formatDocument(source), source);
 });
-test("formatter ignores delimiters in block comments", () => {
-  const source = ["let x = 1 /* { = */", "let y = 2;", "/*", "  {", "*/", "let z = 3;", ""].join(
+test("formatter ignoreth delimiters in block comments", () => {
+  const source = [
+    "let x = 1 /* { = */",
+    "let y = 2;",
+    "/*",
+    "  {",
+    "*/",
+    "let z = 3;",
+    "",
+  ].join(
     "\n",
   );
   assert.equal(formatDocument(source), source);
 });
-test("range formatter returns only requested full lines with surrounding indentation context", () => {
-  const source = ["show kin a box {", "a box", "}", "let value = {", "x | x", "};", ""].join("\n");
+test("range formatter returneth only requested full lines with surrounding indentation context", () => {
+  const source = [
+    "show kin a box {",
+    "a box",
+    "}",
+    "let value = {",
+    "x | x",
+    "};",
+    "",
+  ].join("\n");
   assert.deepEqual(
-    formatRange(source, { start: { line: 3, character: 0 }, end: { line: 6, character: 0 } }),
+    formatRange(source, {
+      start: { line: 3, character: 0 },
+      end: { line: 6, character: 0 },
+    }),
     {
-      range: { start: { line: 3, character: 0 }, end: { line: 5, character: 2 } },
+      range: {
+        start: { line: 3, character: 0 },
+        end: { line: 5, character: 2 },
+      },
       newText: "let value = {\n  x | x\n};",
     },
   );
 });
-test("range formatter returns null when the range is already formatted", () => {
+test("range formatter returneth null when the range is already formatted", () => {
   const source = "show kin a box {\n  a box\n}\n";
   assert.equal(
-    formatRange(source, { start: { line: 0, character: 0 }, end: { line: 3, character: 0 } }),
+    formatRange(source, {
+      start: { line: 0, character: 0 },
+      end: { line: 3, character: 0 },
+    }),
     null,
   );
 });

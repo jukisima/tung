@@ -1,0 +1,80 @@
+bring _foreign.tung;
+bring system.tung;
+bring clock.tung;
+bring process.tung;
+bring process/result.tung;
+bring data/zero.tung;
+bring data/one.tung;
+bring data/two.tung;
+bring data/three.tung;
+bring equal.tung;
+bring order.tung;
+bring order/lattice.tung;
+bring text/to-text.tung;
+bring text/from-text.tung;
+bring control.tung;
+bring algebra/arithmetic/semiring.tung;
+bring algebra/arithmetic/primitive.tung;
+bring algebra/arithmetic/ring.tung;
+bring algebra/arithmetic/field.tung;
+bring collection/functor.tung;
+bring collection/applicative.tung;
+bring collection/monad.tung;
+bring collection/inhold.tung;
+bring text/structure.tung;
+bring numeric/elementary.tung;
+bring numeric/integer.tung;
+
+## write text followed by a newline.
+show let (a: text) write-line: 𝟙 ! console = (
+  let _ = a write;
+  '\n' write
+);
+
+show-ilk 𝟘;
+show initial;
+
+show-ilk 𝟙;
+show null;
+show terminal;
+
+show-ilk 𝟚;
+show yea, nay;
+
+show-ilk three;
+show fore, mid, aft;
+
+show-ilk task;
+
+show-ilk fail, console, random, state, async, file, system, clock, process;
+show-ilk process-result;
+
+show ¬, if;
+show when, when-not, branch;
+
+show fail;
+show write, write-line, read;
+show random;
+show get, set;
+show fork, wait, fordo, wait-for, sleep;
+show read-file, write-file, append-file;
+show arguments, environment, exit;
+show unix-time;
+show run-process;
+show process-result, process-status, process-output, process-errors;
+
+show ≡, ≢;
+show ≤, <, compare, clamp, ∧, ∨, ⟂, ⊤;
+show ∋;
+
+show +, zero, ×, one, -, ÷;
+show sine, cosine, tangent, exponent, logarithm, ⌊;
+show integer-to-natural;
+
+show to-text;
+show from-text;
+show unicode-to-integer, integer-to-unicode;
+show behead-text, text-to-list, list-to-text, join-text, fold-join-text;
+show map;
+show pure, apply, lift₂, lift₃, keep-left, keep-right;
+show flat, map-flat, then, void;

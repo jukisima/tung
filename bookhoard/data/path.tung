@@ -1,0 +1,30 @@
+bring _foreign.tung;
+bring data/one.tung;
+
+## a path kept distinct from arbitrary text at api boundaries.
+show kin path {
+  text path
+}
+
+show let path-to-text: path → text = {
+  value path | value
+};
+
+show let (left: path, right: path) join-path: path = match left, right {
+  left-text path, right-text path |
+    ((left-text join-text '/') join-text right-text) path
+};
+
+show let read-path: path → text ! file, text fail = {
+  value path | value read-file
+};
+
+show let (file-path: path, contents: text) write-path: 𝟙 ! file, text fail =
+  match file-path {
+    value path | value write-file contents
+  };
+
+show let (file-path: path, contents: text) append-path: 𝟙 ! file, text fail =
+  match file-path {
+    value path | value append-file contents
+  }

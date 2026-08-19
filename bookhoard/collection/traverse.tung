@@ -1,0 +1,11 @@
+bring collection/applicative.tung;
+bring collection/catamorphism.tung;
+bring collection/functor.tung;
+
+graith f functor, f cata
+show shape f traverse {
+  graith m applicative
+  (a f) traverse (a → b m): (b f) m;
+  graith m applicative
+  ((a m) f) sequence: (a f) m
+}

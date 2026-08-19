@@ -1,0 +1,16 @@
+bring _foreign.tung;
+bring algebra/arithmetic/semiring.tung;
+
+fill integer semiring {
+  let + = add-integer;
+  let zero = 0;
+  let × = multiply-integer;
+  let one = 1
+}
+
+fill float semiring {
+  let + = add-float;
+  let zero = 0.0;
+  let × = multiply-float;
+  let one = 1.0
+}

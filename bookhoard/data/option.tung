@@ -1,0 +1,114 @@
+bring data/one.tung;
+bring data/two.tung;
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup.tung;
+bring algebra/total/monoid.tung;
+bring collection/functor.tung;
+bring collection/applicative.tung;
+bring collection/monad.tung;
+bring collection/filter.tung;
+bring collection/catamorphism.tung;
+bring collection/traverse.tung;
+
+## optional value.
+show kin a option {
+  none,
+  a some
+}
+
+graith a semigroup
+fill (a option) semigroup {
+  let * = {
+    none, b | b,
+    a, none | a,
+    a some, b some | a * b $ some
+  }
+}
+
+graith a semigroup
+fill (a option) monoid {
+  let ∅ = none
+}
+
+fill option functor {
+  let option map f = match option {
+    none | none,
+    a some | a f $ some
+  }
+}
+
+fill option applicative {
+  let pure = some;
+  let apply = {
+    a some, f some | a f $ some,
+    _, _ | none
+  }
+}
+
+fill option monad {
+  let flat = {
+    none | none,
+    a some | a
+  };
+  let a map-flat f = a map f $ flat
+}
+
+fill option filter {
+  let option filter f = match option {
+    none | none,
+    a some | a f $ if (a some) none
+  }
+}
+
+fill option cata {
+  let option foldr b f = match option {
+    none | b,
+    a some | a f b
+  };
+  let option foldl b f = match option {
+    none | b,
+    a some | b f a
+  }
+}
+
+fill option traverse {
+  let option traverse f = match option {
+    none | none pure,
+    a some | (a f) map some
+  };
+  let sequence = {
+    none | none pure,
+    value some | value map some
+  }
+}
+
+## extract an option with a fallback value.
+show let default: a option → a → a = {
+  none, b | b,
+  a some, _ | a
+};
+
+## consume an option with a fallback and a present-value branch.
+show let maybe: a option → b → (a → b ! e) → b ! e = {
+  none, b, _ | b,
+  a some, _, f | a f
+};
+
+## true when an option containeth a value.
+show let is-some: a option → 𝟚 = {
+  none | nay,
+  _ some | yea
+};
+
+## true when an option is empty.
+show let is-none: a option → 𝟚 = {
+  none | yea,
+  _ some | nay
+};
+
+## extract an option or run a fallback computation.
+show let (value: a option, fallback: 𝟙 → a ! e) or-else: a ! e =
+  match value {
+    none | null fallback,
+    a some | a
+  }

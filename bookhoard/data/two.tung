@@ -1,0 +1,9 @@
+show kin 𝟚 {
+  yea,
+  nay
+}
+
+show let if: 𝟚 → a → a → a = {
+  yea, then, _ | then,
+  nay, _, else | else
+};

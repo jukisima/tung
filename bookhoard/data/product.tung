@@ -1,0 +1,35 @@
+bring order/lattice.tung;
+
+show kin a ∏ b {
+  a ∏ b
+}
+
+show let project₀: a ∏ b → a = {
+  a ∏ _ | a
+}
+
+show let project₁: a ∏ b → b = {
+  _ ∏ b | b
+}
+
+show let swap: a ∏ b → b ∏ a = {
+  a ∏ b | b ∏ a
+};
+
+show let (p: a ∏ b, f: a → c ! e0, g: b → d ! e1) bimap: c ∏ d ! e0, e1 =
+  match p {
+    a ∏ b | (a f) ∏ (b g)
+  }
+
+graith a semilattice-infimum, b semilattice-infimum
+fill (a ∏ b) semilattice-infimum {
+  let (a0 ∏ b0) ∧ (a1 ∏ b1) = (a0 ∧ a1) ∏ (b0 ∧ b1)
+}
+
+graith a semilattice-supremum, b semilattice-supremum
+fill (a ∏ b) semilattice-supremum {
+  let (a0 ∏ b0) ∨ (a1 ∏ b1) = (a0 ∨ a1) ∏ (b0 ∨ b1)
+}
+
+graith a lattice, b lattice
+fill (a ∏ b) lattice {}

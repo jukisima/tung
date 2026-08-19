@@ -12,6 +12,7 @@ module Test.Harness (
   parseErr,
   typeOk,
   typeErr,
+  typeErrContaining,
   typeOkWith,
   typeErrWith,
   runnableOk,
@@ -25,7 +26,7 @@ module Test.Harness (
 )
 where
 
-import Data.List (isPrefixOf)
+import Data.List (isInfixOf, isPrefixOf)
 import Data.Map.Strict qualified as Map
 import System.Exit (exitFailure)
 import Tung
@@ -64,6 +65,11 @@ parseOk name = expectEither name True . parse
 parseErr name = expectEither name False . parse
 typeOk name = expectEq name "type ok" . check
 typeErr name = expectPrefix name "type error:" . check
+
+typeErrContaining :: String -> String -> String -> Test
+typeErrContaining name expected source =
+  let actual = check source
+   in expectMessage name ("type error:" `isPrefixOf` actual && expected `isInfixOf` actual) ("expected error containing " ++ show expected ++ ", got " ++ show actual)
 runnableOk name = expectEq name "type ok" . (`checkRunnableWithImports` Map.empty)
 runnableErr name = expectPrefix name "type error:" . (`checkRunnableWithImports` Map.empty)
 

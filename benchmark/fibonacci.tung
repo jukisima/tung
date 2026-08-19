@@ -1,0 +1,10 @@
+bring ground.tung;
+
+let fibonacci: integer → integer = {
+  0 | 0,
+  1 | 1,
+  n | ((n - 1) fibonacci) + ((n - 2) fibonacci)
+};
+
+let _ main: 𝟙 ! console =
+  40 fibonacci $ to-text $ write-line

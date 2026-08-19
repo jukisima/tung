@@ -18,8 +18,10 @@ validateDecl = \case
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
   ReExportType _ -> pure ()
+  Let _ Nothing EForeign -> Left "foreign let requireth a type annotation"
+  Let _ (Just annotation) EForeign -> validateTypeAnn annotation
   Let _ annotation body -> traverse_ validateTypeAnn annotation >> validateExpr body
-  TypeAlias _ target -> validateType target
+  TypeAlias params name target -> distinct ("type alias '" ++ name ++ "' parameter") params >> validateType target
   DataDecl params name constructors -> do
     distinct ("data '" ++ name ++ "' parameter") params
     distinct ("data '" ++ name ++ "' constructor") [constructorName ctor | ctor <- constructors]
@@ -28,9 +30,6 @@ validateDecl = \case
     distinct ("effect '" ++ name ++ "' parameter") params
     distinct ("effect '" ++ name ++ "' operation") [operationName operation | operation <- operations]
     traverse_ validateEffectOp operations
-  ForeignDecl members -> do
-    distinct "foreign member" [name | ForeignMember name _ <- members]
-    traverse_ (\(ForeignMember _ annotation) -> validateTypeAnn annotation) members
   ShapeDecl params name needs members -> do
     distinct ("shape '" ++ name ++ "' parameter") params
     distinct ("shape '" ++ name ++ "' member") (shapeMemberNames members)
@@ -74,10 +73,12 @@ validateType = \case
 
 validateExpr :: Expr -> Either String ()
 validateExpr = \case
+  ELocated _ expression -> validateExpr expression
   EInteger _ -> pure ()
   EFloat _ -> pure ()
-  EChar _ -> pure ()
-  EString _ -> pure ()
+  EUnicode _ -> pure ()
+  EText _ -> pure ()
+  EForeign -> Left "foreign is only allowed as the direct body of an annotated let"
   EVar _ -> pure ()
   EApply function arguments -> validateExpr function >> traverse_ validateExpr arguments
   ERecord fields -> distinct "record field" (map fst fields) >> traverse_ (validateExpr . snd) fields
@@ -108,7 +109,7 @@ validateMatch (MatchCase _ body) = validateExpr body
 
 distinct :: String -> [String] -> Either String ()
 distinct owner names = case repeated of
-  duplicate : _ -> Left (owner ++ " repeats '" ++ duplicate ++ "'")
+  duplicate : _ -> Left (owner ++ " repeateth '" ++ duplicate ++ "'")
   [] -> pure ()
  where
   repeated = [name | name : _ : _ <- group (sort names)]

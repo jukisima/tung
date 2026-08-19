@@ -7,10 +7,10 @@
   "license": "UNLICENSED",
   "main": "./out/client/extension.js",
   "scripts": {
-    "setup": "bash ../setup.sh",
+    "setup": "make --directory=.. setup",
+    "prebuild": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\"",
     "build": "tsc --project tsconfig.json",
     "check": "tsc --project tsconfig.json --noEmit",
-    "docs": "npm run build --silent && node out/server/docs.js ../tongue ../writ/bookhoard/index.html",
     "test": "npm run build --silent && node --test out/test/*.test.js",
     "vscode:prepublish": "npm run build"
   },
@@ -48,7 +48,7 @@
       {
         "id": "shape",
         "superType": "type",
-        "description": "tung type class name"
+        "description": "tung shape name"
       },
       {
         "id": "call",
@@ -88,8 +88,7 @@
             "entity.name.function.member"
           ],
           "method.effect": [
-            "support.function.effect.tung",
-            "support.function.effect",
+            "entity.name.function.member.tung",
             "entity.name.function.member"
           ],
           "call": [
@@ -97,8 +96,7 @@
             "entity.name.function"
           ],
           "call.effect": [
-            "support.function.effect.tung",
-            "support.function.effect",
+            "entity.name.function.tung",
             "entity.name.function"
           ],
           "variable": [
@@ -106,8 +104,7 @@
             "variable.other"
           ],
           "variable.effect": [
-            "support.function.effect.tung",
-            "support.function.effect",
+            "variable.other.tung",
             "variable.other"
           ],
           "parameter": [
@@ -132,7 +129,7 @@
         "tung.tonguePath": {
           "type": "string",
           "default": "",
-          "description": "absolute path to the tung tongue folder containing tung.cabal and bookhoard/"
+          "description": "absolute path to the tung compiler folder containing tung.cabal; bookhoard/ is its sibling"
         }
       }
     }

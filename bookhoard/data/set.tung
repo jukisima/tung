@@ -1,0 +1,129 @@
+bring data/list.tung;
+bring data/two.tung;
+bring data/powerset.tung;
+bring equal.tung;
+bring collection/catamorphism.tung;
+bring collection/inhold.tung;
+bring collection/size.tung;
+bring algebra/total/semigroup.tung;
+bring algebra/total/monoid.tung;
+bring order.tung;
+bring order/lattice.tung;
+
+## a list-backed finite set.
+show kin a set {
+  (a list) from-list
+}
+
+show let empty: a set = data/list@empty from-list;
+
+show let singleton: a → a set = {
+  a | (a .* data/list@empty) from-list
+};
+
+show let to-list: a set → a list = {
+  list from-list | list
+};
+
+graith (a list) a inhold
+fill (a set) a inhold {
+  let set ∋ a = match set {
+    list from-list | list ∋ a
+  }
+}
+
+graith (a list) a inhold
+show let (set: a set, a: a) put: a set = match set {
+  list from-list | (list ∋ a) if set ((a .* list) from-list)
+};
+
+graith a equal
+show let (set: a set, a: a) rid: a set = match set {
+  list from-list | (list foldr data/list@empty {
+      one, list′ | (a ≡ one) if list′ (one .* list′)
+  }) from-list
+};
+
+graith (a list) a inhold
+show let (left: a set, right: a set) ∖: a set = match left, right {
+  left-list from-list, right-list from-list |
+    (left-list foldr data/list@empty {
+      value, kept | (right-list ∋ value) if kept (value .* kept)
+    }) from-list
+};
+
+show let (set: a set, predicate: a → 𝟚 ! e) keep: a set ! e = match set {
+  values from-list | (values foldr data/list@empty {
+      value, kept | match value predicate {
+        yea | value .* kept,
+        nay | kept
+      }
+  }) from-list
+};
+
+graith (a list) a inhold
+show let (finite: a set) to-powerset: a powerset = match finite {
+  values from-list | {
+    value | values ∋ value
+  }
+};
+
+fill (a set) size {
+  let set size = (set to-list) size
+}
+
+graith (a list) a inhold
+fill (a set) equal {
+  let left ≡ right = match left, right {
+    left-list from-list, right-list from-list |
+      (left-list foldr yea {
+        value, included | (right-list ∋ value) if included nay
+      }) if (right-list foldr yea {
+        value, included | (left-list ∋ value) if included nay
+      }) nay
+  }
+}
+
+graith (a list) a inhold
+fill (a set) order-partial {
+  let left ≤ right = match left, right {
+    left-list from-list, right-list from-list |
+      left-list foldr yea {
+        value, included | (right-list ∋ value) if included nay
+      }
+  }
+}
+
+graith (a list) a inhold
+fill (a set) semigroup {
+  let * = ∨
+}
+
+graith (a list) a inhold
+fill (a set) monoid {
+  let ∅ = empty
+}
+
+graith (a list) a inhold
+fill (a set) semilattice-infimum {
+  let left ∧ right = match left, right {
+    left-list from-list, right-list from-list |
+      (left-list foldr data/list@empty {
+        value, kept | (right-list ∋ value) if (value .* kept) kept
+      }) from-list
+  }
+}
+
+graith (a list) a inhold
+fill (a set) semilattice-supremum {
+  let left ∨ right =
+    (right to-list) foldl left { set, value | set put value }
+}
+
+graith (a list) a inhold
+fill (a set) lattice {}
+
+graith (a list) a inhold
+fill (a set) semilattice-supremum-bounded {
+  let ⟂ = empty
+}

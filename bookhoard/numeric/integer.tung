@@ -1,0 +1,25 @@
+bring _foreign.tung;
+bring data/natural.tung;
+bring data/two.tung;
+bring order.tung;
+bring order/lattice.tung;
+
+fill integer semilattice-infimum {
+  let a ∧ b = (a ≤ b) if a b
+}
+
+fill integer semilattice-supremum {
+  let a ∨ b = (a ≤ b) if b a
+}
+
+fill integer lattice {}
+
+## convert a nonnegative integer to a natural.
+show let (i: integer) integer-to-natural: natural ! text fail =
+  match 0 ≤ i {
+    yea | match i {
+      0 | zero,
+      n | (n - 1) integer-to-natural $ suc
+    },
+    nay | 'negative cannot be a natural' fail
+  }

@@ -1,0 +1,3 @@
+show shape a from-text {
+  text from-text: a ! text fail
+}

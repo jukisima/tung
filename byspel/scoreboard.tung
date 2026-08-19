@@ -9,8 +9,8 @@ kin team {
   west
 }
 
-fill team to-string {
-  let to-string = {
+fill team to-text {
+  let to-text = {
     north | 'north',
     south | 'south',
     east | 'east',
@@ -29,7 +29,7 @@ let-ilk scoreline = [
   home-score: integer
 ];
 
-let-ilk cancelled-game = [away: team, home: team, reason: string];
+let-ilk cancelled-game = [away: team, home: team, reason: text];
 
 kin match-result {
   scoreline finished,
@@ -46,13 +46,13 @@ let (left: team, right: team) same-team: 𝟚 = match left, right {
   _, _ | nay
 };
 
-let (score: integer) checked-score: integer ! string fail =
+let (score: integer) checked-score: integer ! text fail =
   match score < 0 {
     yea | 'a score cannot be negative' fail,
     nay | score
   };
 
-let (game: game) scoreline-of: scoreline ! string fail = (
+let (game: game) scoreline-of: scoreline ! text fail = (
   let home-score = game@home-score checked-score;
   let away-score = game@away-score checked-score;
   match home-score ≤ away-score, away-score ≤ home-score {
@@ -90,9 +90,11 @@ let (game: game) settle: match-result =
   };
 
 let (game: game) start: match-result task ! random, async = (
-  let delay = ((null random) × 30.0) ⌊;
-  let _ = delay sleep;
-  { _ | game settle } fork
+  let delay = try ((null random) × 30.0) ⌊ { _ fail | 0 };
+  { _ | (
+      let _ = delay sleep;
+      game settle
+    ) } fork
 );
 
 let (standing: standing, outcome: match-result) add-result: standing =
@@ -119,29 +121,29 @@ let (standings: standing list, outcome: match-result) apply-result: standing lis
 let (outcome: match-result) print-result: 𝟙 ! console =
   match outcome {
     scoreline finished | (
-      let _ = (scoreline@home to-string) write;
+      let _ = (scoreline@home to-text) write;
       let _ = ' ' write;
-      let _ = (scoreline@home-score to-string) write;
+      let _ = (scoreline@home-score to-text) write;
       let _ = ' - ' write;
-      let _ = (scoreline@away-score to-string) write;
+      let _ = (scoreline@away-score to-text) write;
       let _ = ' ' write;
-      (scoreline@away to-string) write-line
+      (scoreline@away to-text) write-line
     ),
     cancelled-game cancelled | (
-      let _ = (cancelled-game@home to-string) write;
+      let _ = (cancelled-game@home to-text) write;
       let _ = ' - ' write;
-      let _ = (cancelled-game@away to-string) write;
+      let _ = (cancelled-game@away to-text) write;
       let _ = ': cancelled: ' write;
       cancelled-game@reason write-line
     )
   };
 
 let (standing: standing) print-standing: 𝟙 ! console = (
-  let _ = (standing@team to-string) write;
+  let _ = (standing@team to-text) write;
   let _ = ': ' write;
-  let _ = (standing@points to-string) write;
+  let _ = (standing@points to-text) write;
   let _ = ' points from ' write;
-  let _ = (standing@played to-string) write;
+  let _ = (standing@played to-text) write;
   match standing@played ≤ 1 {
     yea | ' game' write-line,
     nay | ' games' write-line
@@ -163,7 +165,9 @@ let initial-standings: standing list =
 let (_: 𝟙) main: 𝟙 ! console, random, async = (
   let _ = 'launching match jobs' write-line;
   let tasks = fixtures map start;
-  let results = tasks map wait;
+  let results = try tasks map wait {
+    _ fail | empty
+  };
   let standings: standing list = results foldl initial-standings apply-result;
   let _ = '' write-line;
   let _ = 'results' write-line;

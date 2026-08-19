@@ -1,13 +1,15 @@
-// vscode entry point: starts the lsp client and keeps structural formatting
-// available locally when the server has not registered a formatter.
+// vscode entry point: starteth the lsp client and keepeth structural formatting
+// available locally when the server hath not registered a formatter.
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";
-import { formatDocument, formatRange } from "../server/format";
-import { documentSelector } from "./options";
+import { formatDocument, formatRange } from "../server/format.ts";
+import { documentSelector } from "./options.ts";
 let client;
 export const activate = (context) => {
-  const server = context.asAbsolutePath(path.join("out", "server", "main.js"));
+  const server = context.asAbsolutePath(
+    path.join("out", "server", "main.js"),
+  );
   const watcher = vscode.workspace.createFileSystemWatcher("**/*.tung");
   context.subscriptions.push(watcher);
   client = new LanguageClient(
@@ -20,7 +22,9 @@ export const activate = (context) => {
     {
       documentSelector,
       initializationOptions: {
-        tonguePath: vscode.workspace.getConfiguration("tung").get("tonguePath"),
+        tonguePath: vscode.workspace.getConfiguration("tung").get(
+          "tonguePath",
+        ),
       },
       synchronize: { fileEvents: watcher },
       middleware: {
@@ -32,7 +36,10 @@ export const activate = (context) => {
   context.subscriptions.push(client);
   return client.start().then(() => {
     context.subscriptions.push(
-      client.onNotification("tung/semanticTokensChanged", refreshOpenSemanticTokens),
+      client.onNotification(
+        "tung/semanticTokensChanged",
+        refreshOpenSemanticTokens,
+      ),
     );
   });
 };
@@ -49,22 +56,34 @@ export const refreshOpenSemanticTokens = (
     if (document.languageId !== "tung" || document.isClosed) continue;
     if (wanted && document.uri.toString() !== wanted) continue;
     vscode.commands
-      .executeCommand("vscode.provideDocumentSemanticTokens", document.uri)
+      .executeCommand(
+        "vscode.provideDocumentSemanticTokens",
+        document.uri,
+      )
       .then(undefined, () => {});
   }
 };
 const formatDocumentInClient = (document, options) => {
   const source = document.getText();
   const formatted = formatDocument(source, options);
-  return formatted === source ? [] : [vscode.TextEdit.replace(fullRange(document), formatted)];
+  return formatted === source
+    ? []
+    : [vscode.TextEdit.replace(fullRange(document), formatted)];
 };
 const formatRangeInClient = (document, range, options) => {
   const edit = formatRange(document.getText(), toPlainRange(range), options);
-  return edit ? [vscode.TextEdit.replace(toVscodeRange(edit.range), edit.newText)] : [];
+  return edit
+    ? [vscode.TextEdit.replace(toVscodeRange(edit.range), edit.newText)]
+    : [];
 };
 const fullRange = (document) => {
   const lastLine = Math.max(0, document.lineCount - 1);
-  return new vscode.Range(0, 0, lastLine, document.lineAt(lastLine).text.length);
+  return new vscode.Range(
+    0,
+    0,
+    lastLine,
+    document.lineAt(lastLine).text.length,
+  );
 };
 const toPlainRange = (range) => {
   return {

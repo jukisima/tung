@@ -1,0 +1,17 @@
+{
+  "name": "tung-documentation",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "prebuild": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\"",
+    "build": "tsc --project tsconfig.json",
+    "check": "tsc --project tsconfig.json --noEmit",
+    "docs": "npm run build --silent && node out/writ/docs.js .. bookhoard/index.html",
+    "test": "npm run build --silent && node --test out/writ/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  }
+}

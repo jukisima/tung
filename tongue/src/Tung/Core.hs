@@ -8,8 +8,8 @@ where
 
 import Tung.Syntax
 
--- a CoreProgram has passed type checking and contains only resolved evidence.
--- keeping its constructor private prevents evaluation of unchecked surface syntax.
+-- a CoreProgram hath passed type checking and containeth only resolved evidence.
+-- keeping its constructor private preventeth evaluation of unchecked surface syntax.
 newtype CoreProgram = CoreProgram Program deriving (Eq, Show)
 
 makeCoreProgram :: Program -> Either String CoreProgram
@@ -26,11 +26,11 @@ validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
     Export declaration -> validateDecl declaration
     ReExport{} -> pure ()
     ReExportType{} -> pure ()
+    Let _ (Just _) EForeign -> pure ()
     Let _ _ body -> validateExpr body
     TypeAlias{} -> pure ()
     DataDecl{} -> pure ()
     EffectDecl{} -> pure ()
-    ForeignDecl{} -> pure ()
     ShapeDecl _ _ _ members -> mapM_ validateShapeMember members
     FillDecl{} -> Left "internal unelaborated fill"
     ElaboratedFill _ _ _ _ members -> mapM_ validateDecl members
@@ -41,10 +41,12 @@ validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
     ShapeLaw _ left right -> validateExpr left >> validateExpr right
 
   validateExpr = \case
+    ELocated _ expression -> validateExpr expression
     EInteger{} -> pure ()
     EFloat{} -> pure ()
-    EChar{} -> pure ()
-    EString{} -> pure ()
+    EUnicode{} -> pure ()
+    EText{} -> pure ()
+    EForeign -> Left "internal misplaced foreign marker"
     EVar{} -> pure ()
     EApply function arguments -> validateExpr function >> mapM_ validateExpr arguments
     ERecord fields -> mapM_ (validateExpr . snd) fields

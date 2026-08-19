@@ -1,0 +1,13 @@
+bring text/to-text.tung;
+
+show kin 𝟙 {
+  null
+}
+
+show let (_: a) terminal: 𝟙 = null;
+
+fill 𝟙 to-text {
+  let to-text = {
+    null | 'null'
+  }
+}

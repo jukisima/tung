@@ -3,8 +3,10 @@
     "target": "ES2022",
     "module": "Node16",
     "moduleResolution": "Node16",
+    "rewriteRelativeImportExtensions": true,
     "moduleDetection": "force",
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "rootDir": ".",
     "outDir": "out",
     "strict": false,
@@ -14,6 +16,6 @@
     "skipLibCheck": true,
     "types": ["node", "vscode"]
   },
-  "include": ["client/**/*.ts", "server/**/*.ts", "test/**/*.ts"],
+  "include": ["client/**/*.ts", "server/**/*.ts", "test/**/*.ts", "generated/**/*.json"],
   "exclude": ["node_modules", "out"]
 }

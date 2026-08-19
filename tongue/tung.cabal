@@ -20,11 +20,16 @@ library
   exposed-modules: Tung
   other-modules:
       Tung.Core
+    , Tung.Coverage
+    , Tung.Diagnostic
     , Tung.Evaluate
+    , Tung.Embed
     , Tung.Import
     , Tung.Bookhoard
     , Tung.Name
     , Tung.Parse
+    , Tung.Primitive
+    , Tung.Project
     , Tung.Syntax
     , Tung.Token
     , Tung.Type
@@ -37,6 +42,10 @@ library
     , directory
     , filepath
     , megaparsec
+    , process
+    , stm
+    , template-haskell
+    , text
     , time
     , transformers
 
@@ -58,13 +67,16 @@ test-suite tung-test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-      Test.Evaluate
+      Test.Core
+    , Test.Diagnostic
+    , Test.Evaluate
     , Test.Harness
     , Test.Import
     , Test.Integration
     , Test.Bookhoard
     , Test.Name
     , Test.Parse
+    , Test.Project
     , Test.Token
     , Test.Type
     , Test.Validate

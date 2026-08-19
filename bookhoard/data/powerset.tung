@@ -1,0 +1,35 @@
+bring data/two.tung;
+bring equal.tung;
+bring collection/inhold.tung;
+bring algebra/arithmetic/ring.tung;
+bring order/lattice.tung;
+
+## a powerset represented by its membership predicate.
+show let-ilk a powerset = a func 𝟚;
+
+show let empty: a powerset = { _ | nay };
+
+show let universe: a powerset = { _ | yea };
+
+graith a equal
+show let (a: a) singleton: a powerset = {
+  thing | thing ≡ a
+};
+
+fill (a powerset) a inhold {
+  let set ∋ a = a set
+}
+
+graith a equal
+show let (set: a powerset, a: a) put: a powerset =
+  { thing | (thing ≡ a) ∨ (thing set) };
+
+graith a equal
+show let (set: a powerset, a: a) rid: a powerset =
+  { thing | (thing ≡ a) if nay (thing set) };
+
+show let (left: a powerset, right: a powerset) ∖: a powerset =
+  { value | (value left) if ((value right) if nay yea) nay };
+
+show let (set: a powerset, predicate: a func 𝟚) keep: a powerset =
+  set ∧ predicate;

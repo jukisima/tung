@@ -1,0 +1,60 @@
+bring data/two.tung;
+bring equal.tung;
+bring order.tung;
+bring order/lattice.tung;
+bring algebra/arithmetic/semiring.tung;
+
+show kin natural {
+  zero,
+  natural suc
+}
+
+fill natural equal {
+  let ≡ = {
+    zero, zero | yea,
+    a suc, b suc | a ≡ b,
+    _, _ | nay
+  }
+}
+
+fill natural order-partial {
+  let ≤ = {
+    zero, _ | yea,
+    _, zero | nay,
+    a suc, b suc | a ≤ b
+  }
+}
+
+fill natural order-total {}
+
+fill natural semilattice-infimum {
+  let a ∧ b = (a ≤ b) if a b
+}
+
+fill natural semilattice-supremum {
+  let a ∨ b = (a ≤ b) if b a
+}
+
+fill natural lattice {}
+
+fill natural semilattice-supremum-bounded {
+  let ⟂ = zero
+}
+
+fill natural semiring {
+  let + = {
+    a, zero | a,
+    a, (b suc) | (a + b) suc
+  };
+  let zero = zero;
+  let × = {
+    _, zero | zero,
+    a, b suc | a + (a × b)
+  };
+  let one = zero suc
+}
+
+show let natural-to-integer: natural → integer = {
+  zero | 0,
+  a suc | 1 + (a natural-to-integer)
+}

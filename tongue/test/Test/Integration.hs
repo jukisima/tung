@@ -14,22 +14,29 @@ group :: IO Group
 group = do
   imports <- readBookhoardImports
   byspels <- byspelFiles
+  benchmarks <- benchmarkFiles
+  tools <- tungFiles "tool"
   Harness.group "integration" $
-    map (byspelCase imports) byspels
-      ++ [mainEntry imports, rejectedMain imports, fileRoundTrip imports]
+    map (runnableFileCase imports) (byspels ++ benchmarks ++ tools)
+      ++ [mainEntry imports, rejectedMain imports, fibonacciSampleResult imports, fileRoundTrip imports]
 
 byspelFiles :: IO [FilePath]
-byspelFiles = do
-  let directory = "../byspel"
+byspelFiles = tungFiles "../byspel"
+
+benchmarkFiles :: IO [FilePath]
+benchmarkFiles = tungFiles "../benchmark"
+
+tungFiles :: FilePath -> IO [FilePath]
+tungFiles directory = do
   entries <- listDirectory directory
   sort <$> filterM doesFileExist [directory </> entry | entry <- entries, takeExtension entry == ".tung"]
 
-byspelCase :: Imports -> FilePath -> Test
-byspelCase imports path = do
+runnableFileCase :: Imports -> FilePath -> Test
+runnableFileCase imports path = do
   source <- readFile path
   pure $ case checkRunnableWithImports source imports of
     "type ok" -> Nothing
-    actual -> Just ("byspel " ++ path ++ ": " ++ actual)
+    actual -> Just ("runnable file " ++ path ++ ": " ++ actual)
 
 mainEntry :: Imports -> Test
 mainEntry imports = do
@@ -40,6 +47,12 @@ rejectedMain :: Imports -> Test
 rejectedMain imports = do
   actual <- evaluateMainWithImports "bring ground.tung; let main: 𝟙 → 𝟙 = { _ | missing };" imports
   pure $ if "type error:" `isPrefixOf` actual then Nothing else Just ("rejected main reached evaluation: " ++ actual)
+
+fibonacciSampleResult :: Imports -> Test
+fibonacciSampleResult imports = do
+  source <- readFile "../benchmark/fibonacci.tung"
+  actual <- evaluateWithImports (source ++ ";\n20 fibonacci") imports
+  pure $ if actual == "eval ok: 6765" then Nothing else Just ("fibonacci 20: " ++ actual)
 
 fileRoundTrip :: Imports -> Test
 fileRoundTrip imports = do

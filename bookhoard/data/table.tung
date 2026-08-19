@@ -1,0 +1,96 @@
+bring data/list.tung;
+bring data/option.tung;
+bring data/product.tung;
+bring data/two.tung;
+bring equal.tung;
+bring collection/catamorphism.tung;
+bring collection/functor.tung;
+bring collection/filter.tung;
+bring collection/inhold.tung;
+bring collection/size.tung;
+
+## a list-backed finite association table.
+show kin k table v {
+  ((k ∏ v) list) from-list
+}
+
+show let empty: k table v = data/list@empty from-list;
+
+show let singleton: k → v → k table v = {
+  key, value | ((key ∏ value) .* data/list@empty) from-list
+};
+
+show let entries: k table v → (k ∏ v) list = {
+  entries from-list | entries
+};
+
+graith k equal
+show let (table: k table v, key: k) lookup: v option = match table {
+  entries from-list | entries foldr data/option@none {
+    pair, found | (key ≡ (pair project₀)) if ((pair project₁) data/option@some) found
+  }
+};
+
+graith k equal
+show let (table: k table v, key: k, value: v) put: k table v = match table {
+  entries from-list |
+  ((key ∏ value) .* (entries foldr data/list@empty {
+        pair, rest | (key ≡ (pair project₀)) if rest (pair .* rest)
+  })) from-list
+};
+
+graith k equal
+show let (table: k table v, key: k) rid: k table v = match table {
+  entries from-list | (entries foldr data/list@empty {
+      pair, rest | (key ≡ (pair project₀)) if rest (pair .* rest)
+  }) from-list
+};
+
+show let keys: k table v → k list = {
+  entries from-list | entries map project₀
+};
+
+show let values: k table v → v list = {
+  entries from-list | entries map project₁
+};
+
+graith (k list) k inhold
+fill (k table v) k inhold {
+  let table ∋ key = (table keys) ∋ key
+}
+
+fill (k table) functor {
+  let table map f = match table {
+    entries from-list | (entries map {
+        pair | ((pair project₀) ∏ ((pair project₁) f))
+    }) from-list
+  }
+}
+
+fill (k table) filter {
+  let table filter predicate = match table {
+    entries from-list | (entries filter {
+        pair | (pair project₁) predicate
+    }) from-list
+  }
+}
+
+fill (k table v) size {
+  let table size = (table entries) size
+}
+
+graith k equal
+show let (left: k table v, right: k table v) merge: k table v =
+  (right entries) foldl left {
+    table, pair | table put (pair project₀) (pair project₁)
+  };
+
+graith k equal
+show let (table: k table v, key: k, change: v → v ! e) adjust: k table v ! e = match table {
+  entries from-list | (entries foldr data/list@empty {
+      pair, changed | match key ≡ (pair project₀) {
+        yea | ((pair project₀) ∏ ((pair project₁) change)) .* changed,
+        nay | pair .* changed
+      }
+  }) from-list
+}

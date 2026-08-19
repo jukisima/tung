@@ -2,17 +2,19 @@
 second-is-function sequences, and dollar grouping without consulting types.
 -}
 module Tung.Parse (
+  ParsedSource (..),
   parse,
+  parseLocated,
   parseTokens,
 )
 where
 
 import Control.Monad (foldM)
 import Data.Either (fromRight)
-import Data.List (intercalate)
+import Data.List (intercalate, unsnoc)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, mapMaybe, maybeToList)
 import Tung.Name (isQualifiedName)
 import Tung.Syntax
 import Tung.Token
@@ -25,11 +27,23 @@ data FunctionResult = FunctionResult
   deriving (Eq, Show)
 
 -- parsers consume a token prefix and return the untouched suffix. whole-input
--- helpers are used only where the surrounding delimiter has already been found.
+-- helpers are used only where the surrounding delimiter hath already been found.
 type P a = [Token] -> Either String (a, [Token])
+
+data ParsedSource = ParsedSource
+  { parsedProgram :: Program
+  , parsedTokens :: [LocatedToken]
+  }
+  deriving (Eq, Show)
 
 parse :: String -> Either String Program
 parse source = lexTokens source >>= parseTokens
+
+parseLocated :: String -> Either String ParsedSource
+parseLocated source = do
+  tokens <- lexLocatedTokens source
+  program <- parseTokens (map locatedToken tokens)
+  pure (ParsedSource (locateProgram program tokens) tokens)
 
 parseTokens :: [Token] -> Either String Program
 parseTokens toks = case parseDecls toks of
@@ -38,7 +52,7 @@ parseTokens toks = case parseDecls toks of
   Left msg -> Left msg
 
 -- declarations are self-delimiting; semicolons are accepted between file-level
--- declarations and required only by constructs whose grammar says so.
+-- declarations and required only where the grammar requireth them.
 parseDecls :: P [Decl]
 parseDecls [] = pure ([], [])
 parseDecls ts@(TRBrace : _) = pure ([], ts)
@@ -85,10 +99,9 @@ parseDecl = \case
   TBring : rest -> parseImport rest
   TGraith : rest -> parseGraithDecl rest
   TLet : rest -> parseLetDecl [] rest
-  TLetIlk : TIdent name : TEquals : rest -> parseTypeAlias name rest
+  TLetIlk : rest -> parseTypeAlias rest
   TKin : rest -> parseData rest
   TDeed : rest -> parseEffect rest
-  TIdent "class" : TIdent "foreign" : TLBrace : rest -> parseForeign rest
   TShape : rest -> parseShape [] rest
   TFill : rest -> parseFill [] rest
   ts -> case parseExpr ts of
@@ -132,11 +145,14 @@ parseGraithPrefix stop message ts = do
   needs <- parseShapeNeedsWhole graithTokens
   pure (needs, rest)
 
--- let parsing accepts named and positional headers, typed parameter groups, and
+-- let parsing accepteth named and positional headers, typed parameter groups, and
 -- graith prefixes, then lowers every parameter list to an anonymous match.
 parseLetDecl :: [ShapeNeed] -> P Decl
 parseLetDecl needs = \case
   TIdent name : rest -> parseLet needs name rest
+  ts@(TInteger _ : _) -> case parseLetHeaderDefinitionWithNeeds needs ts of
+    Just parsed -> parsed
+    Nothing -> Left "expected let binding"
   ts@(TLParen : rest) -> case parseTypedArgumentLet needs rest of
     Right parsed -> Right parsed
     Left _ -> case parseLetHeaderDefinitionWithNeeds needs ts of
@@ -158,10 +174,15 @@ parseImportPath (TIdent part : TDot : TIdent next : rest) = do
 parseImportPath (TIdent part : rest) = pure ([part], rest)
 parseImportPath _ = Left "expected bring path"
 
-parseTypeAlias :: String -> P Decl
-parseTypeAlias name ts = do
-  (t, rest) <- parseTypeUntilSemicolon ts
-  pure (TypeAlias name t, rest)
+parseTypeAlias :: P Decl
+parseTypeAlias ts = do
+  (header, rest) <- takeTopLevelUntil ts (\case TEquals -> True; _ -> False) "expected '=' after let-ilk header"
+  (params, name) <- parseParamHeader "let-ilk" header
+  case rest of
+    TEquals : body -> do
+      (target, remaining) <- parseTypeUntilSemicolon body
+      pure (TypeAlias params name target, remaining)
+    _ -> Left "expected '=' after let-ilk header"
 
 parseLet :: [ShapeNeed] -> String -> P Decl
 parseLet needs name = \case
@@ -257,7 +278,7 @@ parseTypedParamPatternTokens ts = takeTopLevelUntil ts (\case TColon -> True; TC
 
 functionLetAnn :: [ShapeNeed] -> [Maybe TypeExpr] -> FunctionResult -> Either String TypeAnn
 functionLetAnn needs [] FunctionResult{functionResultType = result, functionResultEffects = [], functionResultNeeds} = Right (TypeAnn result (needs ++ functionResultNeeds))
-functionLetAnn _ [] _ = Left "effect annotation requires function arguments"
+functionLetAnn _ [] _ = Left "effect annotation requireth function arguments"
 functionLetAnn needs argTypes FunctionResult{..} =
   TypeAnn <$> makeArrowType (fillMissingTypes argTypes) functionResultEffects functionResultType <*> pure (needs ++ functionResultNeeds)
 
@@ -322,7 +343,7 @@ parseHeaderBody kind ts = do
 
 parseParamHeader :: String -> [Token] -> Either String ([String], String)
 parseParamHeader kind header = do
-  (paramTerms, name) <- maybeToEither (kind ++ " declaration requires a name") (headerFromTokens header)
+  (paramTerms, name) <- maybeToEither (kind ++ " declaration requireth a name") (headerFromTokens header)
   params <- maybeToEither (kind ++ " parameters must be names") (namesFromHeaderTerms paramTerms)
   pure (params, name)
 
@@ -341,34 +362,10 @@ parseEffectOp ts =
           TypeAnn t _ -> pure (EffectOp name t, rest2)
     _ -> Left "expected effect operation"
 
-parseForeign :: P Decl
-parseForeign ts = do
-  (members, rest) <- parseForeignMembers ts
-  pure (ForeignDecl members, rest)
-
-parseForeignMembers :: P [ForeignMember]
-parseForeignMembers (TRBrace : rest) = Right ([], rest)
-parseForeignMembers (TSemicolon : rest) = parseForeignMembers rest
-parseForeignMembers ts = do
-  (member, rest) <- parseForeignMember ts
-  (members, rest2) <- parseForeignMembers (dropSemicolon rest)
-  pure (member : members, rest2)
-
-parseForeignMember :: P ForeignMember
-parseForeignMember ts =
-  case takeUntilColon ts of
-    Right (parts, TColon : rest) -> case shapeMemberHeader parts of
-      Nothing -> Left "expected foreign function name"
-      Just (argTypes, name) -> do
-        ((result, rest2), _) <- parseShapeMemberResultType rest
-        ann <- functionLetAnn [] (map Just argTypes) result
-        pure (ForeignMember name ann, rest2)
-    _ -> Left "expected foreign function"
-
 parseShape :: [ShapeNeed] -> P Decl
 parseShape needs ts = do
   (header, body) <- parseHeaderBody "shape" ts
-  (paramTerms, name) <- maybeToEither "shape declaration requires a name" (trailingHeaderFromTokens header)
+  (paramTerms, name) <- maybeToEither "shape declaration requireth a name" (trailingHeaderFromTokens header)
   params <- maybeToEither "shape parameters must be names" (namesFromHeaderTerms paramTerms)
   (members, rest) <- parseShapeMembers body
   pure (ShapeDecl params name needs members, rest)
@@ -398,10 +395,10 @@ parseShapeNeed ts = case trailingHeaderFromTokens ts of
 parseFill :: [ShapeNeed] -> P Decl
 parseFill needs ts = do
   (header, body) <- parseHeaderBody "fill" ts
-  (tyTerms, shapeName) <- maybeToEither "fill declaration requires a shape name" (trailingHeaderFromTokens header)
+  (tyTerms, shapeName) <- maybeToEither "fill declaration requireth a shape name" (trailingHeaderFromTokens header)
   tyArgs <- maybeToEither "fill type arguments must be types" (typesFromHeaderTerms tyTerms)
   case tyArgs of
-    [] -> Left "fill declaration requires at least one type argument"
+    [] -> Left "fill declaration requireth at least one type argument"
     _ -> pure ()
   (ds, rest) <- parseFillMembers body
   case rest of
@@ -464,7 +461,9 @@ showTokenHead = \case
 parseShapeMembers :: P [ShapeMember]
 parseShapeMembers (TRBrace : rest) = Right ([], rest)
 parseShapeMembers (TSemicolon : rest) = parseShapeMembers rest
-parseShapeMembers ts@(TGraith : _) = parseShapeDefaultLet ts
+parseShapeMembers ts@(TGraith : _)
+  | startsGraithLet ts = parseShapeDefaultLet ts
+  | otherwise = parseGraithShapeSignature ts
 parseShapeMembers ts@(TLet : _) = parseShapeDefaultLet ts
 parseShapeMembers ts@(TLaw : _) = parseShapeLaw ts
 parseShapeMembers ts@(TIdent _ : _) = parsePostfixShapeSignature ts
@@ -472,16 +471,40 @@ parseShapeMembers ts@(TLParen : _) = parsePostfixShapeSignature ts
 parseShapeMembers _ = Left "expected shape member"
 
 parsePostfixShapeSignature :: P [ShapeMember]
-parsePostfixShapeSignature ts =
-  case takeUntilColon ts of
-    Right (parts, TColon : rest) -> case shapeMemberHeader parts of
-      Nothing -> Left "expected shape member name"
-      Just (argTypes, name) -> do
-        ((result, rest2), _) <- parseShapeMemberResultType rest
-        (members, rest3) <- parseShapeMembers rest2
-        ann <- functionLetAnn [] (map Just argTypes) result
-        pure (ShapeSpec name ann : members, rest3)
+parsePostfixShapeSignature ts = do
+  (header, rest) <- takeUntilColon ts
+  (argTypes, name) <- maybe (Left "expected shape member name") Right (shapeMemberHeader header)
+  case rest of
+    TColon : result -> parseShapeSignature [] argTypes name result
     _ -> Left "expected ':' in shape member"
+
+parseGraithShapeSignature :: P [ShapeMember]
+parseGraithShapeSignature (TGraith : ts) = do
+  (header, rest) <- takeUntilColon ts
+  (needs, argTypes, name) <- case mapMaybe (candidate header) [1 .. length header - 1] of
+    [parsed] -> Right parsed
+    [] -> Left "expected graith requirements followed by a shape member"
+    _ -> Left "ambiguous graith shape member"
+  case rest of
+    TColon : result -> parseShapeSignature needs argTypes name result
+    _ -> Left "expected ':' in shape member"
+ where
+  candidate header index = do
+    let (needTokens, memberTokens) = splitAt index header
+    needs <- either (const Nothing) Just (parseShapeNeedsWhole needTokens)
+    (argTypes, name) <- shapeMemberHeader memberTokens
+    pure (needs, argTypes, name)
+parseGraithShapeSignature _ = Left "expected graith shape member"
+
+parseShapeSignature :: [ShapeNeed] -> [TypeExpr] -> String -> P [ShapeMember]
+parseShapeSignature needs argTypes name ts = do
+  ((result, rest), _) <- parseShapeMemberResultType ts
+  ann <- functionLetAnn needs (map Just argTypes) result
+  (members, rest') <- parseShapeMembers rest
+  pure (ShapeSpec name ann : members, rest')
+
+startsGraithLet :: [Token] -> Bool
+startsGraithLet = elem TLet . takeWhile (`notElem` [TEquals, TSemicolon, TRBrace])
 
 shapeMemberHeader :: [Token] -> Maybe ([TypeExpr], String)
 shapeMemberHeader ts = do
@@ -605,13 +628,10 @@ parseFunctionFirstTerms = go []
 parsePostfixExprWith :: Bool -> P Expr
 parsePostfixExprWith stopBrace ts = do
   (parts, rest) <- parseExprParts stopBrace ts
-  applicationFromParts parts rest
+  defaultApplication parts rest
 
 applyArgs :: Expr -> [Expr] -> Expr
 applyArgs = foldl' (\expr arg -> EApply expr (arg :| []))
-
-applicationFromParts :: [Expr] -> [Token] -> Either String (Expr, [Token])
-applicationFromParts = defaultApplication
 
 -- a lone term denotes itself; otherwise @a f b c@ lowers to @f a b c@.
 defaultApplication :: [Expr] -> [Token] -> Either String (Expr, [Token])
@@ -659,8 +679,9 @@ parseExprAtom :: P Expr
 parseExprAtom = \case
   TInteger i : rest -> Right (EInteger i, rest)
   TFloat s : rest -> Right (EFloat s, rest)
-  TChar c : rest -> Right (EChar c, rest)
-  TString s : rest -> Right (EString s, rest)
+  TUnicode codePoint : rest -> Right (EUnicode codePoint, rest)
+  TText s : rest -> Right (EText s, rest)
+  TForeign : rest -> Right (EForeign, rest)
   TIdent s : rest -> Right (EVar s, rest)
   TTry : rest -> parseTry rest
   TMatch : rest -> parseMatchExpr rest
@@ -675,7 +696,7 @@ parseAnonymousMatchExpr ts = do
   pure (EMatch [] cs, rest)
 
 parseMatchExpr :: P Expr
-parseMatchExpr (TLBrace : _) = Left "match requires a scrutinee; use '{ ... }' for a function"
+parseMatchExpr (TLBrace : _) = Left "match requireth a scrutinee; use '{ ... }' for a function"
 parseMatchExpr ts = parseMatchScrutinees [] ts
 
 parseMatchScrutinees :: [Expr] -> P Expr
@@ -716,7 +737,7 @@ parseHandlerCases ts = do
   pure ((returnCase, reverse cases), rest)
  where
   collect (Nothing, cases) (HandlerReturnItem returnCase) = Right (Just returnCase, cases)
-  collect (Just _, _) (HandlerReturnItem _) = Left "handler has more than one return case"
+  collect (Just _, _) (HandlerReturnItem _) = Left "handler hath more than one return case"
   collect (returnCase, cases) (HandlerCaseItem handlerCase) = Right (returnCase, handlerCase : cases)
 
 parseHandlerItem :: P HandlerItem
@@ -862,14 +883,15 @@ patternFromParts [term] rest = case patternFromTerm term of
   Just (PVar name) | isQualifiedName name -> Right (PCon name [], rest)
   Just p -> Right (p, rest)
   Nothing -> Left "expected pattern"
-patternFromParts parts rest = case headerFromParts parts of
-  Nothing -> Left "constructor pattern requires a name"
+patternFromParts parts rest = case defaultHeader parts of
+  Nothing -> Left "constructor pattern requireth a name"
   Just (argTerms, name) -> case patternsFromHeaderTerms argTerms of
     Nothing -> Left "invalid constructor pattern"
     Just args -> Right (PCon name args, rest)
 
 patternFromTerm :: [Token] -> Maybe Pattern
 patternFromTerm [TIdent name] = Just (PVar name)
+patternFromTerm [TInteger value] = Just (PInteger value)
 patternFromTerm (TLParen : rest) = case takeBalanced rest of
   Right (inner, []) -> parseWholeMaybe parsePattern inner
   _ -> Nothing
@@ -880,11 +902,11 @@ parseTypeUntilExpr = go []
  where
   go _ [] = Left "expected expression after type"
   go [] (TLParen : rest) = case takeBalanced rest of
-    Right (inner, rest2) | startsExpr rest2 -> (,rest2) <$> parseWhole "let has no type annotation" parseTypeTokens inner
-    _ -> Left "let has no type annotation"
+    Right (inner, rest2) | startsExpr rest2 -> (,rest2) <$> parseWhole "let hath no type annotation" parseTypeTokens inner
+    _ -> Left "let hath no type annotation"
   go acc ts@(x : _)
     | isExprStarter x && not (null acc) = (,ts) <$> parseWhole "could not parse whole type" parseTypeTokens (reverse acc)
-    | isExprStarter x = Left "let has no type annotation"
+    | isExprStarter x = Left "let hath no type annotation"
   go acc (x : xs) = go (x : acc) xs
 
 parseTypeUntilCommaOrParen, parseTypeUntilSemicolon :: P TypeExpr
@@ -939,11 +961,11 @@ finishFunctionResult tokens rest =
       Nothing -> Left "could not parse whole function result type"
       Just (retTokens, effectTokens) -> do
         ret <- parseWhole "unexpected tokens before effects" parseTypeTokens retTokens
-        effects <- parseWhole "unexpected tokens after effects" parseEffectList effectTokens
+        effects <- parseWhole "unexpected tokens after effects" parseCommaTypes effectTokens
         Right (FunctionResult ret effects [], rest)
 
 -- arrows are special syntax with non-empty domains. type application otherwise
--- follows the same second-is-function rule as term application.
+-- followeth the same second-is-function rule as term application.
 parseTypeTokens :: P TypeExpr
 parseTypeTokens = parseArrowType
 
@@ -969,13 +991,13 @@ parseArrowResultLeaf :: P ([TypeExpr], TypeExpr)
 parseArrowResultLeaf ts = case splitTopLevelBang ts of
   Just (retTokens, effectTokens) -> do
     ret <- parseWhole "unexpected tokens before effects" parseArrowType retTokens
-    effects <- parseWhole "unexpected tokens after effects" parseEffectList effectTokens
+    effects <- parseWhole "unexpected tokens after effects" parseCommaTypes effectTokens
     pure ((effects, ret), [])
   Nothing -> parseArrowResultOld ts
 
 makeArrowType :: [TypeExpr] -> [TypeExpr] -> TypeExpr -> Either String TypeExpr
 makeArrowType args effects ret = do
-  domain <- maybe (Left "function type requires at least one argument") Right (NE.nonEmpty args)
+  domain <- maybe (Left "function type requireth at least one argument") Right (NE.nonEmpty args)
   pure $ case (effects, ret) of
     ([], TypeArrow more moreEffects finalRet) -> TypeArrow (domain <> more) moreEffects finalRet
     _ -> TypeArrow domain effects ret
@@ -984,14 +1006,11 @@ parseArrowResultOld :: P ([TypeExpr], TypeExpr)
 parseArrowResultOld (TLBrace : rest) = do
   (effectTokens, rest2) <- takeEffectTokens rest
   (ret, rest3) <- parseArrowType rest2
-  effects <- parseWhole "unexpected tokens in effects" parseEffectList effectTokens
+  effects <- parseWhole "unexpected tokens in effects" parseCommaTypes effectTokens
   pure ((effects, ret), rest3)
 parseArrowResultOld ts = do
   (ret, rest) <- parseArrowType ts
   pure (([], ret), rest)
-
-parseEffectList :: P [TypeExpr]
-parseEffectList = parseCommaTypes
 
 takeEffectTokens :: P [Token]
 takeEffectTokens = go []
@@ -1014,7 +1033,7 @@ parseCommaTypes = go []
 parseTypeApplication :: P TypeExpr
 parseTypeApplication ts = do
   (parts, rest) <- parseTypeParts ts
-  typeFromParts parts rest
+  defaultType parts rest
 
 parseTypeParts :: P [TypeExpr]
 parseTypeParts = go []
@@ -1056,9 +1075,6 @@ parseRecordTypeField _ = Left "expected record field type"
 parseTypeUntilCommaOrBracket :: P TypeExpr
 parseTypeUntilCommaOrBracket ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRBracket -> True; _ -> False) "unterminated record type"
 
-typeFromParts :: [TypeExpr] -> [Token] -> Either String (TypeExpr, [Token])
-typeFromParts = defaultType
-
 -- @a f b@ is @f<a,b>@; unresolved non-name heads are retained for the checker
 -- to reject with type context rather than by guessing in the parser.
 defaultType :: [TypeExpr] -> [Token] -> Either String (TypeExpr, [Token])
@@ -1074,10 +1090,11 @@ typeApplication name args = TypeApply name args
 
 isExprStarter :: Token -> Bool
 isExprStarter = \case
+  TIdent _ -> True
   TInteger _ -> True
   TFloat _ -> True
-  TChar _ -> True
-  TString _ -> True
+  TUnicode _ -> True
+  TText _ -> True
   TLParen -> True
   TLBrace -> True
   TLBracket -> True
@@ -1086,12 +1103,8 @@ isExprStarter = \case
   _ -> False
 
 startsExpr :: [Token] -> Bool
-startsExpr (t : _) = isExprStarter t || isIdentExprStarter t
+startsExpr (t : _) = isExprStarter t
 startsExpr [] = False
-
-isIdentExprStarter :: Token -> Bool
-isIdentExprStarter (TIdent _) = True
-isIdentExprStarter _ = False
 
 ctorFromTokens :: [Token] -> Maybe Ctor
 ctorFromTokens ts = do
@@ -1108,7 +1121,7 @@ functionHeader ts = do
   pure (params, name)
 
 headerFromTokens :: [Token] -> Maybe ([[Token]], String)
-headerFromTokens ts = headerParts ts >>= headerFromParts
+headerFromTokens ts = headerParts ts >>= defaultHeader
 
 trailingHeaderFromTokens :: [Token] -> Maybe ([[Token]], String)
 trailingHeaderFromTokens ts = headerParts ts >>= trailingHeaderFromParts
@@ -1123,13 +1136,11 @@ headerParts = go []
 
 readHeaderTerm :: [Token] -> Maybe ([Token], [Token])
 readHeaderTerm (TIdent name : rest) = Just ([TIdent name], rest)
+readHeaderTerm (TInteger value : rest) = Just ([TInteger value], rest)
 readHeaderTerm (TLParen : rest) = do
   (inner, rest2) <- either (const Nothing) Just (takeBalanced rest)
   Just (TLParen : inner ++ [TRParen], rest2)
 readHeaderTerm _ = Nothing
-
-headerFromParts :: [[Token]] -> Maybe ([[Token]], String)
-headerFromParts = defaultHeader
 
 defaultHeader :: [[Token]] -> Maybe ([[Token]], String)
 defaultHeader [term] = do
@@ -1141,11 +1152,10 @@ defaultHeader (arg : fun : rest) = do
 defaultHeader _ = Nothing
 
 trailingHeaderFromParts :: [[Token]] -> Maybe ([[Token]], String)
-trailingHeaderFromParts parts = case reverse parts of
-  [] -> Nothing
-  term : arguments -> do
-    name <- headerTermName term
-    pure (reverse arguments, name)
+trailingHeaderFromParts parts = do
+  (arguments, term) <- unsnoc parts
+  name <- headerTermName term
+  pure (arguments, name)
 
 headerTermName :: [Token] -> Maybe String
 headerTermName [TIdent name] = Just name
@@ -1182,8 +1192,7 @@ parseWholeMaybe parser tokens = case parser tokens of
   _ -> Nothing
 
 maybeToEither :: String -> Maybe a -> Either String a
-maybeToEither _ (Just value) = Right value
-maybeToEither msg Nothing = Left msg
+maybeToEither msg = maybe (Left msg) Right
 
 parseCommaListUntil :: (Token -> Bool) -> P a -> P [a]
 parseCommaListUntil stop parseItem = go
@@ -1201,10 +1210,8 @@ dropSemicolon (TSemicolon : rest) = rest
 dropSemicolon ts = ts
 
 isRightBrace, isRightBracket :: Token -> Bool
-isRightBrace TRBrace = True
-isRightBrace _ = False
-isRightBracket TRBracket = True
-isRightBracket _ = False
+isRightBrace = (== TRBrace)
+isRightBracket = (== TRBracket)
 
 splitTopLevelArrow, splitTopLevelBang, splitTopLevelColon, splitTopLevelComma :: [Token] -> Maybe ([Token], [Token])
 splitTopLevelArrow ts = splitTopLevel ts (\case TArrow -> True; _ -> False)
@@ -1225,7 +1232,7 @@ splitTopLevel ts stop = go [] (0 :: Int) ts
         TRBracket -> go (x : acc) (depth - 1) rest
         _ -> go (x : acc) depth rest
 
--- delimiter-aware slicing keeps declaration and type parsers small. callers
+-- delimiter-aware slicing keepeth declaration and type parsers small. callers
 -- decide whether reaching the end is valid for their enclosing construct.
 takeTopLevelUntil :: [Token] -> (Token -> Bool) -> String -> Either String ([Token], [Token])
 takeTopLevelUntil ts stop message = case takeTopLevelUntilOrEnd ts stop of
@@ -1260,9 +1267,203 @@ takeHeaderTokens :: String -> [Token] -> Either String ([Token], [Token])
 takeHeaderTokens kind ts = takeTopLevelUntil ts (\case TLBrace -> True; _ -> False) ("expected '{' after " ++ kind ++ " header")
 
 takeCtorTokens :: [Token] -> Either String ([Token], [Token])
-takeCtorTokens [] = Left "unterminated kin declaration"
-takeCtorTokens ts@(TComma : _) = Right ([], ts)
-takeCtorTokens ts@(TRBrace : _) = Right ([], ts)
-takeCtorTokens (x : xs) = do
-  (seen, rest) <- takeCtorTokens xs
-  Right (x : seen, rest)
+takeCtorTokens ts = case break (\token -> token == TComma || token == TRBrace) ts of
+  (_, []) -> Left "unterminated kin declaration"
+  result -> Right result
+
+-- located parsing decorateth expression nodes after the compact parser hath
+-- settled the language's unusual application order. declaration delimiters
+-- align the token cursor before each body, so repeated names resolve to their
+-- actual occurrence instead of the first matching token in the file.
+type Locator a = [LocatedToken] -> (a, [LocatedToken])
+
+locateProgram :: Program -> [LocatedToken] -> Program
+locateProgram (Program declarations) tokens = Program (fst (locateDecls declarations tokens))
+
+locateDecls :: [Decl] -> Locator [Decl]
+locateDecls [] tokens = ([], tokens)
+locateDecls (declaration : declarations) tokens =
+  let (declaration2, rest) = locateDecl declaration tokens
+      (declarations2, rest2) = locateDecls declarations (dropLocatedSemicolon rest)
+   in (declaration2 : declarations2, rest2)
+
+locateDecl :: Decl -> Locator Decl
+locateDecl declaration tokens = case declaration of
+  Import path -> (declaration, afterToken TSemicolon (afterToken (TIdent path) tokens))
+  Export nested ->
+    let (nested2, rest) = locateDecl nested tokens
+     in (Export nested2, rest)
+  ReExport name -> (declaration, afterToken TSemicolon (afterToken (TIdent name) tokens))
+  ReExportType name -> (declaration, afterToken TSemicolon (afterToken (TIdent name) tokens))
+  Let name annotation body ->
+    let bodyTokens = if startsLetDeclaration tokens then afterToken TEquals tokens else tokens
+        (body2, rest) = locateExpr body bodyTokens
+     in (Let name annotation body2, rest)
+  TypeAlias{} -> (declaration, afterToken TSemicolon tokens)
+  DataDecl{} -> (declaration, afterBraceBlock tokens)
+  EffectDecl{} -> (declaration, afterBraceBlock tokens)
+  ShapeDecl parameters name needs members ->
+    let (members2, _) = locateShapeMembers members (afterToken TLBrace tokens)
+     in (ShapeDecl parameters name needs members2, afterBraceBlock tokens)
+  FillDecl types name needs members ->
+    let (members2, _) = locateDecls members (afterToken TLBrace tokens)
+     in (FillDecl types name needs members2, afterBraceBlock tokens)
+  ElaboratedFill key types name needs members ->
+    let (members2, _) = locateDecls members (afterToken TLBrace tokens)
+     in (ElaboratedFill key types name needs members2, afterBraceBlock tokens)
+
+locateShapeMembers :: [ShapeMember] -> Locator [ShapeMember]
+locateShapeMembers [] tokens = ([], tokens)
+locateShapeMembers (member : members) tokens =
+  let (member2, rest) = locateShapeMember member tokens
+      (members2, rest2) = locateShapeMembers members (dropLocatedSemicolon rest)
+   in (member2 : members2, rest2)
+
+locateShapeMember :: ShapeMember -> Locator ShapeMember
+locateShapeMember member tokens = case member of
+  ShapeSpec{} -> (member, afterToken TSemicolon tokens)
+  ShapeDefault name annotation body ->
+    let (body2, rest) = locateExpr body (afterToken TEquals tokens)
+     in (ShapeDefault name annotation body2, rest)
+  ShapeLaw parameters left right ->
+    let (left2, rest) = locateExpr left (afterToken TColon tokens)
+        (right2, rest2) = locateExpr right (afterToken (TIdent "~") rest)
+     in (ShapeLaw parameters left2 right2, rest2)
+
+locateExpr :: Expr -> Locator Expr
+locateExpr expression tokens = case expression of
+  ELocated _ inner -> locateExpr inner tokens
+  EInteger value -> locateLeaf (TInteger value) expression tokens
+  EFloat value -> locateLeaf (TFloat value) expression tokens
+  EUnicode value -> locateLeaf (TUnicode value) expression tokens
+  EText value -> locateLeaf (TText value) expression tokens
+  EForeign -> locateLeaf TForeign expression tokens
+  EVar name -> locateLeaf (TIdent name) expression tokens
+  EApply function arguments ->
+    let firstArgument :| remainingArguments = arguments
+        (first2, rest) = locateExpr firstArgument tokens
+        (function2, rest2) = locateExpr function rest
+        (remaining2, rest3) = locateExprs remainingArguments rest2
+        node = EApply function2 (first2 :| remaining2)
+     in (locateAround (first2 : function2 : remaining2) node, rest3)
+  ERecord fields ->
+    let (fields2, rest) = locateFields fields tokens
+     in (locateAround (map snd fields2) (ERecord fields2), rest)
+  EField base name ->
+    let (base2, rest) = locateExpr base tokens
+     in (locateAround [base2] (EField base2 name), rest)
+  EUpdate base updates ->
+    let (base2, rest) = locateExpr base (afterToken TEquals tokens)
+        (updates2, rest2) = locateUpdates updates rest
+        children = base2 : [value | RecordSet _ value <- updates2]
+     in (locateAround children (EUpdate base2 updates2), rest2)
+  ETry body returned handlers ->
+    let (body2, rest) = locateExpr body (afterToken TTry tokens)
+        (returned2, rest2) = locateReturn returned rest
+        (handlers2, rest3) = locateHandlers handlers rest2
+        children = body2 : [result | ReturnCase _ result <- maybeToList returned2] ++ [result | HandlerCase _ _ result <- handlers2]
+     in (locateAround children (ETry body2 returned2 handlers2), rest3)
+  EMatch scrutinees cases ->
+    let aligned = if null scrutinees then tokens else afterToken TMatch tokens
+        (scrutinees2, rest) = locateExprs scrutinees aligned
+        (cases2, rest2) = locateCases cases rest
+        children = scrutinees2 ++ [result | MatchCase _ result <- cases2]
+     in (locateAround children (EMatch scrutinees2 cases2), rest2)
+  EBlock declarations body ->
+    let (declarations2, rest) = locateDecls declarations tokens
+        (body2, rest2) = locateExpr body rest
+     in (locateAround [body2] (EBlock declarations2 body2), rest2)
+  EWithEvidence function evidence ->
+    let (function2, rest) = locateExpr function tokens
+     in (locateAround [function2] (EWithEvidence function2 evidence), rest)
+
+locateExprs :: [Expr] -> Locator [Expr]
+locateExprs [] tokens = ([], tokens)
+locateExprs (expression : expressions) tokens =
+  let (expression2, rest) = locateExpr expression tokens
+      (expressions2, rest2) = locateExprs expressions rest
+   in (expression2 : expressions2, rest2)
+
+locateFields :: [(String, Expr)] -> Locator [(String, Expr)]
+locateFields [] tokens = ([], tokens)
+locateFields ((name, value) : fields) tokens =
+  let (value2, rest) = locateExpr value (afterToken TEquals tokens)
+      (fields2, rest2) = locateFields fields rest
+   in ((name, value2) : fields2, rest2)
+
+locateUpdates :: [RecordUpdate] -> Locator [RecordUpdate]
+locateUpdates [] tokens = ([], tokens)
+locateUpdates (update : updates) tokens = case update of
+  RecordSet name value ->
+    let (value2, rest) = locateExpr value (afterToken TEquals tokens)
+        (updates2, rest2) = locateUpdates updates rest
+     in (RecordSet name value2 : updates2, rest2)
+  RecordRemove name ->
+    let (updates2, rest) = locateUpdates updates (afterToken (TIdent name) tokens)
+     in (RecordRemove name : updates2, rest)
+
+locateReturn :: Maybe ReturnCase -> Locator (Maybe ReturnCase)
+locateReturn Nothing tokens = (Nothing, tokens)
+locateReturn (Just (ReturnCase pattern body)) tokens =
+  let (body2, rest) = locateExpr body (afterToken TMapsTo tokens)
+   in (Just (ReturnCase pattern body2), rest)
+
+locateHandlers :: [HandlerCase] -> Locator [HandlerCase]
+locateHandlers [] tokens = ([], tokens)
+locateHandlers (HandlerCase name patterns body : handlers) tokens =
+  let (body2, rest) = locateExpr body (afterToken TMapsTo tokens)
+      (handlers2, rest2) = locateHandlers handlers rest
+   in (HandlerCase name patterns body2 : handlers2, rest2)
+
+locateCases :: [MatchCase] -> Locator [MatchCase]
+locateCases [] tokens = ([], tokens)
+locateCases (MatchCase patterns body : cases) tokens =
+  let (body2, rest) = locateExpr body (afterToken TMapsTo tokens)
+      (cases2, rest2) = locateCases cases rest
+   in (MatchCase patterns body2 : cases2, rest2)
+
+locateLeaf :: Token -> Expr -> Locator Expr
+locateLeaf wanted expression tokens = case break ((== wanted) . locatedToken) tokens of
+  (_, LocatedToken span _ : rest) -> (ELocated span expression, rest)
+  _ -> (expression, tokens)
+
+locateAround :: [Expr] -> Expr -> Expr
+locateAround children expression = maybe expression (`ELocated` expression) (coverSpans (mapMaybe exprSpan children))
+
+exprSpan :: Expr -> Maybe SourceSpan
+exprSpan (ELocated span _) = Just span
+exprSpan _ = Nothing
+
+coverSpans :: [SourceSpan] -> Maybe SourceSpan
+coverSpans [] = Nothing
+coverSpans spans = Just (SourceSpan (minimum (map spanStart spans)) (maximum (map spanEnd spans)))
+
+seekToken :: Token -> [LocatedToken] -> (SourceSpan, [LocatedToken])
+seekToken wanted tokens = case break ((== wanted) . locatedToken) tokens of
+  (_, LocatedToken span _ : rest) -> (span, rest)
+  _ -> (SourceSpan 0 0, tokens)
+
+afterToken :: Token -> [LocatedToken] -> [LocatedToken]
+afterToken token = snd . seekToken token
+
+dropLocatedSemicolon :: [LocatedToken] -> [LocatedToken]
+dropLocatedSemicolon (LocatedToken _ TSemicolon : rest) = rest
+dropLocatedSemicolon tokens = tokens
+
+startsLetDeclaration :: [LocatedToken] -> Bool
+startsLetDeclaration (LocatedToken _ token : _) = token `elem` [TLet, TShow, TGraith]
+startsLetDeclaration [] = False
+
+afterBraceBlock :: [LocatedToken] -> [LocatedToken]
+afterBraceBlock tokens = case dropWhile ((/= TLBrace) . locatedToken) tokens of
+  [] -> tokens
+  _ : body -> go 1 body
+ where
+  go :: Int -> [LocatedToken] -> [LocatedToken]
+  go _ [] = []
+  go depth (token : rest) = case locatedToken token of
+    TLBrace -> go (depth + 1) rest
+    TRBrace
+      | depth == 1 -> rest
+      | otherwise -> go (depth - 1) rest
+    _ -> go depth rest

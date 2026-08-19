@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { analyzeDocument, findDefinition, tokenAtPosition } from "../server/analysis";
-test("analysis records shown owners, members, parameters, and imports", () => {
+import {
+  analyzeDocument,
+  findDefinition,
+  tokenAtPosition,
+} from "../server/analysis.ts";
+test("analysis recordeth shown owners, members, parameters, and imports", () => {
   const source =
-    "bring ground.tung; graith a equal show shape a order { a ≤ a: 𝟚; let a < b = a ≤ b };";
+    "bring ground.tung; graith a equal show shape a order-partial { a ≤ a: 𝟚; let a < b = a ≤ b };";
   const model = analyzeDocument(source, "file:///model.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
@@ -11,13 +15,15 @@ test("analysis records shown owners, members, parameters, and imports", () => {
   );
   assert(
     model.definitions.some(
-      ({ name, role, exported }) => name === "order" && role === "shape" && exported,
+      ({ name, role, exported }) =>
+        name === "order-partial" && role === "shape" && exported,
     ),
   );
   assert(
     model.definitions.some(
       ({ name, role, exported, containerName }) =>
-        name === "≤" && role === "method" && exported && containerName === "order",
+        name === "≤" && role === "method" && exported &&
+        containerName === "order-partial",
     ),
   );
   assert(
@@ -26,7 +32,7 @@ test("analysis records shown owners, members, parameters, and imports", () => {
     ),
   );
 });
-test("analysis records foreign import paths", () => {
+test("analysis recordeth foreign import paths", () => {
   const source = "bring _foreign.tung;\nbring algebra/arithmetic/field.tung;";
   const model = analyzeDocument(source, "file:///imports.tung");
   assert.deepEqual(
@@ -34,14 +40,17 @@ test("analysis records foreign import paths", () => {
     ["_foreign.tung", "algebra/arithmetic/field.tung"],
   );
 });
-test("analysis keeps term and type re-exports distinct", () => {
-  const model = analyzeDocument("show value; show-ilk value;", "file:///exports.tung");
+test("analysis keepeth term and type re-exports distinct", () => {
+  const model = analyzeDocument(
+    "show value; show-ilk value;",
+    "file:///exports.tung",
+  );
   assert.deepEqual(model.reexports, [
     { name: "value", kind: "term" },
     { name: "value", kind: "type" },
   ]);
 });
-test("analysis attaches doc comments to following shown declarations", () => {
+test("analysis attacheth doc comments to following shown declarations", () => {
   const source = [
     "## identity value.",
     "graith a equal show let (x: a) identity: a = x;",
@@ -57,11 +66,13 @@ test("analysis attaches doc comments to following shown declarations", () => {
     "identity value.",
   );
   assert.equal(
-    model.definitions.find(({ name, role }) => name === "box" && role === "type").documentation,
+    model.definitions.find(({ name, role }) =>
+      name === "box" && role === "type"
+    ).documentation,
     "boxed data.",
   );
 });
-test("local resolution prefers the narrowest binder scope", () => {
+test("local resolution preferreth the narrowest binder scope", () => {
   const source = "let (x: integer) keep: integer = match x { x | x };";
   const model = analyzeDocument(source, "file:///scope.tung");
   const use = model.tokens.filter(({ text }) => text === "x").at(-1);
@@ -72,8 +83,11 @@ test("local resolution prefers the narrowest binder scope", () => {
     model.tokens.filter(({ text }) => text === "x").at(-2).offset,
   );
 });
-test("token lookup excludes the character after a token", () => {
+test("token lookup excludeth the character after a token", () => {
   const model = analyzeDocument("let answer = 42;", "file:///token.tung");
-  assert.equal(tokenAtPosition(model, { line: 0, character: 4 }).text, "answer");
+  assert.equal(
+    tokenAtPosition(model, { line: 0, character: 4 }).text,
+    "answer",
+  );
   assert.equal(tokenAtPosition(model, { line: 0, character: 10 }), undefined);
 });

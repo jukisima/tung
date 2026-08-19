@@ -1,0 +1,42 @@
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup.tung;
+bring order/lattice.tung;
+
+graith a semigroup
+show shape a monoid {
+  ∅: a;
+
+  law (a: a): ∅ * a ~ a;
+  law (a: a): a * ∅ ~ a
+}
+
+graith b monoid
+fill (a func b) monoid {
+  let ∅ = { _ | ∅ }
+}
+
+fill (integer additive) monoid {
+  let ∅ = 0 additive
+}
+
+fill (integer multiplicative) monoid {
+  let ∅ = 1 multiplicative
+}
+
+fill (float additive) monoid {
+  let ∅ = 0.0 additive
+}
+
+fill (float multiplicative) monoid {
+  let ∅ = 1.0 multiplicative
+}
+
+graith a semilattice-infimum-bounded
+fill (a infimal) monoid {
+  let ∅ = ⊤ infimal
+}
+
+graith a semilattice-supremum-bounded
+fill (a supremal) monoid {
+  let ∅ = ⟂ supremal
+}

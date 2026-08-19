@@ -1,18 +1,23 @@
-{- | source lexer. a name contains any non-space character not reserved by
+{- | source lexer. a name containeth any non-space character not reserved by
 'specialNameChars'; literals and comments are consumed before name parsing.
 -}
 module Tung.Token (
   Token (..),
+  SourceSpan (..),
+  LocatedToken (..),
   lexTokens,
+  lexLocatedTokens,
   keywordNames,
   specialNameChars,
   isNameChar,
+  unicodeScalar,
 )
 where
 
 import Control.Applicative (many, some)
-import Data.Char (chr, isSpace)
-import Data.Maybe (fromMaybe)
+import Data.Char (chr, isSpace, ord)
+import Data.IntMap.Strict qualified as IntMap
+import Data.Maybe (fromMaybe, isJust)
 import Data.Void (Void)
 import Text.Megaparsec (Parsec)
 import Text.Megaparsec qualified as M
@@ -21,10 +26,10 @@ import Text.Megaparsec.Char.Lexer qualified as L
 
 data Token
   = TIdent String
-  | TInteger Int
-  | TFloat String
-  | TChar String
-  | TString String
+  | TInteger Integer
+  | TFloat Double
+  | TUnicode Char
+  | TText String
   | TLet
   | TGraith
   | TShow
@@ -33,6 +38,7 @@ data Token
   | TLetIlk
   | TKin
   | TDeed
+  | TForeign
   | TShape
   | TFill
   | TLaw
@@ -55,25 +61,53 @@ data Token
   | TDollar
   deriving (Eq, Show)
 
+data SourceSpan = SourceSpan
+  { spanStart :: !Int
+  , spanEnd :: !Int
+  }
+  deriving (Eq, Show)
+
+data LocatedToken = LocatedToken
+  { locatedSpan :: !SourceSpan
+  , locatedToken :: !Token
+  }
+  deriving (Eq, Show)
+
 type Lexer = Parsec Void String
 
 lexTokens :: String -> Either String [Token]
-lexTokens source =
-  case M.parse (spaceConsumer *> many tokenParser <* M.eof) "source" source of
-    Left err -> Left (M.errorBundlePretty err)
-    Right toks -> Right toks
+lexTokens = fmap (map locatedToken) . lexLocatedTokens
 
-tokenParser :: Lexer Token
-tokenParser =
-  lexeme $
-    M.choice
-      [ TInteger <$> M.try integerParser
-      , TFloat <$> M.try floatParser
-      , charParser
-      , stringParser
-      , nameParser
-      , singleTokenParser
-      ]
+lexLocatedTokens :: String -> Either String [LocatedToken]
+lexLocatedTokens source =
+  case M.parse (spaceConsumer *> many locatedTokenParser <* M.eof) "source" source of
+    Left err -> Left (M.errorBundlePretty err)
+    Right toks -> Right (map convertSpan toks)
+ where
+  offsets = IntMap.fromList (zip [0 ..] (scanl (+) 0 (map utf16Width source)))
+  convertSpan token@LocatedToken{locatedSpan = SourceSpan start end} =
+    token{locatedSpan = SourceSpan (offsets IntMap.! start) (offsets IntMap.! end)}
+
+utf16Width :: Char -> Int
+utf16Width character = if ord character > 0xffff then 2 else 1
+
+locatedTokenParser :: Lexer LocatedToken
+locatedTokenParser = lexeme do
+  start <- M.getOffset
+  token <- rawTokenParser
+  end <- M.getOffset
+  pure (LocatedToken (SourceSpan start end) token)
+
+rawTokenParser :: Lexer Token
+rawTokenParser =
+  M.choice
+    [ TInteger <$> M.try integerParser
+    , TFloat <$> M.try floatParser
+    , unicodeLiteralParser
+    , textParser
+    , nameParser
+    , singleTokenParser
+    ]
 
 singleTokenParser :: Lexer Token
 singleTokenParser =
@@ -95,45 +129,45 @@ singleTokenParser =
     , TArrow <$ C.char '→'
     ]
 
-integerParser :: Lexer Int
+integerParser :: Lexer Integer
 integerParser = do
   sign <- M.optional (C.char '-')
   value <- L.decimal
   M.notFollowedBy (C.char '.' *> C.digitChar)
   pure (maybe value (const (-value)) sign)
 
-floatParser :: Lexer String
+floatParser :: Lexer Double
 floatParser = do
   sign <- M.optional (C.char '-')
   whole <- some C.digitChar
   _ <- C.char '.'
   frac <- some C.digitChar
-  pure (maybe "" (: []) sign ++ whole ++ "." ++ frac)
+  pure (read (maybe "" (: []) sign ++ whole ++ "." ++ frac))
 
-charParser :: Lexer Token
-charParser = do
+unicodeLiteralParser :: Lexer Token
+unicodeLiteralParser = do
   _ <- C.char '`'
-  TChar <$> M.choice [(: []) <$> escapedCharParser, unicodeCharParser, (: []) <$> M.anySingle]
+  TUnicode <$> M.choice [escapedCodePointParser, bracedCodePointParser, scalarCodePointParser]
 
-unicodeCharParser :: Lexer String
-unicodeCharParser = do
+bracedCodePointParser :: Lexer Char
+bracedCodePointParser = do
   _ <- C.char '{'
   digits <- some C.digitChar
   _ <- C.char '}'
-  decimalUnicode digits
+  decimalCodePoint digits
 
-stringParser :: Lexer Token
-stringParser = TString <$> (C.char '\'' *> many stringCharParser <* C.char '\'')
+textParser :: Lexer Token
+textParser = TText <$> (C.char '\'' *> many textCharParser <* C.char '\'')
 
-stringCharParser :: Lexer Char
-stringCharParser =
+textCharParser :: Lexer Char
+textCharParser =
   M.choice
-    [ escapedCharParser
-    , M.anySingleBut '\''
+    [ escapedCodePointParser
+    , M.satisfy (\codePoint -> codePoint /= '\'' && isUnicodeScalar codePoint)
     ]
 
-escapedCharParser :: Lexer Char
-escapedCharParser = do
+escapedCodePointParser :: Lexer Char
+escapedCodePointParser = do
   _ <- C.char '\\'
   M.choice
     [ '\n' <$ C.char 'n'
@@ -141,24 +175,23 @@ escapedCharParser = do
     , '\t' <$ C.char 't'
     , '\'' <$ C.char '\''
     , '\\' <$ C.char '\\'
-    , unicodeEscapeCharParser
+    , bracedCodePointParser
     ]
 
-unicodeEscapeCharParser :: Lexer Char
-unicodeEscapeCharParser = do
-  _ <- C.char '{'
-  digits <- some C.digitChar
-  _ <- C.char '}'
-  decoded <- decimalUnicode digits
-  case decoded of
-    [c] -> pure c
-    _ -> fail "decimal unicode escape must name one character"
+decimalCodePoint :: String -> Lexer Char
+decimalCodePoint digits = maybe (fail "decimal unicode escape must name a unicode scalar value") pure (unicodeScalar (read digits))
 
-decimalUnicode :: String -> Lexer String
-decimalUnicode digits =
-  case read digits :: Int of
-    n | n >= 0 && n <= 0x10ffff -> pure [chr n]
-    _ -> fail "decimal unicode escape out of range"
+scalarCodePointParser :: Lexer Char
+scalarCodePointParser = M.satisfy isUnicodeScalar
+
+isUnicodeScalar :: Char -> Bool
+isUnicodeScalar = isJust . unicodeScalar . toInteger . ord
+
+-- literals and native integer conversion share this scalar-value boundary.
+unicodeScalar :: Integer -> Maybe Char
+unicodeScalar value
+  | value >= 0 && value <= 0x10ffff && (value < 0xd800 || 0xdfff < value) = Just (chr (fromInteger value))
+  | otherwise = Nothing
 
 nameParser :: Lexer Token
 nameParser = keywordOrIdent . concat <$> some nameChunk
@@ -188,6 +221,7 @@ keywordTokens =
   , ("let-ilk", TLetIlk)
   , ("kin", TKin)
   , ("deed", TDeed)
+  , ("foreign", TForeign)
   , ("shape", TShape)
   , ("fill", TFill)
   , ("law", TLaw)

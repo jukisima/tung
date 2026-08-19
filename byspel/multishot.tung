@@ -11,5 +11,5 @@ let branch-sum: integer =
 
 let (_: 𝟙) main: 𝟙 ! console = (
   let _ = 'multi-shot' write-line;
-  branch-sum to-string $ write-line
+  branch-sum to-text $ write-line
 )

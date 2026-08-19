@@ -13,39 +13,39 @@ resolutionCases :: [Test]
 resolutionCases =
   [ typeOkWith "unique imported value may be bare" "bring left.tung; let ok: integer = foo;" leftOnly
   , typeErrWith "two imported values are ambiguous" "bring left.tung; bring right.tung; let bad: integer = foo;" both
-  , typeOkWith "qualification resolves value ambiguity" "bring left.tung; bring right.tung; let ok: integer = left@foo + right@foo;" both
+  , typeOkWith "qualification resolveth value ambiguity" "bring left.tung; bring right.tung; let ok: integer = left@foo + right@foo;" both
   , typeErrWith "unknown qualified namespace" "bring left.tung; let bad = right@foo;" leftOnly
   , typeOkWith "local value shadows imported values" "bring left.tung; bring right.tung; let foo = 3; let ok: integer = foo;" both
   , typeOkWith "unique imported constructor may be bare" "bring left.tung; let ok: left@box = box;" leftOnly
   , typeErrWith "constructors are ambiguous too" "bring left.tung; bring right.tung; let bad = box;" both
-  , typeOkWith "qualified constructor resolves ambiguity" "bring left.tung; bring right.tung; let ok: left@box = left@box;" both
+  , typeOkWith "qualified constructor resolveth ambiguity" "bring left.tung; bring right.tung; let ok: left@box = left@box;" both
   , typeErrWith "bare imported types are ambiguous" "bring left.tung; bring right.tung; let bad: box = left@box;" both
-  , typeOkWith "qualified type resolves ambiguity" "bring left.tung; bring right.tung; let ok: left@box = left@box;" both
+  , typeOkWith "qualified type resolveth ambiguity" "bring left.tung; bring right.tung; let ok: left@box = left@box;" both
   , typeErrWith "exports hide unshown values" "bring public.tung; let bad = hidden;" publicOnly
   , typeErrWith "private values stay hidden when qualified" "bring public.tung; let bad = public@hidden;" publicOnly
   , typeErrWith "private types stay hidden when qualified" "bring private-type.tung; let bad: private-type@secret = 1;" privateType
   , typeOkWith "shown values stay bare" "bring public.tung; let ok: integer = visible;" publicOnly
-  , typeOkWith "qualified lookup wins before field access" "bring public.tung; let public = [visible = 'record']; let ok: integer = public@visible;" publicOnly
+  , typeOkWith "qualified lookup winneth before field access" "bring public.tung; let public = [visible = 'record']; let ok: integer = public@visible;" publicOnly
   , typeOkWith "field access is fallback lookup" "let value = [field = 1]; let ok: integer = value@field;" Map.empty
   , typeOkWith "a qualified name can be re-exported" "bring middle.tung; let ok: integer = value + middle@value;" reexported
-  , typeErrWith "an ordinary bring does not re-export" "bring closed.tung; let bad = value;" notReexported
+  , typeErrWith "an ordinary bring doth not re-export" "bring closed.tung; let bad = value;" notReexported
   , typeErrWith "an unknown re-export is rejected" "show missing;" Map.empty
   , typeErrWith "an unknown type re-export is rejected" "show-ilk missing;" Map.empty
   , typeErrWith "an ambiguous bare re-export is rejected" "bring left.tung; bring right.tung; show foo;" both
-  , typeErrWith "bare imported type aliases are ambiguous" "bring integer-type.tung; bring string-type.tung; let id: token → token = { x | x };" aliasImports
-  , typeOkWith "qualification resolves type alias ambiguity" "bring integer-type.tung; bring string-type.tung; let integer-id: integer-type@token → integer-type@token = { x | x }; let string-id: string-type@token → string-type@token = { x | x };" aliasImports
-  , typeErrWith "an ambiguous type re-export is rejected" "bring integer-type.tung; bring string-type.tung; show-ilk token;" aliasImports
+  , typeErrWith "bare imported type aliases are ambiguous" "bring integer-type.tung; bring text-type.tung; let id: token → token = { x | x };" aliasImports
+  , typeOkWith "qualification resolveth type alias ambiguity" "bring integer-type.tung; bring text-type.tung; let integer-id: integer-type@token → integer-type@token = { x | x }; let text-id: text-type@token → text-type@token = { x | x };" aliasImports
+  , typeErrWith "an ambiguous type re-export is rejected" "bring integer-type.tung; bring text-type.tung; show-ilk token;" aliasImports
   , typeOkWith "a type and constructor can be re-exported separately" "bring data-middle.tung; let ok: integer box = 1 box;" dataReexport
   , typeOkWith "show-ilk exports the type namespace" "bring type-only.tung; let ok: token = 1;" selectiveReexports
-  , typeErrWith "show-ilk does not export a same-spelled term" "bring type-only.tung; let bad = token;" selectiveReexports
+  , typeErrWith "show-ilk doth not export a same-spelled term" "bring type-only.tung; let bad = token;" selectiveReexports
   , typeOkWith "show exports the term namespace" "bring term-only.tung; let ok: integer = token;" selectiveReexports
-  , typeErrWith "show does not export a same-spelled type" "bring term-only.tung; let bad: token = 1;" selectiveReexports
-  , typeOkWith "a shape export carries methods and fill evidence" "bring identity.tung; let ok: integer = 1 identity;" identityExport
-  , typeOkWith "an effect export carries its operations" "bring ask.tung; let run: integer → integer = { x | try x ask { y ask | y } };" effectExport
-  , typeOkWith "an effect export carries its type-level name" "bring ask.tung; let run: integer → integer ! ask = { x | x ask };" effectExport
+  , typeErrWith "show doth not export a same-spelled type" "bring term-only.tung; let bad: token = 1;" selectiveReexports
+  , typeOkWith "a shape export carrieth methods and fill evidence" "bring identity.tung; let ok: integer = 1 identity;" identityExport
+  , typeOkWith "an effect export carrieth its operations" "bring ask.tung; let run: integer → integer = { x | try x ask { y ask | y } };" effectExport
+  , typeOkWith "an effect export carrieth its type-level name" "bring ask.tung; let run: integer → integer ! ask = { x | x ask };" effectExport
   , typeOkWith "show-ilk re-exports an effect" "bring ask-middle.tung; let run: integer → integer ! ask = { x | x ask };" effectReexport
   , typeErrWith "effects and data types share the type namespace" "bring data.tung; bring effect.tung; let run: integer → integer ! signal = { x | x effect@signal };" typeKindCollision
-  , typeOkWith "qualification resolves an effect and data type collision" "bring data.tung; bring effect.tung; let run: integer → integer ! effect@signal = { x | x effect@signal };" typeKindCollision
+  , typeOkWith "qualification resolveth an effect and data type collision" "bring data.tung; bring effect.tung; let run: integer → integer ! effect@signal = { x | x effect@signal };" typeKindCollision
   , typeOkWith "constructor pattern is exhaustive after re-export" "bring data-middle.tung; let unbox: integer box → integer = { x box | x };" dataWholeReexport
   ]
  where
@@ -96,7 +96,7 @@ resolutionCases =
   aliasImports =
     Map.fromList
       [ ("integer-type.tung", "show let-ilk token = integer;")
-      , ("string-type.tung", "show let-ilk token = string;")
+      , ("text-type.tung", "show let-ilk token = text;")
       ]
 moduleSource :: Int -> String
 moduleSource value = "show kin box { box }; show let foo: integer = " ++ show value ++ ";"

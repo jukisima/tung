@@ -1,0 +1,16 @@
+## captured process status and standard streams.
+show kin process-result {
+  integer process-result text text
+}
+
+show let process-status: process-result → integer = {
+  status process-result _ _ | status
+};
+
+show let process-output: process-result → text = {
+  _ process-result output _ | output
+};
+
+show let process-errors: process-result → text = {
+  _ process-result _ errors | errors
+}

@@ -1,0 +1,6 @@
+bring data/two.tung;
+
+## a container whose membership can be decided.
+show shape a b inhold {
+  a ∋ b: 𝟚
+}
