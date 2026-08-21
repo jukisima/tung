@@ -1,5 +1,6 @@
 bring algebra/total/magma.tung;
 bring algebra/total/semigroup.tung;
+bring data/two.tung;
 bring order/lattice.tung;
 
 graith a semigroup
@@ -12,7 +13,7 @@ show shape a monoid {
 
 graith b monoid
 fill (a func b) monoid {
-  let ∅ = { _ | ∅ }
+  let _ ∅ = ∅
 }
 
 fill (integer additive) monoid {
@@ -31,12 +32,11 @@ fill (float multiplicative) monoid {
   let ∅ = 1.0 multiplicative
 }
 
-graith a semilattice-infimum-bounded
-fill (a infimal) monoid {
-  let ∅ = ⊤ infimal
+fill (𝟚 infimal) monoid {
+  let ∅ = yea infimal
 }
 
-graith a semilattice-supremum-bounded
+graith a semilattice-supremal-bounded
 fill (a supremal) monoid {
   let ∅ = ⟂ supremal
 }

@@ -7,9 +7,9 @@ show shape a b absolute {
 }
 
 fill integer integer absolute {
-  let a absolute = (0 ≤ a) if a (0 - a)
+  let integer absolute = (0 ≤ integer) if integer (0 - integer)
 }
 
 fill float float absolute {
-  let a absolute = (0.0 ≤ a) if a (0.0 - a)
+  let float absolute = (0.0 ≤ float) if float (0.0 - float)
 }

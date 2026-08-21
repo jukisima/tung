@@ -27,8 +27,8 @@ const formatDocument = (text, options: FormatOptions = {}) => {
       continue;
     }
     const closes = leadingClosures(content);
-    const lineDepth = Math.max(0, depth - closes + continuation);
-    const lineContinuation = continuation;
+    const lineContinuation = closes > 0 ? 0 : continuation;
+    const lineDepth = Math.max(0, depth - closes + lineContinuation);
     const balance = delimiterBalance(content, inString, inBlockComment);
     inString = balance.inString;
     inBlockComment = balance.inBlockComment;
@@ -50,7 +50,11 @@ const formatDocument = (text, options: FormatOptions = {}) => {
         depth = Math.max(0, depth - 1);
       }
     }
-    continuation = lineContinues(content, lineContinuation > 0) ? 1 : 0;
+    if (closes > 0) continuation = 0;
+    else if (lineContinues(content, lineContinuation > 0)) continuation = 1;
+    else if (keepsContinuation(content, lineContinuation > 0, balance.delta)) {
+      continuation = Math.max(2, lineContinuation);
+    } else continuation = 0;
     formatted.push(indentUnit.repeat(lineDepth) + content);
   }
   const result = formatted.join("\n");
@@ -99,17 +103,20 @@ const lineContinues = (line, continued = false) => {
     (/(?:^|\s)let(?:\s|$)/.test(code) && !code.includes("="))
   );
 };
+const keepsContinuation = (line, continued, delimiterDelta) => {
+  const code = codeBeforeComment(line).trimEnd();
+  return continued && delimiterDelta === 0 && !code.endsWith(";");
+};
 const codeBeforeComment = (line) => {
   let inString = false;
-  let inCharacter = false;
   let escaped = false;
   for (let index = 0; index < line.length; index += 1) {
     const char = line[index];
-    if (!inString && !inCharacter && char === "#") {
+    if (!inString && char === "#") {
       return line.slice(0, index);
     }
     if (
-      !inString && !inCharacter && char === "/" && line[index + 1] === "*"
+      !inString && char === "/" && line[index + 1] === "*"
     ) {
       return line.slice(0, index);
     }
@@ -117,24 +124,31 @@ const codeBeforeComment = (line) => {
       escaped = false;
       continue;
     }
-    if ((inString || inCharacter) && char === "\\") {
+    if (inString && char === "\\") {
       escaped = true;
       continue;
     }
-    if (!inCharacter && char === "'") {
+    if (char === "'") {
       inString = !inString;
       continue;
     }
     if (!inString && char === "`") {
-      inCharacter = true;
-      continue;
-    }
-    if (inCharacter) {
-      if (char === "{" && line[index - 1] === "\\") continue;
-      inCharacter = false;
+      index = characterLiteralEnd(line, index);
     }
   }
   return line;
+};
+const characterLiteralEnd = (line, start) => {
+  const character = start + 1;
+  if (character >= line.length) return start;
+  if (line[character] !== "\\") {
+    return character + ((line.codePointAt(character) || 0) > 0xffff ? 1 : 0);
+  }
+  const escaped = character + 1;
+  if (escaped >= line.length || !/[0-9]/.test(line[escaped])) return escaped;
+  let end = escaped;
+  while (end + 1 < line.length && /[0-9]/.test(line[end + 1])) end += 1;
+  return line[end + 1] === ";" ? end + 1 : end;
 };
 const delimiterBalance = (
   line,
@@ -144,7 +158,6 @@ const delimiterBalance = (
   let delta = 0;
   let inString = startedInString;
   let inBlockComment = startedInBlockComment;
-  let inCharacter = false;
   let escaped = false;
   for (let index = 0; index < line.length; index += 1) {
     const char = line[index];
@@ -155,9 +168,9 @@ const delimiterBalance = (
       }
       continue;
     }
-    if (!inString && !inCharacter && char === "#") break;
+    if (!inString && char === "#") break;
     if (
-      !inString && !inCharacter && char === "/" && line[index + 1] === "*"
+      !inString && char === "/" && line[index + 1] === "*"
     ) {
       inBlockComment = true;
       index += 1;
@@ -167,21 +180,16 @@ const delimiterBalance = (
       escaped = false;
       continue;
     }
-    if ((inString || inCharacter) && char === "\\") {
+    if (inString && char === "\\") {
       escaped = true;
       continue;
     }
-    if (!inCharacter && char === "'") {
+    if (char === "'") {
       inString = !inString;
       continue;
     }
     if (!inString && char === "`") {
-      inCharacter = true;
-      continue;
-    }
-    if (inCharacter) {
-      if (char === "{" && line[index - 1] === "\\") continue;
-      inCharacter = false;
+      index = characterLiteralEnd(line, index);
       continue;
     }
     if (inString) continue;

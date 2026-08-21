@@ -1,4 +1,3 @@
-bring combinator.tung;
 bring data/two.tung;
 
 show shape a add {
@@ -42,22 +41,37 @@ show shape a semiring {
 
 graith b semiring
 fill (a func b) semiring {
-  let f + g = { a | (a f) + (a g) };
-  let zero = { _ | zero };
-  let f × g = { a | (a f) × (a g) };
-  let one = { _ | one }
+  let f + g a = (a f) + (a g);
+  let _ zero = zero;
+  let f × g a = (a f) × (a g);
+  let _ one = one
 }
 
-fill 𝟚 semiring {
+fill 𝟚 add {
   let + = {
     yea, nay | yea,
     nay, yea | yea,
     _, _ | nay
-  };
-  let zero = nay;
+  }
+}
+
+fill 𝟚 zero {
+  let zero = nay
+}
+
+fill 𝟚 monoid-additive {}
+
+fill 𝟚 multiply {
   let × = {
     yea, yea | yea,
     _, _ | nay
-  };
+  }
+}
+
+fill 𝟚 one {
   let one = yea
 }
+
+fill 𝟚 monoid-multiplicative {}
+
+fill 𝟚 semiring {}

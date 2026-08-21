@@ -32,8 +32,8 @@ resolutionCases =
   , typeErrWith "an unknown re-export is rejected" "show missing;" Map.empty
   , typeErrWith "an unknown type re-export is rejected" "show-ilk missing;" Map.empty
   , typeErrWith "an ambiguous bare re-export is rejected" "bring left.tung; bring right.tung; show foo;" both
-  , typeErrWith "bare imported type aliases are ambiguous" "bring integer-type.tung; bring text-type.tung; let id: token → token = { x | x };" aliasImports
-  , typeOkWith "qualification resolveth type alias ambiguity" "bring integer-type.tung; bring text-type.tung; let integer-id: integer-type@token → integer-type@token = { x | x }; let text-id: text-type@token → text-type@token = { x | x };" aliasImports
+  , typeErrWith "bare imported type aliases are ambiguous" "bring integer-type.tung; bring text-type.tung; let (x: token) id: token = x;" aliasImports
+  , typeOkWith "qualification resolveth type alias ambiguity" "bring integer-type.tung; bring text-type.tung; let (x: integer-type@token) integer-id: integer-type@token = x; let (x: text-type@token) text-id: text-type@token = x;" aliasImports
   , typeErrWith "an ambiguous type re-export is rejected" "bring integer-type.tung; bring text-type.tung; show-ilk token;" aliasImports
   , typeOkWith "a type and constructor can be re-exported separately" "bring data-middle.tung; let ok: integer box = 1 box;" dataReexport
   , typeOkWith "show-ilk exports the type namespace" "bring type-only.tung; let ok: token = 1;" selectiveReexports
@@ -41,11 +41,11 @@ resolutionCases =
   , typeOkWith "show exports the term namespace" "bring term-only.tung; let ok: integer = token;" selectiveReexports
   , typeErrWith "show doth not export a same-spelled type" "bring term-only.tung; let bad: token = 1;" selectiveReexports
   , typeOkWith "a shape export carrieth methods and fill evidence" "bring identity.tung; let ok: integer = 1 identity;" identityExport
-  , typeOkWith "an effect export carrieth its operations" "bring ask.tung; let run: integer → integer = { x | try x ask { y ask | y } };" effectExport
-  , typeOkWith "an effect export carrieth its type-level name" "bring ask.tung; let run: integer → integer ! ask = { x | x ask };" effectExport
-  , typeOkWith "show-ilk re-exports an effect" "bring ask-middle.tung; let run: integer → integer ! ask = { x | x ask };" effectReexport
-  , typeErrWith "effects and data types share the type namespace" "bring data.tung; bring effect.tung; let run: integer → integer ! signal = { x | x effect@signal };" typeKindCollision
-  , typeOkWith "qualification resolveth an effect and data type collision" "bring data.tung; bring effect.tung; let run: integer → integer ! effect@signal = { x | x effect@signal };" typeKindCollision
+  , typeOkWith "an effect export carrieth its operations" "bring ask.tung; let (x: integer) run: integer = try x ask { y ask | y };" effectExport
+  , typeOkWith "an effect export carrieth its type-level name" "bring ask.tung; let (x: integer) run: integer ! ask = x ask;" effectExport
+  , typeOkWith "show-ilk re-exports an effect" "bring ask-middle.tung; let (x: integer) run: integer ! ask = x ask;" effectReexport
+  , typeErrWith "effects and data types share the type namespace" "bring data.tung; bring effect.tung; let (x: integer) run: integer ! signal = x effect@signal;" typeKindCollision
+  , typeOkWith "qualification resolveth an effect and data type collision" "bring data.tung; bring effect.tung; let (x: integer) run: integer ! effect@signal = x effect@signal;" typeKindCollision
   , typeOkWith "constructor pattern is exhaustive after re-export" "bring data-middle.tung; let unbox: integer box → integer = { x box | x };" dataWholeReexport
   ]
  where

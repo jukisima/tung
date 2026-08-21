@@ -84,7 +84,7 @@
           "name": "string.quoted.single.tung",
           "patterns": [
             {
-              "match": "\\\\(?:n|r|t|\\\\|'|\\{[0-9]+\\})",
+              "match": "\\\\(?:n|r|t|\\\\|'|[0-9]+;)",
               "name": "constant.character.escape.tung"
             }
           ]
@@ -94,7 +94,7 @@
     "character": {
       "patterns": [
         {
-          "match": "`(?:\\\\(?:n|r|t|\\\\|'|\\{[0-9]+\\})|\\{[0-9]+\\}|.)",
+          "match": "`(?:\\\\(?:n|r|t|\\\\|'|[0-9]+;)|.)",
           "name": "constant.character.tung"
         }
       ]
@@ -152,7 +152,7 @@
           "name": "meta.export.type.tung",
           "patterns": [
             {
-              "match": "[^\\s#(){}\\[\\]:,|!=;.$→`']+|[+\\-×÷≤≡¬∅∏∐*]",
+              "match": "[^\\s#(){}\\[\\]:,|!=;.$→`']+|[+\\-×∕÷≤≡¬∅∏∐*]",
               "name": "support.type.tung"
             },
             {
@@ -278,7 +278,7 @@
     "name": {
       "patterns": [
         {
-          "match": "\\.\\*|[^\\s#(){}\\[\\]:,|!=;.$→`']+|[+\\-×÷≤≡¬∅∏∐*]",
+          "match": "\\.\\*|[^\\s#(){}\\[\\]:,|!=;.$→`']+|[+\\-×∕÷≤≡¬∅∏∐*]",
           "name": "variable.other.tung"
         }
       ]

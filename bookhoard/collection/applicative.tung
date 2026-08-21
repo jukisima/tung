@@ -1,4 +1,4 @@
-bring combinator.tung;
+bring algebra/partial/category.tung;
 bring collection/functor.tung;
 
 graith f functor show shape f applicative {
@@ -7,13 +7,13 @@ graith f functor show shape f applicative {
 
   # identity
   law (a: a f):
-    a apply (id pure) ~ a;
+    a apply ((identity: a → a) pure) ~ a;
   # homomorphism
   law (a: a, f: a → b ! e):
     (a pure) apply (f pure) ~ (a f) pure;
   # composition
   law (a: a f, f: a → b ! e, g: b → c ! e):
-    (a apply (f pure)) apply (g pure) ~ a apply ((f compose g) pure);
+    (a apply (f pure)) apply (g pure) ~ a apply (({ x | x f $ g }) pure);
   # interchange
   law (a: a, fs: (a → b ! e) f):
     (a pure) apply fs ~ fs map { f | a f }

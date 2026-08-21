@@ -13,6 +13,32 @@ test("formatter is idempotent", () => {
   const source = "deed ask {\n  integer ask: integer\n}\n";
   assert.equal(formatDocument(formatDocument(source)), formatDocument(source));
 });
+test("formatter is idempotent for generated structural sources", () => {
+  const declarations = [
+    ["show kin a box {", "a box", "}"],
+    ["let result =", "match value {", "yea | 1,", "nay | 0", "};"],
+    ["let handled =", "try risky {", "message fail | 0", "};"],
+    [
+      "shape a identity {",
+      "a identity: a;",
+      "law (x: a):",
+      "x identity ~ x",
+      "}",
+    ],
+  ];
+  const indentation = ["", " ", "  ", "\t"];
+  const endings = ["", "\n"];
+  for (const declaration of declarations) {
+    for (const prefix of indentation) {
+      for (const ending of endings) {
+        const source = declaration.map((line) => prefix + line).join("\n") +
+          ending;
+        const once = formatDocument(source);
+        assert.equal(formatDocument(once), once, source);
+      }
+    }
+  }
+});
 test("formatter preserveth current application syntax", () => {
   const source = [
     "show let (x: a option, f: a → 𝟚) filter: a option = x match {",
@@ -65,6 +91,26 @@ test("formatter indents expression continuations after let equals", () => {
     ].join("\n"),
   );
 });
+test("formatter indenteth latter lines of a split right side", () => {
+  const source = [
+    "fill (float complex) elementary {",
+    "let (a complex b) sine =",
+    "(((0.0 subtract-float b) complex a) exponent)",
+    "sine-from-exponents ((b complex (0.0 subtract-float a)) exponent);",
+    "}",
+    "",
+  ].join("\n");
+  const expected = [
+    "fill (float complex) elementary {",
+    "  let (a complex b) sine =",
+    "    (((0.0 subtract-float b) complex a) exponent)",
+    "      sine-from-exponents ((b complex (0.0 subtract-float a)) exponent);",
+    "}",
+    "",
+  ].join("\n");
+  assert.equal(formatDocument(source), expected);
+  assert.equal(formatDocument(expected), expected);
+});
 test("formatter indents split let annotations and definitions", () => {
   const source = [
     "show let (f0: a → b ! e0, f1: b → c ! e1) compose",
@@ -80,6 +126,10 @@ test("formatter indents split let annotations and definitions", () => {
   ].join("\n");
   assert.equal(formatDocument(source), expected);
   assert.equal(formatDocument(expected), expected);
+});
+test("formatter preserveth term type ascriptions", () => {
+  const source = "let answer = (1 + 2: integer);\n";
+  assert.equal(formatDocument(source), source);
 });
 test("formatter indents equations after multiline law headers", () => {
   const source = [
@@ -105,6 +155,27 @@ test("formatter indents equations after multiline law headers", () => {
 test("formatter ignoreth equals signs in strings and comments for continuation indentation", () => {
   const source = ["let text = 'a = b'; # =", "let next = 1;", ""].join("\n");
   assert.equal(formatDocument(source), source);
+});
+test("formatter treateth a decimal unicode terminator as part of its character", () => {
+  const source = [
+    "let result =",
+    "match character {",
+    "`\\32; | 1,",
+    "_ | 0",
+    "};",
+    "",
+  ].join("\n");
+  assert.equal(
+    formatDocument(source),
+    [
+      "let result =",
+      "  match character {",
+      "    `\\32; | 1,",
+      "    _ | 0",
+      "  };",
+      "",
+    ].join("\n"),
+  );
 });
 test("formatter ignoreth delimiters in block comments", () => {
   const source = [

@@ -90,6 +90,7 @@ data Expr
   | EText String
   | EForeign
   | EVar String
+  | EAscribe Expr TypeExpr
   | EApply Expr (NonEmpty Expr)
   | ERecord [(String, Expr)]
   | EField Expr String

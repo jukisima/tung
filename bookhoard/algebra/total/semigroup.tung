@@ -3,6 +3,7 @@ bring algebra/total/semigroup/additive.tung;
 bring algebra/total/semigroup/multiplicative.tung;
 bring algebra/total/semigroup/infimal.tung;
 bring algebra/total/semigroup/supremal.tung;
+bring data/two.tung;
 bring order/lattice.tung;
 
 graith a magma
@@ -15,7 +16,7 @@ show additive, multiplicative, infimal, supremal;
 
 graith b semigroup
 fill (a func b) semigroup {
-  let f * g = { a | (a f) * (a g) }
+  let f * g a = (a f) * (a g)
 }
 
 fill (integer additive) semigroup {
@@ -34,12 +35,15 @@ fill (float multiplicative) semigroup {
   let (a multiplicative) * (b multiplicative) = (a × b) multiplicative
 }
 
-graith a semilattice-infimum
-fill (a infimal) semigroup {
-  let (a infimal) * (b infimal) = (a ∧ b) infimal
+fill (𝟚 infimal) semigroup {
+  let (a infimal) * (b infimal) = match a, b {
+    nay, _ | nay infimal,
+    _, nay | nay infimal,
+    _, _ | yea infimal
+  }
 }
 
-graith a semilattice-supremum
+graith a semilattice-supremal
 fill (a supremal) semigroup {
   let (a supremal) * (b supremal) = (a ∨ b) supremal
 }

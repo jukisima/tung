@@ -13,9 +13,12 @@ LANGUAGE_NAMES := $(VSCODE_DIR)/generated/language-names.json
 CABAL ?= cabal
 NPM ?= npm
 CODE ?= code
+RUNGHC ?= runghc
+BENCH_RUNS ?= 3
+BENCH_SIZE ?= 1000
 
 .PHONY: all setup build test benchmark docs install \
-	compiler-build compiler-test compiler-install runner-check \
+	bookhoard-membership compiler-build compiler-test compiler-install runner-check \
 	language-metadata \
 	vscode-deps vscode-build vscode-test extension-package extension-install \
 	writ-deps writ-build writ-test
@@ -30,15 +33,19 @@ build: compiler-build vscode-build writ-build
 test: compiler-test vscode-test writ-test
 
 benchmark: compiler-build
-	@cd "$(TONGUE_DIR)" && "$$($(CABAL) list-bin exe:tung)" --run-quiet ../benchmark/fibonacci.tung
+	@printf 'benchmarking tung compiler and evaluator\n'
+	@cd "$(TONGUE_DIR)" && $(CABAL) bench tung-benchmark --benchmark-options="--runs $(BENCH_RUNS) --size $(BENCH_SIZE)"
 
 install: compiler-install extension-install
 
-compiler-build:
+bookhoard-membership:
+	@cd "$(TONGUE_DIR)" && $(RUNGHC) -isrc tool/bookhoard-membership.hs
+
+compiler-build: bookhoard-membership
 	@printf 'building tung compiler\n'
 	@cd "$(TONGUE_DIR)" && $(CABAL) build exe:tung
 
-compiler-test: compiler-build
+compiler-test: language-metadata
 	@printf 'testing tung compiler\n'
 	@cd "$(TONGUE_DIR)" && $(CABAL) test all
 
@@ -50,7 +57,7 @@ compiler-install: compiler-build
 
 runner-check:
 	@printf 'checking installed tung runner\n'
-	@printf '%s\n' 'let identity = { value | value };' | (cd /tmp && "$(BIN_DIR)/tung" --check-stdin) | grep -qx 'type ok'
+	@printf '%s\n' 'let value identity = value;' | (cd /tmp && "$(BIN_DIR)/tung" --check-stdin) | grep -qx 'type ok'
 	@if ! printf '%s' ":$$PATH:" | grep -Fq ':$(BIN_DIR):'; then \
 		printf 'add %s to path to run: tung filename.tung\n' "$(BIN_DIR)"; \
 	fi

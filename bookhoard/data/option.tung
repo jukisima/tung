@@ -31,9 +31,9 @@ fill (a option) monoid {
 }
 
 fill option functor {
-  let option map f = match option {
-    none | none,
-    a some | a f $ some
+  let map = {
+    none, _ | none,
+    a some, f | a f $ some
   }
 }
 
@@ -50,13 +50,13 @@ fill option monad {
     none | none,
     a some | a
   };
-  let a map-flat f = a map f $ flat
+  let option map-flat f = option map f $ flat
 }
 
 fill option filter {
-  let option filter f = match option {
-    none | none,
-    a some | a f $ if (a some) none
+  let filter = {
+    none, _ | none,
+    a some, f | a f $ if (a some) none
   }
 }
 
@@ -72,13 +72,13 @@ fill option cata {
 }
 
 fill option traverse {
-  let option traverse f = match option {
-    none | none pure,
-    a some | (a f) map some
+  let traverse = {
+    none, _ | none pure,
+    a some, f | (a f) map some
   };
   let sequence = {
     none | none pure,
-    value some | value map some
+    a some | a map some
   }
 }
 
@@ -107,8 +107,8 @@ show let is-none: a option → 𝟚 = {
 };
 
 ## extract an option or run a fallback computation.
-show let (value: a option, fallback: 𝟙 → a ! e) or-else: a ! e =
-  match value {
+show let (option: a option, fallback: 𝟙 → a ! e) or-else: a ! e =
+  match option {
     none | null fallback,
     a some | a
   }

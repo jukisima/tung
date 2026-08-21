@@ -39,25 +39,34 @@ module Tung (
   lexTokens,
   lexLocatedTokens,
   keywordNames,
+  languageKeywordNames,
+  specialNameChars,
   enterImport,
   validateProgram,
   check,
   checkWithImports,
   checkEditorWithImports,
+  checkDiagnosticWithImports,
   checkEditorProgramWithImportsDetailed,
   checkEditorDiagnosticWithImports,
+  renderFileDiagnostic,
   renderDiagnostic,
   checkRunnableWithImports,
   elaborateProgramWithImports,
+  elaborateInteractiveProgramWithImports,
   typeOfWithImports,
   baseContext,
   inferProgramContext,
   lookupEnv,
   canonicalTypeName,
+  primitiveTypeNames,
   showTy,
   evaluate,
   evaluateWithImports,
   evaluateWithArgsAndImports,
+  evaluateCoreProgram,
+  evaluateMainCoreProgram,
+  evaluateMainCoreProgramWithArgs,
   evaluateMainWithImports,
   evaluateMainWithArgsAndImports,
   bookhoardImportFiles,
@@ -72,12 +81,12 @@ module Tung (
 import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
 import Tung.Core (CoreProgram)
 import Tung.Diagnostic
-import Tung.Evaluate (evaluate, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
+import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainCoreProgram, evaluateMainCoreProgramWithArgs, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
 import Tung.Import (enterImport)
 import Tung.Parse (ParsedSource (..), parse, parseLocated)
 import Tung.Primitive
 import Tung.Project
 import Tung.Syntax
-import Tung.Token (LocatedToken (..), SourceSpan (..), Token (..), keywordNames, lexLocatedTokens, lexTokens)
+import Tung.Token (LocatedToken (..), SourceSpan (..), Token (..), keywordNames, languageKeywordNames, lexLocatedTokens, lexTokens, specialNameChars)
 import Tung.Type
 import Tung.Validate (validateProgram)

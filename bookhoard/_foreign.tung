@@ -46,11 +46,11 @@ show deed file {
 show let add-integer: integer → integer → integer = foreign;
 show let subtract-integer: integer → integer → integer = foreign;
 show let multiply-integer: integer → integer → integer = foreign;
-show let divide-integer: integer → integer → integer ! text fail = foreign;
+show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = foreign;
 show let add-float: float → float → float = foreign;
 show let subtract-float: float → float → float = foreign;
 show let multiply-float: float → float → float = foreign;
-show let divide-float: float → float → float ! text fail = foreign;
+show let divide-float: float → float → float = foreign;
 show let sine-float: float → float = foreign;
 show let arctan-float: float → float → float = foreign;
 show let exponent-float: float → float = foreign;

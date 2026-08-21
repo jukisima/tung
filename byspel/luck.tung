@@ -1,12 +1,12 @@
 bring ground.tung;
 
-let read-user: 𝟙 → float ! console =
-  { _ | try (null read) from-text {
-      _ fail | (
-        let _ = 'could not read a float; using 0.0' write-line;
-        0.0
-      )
-    } };
+let (_: 𝟙) read-user: float ! console =
+  try (null read) from-text {
+    _ fail | (
+      let _ = 'could not read a float; using 0.0' write-line;
+      0.0
+    )
+  };
 
 let (_: 𝟙) main: 𝟙 ! console, random = (
   let _ = 'input a float between 0.0 and 1.0' write-line;

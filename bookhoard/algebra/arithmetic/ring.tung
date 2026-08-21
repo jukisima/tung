@@ -14,7 +14,7 @@ show shape a ring {
 
 graith b ring
 fill (a func b) ring {
-  let f - g = { a | (a f) - (a g) }
+  let f - g a = (a f) - (a g)
 }
 
 fill integer subtract {
@@ -27,19 +27,8 @@ fill float subtract {
 
 fill integer ring {}
 
-fill float ring {}
-
-fill 𝟚 ring {
-  let a + b = match a, b {
-    yea, nay | yea,
-    nay, yea | yea,
-    _, _ | nay
-  };
-  let zero = nay;
-  let a × b = match a, b {
-    yea, yea | yea,
-    _, _ | nay
-  };
-  let one = yea;
+fill 𝟚 subtract {
   let a - b = a + b
 }
+
+fill 𝟚 ring {}

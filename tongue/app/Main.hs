@@ -2,9 +2,11 @@
 -- the repl. stdin commands remain the stable bridge used by the editor.
 module Main where
 
+import Control.Concurrent (MVar, ThreadId, forkIO, killThread, modifyMVar, modifyMVar_, newEmptyMVar, newMVar, putMVar, takeMVar, withMVar)
+import Control.Exception qualified as Exception
 import Control.Monad (unless, when)
 import Data.Char (isSpace)
-import Data.List (dropWhileEnd, isPrefixOf, stripPrefix)
+import Data.List (dropWhileEnd, intercalate, isPrefixOf, stripPrefix)
 import Data.Map.Strict qualified as Map
 import System.Directory (getCurrentDirectory, makeAbsolute)
 import System.Environment (getArgs)
@@ -28,8 +30,9 @@ main = do
     ["--type-of-stdin", name] -> typeOfStdin name Nothing
     ["--type-of-stdin", name, path] -> typeOfStdin name (Just path)
     ["--type-of-bundle-stdin", name] -> typeOfBundleStdin name
-    ["--check", path] -> checkFile checkRunnableWithImports path
-    ["--check-module", path] -> checkFile checkWithImports path
+    ["--editor-session"] -> editorSession
+    ["--check", path] -> checkFile True path
+    ["--check-module", path] -> checkFile False path
     ["--type-of", name, path] -> typeOfFile name path
     ["--run-quiet", path] -> runFile True path []
     ["--repl"] -> repl
@@ -45,11 +48,15 @@ runFile quiet path programArgs = withProject path \Project{projectSource, projec
     then unless (result == "eval ok: null") (putStrLn result >> exitFailure)
     else putStrLn result >> unless ("eval ok:" `isPrefixOf` result) exitFailure
 
-checkFile :: (String -> Map.Map String String -> String) -> FilePath -> IO ()
-checkFile checker path = withProject path \Project{projectSource, projectImports} -> do
-  let result = checker projectSource projectImports
-  putStrLn result
-  unless (result == "type ok") exitFailure
+checkFile :: Bool -> FilePath -> IO ()
+checkFile runnable path = withProject path \Project{projectPath, projectSource, projectImports, projectImportPaths} ->
+  case checkDiagnosticWithImports runnable projectSource projectImports of
+    Nothing -> putStrLn "type ok"
+    Just diagnostic@Diagnostic{diagnosticPath} -> do
+      let ownerPath = maybe projectPath (\owner -> Map.findWithDefault owner owner projectImportPaths) diagnosticPath
+          ownerSource = maybe projectSource (\owner -> Map.findWithDefault projectSource owner projectImports) diagnosticPath
+      putStrLn (renderFileDiagnostic ownerPath ownerSource diagnostic)
+      exitFailure
 
 typeOfFile :: String -> FilePath -> IO ()
 typeOfFile name path = withProject path \Project{projectSource, projectImports} ->
@@ -83,7 +90,7 @@ typeOfStdin name sourcePath = do
   source <- getContents
   bookhoard <- readBookhoardImports
   project <- case sourcePath of
-    Nothing -> pure (Right (Project source bookhoard))
+    Nothing -> pure (Right (Project "<stdin>" source bookhoard Map.empty))
     Just path -> loadConfiguredSource bookhoard (takeDirectory path) source
   putStrLn $ case project of
     Left message -> "type error: " ++ message
@@ -104,7 +111,7 @@ checkDiagnosticBundleStdin = do
   bundle <- getContents
   bookhoard <- readBookhoardImports
   putStrLn $ case readMaybe bundle of
-    Nothing -> renderDiagnostic (Diagnostic ParseDiagnostic (SourceSpan 0 0) "parse error: invalid editor source bundle")
+    Nothing -> renderDiagnostic (Diagnostic ParseDiagnostic Nothing (SourceSpan 0 0) "parse error: invalid editor source bundle")
     Just (source, imports) ->
       maybe "tung-ok" renderDiagnostic (checkEditorDiagnosticWithImports source (Map.union (Map.fromList imports) bookhoard))
 
@@ -117,6 +124,67 @@ typeOfBundleStdin name = do
     Just (source, imports) -> case typeOfWithImports source (Map.union (Map.fromList imports) bookhoard) name of
       Right ty -> "type: " ++ ty
       Left message -> "type error: " ++ message
+
+type EditorRequest = (Int, Int, String, String, (String, [(String, String)]))
+
+editorSession :: IO ()
+editorSession = do
+  bookhoard <- readBookhoardImports
+  workers <- newMVar Map.empty
+  outputLock <- newMVar ()
+  sessionLoop bookhoard workers outputLock
+
+sessionLoop :: Map.Map String String -> MVar (Map.Map Int ThreadId) -> MVar () -> IO ()
+sessionLoop bookhoard workers outputLock = do
+  eof <- isEOF
+  unless eof do
+    line <- getLine
+    case readMaybe line of
+      Nothing -> pure ()
+      Just request -> dispatchEditorRequest bookhoard workers outputLock request
+    sessionLoop bookhoard workers outputLock
+
+dispatchEditorRequest :: Map.Map String String -> MVar (Map.Map Int ThreadId) -> MVar () -> EditorRequest -> IO ()
+dispatchEditorRequest bookhoard workers outputLock request@(requestId, version, command, _, _)
+  | command == "cancel" = cancelEditorRequest workers requestId
+  | otherwise = do
+      gate <- newEmptyMVar
+      thread <- forkIO $ do
+        takeMVar gate
+        run `Exception.finally` modifyMVar_ workers (pure . Map.delete requestId)
+      modifyMVar_ workers (pure . Map.insert requestId thread)
+      putMVar gate ()
+ where
+  run =
+    sendEditorResponse outputLock requestId version (editorResponse bookhoard request)
+      `Exception.catch` \exception ->
+        case Exception.fromException exception of
+          Just Exception.ThreadKilled -> pure ()
+          _ -> sendEditorResponse outputLock requestId version ("checker session failed: " ++ Exception.displayException exception)
+
+cancelEditorRequest :: MVar (Map.Map Int ThreadId) -> Int -> IO ()
+cancelEditorRequest workers requestId = do
+  thread <- modifyMVar workers \running -> pure (Map.delete requestId running, Map.lookup requestId running)
+  mapM_ killThread thread
+
+editorResponse :: Map.Map String String -> EditorRequest -> String
+editorResponse bookhoard (_, _, command, name, (source, imports)) =
+  let allImports = Map.union (Map.fromList imports) bookhoard
+   in case command of
+        "check" -> maybe "tung-ok" renderDiagnostic (checkEditorDiagnosticWithImports source allImports)
+        "type" -> case typeOfWithImports source allImports name of
+          Right ty -> "type: " ++ ty
+          Left message -> "type error: " ++ message
+        _ -> "checker session failed: unknown command '" ++ command ++ "'"
+
+sendEditorResponse :: MVar () -> Int -> Int -> String -> IO ()
+sendEditorResponse outputLock requestId version output = do
+  size <- Exception.evaluate (length output)
+  withMVar outputLock \_ -> do
+    putStrLn (intercalate "\t" ["tung-response", show requestId, show version, show size])
+    putStr output
+    putChar '\n'
+    hFlush stdout
 
 data Repl = Repl
   { replBase :: FilePath
@@ -223,7 +291,7 @@ runReplSource bookhoard session input = case parse input of
 withReplProject :: Map.Map String String -> Repl -> String -> (Project -> IO a) -> IO a
 withReplProject bookhoard Repl{replBase} source action =
   loadConfiguredSource bookhoard replBase source >>= \case
-    Left message -> putStrLn ("project error: " ++ message) >> action (Project source bookhoard)
+    Left message -> putStrLn ("project error: " ++ message) >> action (Project "<repl>" source bookhoard Map.empty)
     Right project -> action project
 
 combineSource :: String -> String -> String

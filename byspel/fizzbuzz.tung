@@ -1,10 +1,11 @@
 bring ground.tung;
 bring data/list.tung;
+bring data/product.tung;
 bring algebra/partial/semigroupoid.tung;
 
-graith a divide, a multiply, a equal
+graith a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =
-  try dividend ≡ (dividend ÷ divisor $ × divisor) {
+  try ((dividend ÷ divisor) project₁) ≡ zero {
     _ fail | nay
   };
 
@@ -24,12 +25,12 @@ fill fizzbuzz to-text {
   }
 }
 
-let (i: integer) to-fizzbuzz: fizzbuzz =
-  match 3 can-divide i, 5 can-divide i {
+let (integer: integer) to-fizzbuzz: fizzbuzz =
+  match 3 can-divide integer, 5 can-divide integer {
     yea, yea | fizzbuzz,
     yea, nay | fizz,
     nay, yea | buzz,
-    nay, nay | i raw
+    nay, nay | integer raw
   };
 
 let _ main: 𝟙 ! console =

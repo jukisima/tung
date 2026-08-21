@@ -1,35 +1,51 @@
 bring data/two.tung;
+bring combinator.tung;
+bring algebra/partial/category.tung;
+bring algebra/partial/semigroupoid.tung;
 bring equal.tung;
 bring collection/inhold.tung;
 bring algebra/arithmetic/ring.tung;
+bring algebra/total/monoid.tung;
+bring algebra/total/semigroup.tung;
 bring order/lattice.tung;
 
 ## a powerset represented by its membership predicate.
 show let-ilk a powerset = a func 𝟚;
 
-show let empty: a powerset = { _ | nay };
+show let empty: a powerset = nay constant;
 
-show let universe: a powerset = { _ | yea };
+show let universe: a powerset = yea constant;
 
 graith a equal
-show let (a: a) singleton: a powerset = {
-  thing | thing ≡ a
-};
+show let (a: a) singleton: a powerset = a ≡;
 
 fill (a powerset) a inhold {
-  let set ∋ a = a set
+  let powerset ∋ a = a powerset
 }
 
 graith a equal
-show let (set: a powerset, a: a) put: a powerset =
-  { thing | (thing ≡ a) ∨ (thing set) };
+show let (powerset: a powerset, a: a) put: a powerset = {
+  b | (b ≡ a) ∨ (b powerset)
+};
 
 graith a equal
-show let (set: a powerset, a: a) rid: a powerset =
-  { thing | (thing ≡ a) if nay (thing set) };
+show let (powerset: a powerset, a: a) rid: a powerset = {
+  b | (b ≡ a) if nay (b powerset)
+};
 
-show let (left: a powerset, right: a powerset) ∖: a powerset =
-  { value | (value left) if ((value right) if nay yea) nay };
+show let (powerset₀: a powerset, powerset₁: a powerset) ∖: a powerset = {
+  a | (a powerset₀) if (a powerset₁ $ if nay yea) nay
+};
 
-show let (set: a powerset, predicate: a func 𝟚) keep: a powerset =
-  set ∧ predicate;
+graith (a powerset) semilattice-infimal
+fill ((a powerset) infimal) semigroup {
+  let (a infimal) * (b infimal) = (a ∧ b) infimal
+}
+
+fill ((a powerset) infimal) monoid {
+  let ∅ = universe infimal
+}
+
+fill (a powerset) complement {
+  let powerset ¬ = powerset ∘ ¬
+}

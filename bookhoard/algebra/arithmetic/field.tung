@@ -1,17 +1,19 @@
 bring _foreign.tung;
+bring algebra/arithmetic/semiring.tung;
 bring algebra/arithmetic/ring.tung;
 
 show shape a divide {
-  a ÷ a: a ! text fail
+  a ∕ a: a
 }
 
 graith a ring, a divide
-show shape a field {}
-
-fill integer divide {
-  let ÷ = divide-integer
+show shape a field {
+  law (dividend: a, divisor: a):
+    (dividend ∕ divisor) × divisor ~ dividend
 }
 
+## ieee floats provide division, but rounding, infinities, and nan prevent a
+## lawful field fill.
 fill float divide {
-  let ÷ = divide-float
+  let ∕ = divide-float
 }

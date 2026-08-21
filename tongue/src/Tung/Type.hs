@@ -13,6 +13,7 @@ module Tung.Type (
   check,
   checkWithImports,
   checkEditorWithImports,
+  checkProgramWithImportsDetailed,
   checkEditorProgramWithImportsDetailed,
   checkRunnableWithImports,
   elaborateProgramWithImports,
@@ -27,6 +28,7 @@ module Tung.Type (
   namespaceImportShapes,
   baseRuntimeNames,
   baseEffectNames,
+  primitiveTypeNames,
   runtimeNativeSpecs,
   runtimeEffectOpSpecs,
   findShapeMember,
@@ -46,11 +48,11 @@ import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, isJust, listToMaybe, mapMaybe, maybeToList)
 import Data.Traversable (mapAccumM)
-import Tung.Core (CoreProgram, makeCoreProgram)
+import Tung.Core (CoreProgram, makeCoreProgram, makeCoreProgramWithImports)
 import Tung.Coverage qualified as Coverage
 import Tung.Import (ImportStack, enterImport)
 import Tung.Name (constructorNamesMatch, importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
-import Tung.Parse (parse)
+import Tung.Parse (ParsedSource (..), parse, parseLocated)
 import Tung.Primitive
 import Tung.Syntax
 import Tung.Token (SourceSpan)
@@ -91,6 +93,7 @@ data TcResult a = TcOk a TcState | TcErr String deriving (Eq, Show)
 data TypeFailure = TypeFailure
   { typeFailureMessage :: String
   , typeFailureSpan :: Maybe SourceSpan
+  , typeFailurePath :: Maybe FilePath
   }
   deriving (Eq, Show)
 
@@ -107,8 +110,10 @@ data TcState = TcState
   , tcTypeHeads :: !(Map.Map String TyHead)
   , tcEffectRows :: !(Map.Map String [Ty])
   , tcImportCache :: !(Map.Map String TcContext)
+  , tcImportCoreCache :: !(Map.Map String CoreProgram)
   , tcEvidenceNeeds :: !(IntMap.IntMap Need)
   , tcCurrentSpan :: !(Maybe SourceSpan)
+  , tcLocateImports :: !Bool
   }
   deriving (Eq, Show)
 
@@ -164,8 +169,10 @@ initialTcState =
     , tcTypeHeads = Map.empty
     , tcEffectRows = Map.empty
     , tcImportCache = Map.empty
+    , tcImportCoreCache = Map.empty
     , tcEvidenceNeeds = IntMap.empty
     , tcCurrentSpan = Nothing
+    , tcLocateImports = False
     }
 
 runTc :: Tc a -> TcState -> TcResult a
@@ -174,7 +181,10 @@ runTc computation st = case runStateT (unTc computation) st of
   Right (value, st2) -> TcOk value st2
 
 failTc :: String -> Tc a
-failTc message = Tc $ StateT $ \state -> Left (TypeFailure message (tcCurrentSpan state))
+failTc message = Tc $ StateT $ \state -> Left (TypeFailure message (tcCurrentSpan state) Nothing)
+
+failImportTc :: FilePath -> String -> Tc a
+failImportTc path message = Tc $ StateT $ \state -> Left (TypeFailure message (tcCurrentSpan state) (Just path))
 
 getTc :: Tc TcState
 getTc = Tc get
@@ -301,9 +311,11 @@ isEffectVarTy (TyVar name) = isEffectVarName name
 isEffectVarTy _ = False
 
 isEffectVarName :: String -> Bool
-isEffectVarName "e" = True
-isEffectVarName ('e' : rest) = all isDigit rest
+isEffectVarName ('e' : rest) = all isTypeVariableIndex rest
 isEffectVarName _ = False
+
+isTypeVariableIndex :: Char -> Bool
+isTypeVariableIndex c = isDigit c || c `elem` ("₀₁₂₃₄₅₆₇₈₉" :: String)
 
 unifyCommonEffectsM :: [Ty] -> [Ty] -> Tc ()
 unifyCommonEffectsM xs ys =
@@ -781,8 +793,8 @@ primitiveFills :: [FillInfo]
 primitiveFills =
   [ FillInfo shape [TypeName ty] [] shape (primitiveFillKey shape ty) True True 0 [] []
   | (ty, shapes) <-
-      [ ("integer", ["equal", "order-partial", "add", "zero", "subtract", "multiply", "one", "semiring", "ring", "divide", "to-text"])
-      , ("float", ["equal", "order-partial", "add", "zero", "subtract", "multiply", "one", "semiring", "ring", "divide", "field", "from-text", "to-text"])
+      [ ("integer", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide-remainder", "to-text"])
+      , ("float", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide", "from-text", "to-text"])
       ]
   , shape <- shapes
   ]
@@ -1029,8 +1041,7 @@ isPrimitiveTypeName :: String -> Bool
 isPrimitiveTypeName name = name `elem` primitiveTypeNames
 
 isTypeVarName :: String -> Bool
-isTypeVarName [c] = isAscii c && isLower c
-isTypeVarName (c : rest) = isAscii c && isLower c && all isDigit rest
+isTypeVarName (c : rest) = isAscii c && isLower c && all isTypeVariableIndex rest
 isTypeVarName [] = False
 
 -- declaration collection buildeth the namespace used by later checking; export
@@ -1166,9 +1177,8 @@ addFillInfo shapeName tyArgs needs members ctx@TcContext{tcFills} =
       actualTypes = map (canonicalTypeExpr ctx) tyArgs
       actualNeeds = map (canonicalShapeNeed ctx) needs
       key = fillKeyFor actualShape actualTypes
-      parents = fillParentNeeds actualShape actualTypes ctx
       provided = [name | Let name _ _ <- members]
-      newFills = fillClosure key actualShape actualShape actualTypes actualNeeds parents provided ctx [] 0
+      newFills = fillClosure key actualShape actualShape actualTypes actualNeeds provided ctx [] 0
    in ctx{tcFills = Map.unionWith (++) (indexFills newFills) tcFills}
 
 indexFills :: [FillInfo] -> Map.Map String [FillInfo]
@@ -1184,17 +1194,18 @@ fillParentNeeds shapeName types ctx = case findShapeInfo shapeName ctx of
   Nothing -> []
   Just ShapeInfo{shapeParams, shapeNeeds} -> map (specializeShapeNeed shapeParams types) shapeNeeds
 
-fillClosure :: String -> String -> String -> [TypeExpr] -> [ShapeNeed] -> [ShapeNeed] -> [String] -> TcContext -> [String] -> Int -> [FillInfo]
-fillClosure key origin shapeName tyArgs needs parents provided ctx seen depth
+fillClosure :: String -> String -> String -> [TypeExpr] -> [ShapeNeed] -> [String] -> TcContext -> [String] -> Int -> [FillInfo]
+fillClosure key origin shapeName tyArgs needs provided ctx seen depth
   | shapeName `elem` seen = []
   | otherwise = FillInfo shapeName tyArgs needs origin key (shapeName == origin) False depth parents provided : inherited
  where
+  parents = fillParentNeeds shapeName tyArgs ctx
   inherited = case findShapeInfo shapeName ctx of
     Just ShapeInfo{shapeParams, shapeNeeds} -> concatMap closeNeed shapeNeeds
      where
       closeNeed (ShapeNeed arguments neededShape) =
         let neededTypes = map (specializeShapeType shapeParams tyArgs) arguments
-         in fillClosure key origin neededShape neededTypes needs parents provided ctx (shapeName : seen) (depth + 1)
+         in fillClosure key origin neededShape neededTypes needs provided ctx (shapeName : seen) (depth + 1)
     Nothing -> []
 
 addEnv :: String -> Scheme -> TcContext -> TcContext
@@ -1492,6 +1503,7 @@ inferExprM expr ctx = case expr of
   EText _ -> pure (Inferred (TyCon "text") [] [] expr)
   EForeign -> failTc "foreign is only allowed as the direct body of an annotated top-level let"
   EVar name -> inferVarM name ctx
+  EAscribe expression annotation -> inferAscribedM expression annotation ctx
   EApply f args -> inferApplyM f (NE.toList args) ctx
   ERecord fields -> inferRecordFieldsM fields ctx
   EField{} -> failTc "internal field access appeareth before elaboration"
@@ -1500,6 +1512,17 @@ inferExprM expr ctx = case expr of
   EMatch scrutinees cases -> inferMatchM scrutinees cases ctx
   EBlock ds body -> inferBlockM ds body ctx
   EWithEvidence{} -> failTc "internal evidence appeareth before elaboration"
+
+inferAscribedM :: Expr -> TypeExpr -> TcContext -> Tc Inferred
+inferAscribedM expression annotation ctx = do
+  checkTypeExprNamesM "type ascription" annotation ctx
+  (expected, _) <- instantiateM (typeAnnScheme (TypeAnn annotation []) ctx)
+  Inferred actual effects needs core <- inferExprM expression ctx
+  mapTcError
+    (unifyM actual expected)
+    (\msg -> "in type ascription: " ++ msg ++ "; actual " ++ showTy actual ++ ", expected " ++ showTy expected)
+  st <- getTc
+  pure (Inferred (applyState expected st) (applyStateEffects effects st) (applyStateNeeds needs st) (EAscribe core annotation))
 
 inferRecordFieldsM :: [(String, Expr)] -> TcContext -> Tc Inferred
 inferRecordFieldsM fields ctx = do
@@ -2411,7 +2434,7 @@ inferLocalLetM name (Just ann) expr ctx = do
   pure (addEnv name (typeAnnScheme ann ctx) ctx, effects)
 
 inferUnannotatedBindingM :: String -> Expr -> TcContext -> Tc (TcContext, [Ty])
-inferUnannotatedBindingM name expr@(EMatch [] _) ctx = do
+inferUnannotatedBindingM name expr ctx | isAnonymousMatchExpr expr = do
   selfTy <- freshM
   let ctxSelf = addEnv name (Forall [] [] selfTy) ctx
   Inferred t effects needs _ <- inferNamedM name expr ctxSelf
@@ -2424,6 +2447,13 @@ inferUnannotatedBindingM name expr ctx = do
   st <- getTc
   normalizedNeeds <- normalizeNeedsM ctx needs
   pure (addEnv name (bindingScheme t normalizedNeeds effects st) ctx, effects)
+
+isAnonymousMatchExpr :: Expr -> Bool
+isAnonymousMatchExpr = \case
+  ELocated _ expression -> isAnonymousMatchExpr expression
+  EAscribe expression _ -> isAnonymousMatchExpr expression
+  EMatch [] _ -> True
+  _ -> False
 
 bindingScheme :: Ty -> [Need] -> [Ty] -> TcState -> Scheme
 bindingScheme ty needs effects st
@@ -2654,23 +2684,23 @@ buildFillEvidenceM ctx available seen info nestedNeeds parentNeeds = do
   let key = canonicalFillKey (fillKey info)
   whenMember (key `elem` seen) (failTc ("recursive fill evidence for " ++ fillKey info))
   nested <- traverse (resolveNeedEvidenceSeenM ctx available (key : seen)) nestedNeeds
-  parents <- mapMaybeM (resolveParent key) parentNeeds
+  parents <- resolveParents key [] parentNeeds
   pure (EvidenceFill (fillKey info) nested parents)
  where
-  resolveParent ownKey parentNeed = case bestLocalEvidence ctx available parentNeed of
-    Left message -> failTc message
-    Right (Just name) -> pure (Just (EvidenceLocal name))
-    Right Nothing -> do
-      (parentInfo, nested, parents) <- selectFillEvidenceM ctx parentNeed
-      if canonicalFillKey (fillKey parentInfo) == ownKey
-        then pure Nothing
-        else Just <$> buildFillEvidenceM ctx available (ownKey : seen) parentInfo nested parents
+  resolveParents ownKey skipped = fmap concat . traverse (resolveParent ownKey skipped)
+  resolveParent ownKey skipped parentNeed
+    | parentNeed `elem` skipped = failTc ("recursive parent fill evidence for " ++ showNeed parentNeed)
+    | otherwise = case bestLocalEvidence ctx available parentNeed of
+        Left message -> failTc message
+        Right (Just name) -> pure [EvidenceLocal name]
+        Right Nothing -> do
+          (parentInfo, nested, parents) <- selectFillEvidenceM ctx parentNeed
+          if canonicalFillKey (fillKey parentInfo) == ownKey
+            then resolveParents ownKey (parentNeed : skipped) parents
+            else (: []) <$> buildFillEvidenceM ctx available (ownKey : seen) parentInfo nested parents
 
 whenMember :: Bool -> Tc () -> Tc ()
 whenMember condition action = if condition then action else pure ()
-
-mapMaybeM :: (a -> Tc (Maybe b)) -> [a] -> Tc [b]
-mapMaybeM f = fmap (mapMaybe id) . traverse f
 
 bestLocalEvidence :: TcContext -> [EvidenceBinding] -> Need -> Either String (Maybe String)
 bestLocalEvidence ctx available wanted = choose (filter (covers . fst) available)
@@ -2757,6 +2787,7 @@ resolveExprEvidenceM ctx available = go
     literal@EText{} -> pure literal
     EForeign -> pure EForeign
     variable@EVar{} -> pure variable
+    EAscribe expression annotation -> EAscribe <$> go expression <*> pure annotation
     EApply function arguments -> EApply <$> go function <*> traverse go arguments
     ERecord fields -> ERecord <$> traverse (traverse go) fields
     EField base field -> EField <$> go base <*> pure field
@@ -2953,6 +2984,10 @@ checkEditorProgramWithImportsDetailed program imports
  where
   checkMode mode = inferProgramWithModeDetailed program imports mode
 
+checkProgramWithImportsDetailed :: Program -> Map.Map String String -> Bool -> Maybe TypeFailure
+checkProgramWithImportsDetailed program imports runnable =
+  either Just (const Nothing) (inferProgramWithModeDetailed program imports (if runnable then Runnable else Bookhoard))
+
 checkRunnableWithImports :: String -> Map.Map String String -> String
 checkRunnableWithImports source imports = checkPrepared source imports True
 
@@ -3010,7 +3045,7 @@ inferProgramWithMode p imports mode = runTc (inferProgramWithModeM p imports mod
 
 inferProgramWithModeDetailed :: Program -> Map.Map String String -> ProgramMode -> Either TypeFailure CoreProgram
 inferProgramWithModeDetailed program imports mode =
-  fst <$> runStateT (unTc (inferProgramWithModeM program imports mode)) initialTcState
+  fst <$> runStateT (unTc (inferProgramWithModeM program imports mode)) initialTcState{tcLocateImports = True}
 
 elaborateProgramWithImports :: Program -> Map.Map String String -> Bool -> Either String CoreProgram
 elaborateProgramWithImports program imports runnable = elaborateWithMode program imports (if runnable then Runnable else Bookhoard)
@@ -3033,8 +3068,9 @@ inferProgramWithModeM (Program ds) imports mode = do
   importCtx <- collectImportContextsM [] typedDs imports baseContext
   let elaborationCtx = foldl' (flip collectElaborationContext) importCtx typedDs
   elaborated <- Program <$> elaborateDeclsM typedDs elaborationCtx
+  importedCores <- tcImportCoreCache <$> getTc
   -- core construction is the final assertion that no inference placeholder leaked.
-  either failTc pure (makeCoreProgram elaborated)
+  either failTc pure (makeCoreProgramWithImports elaborated importedCores)
 
 collectElaborationContext :: Decl -> TcContext -> TcContext
 collectElaborationContext declaration ctx = case declaration of
@@ -3076,19 +3112,47 @@ collectImportContextsM importStack ds imports ctx = foldM step ctx ds
       Just context -> pure context
       Nothing -> do
         source <- maybe (failTc ("missing bring '" ++ path ++ "'")) pure (Map.lookup path imports)
-        let importError message = failTc ("in bring '" ++ path ++ "': " ++ message)
-        p <- either importError pure (parse source)
+        let importError message = failImportTc path ("in bring '" ++ path ++ "': " ++ message)
+        locateImports <- tcLocateImports <$> getTc
+        p <- either importError pure (if locateImports then parsedProgram <$> parseLocated source else parse source)
         importedContextM nextStack path p imports
     let namespaced = namespaceImportContext (importNamespace path) importedCtx
     pure (mergeContext namespaced currentCtx)
 
 importedContextM :: ImportStack -> String -> Program -> Map.Map String String -> Tc TcContext
 importedContextM importStack path p imports = Tc $ StateT $ \st ->
-  let importedState = initialTcState{tcImportCache = tcImportCache st}
+  let importedState =
+        initialTcState
+          { tcImportCache = tcImportCache st
+          , tcImportCoreCache = tcImportCoreCache st
+          , tcLocateImports = tcLocateImports st
+          }
    in case runStateT (unTc imported) importedState of
-        Left failure -> Left failure{typeFailureMessage = "in bring '" ++ path ++ "': " ++ typeFailureMessage failure, typeFailureSpan = Nothing}
-        Right (importedCtx, importedSt) ->
-          let cache = Map.insert path importedCtx (tcImportCache importedSt)
-           in Right (importedCtx, st{tcImportCache = cache})
+        Left failure ->
+          Left
+            failure
+              { typeFailureMessage = "in bring '" ++ path ++ "': " ++ typeFailureMessage failure
+              , typeFailurePath = typeFailurePath failure <|> Just path
+              }
+        Right ((importedCtx, importedCore), importedSt) ->
+          let contextCache = Map.insert path importedCtx (tcImportCache importedSt)
+              coreCache = Map.insert path importedCore (tcImportCoreCache importedSt)
+           in Right
+                ( importedCtx
+                , st
+                    { tcImportCache = contextCache
+                    , tcImportCoreCache = coreCache
+                    }
+                )
  where
-  imported = inferProgramContextFromM importStack p imports baseContext
+  imported = inferImportedProgramM importStack p imports
+
+inferImportedProgramM :: ImportStack -> Program -> Map.Map String String -> Tc (TcContext, CoreProgram)
+inferImportedProgramM importStack (Program ds) imports = do
+  (typedDs, ctx) <- prepareDeclsM importStack ds imports baseContext
+  checkedCtx <- checkDeclsContextM typedDs ctx
+  importCtx <- collectImportContextsM importStack typedDs imports baseContext
+  let elaborationCtx = foldl' (flip collectElaborationContext) importCtx typedDs
+  elaborated <- Program <$> elaborateDeclsM typedDs elaborationCtx
+  core <- either failTc pure (makeCoreProgram elaborated)
+  pure (checkedCtx, core)

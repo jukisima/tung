@@ -2,21 +2,37 @@
 module Tung.Core (
   CoreProgram,
   makeCoreProgram,
+  makeCoreProgramWithImports,
   coreDeclarations,
+  coreImportDeclarations,
 )
 where
 
+import Data.Map.Strict qualified as Map
 import Tung.Syntax
 
 -- a CoreProgram hath passed type checking and containeth only resolved evidence.
 -- keeping its constructor private preventeth evaluation of unchecked surface syntax.
-newtype CoreProgram = CoreProgram Program deriving (Eq, Show)
+data CoreProgram = CoreProgram Program (Map.Map FilePath Program) deriving (Eq, Show)
 
 makeCoreProgram :: Program -> Either String CoreProgram
-makeCoreProgram program = validateCoreProgram program >> pure (CoreProgram program)
+makeCoreProgram program = makeCoreProgramWithImports program Map.empty
+
+makeCoreProgramWithImports :: Program -> Map.Map FilePath CoreProgram -> Either String CoreProgram
+makeCoreProgramWithImports program imports = do
+  validateCoreProgram program
+  pure (CoreProgram program (rootProgram <$> imports))
+ where
+  rootProgram (CoreProgram imported _) = imported
 
 coreDeclarations :: CoreProgram -> [Decl]
-coreDeclarations (CoreProgram (Program declarations)) = declarations
+coreDeclarations (CoreProgram (Program declarations) _) = declarations
+
+coreImportDeclarations :: FilePath -> CoreProgram -> Maybe [Decl]
+coreImportDeclarations path (CoreProgram _ imports) =
+  declarations <$> Map.lookup path imports
+ where
+  declarations (Program imported) = imported
 
 validateCoreProgram :: Program -> Either String ()
 validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
@@ -48,6 +64,7 @@ validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
     EText{} -> pure ()
     EForeign -> Left "internal misplaced foreign marker"
     EVar{} -> pure ()
+    EAscribe expression annotation -> validateExpr expression >> validateType annotation
     EApply function arguments -> validateExpr function >> mapM_ validateExpr arguments
     ERecord fields -> mapM_ (validateExpr . snd) fields
     EField base _ -> validateExpr base
@@ -70,3 +87,9 @@ validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
     EvidenceHole{} -> Left "internal unresolved type-class evidence"
     EvidenceLocal{} -> pure ()
     EvidenceFill _ required parents -> mapM_ validateEvidence required >> mapM_ validateEvidence parents
+
+  validateType = \case
+    TypeName{} -> pure ()
+    TypeApply _ arguments -> mapM_ validateType arguments
+    TypeRecord fields -> mapM_ (validateType . snd) fields
+    TypeArrow arguments effects result -> mapM_ validateType arguments >> mapM_ validateType effects >> validateType result

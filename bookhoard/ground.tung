@@ -17,6 +17,7 @@ bring algebra/arithmetic/semiring.tung;
 bring algebra/arithmetic/primitive.tung;
 bring algebra/arithmetic/ring.tung;
 bring algebra/arithmetic/field.tung;
+bring algebra/arithmetic/euclidean.tung;
 bring collection/functor.tung;
 bring collection/applicative.tung;
 bring collection/monad.tung;
@@ -26,8 +27,8 @@ bring numeric/elementary.tung;
 bring numeric/integer.tung;
 
 ## write text followed by a newline.
-show let (a: text) write-line: 𝟙 ! console = (
-  let _ = a write;
+show let (text: text) write-line: 𝟙 ! console = (
+  let _ = text write;
   '\n' write
 );
 
@@ -41,7 +42,7 @@ show terminal;
 show-ilk 𝟚;
 show yea, nay;
 
-show-ilk three;
+show-ilk 𝟛;
 show fore, mid, aft;
 
 show-ilk task;
@@ -67,7 +68,7 @@ show ≡, ≢;
 show ≤, <, compare, clamp, ∧, ∨, ⟂, ⊤;
 show ∋;
 
-show +, zero, ×, one, -, ÷;
+show +, zero, ×, one, -, ∕, ÷;
 show sine, cosine, tangent, exponent, logarithm, ⌊;
 show integer-to-natural;
 

@@ -5,32 +5,50 @@ import Control.Exception (bracket)
 import Data.List (isInfixOf)
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (getPOSIXTime)
-import System.Directory (createDirectory, createDirectoryIfMissing, getTemporaryDirectory, removePathForcibly)
+import System.Directory (canonicalizePath, createDirectory, createDirectoryIfMissing, getTemporaryDirectory, removePathForcibly)
 import System.FilePath (takeDirectory, (</>))
 import Test.Harness (Group, Test, expect, expectEq)
 import Test.Harness qualified as Harness
 import Tung (Project (..), loadProjectFile, loadProjectFileWithRoots)
 
 group :: IO Group
-group = Harness.group "project" [nestedImports, moduleRootImport, ambiguousModuleRoots, embeddedFallback, localShadowsBuiltin, missingImport, ambiguousRelativeImport]
+group = Harness.group "project" [nestedImports, localImportPaths, moduleRootImport, ambiguousModuleRoots, embeddedFallback, localShadowsBuiltin, missingImport, ambiguousRelativeImport]
 
 nestedImports :: Test
 nestedImports = withProject files "main.tung" \result ->
-  expectEq "loadeth nested relative brings" (Right expected) result
+  expectEq "loadeth nested relative brings" (Right expected) (projectContents <$> result)
  where
   files =
-    [ ("main.tung", "bring lib/a.tung; let main = { _ | null };")
+    [ ("main.tung", "bring lib/a.tung; let _ main = null;")
     , ("lib/a.tung", "bring b.tung; show let a = b;")
     , ("lib/b.tung", "show let b = 1;")
     ]
   expected =
-    Project
-      "bring lib/a.tung; let main = { _ | null };"
-      ( Map.fromList
-          [ ("lib/a.tung", "bring b.tung; show let a = b;")
-          , ("b.tung", "show let b = 1;")
-          ]
-      )
+    ( "bring lib/a.tung; let _ main = null;"
+    , Map.fromList
+        [ ("lib/a.tung", "bring b.tung; show let a = b;")
+        , ("b.tung", "show let b = 1;")
+        ]
+    )
+
+  projectContents Project{projectSource, projectImports} = (projectSource, projectImports)
+
+localImportPaths :: Test
+localImportPaths = withDirectory \root -> do
+  let mainPath = root </> "main.tung"
+      depPath = root </> "dep.tung"
+  writeProject root [("main.tung", "bring dep.tung;"), ("dep.tung", "show let value = 1;")]
+  canonicalMain <- canonicalizePath mainPath
+  canonicalDep <- canonicalizePath depPath
+  result <- loadProjectFile Map.empty mainPath
+  expectEq
+    "retaineth owning filesystem paths"
+    (Just (canonicalMain, canonicalDep))
+    ( either
+        (const Nothing)
+        (\Project{projectPath, projectImportPaths} -> fmap (\dep -> (projectPath, dep)) (Map.lookup "dep.tung" projectImportPaths))
+        result
+    )
 
 localShadowsBuiltin :: Test
 localShadowsBuiltin = withProjectUsing (Map.singleton "value.tung" "show let value = 1;") files "main.tung" \result ->

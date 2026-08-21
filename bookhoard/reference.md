@@ -9,16 +9,19 @@ the [purescript prelude](https://pursuit.purescript.org/packages/purescript-prel
 is the reference for the small, strict, general-purpose surface. tung now hath
 direct counterparts for its central families:
 
-| purescript family | tung bookhoard | standing |
-| --- | --- | --- |
-| `eq`, `ord`, `ordering`, lattice | `equal`, `order-partial`, `order-total`, `semilattice-infimum`, `semilattice-supremum`, `lattice`, bounded variants, `complement`, `three` | partial and total comparison are distinct; each semilattice standeth alone, lattice addeth absorption, complement owneth `¬`, and none entaileth total order |
-| `semigroup`, `monoid` | `semigroup`, `monoid` | alternate additive, multiplicative, infimal, and supremal carriers stay separate |
-| `semiring`, `ring`, `field` | arithmetic shapes | the broad hierarchy existeth, but exact euclidean division and mathematically lawful floating-point boundaries still need sharper shapes |
-| `functor`, `applicative`, `monad` | collection shapes | list and option have the common fills; tung effects remain separate from data monads |
-| `foldable` | `cata` | `foldr`, `foldl`, `fold`, `fold-map`, `…∧`, `…∨`, `…+`, and `…×` cover the basic reductions |
-| `traversable` | `traverse` | applicative evidence belongeth to each polymorphic method; list and option provide fills |
-| `maybe`, `either`, `tuple` | `option`, `∐`, `∏` | the core sums and products are present |
-| `array`, `map`, `set` | `list`, `table`, `set`, `powerset` | powersets and persistent list-backed finite collections exist; a packed random-access array is still absent |
+| purescript family                 | tung bookhoard                                                                                                                             | standing                                                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `eq`, `ord`, `ordering`, lattice  | `equal`, `less-equal`, `order-partial`, `order-total`, `semilattice-infimal`, `semilattice-supremal`, `lattice`, bounded variants, `complement`, `𝟛` | the raw comparison operation standeth apart from partial- and total-order laws; each semilattice standeth alone, lattice addeth absorption, complement owneth `¬` |
+| `semigroup`, `monoid`             | `semigroup`, `monoid`                                                                                                                      | alternate additive, multiplicative, infimal, and supremal carriers stay separate                                                                             |
+| `semiring`, `ring`, `field`       | arithmetic shapes, `divide-remainder`, `euclidean`                                                                                         | integer `÷` returneth quotient and remainder under explicit euclidean laws; ieee float `∕` retaineth operation without claiming exact algebra or order laws   |
+| `functor`, `applicative`, `monad` | collection shapes                                                                                                                          | list, option, nonempty, right-biased `a ∐`, and second-biased `a ∏` have the common fills; the product applicative and monad require a monoid for `a`          |
+| `foldable`                        | `cata`                                                                                                                                     | `foldr`, `foldl`, `fold`, `fold-map`, `…∧`, `…∨`, `…+`, and `…×` cover the basic reductions                                                                  |
+| `traversable`                     | `traverse`                                                                                                                                 | applicative evidence belongeth to each polymorphic method; list, option, nonempty, `a ∐`, and `a ∏` provide fills                                             |
+| `maybe`, `either`, `tuple`        | `option`, `∐`, `∏`                                                                                                                         | the core sums and products are present                                                                                                                       |
+| `array`, `map`, `set`             | `list`, `table`, `set`, `powerset`                                                                                                         | powersets and persistent list-backed finite collections exist; a packed random-access array is still absent                                                  |
+
+boolean disjunction useth `𝟚 supremal`, and boolean conjunction useth
+`𝟚 infimal`; no boolean-only wrapper duplicateth these generic carriers.
 
 the [purescript traversable api](https://pursuit.purescript.org/packages/purescript-foldable-traversable/docs/Data.Traversable)
 guides the `functor` plus `cata` parent shapes and the method-local
@@ -49,9 +52,16 @@ monoid.
 built through `empty`, `singleton`, and `put` preserve finite-set uniqueness,
 but direct `set@from-list` use may build a noncanonical value. the shared
 constructor name is deliberate: `data/set@from-list` and
-`data/table@from-list` remain distinct through ordinary qualification. a true
-order-insensitive bag should wait for a representation whose invariant can be
-enforced rather than being documented only.
+`data/table@from-list` remain distinct through ordinary qualification.
+
+an order-insensitive bag needeth not wait for quotient types. its eventual
+representation will be an opaque list of distinct value and positive-count
+pairs in ascending value order. construction and update operations will require
+`order-total` for the value, keep the data constructor private, and publish only
+the `bag` type with `show-ilk`. smart constructors will preserve strict ordering
+and omit zero counts, making equality and rendering independent of insertion
+order. quotient types remain a later proof-level feature rather than a
+prerequisite for bags.
 
 mathlib's theorem hierarchy is much richer than tung's checked shape laws.
 shape laws in tung are type-checked statements, not proofs and not evaluator
@@ -61,8 +71,6 @@ explicit proof story.
 
 ## next gaps
 
-- split euclidean integer division from field division, with explicit quotient
-  and remainder laws
 - add first, last, and reversed monoid carriers without burdening the core
   monoid shape
 - add a packed immutable array when runtime representation work is justified

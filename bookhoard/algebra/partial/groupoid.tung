@@ -6,4 +6,5 @@ show shape ⇨ groupoid {
   (a ⇨ b) invert: b ⇨ a;
 
   law (f: a ⇨ b): f ∘ (f invert) ~ identity;
+  law (f: a ⇨ b): (f invert) ∘ f ~ identity;
 }

@@ -1,14 +1,14 @@
 bring ground.tung;
 
-let answer: 𝟙 → integer ! async =
-  { _ | (
-      let _ = 1000 sleep;
-      let left = { _ | 20 } fork;
-      let right = { _ | 22 } fork;
-      try (left wait) + (right wait) {
-        _ fail | 0
-      }
-    ) };
+let (_: 𝟙) answer: integer ! async =
+  (
+    let _ = 1000 sleep;
+    let left = { _ | 20 } fork;
+    let right = { _ | 22 } fork;
+    try (left wait) + (right wait) {
+      _ fail | 0
+    }
+  );
 
 let (_: 𝟙) main: 𝟙 ! console, async = (
   let _ = 'async' write-line;

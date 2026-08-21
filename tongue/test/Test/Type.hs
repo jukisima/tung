@@ -2,11 +2,12 @@
 module Test.Type (group) where
 
 import Control.Monad (replicateM)
-import Data.List (intercalate, isInfixOf, permutations)
+import Data.List (intercalate, isInfixOf, isPrefixOf, permutations)
 import Data.Map.Strict qualified as Map
 import Test.Harness (Group, Test, expect, expectEq, runnableErr, runnableOk, typeErr, typeErrContaining, typeErrWith, typeOk, typeOkWith)
 import Test.Harness qualified as Harness
-import Tung (elaborateProgramWithImports, parse, readBookhoardImports, typeOfWithImports)
+import Test.QuickCheck qualified as QuickCheck
+import Tung (check, elaborateProgramWithImports, parse, readBookhoardImports, typeOfWithImports)
 
 group :: IO Group
 group = do
@@ -18,25 +19,36 @@ group = do
       ++ tableAndSetCases imports
       ++ orderCases imports
       ++ boundCases imports
+      ++ numericHierarchyCases imports
       ++ redundantFillGraithCases
       ++ generatedCoverageCases
       ++ redundantCoverageCases
       ++ generatedEffectCases
+      ++ inferenceProperties
+      ++ evidenceProperties
+      ++ coverageProperties
 
 accepted :: [(String, String)]
 accepted =
   [ ("literal annotation", "let answer: integer = 42;")
+  , ("arbitrary term type ascription", "let answer = (1 + 2: integer);")
+  , ("polymorphic term type ascription is reusable", "let identity = ({ x | x }: a → a); let number: integer = 1 identity; let word: text = 'x' identity;")
+  , ("ascribed anonymous function remaineth recursive", "let factorial = ({ 0 | 1, n | n × ((n - 1) factorial) }: integer → integer); let answer: integer = 5 factorial;")
+  , ("type ascription preserveth a graith", equalPrelude ++ "graith a equal let (x: a, y: a) same: 𝟚 = (x ≡ y: 𝟚);")
+  , ("type ascription preserveth an immediate effect", unitData ++ "deed pulse { 𝟙 pulse: integer }; let (_: 𝟙) run: integer ! pulse = (null pulse: integer);")
   , ("unicode primitive", "let letter: unicode = `a;")
   , ("text primitive", "let word: text = 'λ字';")
-  , ("let polymorphism is reusable", "let id = { x | x }; let number: integer = 1 id; let word: text = 'x' id;")
-  , ("annotated polymorphic identity", "let id: a → a = { x | x }; let number: integer = 1 id; let word: text = 'x' id;")
+  , ("let polymorphism is reusable", "let x id = x; let number: integer = 1 id; let word: text = 'x' id;")
+  , ("annotated polymorphic identity", "let (x: a) id: a = x; let number: integer = 1 id; let word: text = 'x' id;")
+  , ("subscripted type variable", "let (x: a₀) id: a₀ = x; let number: integer = 1 id; let word: text = 'x' id;")
   , ("higher-order effect polymorphism", "let (x: a, f: a → b ! e) call: b ! e = x f;")
-  , ("two effect rows compose", "let (f: a → b ! e0, g: b → c ! e1) compose: a → c ! e0, e1 = { x | (x f) g };")
-  , ("pure partial application hideth latent effect", "let half: integer → integer ! text fail = 1 ÷;")
+  , ("two effect rows compose", "let (f: a → b ! e0, g: b → c ! e1, x: a) compose: c ! e0, e1 = (x f) g;")
+  , ("subscripted effect rows compose", "let (f: a → b ! e₀, g: b → c ! e₁, x: a) compose: c ! e₀, e₁ = (x f) g;")
+  , ("pure partial application hideth latent effect", "let half = 1 ÷;")
   , ("type alias is transparent", "let-ilk count = integer; let answer: count = 42;")
-  , ("parameterised type alias is transparent", boolData ++ "let-ilk a predicate = a func 𝟚; let member: integer predicate = { _ | yea }; let answer: 𝟚 = 1 member;")
-  , ("func equaleth pure unary arrow", "let id: integer func integer = { x | x };")
-  , ("curried triple function", "let pick: integer → text → float → integer = { x, _, _ | x };")
+  , ("parameterised type alias is transparent", boolData ++ "let (_: integer) member: 𝟚 = yea; let answer: 𝟚 = 1 member;")
+  , ("func equaleth pure unary arrow", "let (x: integer) id: integer = x;")
+  , ("curried triple function", "let (x: integer, _: text, _: float) pick: integer = x;")
   , ("constructor application is curried", "kin a option { none, a some }; let make = some; let value: integer option = 1 make;")
   , ("empty type eliminator", "kin 𝟘 {}; let initial: 𝟘 → a = {}; let use: 𝟘 → integer = initial;")
   , ("multi-scrutinee exhaustive match", boolData ++ "let ok: integer = match yea, nay { yea, yea | 1, yea, nay | 2, nay, yea | 3, nay, nay | 4 };")
@@ -53,6 +65,7 @@ accepted =
   , ("fill context dischargeth inner need", equalPrelude ++ boxData ++ "graith a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y };")
   , ("shape default supplieth a member", "shape a identity { let (x: a) identity: a = x }; fill integer identity {};")
   , ("shape law useth its own methods", "shape a identity { a identity: a; law (x: a): x identity ~ x }; fill integer identity { let x identity = x };")
+  , ("well-typed unequal shape law remaineth checked documentation", "shape a claimed { law (x: integer): x ~ 0 };")
   , ("shape member carrieth its own graith", memberGraith ++ "fill option functor { let value map f = match value { none | none, x some | x f $ some } }; fill option applicative { let pure = some; let apply = { x some, f some | x f $ some, _, _ | none } }; fill option traverse { let value traverse f = match value { none | none pure, x some | (x f) map some } }; let lifted: (integer option) option = (1 some) traverse some;")
   , ("existing parent fill satisfieth child", classHierarchy ++ "fill integer parent { let x parent = x }; fill integer child { let x child = x };")
   , ("child fill may supply parent member", classHierarchy ++ "fill integer child { let x parent = x; let x child = x }; let ok: integer = 1 parent;")
@@ -61,10 +74,10 @@ accepted =
   , ("parameterised state effect", unitData ++ "deed a state { 𝟙 get: a, a set: 𝟙 }; let got: 𝟙 → integer ! integer state = get;")
   , ("operation handler resumeth", "deed ask { integer ask: integer }; let ok: integer = try 10 ask { x ask | x resume };")
   , ("handler changeth answer through return", "deed ask { integer ask: integer }; let ok: text = try 10 ask { return n | n to-text, x ask | x resume };")
-  , ("all operation clauses remove an effect", duoEffect ++ "let run: 𝟙 → 𝟙 = { _ | try null first { first | null, second | null } };")
-  , ("effect clause removeth every operation", duoEffect ++ "let run: 𝟙 → 𝟙 = { _ | try null first { duo | null } };")
-  , ("handler clause effects escape handler", duoEffect ++ "let run: 𝟙 → 𝟙 ! duo = { _ | try null first { first | null second, second | null } };")
-  , ("operation keepeth declared extra effect", unitData ++ "deed other { 𝟙 other: 𝟙 }; deed mine { 𝟙 op: 𝟙 ! other }; let run: 𝟙 → 𝟙 ! other = { _ | try null op { op | null other } };")
+  , ("all operation clauses remove an effect", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null first { first | null, second | null };")
+  , ("effect clause removeth every operation", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null first { duo | null };")
+  , ("handler clause effects escape handler", duoEffect ++ "let (_: 𝟙) run: 𝟙 ! duo = try null first { first | null second, second | null };")
+  , ("operation keepeth declared extra effect", unitData ++ "deed other { 𝟙 other: 𝟙 }; deed mine { 𝟙 op: 𝟙 ! other }; let (_: 𝟙) run: 𝟙 ! other = try null op { op | null other };")
   , ("foreign let entereth value scope", "let add-integer: integer → integer → integer = foreign; let answer: integer = 1 add-integer 2;")
   , ("declaration-only file is runnable", "let answer = 42;")
   ]
@@ -72,11 +85,12 @@ accepted =
 rejected :: [(String, String)]
 rejected =
   [ ("literal type mismatch", "let bad: integer = 'wrong';")
-  , ("parameterised type alias needeth its argument", "let-ilk a predicate = a func integer; let bad: predicate = { _ | 1 };")
-  , ("parameterised type alias rejecteth extra arguments", "let-ilk a predicate = a func integer; let bad: integer integer predicate = { _ | 1 };")
-  , ("occurs check rejecteth self application", "let omega = { x | x x };")
-  , ("occurs check followeth nested records", "let omega = { x | [value = x] x };")
-  , ("annotation cannot claim false polymorphism", "let bad: a → a = { _ | 1 };")
+  , ("term type ascription rejecteth a mismatch", "let bad = ('wrong': integer);")
+  , ("parameterised type alias needeth its argument", "let _ bad: predicate = 1;")
+  , ("parameterised type alias rejecteth extra arguments", "let _ bad: integer integer predicate = 1;")
+  , ("occurs check rejecteth self application", "let x omega = x x;")
+  , ("occurs check followeth nested records", "let x omega = [value = x] x;")
+  , ("annotation cannot claim false polymorphism", "let (_: a) bad: a = 1;")
   , ("function branches must agree", "let bad = { yea | 1, nay | 'no' };")
   , ("function cases share arity", "let bad = { x | x, x, y | x };")
   , ("pattern binders are linear", "let bad = { x, x | x };")
@@ -110,23 +124,23 @@ rejected =
   , ("fill arity followeth shape", "shape a b convert { a convert: b }; fill integer convert { let x convert = x };")
   , ("effect operation must be a function", "deed bad { tick: integer };")
   , ("state parameter mismatch", unitData ++ "deed a state { 𝟙 get: a, a set: 𝟙 }; let got: 𝟙 → integer ! text state = get;")
-  , ("one operation clause cannot erase sibling operations", duoEffect ++ "let run: 𝟙 → 𝟙 = { _ | try null second { first | null } };")
-  , ("partial coverage doth not combine across handlers", duoEffect ++ "let run: 𝟙 → 𝟙 = { _ | try (try null second { first | null }) { second | null } };")
+  , ("one operation clause cannot erase sibling operations", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null second { first | null };")
+  , ("partial coverage doth not combine across handlers", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try (try null second { first | null }) { second | null };")
   , ("handler for absent effect", "let bad: integer = try 1 { fail | 2 };")
-  , ("ordinary function is not an operation", "deed ask { integer ask: integer }; let f: integer → integer ! ask = { x | x ask }; let bad = try 1 f { x f | x };")
+  , ("ordinary function is not an operation", "deed ask { integer ask: integer }; let (x: integer) f: integer ! ask = x ask; let bad = try 1 f { x f | x };")
   , ("resume argument hath operation result type", "deed ask { integer ask: integer }; let bad: integer = try 10 ask { x ask | 'bad' resume };")
   , ("resume is scoped to operation clauses", "let bad = 1 resume;")
   , ("handler return pattern must be irrefutable", boolData ++ "let bad = try nay { return yea | 1 };")
   , ("handler return integer pattern is refutable", "let bad = try 1 { return 1 | 1 };")
   , ("handler operation patterns must be irrefutable", boolData ++ "deed choose { 𝟚 choose: integer }; let bad = try nay choose { yea choose | 1 };")
   , ("effect handler cannot bind operation arguments", duoEffect ++ "let bad: 𝟙 = try null first { x duo | null };")
-  , ("effectful let result stayeth monomorphic", unitData ++ "deed a state { 𝟙 get: a }; let run = { _ | (let value = null get; let number: integer = value; let word: text = value; null) };")
+  , ("effectful let result stayeth monomorphic", unitData ++ "deed a state { 𝟙 get: a }; let _ run = (let value = null get; let number: integer = value; let word: text = value; null);")
   , ("bookhoard let cannot run immediate effects", "let answer = 'hello' write;")
   , ("foreign let requireth an annotation", "let add-integer = foreign;")
   , ("foreign let requireth a host implementation", "let unknown: integer → integer = foreign;")
   , ("foreign let must match its host signature", "let add-integer: integer → integer = foreign;")
   , ("foreign marker cannot be nested", "let bad: [value: integer] = [value = foreign];")
-  , ("foreign let must be file-level", "let outer = { _ | (let add-integer: integer → integer → integer = foreign; 1) };")
+  , ("foreign let must be file-level", "let _ outer = (let add-integer: integer → integer → integer = foreign; 1);")
   ]
 
 importCases :: [Test]
@@ -138,17 +152,17 @@ importCases =
   , typeErrWith "self bring cycle is rejected" "bring self.tung;" (Map.singleton "self.tung" "bring self.tung;")
   , typeErrWith "mutual bring cycle is rejected" "bring left.tung;" cyclic
   , runnableErr "module without main is not runnable" "let answer = 42;"
-  , runnableOk "inferred pure main is runnable" (unitData ++ "let main = { _ | null };")
-  , runnableOk "partial effectful call is pure at boundary" (unitData ++ "let half = 1 ÷; let main: 𝟙 → 𝟙 = { _ | null };")
+  , runnableOk "inferred pure main is runnable" (unitData ++ "let _ main = null;")
+  , runnableOk "partial effectful call is pure at boundary" (unitData ++ "let half = 1 ÷; let (_: 𝟙) main: 𝟙 = null;")
   , runnableOk "runner accepteth unit and runner effects" runnableOkSource
   , runnableErr "main must be a function" (unitData ++ "let main = null;")
-  , runnableErr "main taketh one unit argument" (unitData ++ "let main: integer → 𝟙 = { _ | null };")
-  , runnableErr "main returneth unit" (unitData ++ "let main: 𝟙 → integer = { _ | 42 };")
-  , runnableErr "fail is not a main effect" (unitData ++ "let main: 𝟙 → 𝟙 ! text fail = { _ | (let _ = 1 ÷ 0; null) };")
-  , runnableErr "custom effect is not a main effect" (unitData ++ "deed ask { 𝟙 ask: 𝟙 }; let main: 𝟙 → 𝟙 ! ask = { _ | null ask };")
-  , runnableErr "parameterised runner-looking effect is rejected" (unitData ++ "deed a console { 𝟙 fake: 𝟙 }; let main: 𝟙 → 𝟙 ! 𝟙 console = { _ | null fake };")
-  , runnableErr "effects cannot run before main" (unitData ++ "let _ = 'early' write; let main: 𝟙 → 𝟙 = { _ | null };")
-  , expectEq "reporteth an inferred source type" (Right "m1 → m1") (typeOfWithImports "show let identity = { x | x };" Map.empty "identity")
+  , runnableErr "main taketh one unit argument" (unitData ++ "let (_: integer) main: 𝟙 = null;")
+  , runnableErr "main returneth unit" (unitData ++ "let (_: 𝟙) main: integer = 42;")
+  , runnableErr "fail is not a main effect" (unitData ++ "let (_: 𝟙) main: 𝟙 ! text fail = (let _ = 1 ÷ 0; null);")
+  , runnableErr "custom effect is not a main effect" (unitData ++ "deed ask { 𝟙 ask: 𝟙 }; let (_: 𝟙) main: 𝟙 ! ask = null ask;")
+  , runnableErr "parameterised runner-looking effect is rejected" (unitData ++ "deed a console { 𝟙 fake: 𝟙 }; let (_: 𝟙) main: 𝟙 ! 𝟙 console = null fake;")
+  , runnableErr "effects cannot run before main" (unitData ++ "let _ = 'early' write; let (_: 𝟙) main: 𝟙 = null;")
+  , expectEq "reporteth an inferred source type" (Right "m1 → m1") (typeOfWithImports "show let x identity = x;" Map.empty "identity")
   , expectEq "reporteth an unknown inspected name" (Left "unknown name 'missing'") (typeOfWithImports "let answer = 42;" Map.empty "missing")
   , expect "elaboration resolveth every type-class evidence hole" evidenceIsResolved
   , typeOkWith "shared diamond imports" "bring left.tung; bring right.tung; left@left + right@right" sharedImports
@@ -207,7 +221,7 @@ orderCases imports =
 
 boundCases :: Map.Map String String -> [Test]
 boundCases imports =
-  [ typeOkWith "finite orders provide both endpoints" (prefix ++ "let low: 𝟚 = ⟂; let high: three = ⊤;") imports
+  [ typeOkWith "finite orders provide both endpoints" (prefix ++ "let low: 𝟚 = ⟂; let high: 𝟛 = ⊤;") imports
   , typeOkWith "natural supporteth the lower-bound fold" (prefix ++ "let value: natural = (data/natural@zero .* data/list@empty) …∨;") imports
   , typeErrWith "natural doth not claim an upper bound" (prefix ++ "let value: natural = (data/natural@zero .* data/list@empty) …∧;") imports
   , typeOkWith "powerset is a bounded lattice without total order" (powersetPrefix ++ "let joined: integer powerset = (empty-set .* (full-set .* data/list@empty)) …∨;") imports
@@ -221,8 +235,17 @@ boundCases imports =
  where
   prefix = "bring ground.tung; bring data/list.tung; bring data/natural.tung; bring collection/catamorphism.tung; "
   powersetPrefix = "bring ground.tung; bring data/list.tung; bring data/powerset.tung; bring collection/catamorphism.tung; let empty-set: integer powerset = data/powerset@empty; let full-set: integer powerset = universe; "
-  semilatticePrefix = "bring order/lattice.tung; kin one-sided { item }; fill one-sided semilattice-infimum { let ∧ = { _, _ | item } }; "
-  supremumPrefix = "bring order/lattice.tung; kin one-sided { item }; fill one-sided semilattice-supremum { let ∨ = { _, _ | item } }; "
+  semilatticePrefix = "bring order/lattice.tung; kin one-sided { item }; fill one-sided semilattice-infimal { let _ ∧ _ = item }; "
+  supremumPrefix = "bring order/lattice.tung; kin one-sided { item }; fill one-sided semilattice-supremal { let _ ∨ _ = item }; "
+
+numericHierarchyCases :: Map.Map String String -> [Test]
+numericHierarchyCases imports =
+  [ typeOkWith "integer supplieth euclidean division" "bring ground.tung; bring data/product.tung; graith a euclidean let (x: a, y: a) divide-with-rest: a ∏ a ! text fail = x ÷ y; let value: integer ∏ integer = try -5 divide-with-rest 3 { fail | 0 ∏ 0 };" imports
+  , typeOkWith "float retaineth raw numeric and comparison operations" "bring ground.tung; let sum: float = 1.0 + 2.0; let quotient: float = 1.0 ∕ 2.0; let compared: 𝟚 = 1.0 ≤ 2.0;" imports
+  , typeErrWith "float doth not claim exact semiring laws" "bring ground.tung; graith a semiring let (x: a) twice: a = x + x; let bad: float = 1.0 twice;" imports
+  , typeErrWith "float doth not claim exact field laws" "bring ground.tung; graith a field let (x: a) reciprocal: a = one ∕ x; let bad: float = 2.0 reciprocal;" imports
+  , typeErrWith "float doth not claim partial-order laws" "bring ground.tung; graith a order-partial let (x: a) reflexive: 𝟚 = x ≤ x; let bad: 𝟚 = 1.0 reflexive;" imports
+  ]
 
 redundantFillGraithCases :: [Test]
 redundantFillGraithCases =
@@ -315,6 +338,71 @@ effectSource performed annotated =
     ++ foldr (\name body -> "(let _ = null " ++ name ++ "; " ++ body ++ ")") "null" performed
     ++ " };"
 
+inferenceProperties :: [Test]
+inferenceProperties =
+  [ Harness.propertyTest "property: polymorphic identity inferreth every generated primitive use" $
+      QuickCheck.forAll (QuickCheck.listOf1 (QuickCheck.elements primitiveValues)) \values ->
+        let declarations =
+              [ "let value" ++ show index ++ ": " ++ ty ++ " = " ++ literal ++ " identity;"
+              | (index, (ty, literal)) <- zip [(0 :: Int) ..] (take 12 values)
+              ]
+            source = "let x identity = x;" ++ concat declarations
+         in QuickCheck.counterexample source (check source QuickCheck.=== "type ok")
+  , Harness.propertyTest "property: primitive annotations rejecteth a different inferred type" $
+      QuickCheck.forAll (QuickCheck.elements primitiveValues) \(actualType, literal) ->
+        QuickCheck.forAll (QuickCheck.elements [ty | (ty, _) <- primitiveValues, ty /= actualType]) \claimedType ->
+          let source = "let value: " ++ claimedType ++ " = " ++ literal ++ ";"
+           in QuickCheck.counterexample source ("type error:" `isPrefixOf` check source)
+  ]
+
+primitiveValues :: [(String, String)]
+primitiveValues =
+  [ ("integer", "42")
+  , ("float", "1.5")
+  , ("text", "'word'")
+  , ("unicode", "`x")
+  ]
+
+evidenceProperties :: [Test]
+evidenceProperties =
+  [ Harness.propertyTest "property: unrelated fill order keepeth evidence coherent" $
+      QuickCheck.forAll (QuickCheck.shuffle evidenceCases) \orderedCases ->
+        let source = equalPrelude ++ concatMap evidenceFill orderedCases ++ concatMap evidenceUse orderedCases
+         in QuickCheck.counterexample source (QuickCheck.conjoin [check source QuickCheck.=== "type ok", QuickCheck.property (evidenceResolved source)])
+  ]
+
+data EvidenceCase = EvidenceCase String String
+  deriving stock (Show)
+
+evidenceCases :: [EvidenceCase]
+evidenceCases =
+  [ EvidenceCase "integer" "1"
+  , EvidenceCase "float" "1.5"
+  , EvidenceCase "text" "'word'"
+  , EvidenceCase "unicode" "`x"
+  ]
+
+evidenceFill :: EvidenceCase -> String
+evidenceFill (EvidenceCase ty _) = "fill " ++ ty ++ " equal { let x ≡ y = yea };"
+
+evidenceUse :: EvidenceCase -> String
+evidenceUse (EvidenceCase ty literal) = "let " ++ ty ++ "-evidence: 𝟚 = " ++ literal ++ " ≡ " ++ literal ++ ";"
+
+evidenceResolved :: String -> Bool
+evidenceResolved source = case parse source >>= (\program -> elaborateProgramWithImports program Map.empty False) of
+  Left _ -> False
+  Right program -> "EvidenceFill" `isInfixOf` show program && not ("EvidenceHole" `isInfixOf` show program)
+
+coverageProperties :: [Test]
+coverageProperties =
+  [ Harness.propertyTest "property: generated product coverage accepteth all rows and rejecteth one omission" $
+      QuickCheck.forAll (QuickCheck.chooseInt (1, 4)) \arity ->
+        QuickCheck.forAll (QuickCheck.elements (booleanRows arity)) \omitted ->
+          let complete = matchSource arity Nothing
+              incomplete = matchSource arity (Just omitted)
+           in QuickCheck.counterexample incomplete (check complete QuickCheck.=== "type ok" QuickCheck..&&. ("type error:" `isPrefixOf` check incomplete))
+  ]
+
 unitData, boolData, optionData, boxData, equalPrelude, classHierarchy, inheritedMethodHierarchy, parentDictionaryGraith, redundantCollectionGraith, duoEffect, runnableOkSource :: String
 unitData = "kin 𝟙 { null }; "
 boolData = "kin 𝟚 { yea, nay }; "
@@ -343,4 +431,4 @@ redundantCollectionGraith =
     ++ "kin a set { (a list) set }; "
     ++ "graith a equal, (a list) a inhold fill (a set) a inhold { let (list set) ∋ value = list ∋ value };"
 duoEffect = unitData ++ "deed duo { 𝟙 first: 𝟙, 𝟙 second: 𝟙 }; "
-runnableOkSource = unitData ++ "let main: 𝟙 → 𝟙 ! console = { _ | 'ok' write };"
+runnableOkSource = unitData ++ "let (_: 𝟙) main: 𝟙 ! console = 'ok' write;"

@@ -302,6 +302,38 @@ test("server implementeth the editor workflow over stdio", async (context) => {
     options: { tabSize: 2, insertSpaces: true },
   });
   assert.match(rangeFormatted[0].newText, /  a box/);
+  connection.sendNotification("textDocument/didClose", {
+    textDocument: { uri: depUri },
+  });
+  const importedSource = depText.replace(
+    "answer: integer = 42",
+    "answer: integer = 'wrong'",
+  );
+  const importedDiagnostics = nextDiagnostics(
+    connection,
+    depUri,
+    ({ diagnostics }) => diagnostics.length > 0,
+  );
+  fs.writeFileSync(depPath, importedSource);
+  connection.sendNotification("workspace/didChangeWatchedFiles", {
+    changes: [{ uri: depUri, type: 2 }],
+  });
+  const importedResult = await importedDiagnostics;
+  assert.match(importedResult.diagnostics[0].message, /^type error:/);
+  assert.deepEqual(
+    importedResult.diagnostics[0].range.start,
+    positionOf(importedSource, "'wrong'"),
+  );
+  const clearedImportedDiagnostics = nextDiagnostics(
+    connection,
+    depUri,
+    ({ diagnostics }) => diagnostics.length === 0,
+  );
+  fs.writeFileSync(depPath, depText);
+  connection.sendNotification("workspace/didChangeWatchedFiles", {
+    changes: [{ uri: depUri, type: 2 }],
+  });
+  assert.deepEqual((await clearedImportedDiagnostics).diagnostics, []);
   const badDiagnostics = nextDiagnostics(
     connection,
     mainUri,
@@ -342,9 +374,6 @@ test("server implementeth the editor workflow over stdio", async (context) => {
   assert.equal(actions[0].title, "add bring semicolon");
   connection.sendNotification("textDocument/didClose", {
     textDocument: { uri: mainUri },
-  });
-  connection.sendNotification("textDocument/didClose", {
-    textDocument: { uri: depUri },
   });
   await connection.sendRequest("shutdown");
   connection.sendNotification("exit");

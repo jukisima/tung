@@ -1,5 +1,10 @@
 pre-commit:
   jobs:
+    - name: bookhoard membership
+      glob: "bookhoard/**/*.tung"
+      run: make bookhoard-membership
+      stage_fixed: true
+
     - name: fourmolu
       glob: "**/*.hs"
       run: fourmolu --mode inplace {staged_files}

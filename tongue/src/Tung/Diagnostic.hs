@@ -2,8 +2,10 @@
 module Tung.Diagnostic (
   Diagnostic (..),
   DiagnosticKind (..),
+  checkDiagnosticWithImports,
   checkEditorDiagnosticWithImports,
   diagnoseResult,
+  renderFileDiagnostic,
   renderDiagnostic,
 ) where
 
@@ -14,13 +16,14 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Tung.Parse (ParsedSource (..), parseLocated)
 import Tung.Token
-import Tung.Type (TypeFailure (..), checkEditorProgramWithImportsDetailed)
+import Tung.Type (TypeFailure (..), checkEditorProgramWithImportsDetailed, checkProgramWithImportsDetailed)
 
 data DiagnosticKind = ParseDiagnostic | TypeDiagnostic
   deriving (Eq, Show)
 
 data Diagnostic = Diagnostic
   { diagnosticKind :: !DiagnosticKind
+  , diagnosticPath :: Maybe FilePath
   , diagnosticSpan :: !SourceSpan
   , diagnosticMessage :: String
   }
@@ -29,27 +32,52 @@ data Diagnostic = Diagnostic
 checkEditorDiagnosticWithImports :: String -> Map.Map String String -> Maybe Diagnostic
 checkEditorDiagnosticWithImports source imports = case parseLocated source of
   Left message -> Just (diagnoseResult source ("parse error: " ++ message))
-  Right ParsedSource{parsedProgram} -> case checkEditorProgramWithImportsDetailed parsedProgram imports of
-    Nothing -> Nothing
-    Just TypeFailure{typeFailureMessage, typeFailureSpan} ->
-      Just
-        Diagnostic
-          { diagnosticKind = TypeDiagnostic
-          , diagnosticSpan = fromMaybe (findSourceSpan source typeFailureMessage) typeFailureSpan
-          , diagnosticMessage = "type error: " ++ typeFailureMessage
-          }
+  Right ParsedSource{parsedProgram} -> diagnosticFromFailure source imports (checkEditorProgramWithImportsDetailed parsedProgram imports)
+
+checkDiagnosticWithImports :: Bool -> String -> Map.Map String String -> Maybe Diagnostic
+checkDiagnosticWithImports runnable source imports = case parseLocated source of
+  Left message -> Just (diagnoseResult source ("parse error: " ++ message))
+  Right ParsedSource{parsedProgram} -> diagnosticFromFailure source imports (checkProgramWithImportsDetailed parsedProgram imports runnable)
+
+diagnosticFromFailure :: String -> Map.Map String String -> Maybe TypeFailure -> Maybe Diagnostic
+diagnosticFromFailure source imports = fmap \TypeFailure{typeFailureMessage, typeFailureSpan, typeFailurePath} ->
+  let ownerSource = maybe source (\path -> Map.findWithDefault source path imports) typeFailurePath
+   in Diagnostic
+        { diagnosticKind = TypeDiagnostic
+        , diagnosticPath = typeFailurePath
+        , diagnosticSpan = fromMaybe (findSourceSpan ownerSource typeFailureMessage) typeFailureSpan
+        , diagnosticMessage = "type error: " ++ typeFailureMessage
+        }
 
 diagnoseResult :: String -> String -> Diagnostic
 diagnoseResult source message =
   Diagnostic
     { diagnosticKind = if "parse error:" `isPrefixOf` message then ParseDiagnostic else TypeDiagnostic
+    , diagnosticPath = Nothing
     , diagnosticSpan = findSourceSpan source message
     , diagnosticMessage = message
     }
 
 renderDiagnostic :: Diagnostic -> String
-renderDiagnostic Diagnostic{diagnosticKind, diagnosticSpan = SourceSpan start end, diagnosticMessage} =
-  intercalate "\t" ["tung-diagnostic", renderKind diagnosticKind, show start, show end] ++ "\n" ++ diagnosticMessage
+renderDiagnostic Diagnostic{diagnosticKind, diagnosticPath, diagnosticSpan = SourceSpan start end, diagnosticMessage} =
+  intercalate "\t" ["tung-diagnostic", renderKind diagnosticKind, fromMaybe "" diagnosticPath, show start, show end] ++ "\n" ++ diagnosticMessage
+
+renderFileDiagnostic :: FilePath -> String -> Diagnostic -> String
+renderFileDiagnostic path source Diagnostic{diagnosticSpan = SourceSpan start end, diagnosticMessage} =
+  intercalate ":" [path, show startLine, show startColumn, show endLine, show endColumn] ++ ": " ++ diagnosticMessage
+ where
+  (startLine, startColumn) = sourcePosition source start
+  (endLine, endColumn) = sourcePosition source end
+
+sourcePosition :: String -> Int -> (Int, Int)
+sourcePosition source wanted = go 0 1 1 source
+ where
+  go _ line column [] = (line, column)
+  go offset line column _ | offset >= wanted = (line, column)
+  go offset line _ ('\n' : rest) = go (offset + 1) (line + 1) 1 rest
+  go offset line column (character : rest) =
+    let width = if fromEnum character > 0xffff then 2 else 1
+     in go (offset + width) line (column + width) rest
 
 renderKind :: DiagnosticKind -> String
 renderKind ParseDiagnostic = "parse"

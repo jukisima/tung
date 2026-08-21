@@ -1,6 +1,12 @@
 bring data/list.tung;
 bring data/option.tung;
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup.tung;
 bring collection/functor.tung;
+bring collection/applicative.tung;
+bring collection/monad.tung;
+bring collection/catamorphism.tung;
+bring collection/traverse.tung;
 bring collection/inhold.tung;
 
 ## a list with a statically known first element.
@@ -9,35 +15,57 @@ show kin a nonempty {
 }
 
 ## build a one-element non-empty list.
-show let singleton-nonempty: a → a nonempty = {
-  value | value nonempty empty
-};
+show let (a: a) singleton-nonempty: a nonempty =
+  a nonempty empty;
 
 ## expose a non-empty list as an ordinary list.
-show let nonempty-to-list: a nonempty → a list = {
-  head nonempty tail | head .* tail
-};
+show let (head nonempty tail: a nonempty) nonempty-to-list: a list =
+  head .* tail;
 
 ## make a non-empty list when the input hath a first element.
 show let list-to-nonempty: a list → (a nonempty) option = {
   empty | data/option@none,
-  head .* tail | (head nonempty tail) data/option@some
+  first .* rest | (first nonempty rest) data/option@some
 };
 
-show let nonempty-head: a nonempty → a = {
-  head nonempty _ | head
-};
+show let (first nonempty _: a nonempty) nonempty-head: a = first;
 
-show let nonempty-tail: a nonempty → a list = {
-  _ nonempty tail | tail
-};
+show let (_ nonempty rest: a nonempty) nonempty-tail: a list = rest;
 
 graith (a list) a inhold
 fill (a nonempty) a inhold {
-  let things ∋ value = (things nonempty-to-list) ∋ value
+  let (first nonempty rest) ∋ a = (first .* rest) ∋ a
 }
 
-show let (things: a nonempty, f: a → b ! e) map-nonempty: b nonempty ! e =
-  match things {
-    head nonempty tail | (head f) nonempty (tail map f)
-  }
+fill nonempty functor {
+  let (first nonempty rest) map f = (first f) nonempty (rest map f)
+}
+
+fill (a nonempty) semigroup {
+  let (first nonempty rest) * right =
+    first nonempty (rest * (right nonempty-to-list))
+}
+
+fill nonempty applicative {
+  let pure = singleton-nonempty;
+  let (first nonempty rest) apply (f nonempty fs) =
+    (first f) nonempty (
+      (rest map f) * ((first .* rest) apply fs)
+    )
+}
+
+fill nonempty monad {
+  let (first nonempty rest) flat = rest foldl first *
+}
+
+fill nonempty cata {
+  let (first nonempty rest) foldr b f = first f (rest foldr b f);
+  let (first nonempty rest) foldl b f = rest foldl (b f first) f
+}
+
+fill nonempty traverse {
+  let (first nonempty rest) traverse f =
+    (first f) lift₂ (rest traverse f) nonempty;
+  let (first nonempty rest) sequence =
+    first lift₂ (rest sequence) nonempty
+}

@@ -1,33 +1,61 @@
 bring order/lattice.tung;
+bring algebra/total/magma.tung;
+bring algebra/total/semigroup.tung;
+bring algebra/total/monoid.tung;
+bring collection/functor.tung;
+bring collection/applicative.tung;
+bring collection/monad.tung;
+bring collection/catamorphism.tung;
+bring collection/traverse.tung;
 
 show kin a ∏ b {
   a ∏ b
 }
 
-show let project₀: a ∏ b → a = {
-  a ∏ _ | a
+show let (a ∏ _: a ∏ b) project₀: a = a;
+
+show let (a ∏ b: a ∏ b) project₁: b = b;
+
+show let (a ∏ b: a ∏ b) swap: b ∏ a = b ∏ a;
+
+show let (a ∏ b: a ∏ b, f: a → c ! e0, g: b → d ! e1) bimap: c ∏ d ! e0, e1 =
+  (a f) ∏ (b g);
+
+fill (a ∏) functor {
+  let (a ∏ b) map f = a ∏ (b f)
 }
 
-show let project₁: a ∏ b → b = {
-  _ ∏ b | b
+graith a monoid
+fill (a ∏) applicative {
+  let b pure = ∅ ∏ b;
+  let (a0 ∏ b) apply (a1 ∏ f) = (a0 * a1) ∏ (b f)
 }
 
-show let swap: a ∏ b → b ∏ a = {
-  a ∏ b | b ∏ a
-};
+graith a monoid
+fill (a ∏) monad {
+  let (a ∏ (b ∏ c)) flat =
+    (a * b) ∏ c
+}
 
-show let (p: a ∏ b, f: a → c ! e0, g: b → d ! e1) bimap: c ∏ d ! e0, e1 =
-  match p {
-    a ∏ b | (a f) ∏ (b g)
-  }
+fill (a ∏) cata {
+  let (_ ∏ a) foldr b f = a f b;
+  let (_ ∏ a) foldl b f = b f a
+}
 
-graith a semilattice-infimum, b semilattice-infimum
-fill (a ∏ b) semilattice-infimum {
+fill (a ∏) traverse {
+  let (a ∏ b) traverse f =
+    (b f) map (a ∏);
+  let (a ∏ b) sequence =
+    b map (a ∏)
+}
+
+graith a semilattice-infimal, b semilattice-infimal
+fill (a ∏ b) semilattice-infimal {
   let (a0 ∏ b0) ∧ (a1 ∏ b1) = (a0 ∧ a1) ∏ (b0 ∧ b1)
 }
 
-graith a semilattice-supremum, b semilattice-supremum
-fill (a ∏ b) semilattice-supremum {
+graith a semilattice-supremal, b semilattice-supremal
+fill (a ∏ b) semilattice-supremal {
   let (a0 ∏ b0) ∨ (a1 ∏ b1) = (a0 ∨ a1) ∏ (b0 ∨ b1)
 }
 

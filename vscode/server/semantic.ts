@@ -249,23 +249,14 @@ const tokenize = (text) => {
     advance();
     if (!atEnd() && current() === "\\") {
       advance();
-      if (!atEnd() && current() === "{") {
-        advance();
+      if (!atEnd() && /[0-9]/.test(current())) {
         while (!atEnd() && /[0-9]/.test(current())) {
           advance();
         }
-        if (!atEnd() && current() === "}") {
+        if (!atEnd() && current() === ";") {
           advance();
         }
       } else if (!atEnd()) {
-        advance();
-      }
-    } else if (!atEnd() && current() === "{") {
-      advance();
-      while (!atEnd() && /[0-9]/.test(current())) {
-        advance();
-      }
-      if (!atEnd() && current() === "}") {
         advance();
       }
     } else if (!atEnd()) {
@@ -357,9 +348,19 @@ const analyze = (tokens) => {
   for (const token of tokens) {
     declarationCollectors[token.text]?.(tokens, token.index, info);
   }
+  collectTermAscriptions(tokens, info);
   collectExportLists(tokens, info);
   collectPatternBindings(tokens, info);
   return info;
+};
+const collectTermAscriptions = (tokens, info) => {
+  for (const token of tokens) {
+    if (token.text !== "(") continue;
+    const close = findMatching(tokens, token.index);
+    if (close < 0) continue;
+    const colon = findTopLevelText(tokens, token.index + 1, close, ":");
+    if (colon >= 0) markTypeTokens(tokens, colon + 1, close, info);
+  }
 };
 const collectExportLists = (tokens, info) => {
   for (const token of tokens) {

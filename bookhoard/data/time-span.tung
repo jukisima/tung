@@ -2,22 +2,19 @@ bring _foreign.tung;
 bring data/one.tung;
 
 ## a non-normalised span measured in milliseconds.
-show kin time-span {
+show kin milliseconds {
   integer milliseconds
 }
 
-show let seconds: integer → time-span = {
-  value | (value × 1000) milliseconds
-};
+show let (value: integer) seconds: milliseconds =
+  value × 1000 $ milliseconds;
 
-show let minutes: integer → time-span = {
-  value | (value × 60) seconds
-};
+show let (value: integer) minutes: milliseconds =
+  (value × 60) seconds;
 
-show let hours: integer → time-span = {
-  value | (value × 60) minutes
-};
 
-show let sleep-for: time-span → 𝟙 ! async = {
-  value milliseconds | value sleep
-}
+show let (value: integer) hours: milliseconds =
+  (value × 60) minutes;
+
+show let (value milliseconds: milliseconds) sleep-for: 𝟙 ! async =
+  value sleep

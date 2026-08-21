@@ -321,6 +321,18 @@ class WorkspaceIndex {
     }
     return uniqueByKey(imports, ([importPath]) => importPath);
   }
+  importModel(model, importPath, seen = new Set()) {
+    if (!model || seen.has(model.uri)) return undefined;
+    const nextSeen = new Set(seen).add(model.uri);
+    for (const imported of model.imports) {
+      const target = this.resolveImport(model, imported);
+      if (!target) continue;
+      if (imported.path === importPath) return target;
+      const nested = this.importModel(target, importPath, nextSeen);
+      if (nested) return nested;
+    }
+    return undefined;
+  }
   completions(uri, position) {
     const model = this.model(uri);
     if (!model) return [];

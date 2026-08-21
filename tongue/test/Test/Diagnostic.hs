@@ -6,7 +6,7 @@ import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
-group = Harness.group "diagnostic" [locatedTokens, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, renderedProtocol]
+group = Harness.group "diagnostic" [locatedTokens, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
 
 locatedTokens :: Test
 locatedTokens = case lexLocatedTokens "  answer + 1" of
@@ -45,8 +45,45 @@ renderedProtocol :: Test
 renderedProtocol =
   expectEq
     "rendered diagnostic protocol"
-    "tung-diagnostic\ttype\t4\t9\ntype error: in 'value'"
-    (renderDiagnostic (Diagnostic TypeDiagnostic (SourceSpan 4 9) "type error: in 'value'"))
+    "tung-diagnostic\ttype\tdep.tung\t4\t9\ntype error: in 'value'"
+    (renderDiagnostic (Diagnostic TypeDiagnostic (Just "dep.tung") (SourceSpan 4 9) "type error: in 'value'"))
+
+renderedFile :: Test
+renderedFile =
+  expectEq
+    "rendered file diagnostic"
+    "/tmp/dep.tung:2:3:2:5: type error: bad value"
+    (renderFileDiagnostic "/tmp/dep.tung" "😀\n  no" (Diagnostic TypeDiagnostic (Just "dep.tung") (SourceSpan 5 7) "type error: bad value"))
+
+importedTypeError :: Test
+importedTypeError =
+  expectImportedDiagnostic
+    "imported type error"
+    "bring dep.tung;"
+    (Map.singleton "dep.tung" "let value: text = 1;")
+    "dep.tung"
+    (SourceSpan 18 19)
+
+nestedImportedTypeError :: Test
+nestedImportedTypeError =
+  expectImportedDiagnostic
+    "nested imported type error"
+    "bring dep.tung;"
+    ( Map.fromList
+        [ ("dep.tung", "bring nested.tung;")
+        , ("nested.tung", "let value: text = 1;")
+        ]
+    )
+    "nested.tung"
+    (SourceSpan 18 19)
+
+expectImportedDiagnostic :: String -> String -> Map.Map String String -> FilePath -> SourceSpan -> Test
+expectImportedDiagnostic name source imports path span = case checkEditorDiagnosticWithImports source imports of
+  Nothing -> pure (Just (name ++ ": expected a diagnostic"))
+  Just diagnostic -> do
+    pathFailure <- expectEq (name ++ " path") (Just path) (diagnosticPath diagnostic)
+    spanFailure <- expectEq (name ++ " span") span (diagnosticSpan diagnostic)
+    pure (pathFailure <> spanFailure)
 
 expectDiagnostic :: String -> String -> DiagnosticKind -> SourceSpan -> Test
 expectDiagnostic name source kind span = case checkEditorDiagnosticWithImports source Map.empty of

@@ -19,6 +19,10 @@ test("workspace resolveth only shown names across a bring", (context) => {
   assert.equal(workspace.resolveVisible(model, "answer").length, 1);
   assert.equal(workspace.resolveVisible(model, "hidden").length, 0);
   assert.equal(workspace.resolveVisible(model, "dep@answer").length, 1);
+  assert.equal(
+    workspace.importModel(model, "dep.tung")?.uri,
+    pathToFileURL(dep).href,
+  );
 });
 test("workspace leaveth duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));

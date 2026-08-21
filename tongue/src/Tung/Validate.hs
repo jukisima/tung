@@ -80,6 +80,7 @@ validateExpr = \case
   EText _ -> pure ()
   EForeign -> Left "foreign is only allowed as the direct body of an annotated let"
   EVar _ -> pure ()
+  EAscribe expression annotation -> validateExpr expression >> validateType annotation
   EApply function arguments -> validateExpr function >> traverse_ validateExpr arguments
   ERecord fields -> distinct "record field" (map fst fields) >> traverse_ (validateExpr . snd) fields
   EField base _ -> validateExpr base

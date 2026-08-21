@@ -8,6 +8,7 @@ module Test.Harness (
   expect,
   expectEq,
   expectPrefix,
+  propertyTest,
   parseOk,
   parseErr,
   typeOk,
@@ -29,6 +30,8 @@ where
 import Data.List (isInfixOf, isPrefixOf)
 import Data.Map.Strict qualified as Map
 import System.Exit (exitFailure)
+import Test.QuickCheck qualified as QuickCheck
+import Test.QuickCheck.Random qualified as QuickCheck
 import Tung
 
 type Test = IO (Maybe String)
@@ -59,6 +62,20 @@ expectEq name expected actual =
 expectPrefix :: String -> String -> String -> Test
 expectPrefix name prefix actual =
   expectMessage name (prefix `isPrefixOf` actual) ("expected prefix " ++ show prefix ++ ", got " ++ show actual)
+
+propertyTest :: (QuickCheck.Testable property) => String -> property -> Test
+propertyTest name property = do
+  result <-
+    QuickCheck.quickCheckWithResult
+      QuickCheck.stdArgs
+        { QuickCheck.chatty = False
+        , QuickCheck.maxSuccess = 50
+        , QuickCheck.replay = Just (QuickCheck.mkQCGen 20260820, 0)
+        }
+      property
+  pure case result of
+    QuickCheck.Success{} -> Nothing
+    _ -> Just (name ++ ": " ++ QuickCheck.output result)
 
 parseOk, parseErr, typeOk, typeErr, runnableOk, runnableErr :: String -> String -> Test
 parseOk name = expectEither name True . parse

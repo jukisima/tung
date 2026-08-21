@@ -13,36 +13,34 @@ bring order/lattice.tung;
 bring text/structure.tung;
 
 ## true when text hath no unicode code points.
-show let is-empty-text: text → 𝟚 = {
-  value | match value behead-text {
+show let (text: text) is-empty-text: 𝟚 =
+  match text behead-text {
     data/option@none | yea,
     _ data/option@some | nay
-  }
-};
+  };
 
-## number of unicode code points, not bytes or utf-16 units.
-show let text-length: text → natural = {
-  value | (value text-to-list) size
-};
+## count unicode code points, not bytes or utf-16 units.
+fill text size {
+  let text size = text text-to-list $ size
+}
 
-show let (value: text, count: integer) take-text: text =
-  ((value text-to-list) take count) list-to-text;
+show let (text: text, count: integer) take-text: text =
+  text text-to-list $ take count $ list-to-text;
 
-show let (value: text, count: integer) drop-text: text =
-  ((value text-to-list) drop count) list-to-text;
+show let (text: text, count: integer) drop-text: text =
+  text text-to-list $ drop count $ list-to-text;
 
-show let reverse-text: text → text = {
-  value | ((value text-to-list) reverse) list-to-text
-};
+show let (text: text) reverse-text: text =
+  text text-to-list $ reverse $ list-to-text;
 
-show let (character: unicode, value: text) prepend-text: text =
-  (character .* (value text-to-list)) list-to-text;
+show let (character: unicode, text: text) prepend-text: text =
+  character .* (text text-to-list) $ list-to-text;
 
-show let (value: text, character: unicode) append-text: text =
-  ((value text-to-list) * (character .* empty)) list-to-text;
+show let (text: text, character: unicode) append-text: text =
+  text text-to-list $ * (character .* empty) $ list-to-text;
 
-let (characters: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
-  match characters {
+let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
+  match list {
     empty | data/list@empty .* data/list@empty,
     character .* rest | match rest split-unicode-by separates {
       empty | (character .* data/list@empty) .* data/list@empty,
@@ -53,39 +51,37 @@ let (characters: unicode list, separates: unicode → 𝟚) split-unicode-by: (u
     }
   };
 
-let (characters: unicode list, separator: unicode) split-unicode: (unicode list) list =
-  characters split-unicode-by { character |
+let (list: unicode list, separator: unicode) split-unicode: (unicode list) list =
+  list split-unicode-by { character |
     character equal-unicode separator
   };
 
-let is-whitespace: unicode → 𝟚 = {
-  character | match character equal-unicode `\{32} {
-  yea | yea,
-  nay | match character equal-unicode `\{9} {
-  yea | yea,
-  nay | match character equal-unicode `\{10} {
-  yea | yea,
-  nay | character equal-unicode `\{13}
-}
-}
-}
-};
+let (unicode: unicode) is-whitespace: 𝟚 =
+  match unicode equal-unicode `\32; {
+    yea | yea,
+    nay | match unicode equal-unicode `\9; {
+      yea | yea,
+      nay | match unicode equal-unicode `\10; {
+        yea | yea,
+        nay | unicode equal-unicode `\13;
+      }
+    }
+  };
 
 ## split text at each separator code point.
-show let (value: text, separator: unicode) split-text: text list =
-  ((value text-to-list) split-unicode separator) map list-to-text;
+show let (text: text, separator: unicode) split-text: text list =
+  ((text text-to-list) split-unicode separator) map list-to-text;
 
 ## split text on runs of common ascii whitespace.
-show let words-text: text → text list = {
-  value | (((value text-to-list) split-unicode-by is-whitespace) map list-to-text) filter {
+show let (text: text) words-text: text list =
+  (((text text-to-list) split-unicode-by is-whitespace) map list-to-text) filter {
     word | (word is-empty-text) ¬
-  }
-};
+  };
 
 ## join text values with a separator between neighbours.
-show let (things: text list, separator: text) join-with-text: text = match things {
+show let (list: text list, separator: text) join-with-text: text = match list {
   empty | '',
-  thing .* rest | rest foldl thing {
+  text .* texts′ | texts′ foldl text {
     joined, next | (joined join-text separator) join-text next
   }
 }

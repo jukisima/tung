@@ -5,5 +5,5 @@ show shape ⇨ semigroupoid {
 }
 
 fill func semigroupoid {
-  let f ∘ g = { a | a f $ g }
+  let f ∘ g a = a f $ g
 }

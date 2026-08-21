@@ -86,7 +86,7 @@ test("asynchronous task results are variable declarations", () => {
 });
 test("semantic analysis treateth graith heads as types", () => {
   const source =
-    "graith a equal, (a list) monoid show let (value: a list) keep: a list = value;";
+    "graith a equal, (a list) monoid show let (list: a list) keep: a list = list;";
   assert.deepEqual(semanticLabelsOf(source, "a"), [
     "type:",
     "type:",
@@ -95,8 +95,10 @@ test("semantic analysis treateth graith heads as types", () => {
   ]);
   assert.deepEqual(semanticLabelsOf(source, "list"), [
     "type:",
+    "parameter:declaration",
     "type:",
     "type:",
+    undefined,
   ]);
   assert.deepEqual(semanticLabelsOf(source, "equal"), ["shape:"]);
   assert.deepEqual(semanticLabelsOf(source, "monoid"), ["shape:"]);
@@ -131,6 +133,12 @@ test("semantic lexer keepeth one astral unicode code point together", () => {
   );
   assert.equal(literal.text, "`😀");
 });
+test("semantic lexer keepeth a decimal unicode escape together", () => {
+  const literal = tokenize("let letter: unicode = `\\65;;").find(
+    ({ kind }) => kind === "character",
+  );
+  assert.equal(literal.text, "`\\65;");
+});
 test("semantic analysis highlighteth law binders, types, calls, and equation marker", () => {
   const source = [
     "shape f functor {",
@@ -156,6 +164,16 @@ test("semantic analysis treateth a type alias body as type syntax", () => {
   const source = "show let-ilk code-points = unicode list;";
   assert.deepEqual(semanticLabelsOf(source, "unicode"), ["type:"]);
   assert.deepEqual(semanticLabelsOf(source, "list"), ["type:"]);
+});
+test("semantic analysis treateth a term ascription tail as type syntax", () => {
+  const source = "kin a box { a box }; let value = (1 box: integer box);";
+  assert.deepEqual(semanticLabelsOf(source, "integer"), ["type:"]);
+  assert.deepEqual(semanticLabelsOf(source, "box"), [
+    "type:declaration",
+    "function:declaration",
+    "call:",
+    "type:",
+  ]);
 });
 test("semantic analysis marketh parameterised type alias headers", () => {
   const source = "show let-ilk a powerset = a func 𝟚;";
@@ -625,8 +643,8 @@ test("semantic analysis keepeth effects distinct from ordinary calls and values"
 });
 test("n-ary fold names use ordinary function and call roles", () => {
   const source = [
-    "show let (value: integer) …+: integer = value;",
-    "show let (value: integer) …×: integer = value;",
+    "show let (integer: integer) …+: integer = integer;",
+    "show let (integer: integer) …×: integer = integer;",
     "let sum = 1 …+;",
     "let product = 2 …×;",
   ].join("\n");
@@ -666,9 +684,9 @@ test("semantic analysis leaveth bring paths to the textmate import scope", () =>
 test("semantic analysis leaveth standalone export names plain", () => {
   const source = [
     "show write, write-line, read;",
-    "show +, zero, ×, one, -, ÷;",
+    "show +, zero, ×, one, -, ∕, ÷;",
     "show-ilk integer, float;",
-    "show let (value: text) write-line: 𝟙 ! console = value;",
+    "show let (text: text) write-line: 𝟙 ! console = text;",
   ].join("\n");
   const ranges = buildSemanticRanges(source);
   for (const line of [0, 1]) {

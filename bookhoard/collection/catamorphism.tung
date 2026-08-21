@@ -14,15 +14,15 @@ show let (l: a f) fold: a = l foldr ∅ *
 
 ## map values into a monoid and combine them.
 graith b monoid, f cata
-show let (things: a f, transform: a → b ! e) fold-map: b ! e =
-  things foldl ∅ { folded, value | folded * (value transform) };
+show let (things: a f, f: a → b ! e) fold-map: b ! e =
+  things foldl ∅ { folded, thing | folded * (thing f) };
 
 ## combine every value with ∧; an empty collection yieldeth ⊤.
-graith f cata, a semilattice-infimum-bounded
+graith f cata, a semilattice-infimal-bounded
 show let (things: a f) …∧: a = things foldl ⊤ ∧;
 
 ## combine every value with ∨; an empty collection yieldeth ⟂.
-graith f cata, a semilattice-supremum-bounded
+graith f cata, a semilattice-supremal-bounded
 show let (things: a f) …∨: a = things foldl ⟂ ∨;
 
 ## add every value in a foldable collection.

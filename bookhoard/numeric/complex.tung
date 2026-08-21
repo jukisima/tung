@@ -41,21 +41,15 @@ fill (a complex) one {
   let one = one complex zero
 }
 
-fill (float complex) semiring {}
-
-fill (float complex) ring {}
-
 graith a subtract, a multiply, a divide
 fill (a complex) divide {
-  let (a complex b) ÷ (c complex d) =  (
+  let (a complex b) ∕ (c complex d) =  (
     let e = c × c $ + (d × d);
-    (a × c $ + (b × d) $ ÷ e) complex (b × c $ - (a × d) $ ÷ e)
+    (a × c $ + (b × d) $ ∕ e) complex (b × c $ - (a × d) $ ∕ e)
   )
 }
 
-fill (float complex) field {}
-
-graith a semiring
+graith a add, a multiply
 fill (a complex) a absolute {
   let (a complex b) absolute = (a × a) + (b × b)
 }
@@ -63,9 +57,19 @@ fill (a complex) a absolute {
 fill (float complex) elementary {
   let (a complex b) exponent = (
     let c = a exponent;
-    (c × b $ cosine) complex (c × b $ sine)
+    (c × (b cosine)) complex (c × (b sine))
   );
   let (a complex b) logarithm = (a × a $ + (b × b) $ logarithm) complex (a arctan-float b);
-  let a sine = unit × a $ exponent;
-  let a cosine = unit × a $ exponent;
+  let (a complex b) sine = (
+    let positive = ((zero - b) complex a) exponent;
+    let negative = (b complex (zero - a)) exponent;
+    (((positive imaginary) - (negative imaginary)) × 0.5)
+    complex (((negative real) - (positive real)) × 0.5)
+  );
+  let (a complex b) cosine = (
+    let positive = ((zero - b) complex a) exponent;
+    let negative = (b complex (zero - a)) exponent;
+    (((positive real) + (negative real)) × 0.5)
+    complex (((positive imaginary) + (negative imaginary)) × 0.5)
+  );
 }

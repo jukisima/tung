@@ -110,10 +110,10 @@ runnerEffectsCase imports =
  where
   source =
     "bring ground.tung; bring data/list.tung; bring data/option.tung; "
-      ++ "let main: 𝟙 → 𝟙 ! system, clock, process = { _ | ("
+      ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process = ("
       ++ "let args = null arguments; "
       ++ "let setting = 'TUNG_SETTING' environment; "
-      ++ "let stamp = null unix-time; null) };"
+      ++ "let stamp = null unix-time; null);"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
 primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) of

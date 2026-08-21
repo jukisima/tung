@@ -2,6 +2,7 @@ cabal-version: 3.0
 name: tung
 version: 0.1.0.0
 build-type: Simple
+extra-source-files: .bookhoard-membership
 
 common warnings
   ghc-options: -O2 -Wall -Wno-name-shadowing -Wno-unused-do-bind
@@ -20,6 +21,7 @@ library
   exposed-modules: Tung
   other-modules:
       Tung.Core
+    , Tung.Bookhoard.Files
     , Tung.Coverage
     , Tung.Diagnostic
     , Tung.Evaluate
@@ -61,6 +63,21 @@ executable tung
     , filepath
     , tung
 
+benchmark tung-benchmark
+  import: warnings
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: benchmark
+  ghc-options: -rtsopts -with-rtsopts=-T
+  default-language: Haskell2010
+  build-depends:
+      base >=4.20 && <5
+    , containers
+    , directory
+    , filepath
+    , process
+    , tung
+
 test-suite tung-test
   import: warnings
   type: exitcode-stdio-1.0
@@ -86,5 +103,6 @@ test-suite tung-test
     , containers
     , directory
     , filepath
+    , QuickCheck
     , time
     , tung

@@ -1,4 +1,5 @@
 bring data/one.tung;
+bring combinator.tung;
 bring collection/functor.tung;
 bring collection/applicative.tung;
 
@@ -6,7 +7,7 @@ graith f applicative
 show shape f monad {
   ((a f) f) flat: a f;
   let (a: a f, f: a → b f ! e) map-flat : b f ! e =
-    a map f $ flat
+    a map f $ flat;
 
   law (a: a, f: a → b f ! e): (a pure) map-flat f ~ a f;
   law (a: a f): a map-flat pure ~ a
@@ -14,8 +15,8 @@ show shape f monad {
 
 graith f monad
 show let (a: a f, b: b f) then: b f =
-  a map-flat { _ | b };
+  a map-flat (b constant);
 
 graith f monad
 show let (a: a f) void: 𝟙 f =
-  a map { _ | null }
+  a map (null constant)

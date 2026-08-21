@@ -11,16 +11,18 @@ tung is a functional programming tongue with
 each push and pull request runneth the full test suite through
 `.github/workflows/test.yml`.
 
+the make targets refresh the tracked bookhoard membership manifest before
+building, so adding or removing a bundled module invalidateth its compile-time
+embedding.
+
 ## quick start
 
 ```sh
-cd tongue
+make compiler-build
 
-cabal build all
+make compiler-test
 
-cabal test all
-
-cabal run tung -- ../byspel/fizzbuzz.tung [arguments...]
+cd tongue && cabal run tung -- ../byspel/fizzbuzz.tung [arguments...]
 ```
 
 vscode and lsp support liveth in `vscode/`. it provideth compiler diagnostics, inferred hover types, semantic highlighting, completion, navigation, symbols, rename, import links, folding, and formatting.
@@ -65,11 +67,26 @@ to regenerate only the searchable standard-bookhoard html wiki:
 make docs
 ```
 
-run the naive tree-recursive fibonacci benchmark, which prints fibonacci 40:
+run repeatable compiler and evaluator benchmarks for a large generated program
+and representative byspels:
 
 ```sh
-time make benchmark
+make benchmark
 ```
+
+each case runneth in a fresh process. the report giveth median and minimum wall
+time, median allocation, and median peak memory. compiler rows exclude file
+loading; evaluator time and allocation use an already checked core program.
+peak memory is the fresh process high-water mark, so evaluator rows include
+their prepared source, imports, and core program. change the repeat count or
+generated declaration count when needed:
+
+```sh
+make benchmark BENCH_RUNS=5 BENCH_SIZE=2000
+```
+
+`benchmark/fibonacci.tung` remaineth the deliberately slow, naive fibonacci 40
+workload and is included in the compiler cases.
 
 install the development tools and git hooks with:
 
@@ -102,17 +119,16 @@ fill fizzbuzz to-text {
   }
 }
 
-let (i: integer) fizzbuzz-of: fizzbuzz =
-  match 3 can-divide i, 5 can-divide i {
+let (integer: integer) fizzbuzz-of: fizzbuzz =
+  match 3 can-divide integer, 5 can-divide integer {
     yea, yea | fizzbuzz,
     yea, nay | fizz,
     nay, yea | buzz,
-    nay, nay | i raw
+    nay, nay | integer raw
   };
 
-let main: 𝟙 → 𝟙 ! console = { _ |
+let (_: 𝟙) main: 𝟙 ! console =
   0 till 32 $ map fizzbuzz-of $ map to-text $ each write-line
-}
 ```
 
 ## files and imports
@@ -228,7 +244,7 @@ the standard bookhoard defineth these common data types:
 - `a powerset`: membership predicate, transparent with `a func 𝟚`
 - `a set`: list-backed finite set
 - `path`: file path kept distinct from arbitrary text
-- `time-span`: duration measured in milliseconds
+- `milliseconds`: duration represented as an integer millisecond count
 - `process-result`: child-process status, output, and error text
 - `a task`: abstract, reusable handle to an asynchronous result
 
@@ -248,17 +264,25 @@ literals.
 `\t
 `\'
 `\\
-`\{23383} # 字
-`{23383} # 字
+`\23383; # 字
 
 # text
 'hello'
-'\n\r\t\'\\\{23383}'
+'\n\r\t\'\\\23383;'
 ```
 
 `text` is an opaque, strict unicode value backed by haskell `text`.
 
 `integer` is arbitrary precision. `float` is an ieee 754 binary64 value.
+
+integer `÷` returneth `quotient ∏ remainder`: for every nonzero divisor, the
+pair reconstructeth the dividend, and the remainder is at least zero and less
+than the divisor's absolute magnitude. it faileth on a zero divisor.
+
+float keepeth its practical `≤`, `+`, `-`, `×`, and `∕` operations. it doth not
+claim the exact `order-partial`, `semiring`, `ring`, or `field` laws: nan,
+infinities, signed zero, and rounding make those laws false for ieee 754
+binary64 values.
 
 the host bindings live in `bookhoard/_foreign.tung`; `text/structure.tung`
 addeth fills over them. `join-text` is the binary joining primitive.
@@ -289,7 +313,7 @@ a f b c   # f a b c in haskell
 the tongue curries all functions.
 
 ```tung
-let add = { x, y | x + y };
+let x add y = x + y;
 let one-add = 1 add;
 2 one-add # 3
 ```
@@ -328,6 +352,14 @@ let answer: integer = 42;
 let name = 'tung';
 ```
 
+any term may carry a parenthesised type ascription. it constraineth the value
+type while preserving the term's effects and graith requirements.
+
+```tung
+let answer = (1 + 2: integer);
+let numbers = (empty: integer list);
+```
+
 a host function useth `foreign` as the direct body of an annotated file-level
 let. the compiler checketh its name and full type against the host registry.
 
@@ -339,7 +371,6 @@ definitions can use the same sequence rule as applications.
 
 ```tung
 let x add y = x + y;
-let x add-typed y: integer → integer → integer = x + y;
 ```
 
 or thou canst annotate each argument with a type.
@@ -347,6 +378,11 @@ or thou canst annotate each argument with a type.
 ```tung
 let (x: integer, y: integer) add: integer = x + y;
 ```
+
+when a function is specific to one concrete structure and hath exactly one
+parameter of that structure type, the parameter repeateth the structure name.
+multiple parameters of the same structure instead retain relational names such
+as `left` and `right`.
 
 definitions can require type-class.
 
@@ -356,10 +392,11 @@ graith a equal let (x: a, y: a) same: 𝟚 = x ≡ y;
 
 ## functions and match
 
-function literal.
+ordinary parameters belong in the definition header. brace cases remain for
+inputs that the definition pattern-matcheth or destructureth.
 
 ```tung
-let id = { x | x };
+let x id = x;
 
 let if = {
   yea, then, _ | then,
@@ -487,8 +524,14 @@ fill 𝟚 equal {
 }
 
 graith a equal
-shape a order-partial {
+shape a less-equal {
   a ≤ a: 𝟚
+}
+
+graith a less-equal
+shape a order-partial {
+  law (x: a): x ≤ x ~ yea;
+  law (x: a, y: a): (x ≤ y) ≤ ((y ≤ x) ≤ (x ≡ y)) ~ yea
 }
 
 graith a order-partial
@@ -514,11 +557,14 @@ shape requirements use static dictionary passing. the checker chooseth one fill 
 
 every graith on a `fill` must be needed by one of its members or by construction of a required parent dictionary. redundant fill graiths are compile-time errors.
 
-`order-partial` owneth `≤`, deriveth `<`, and stateth the reflexive,
-antisymmetric, and transitive laws. `order-total` addeth comparability and the
-three-way `compare`; `clamp` therefore requireth `order-total`. algebraic
+`less-equal` owneth `≤` and deriveth `<` without claiming order laws.
+`order-partial` requireth it and stateth the reflexive, antisymmetric, and
+transitive laws. `order-total` addeth comparability and the three-way `compare`;
+`clamp` therefore requireth `order-total`. algebraic
 semilattices remain independent because some useful representations can
 compute infima and suprema without deciding their induced order.
+for `𝟚`, `≤` is implication: `nay ≤ conclusion` is always `yea`, while
+`yea ≤ conclusion` is the conclusion.
 `complement` requireth a bounded lattice and owneth `¬`; the function fill lifteth
 complements pointwise, including powersets represented as predicates.
 
@@ -549,7 +595,7 @@ text → float ! text fail
 
 ```tung
 try 1 ÷ 0 {
-  _ fail | 0
+  _ fail | 0 ∏ 0
 }
 ```
 

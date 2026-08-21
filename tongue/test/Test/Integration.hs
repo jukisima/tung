@@ -40,12 +40,12 @@ runnableFileCase imports path = do
 
 mainEntry :: Imports -> Test
 mainEntry imports = do
-  actual <- evaluateMainWithImports "bring ground.tung; let main: 𝟙 → 𝟙 = { _ | null }; 42" imports
+  actual <- evaluateMainWithImports "bring ground.tung; let (_: 𝟙) main: 𝟙 = null; 42" imports
   pure $ if actual == "eval ok: null" then Nothing else Just ("main entry: " ++ actual)
 
 rejectedMain :: Imports -> Test
 rejectedMain imports = do
-  actual <- evaluateMainWithImports "bring ground.tung; let main: 𝟙 → 𝟙 = { _ | missing };" imports
+  actual <- evaluateMainWithImports "bring ground.tung; let (_: 𝟙) main: 𝟙 = missing;" imports
   pure $ if "type error:" `isPrefixOf` actual then Nothing else Just ("rejected main reached evaluation: " ++ actual)
 
 fibonacciSampleResult :: Imports -> Test

@@ -73,11 +73,34 @@ test("textmate scopeth single-quoted unicode text", async () => {
     "'λ字\\n'",
   );
 });
+test("textmate scopeth decimal unicode escapes", async () => {
+  const line = "let letter: unicode = `\\65;; let word: text = '\\23383;';";
+  const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
+  const character = tokens.find(({ scopes }) =>
+    scopes.includes("constant.character.tung")
+  );
+  const textEscape = tokens.find(({ scopes }) =>
+    scopes.includes("constant.character.escape.tung")
+  );
+  assert.equal(line.slice(character.startIndex, character.endIndex), "`\\65;");
+  assert.equal(
+    line.slice(textEscape.startIndex, textEscape.endIndex),
+    "\\23383;",
+  );
+});
 test("textmate keepeth standalone export names plain", async () => {
   const loaded = await loadGrammar();
   const cases: Array<[string, string[]]> = [
     ["show write, write-line, read;", ["write", "write-line", "read"]],
-    ["show +, zero, ×, one, -, ÷;", ["+", "zero", "×", "one", "-", "÷"]],
+    ["show +, zero, ×, one, -, ∕, ÷;", [
+      "+",
+      "zero",
+      "×",
+      "one",
+      "-",
+      "∕",
+      "÷",
+    ]],
   ];
   for (const [line, names] of cases) {
     const tokens = loaded.tokenizeLine(line).tokens;
@@ -167,6 +190,14 @@ test("textmate recogniseth the law equation marker", async () => {
     ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "~",
   );
   assert(marker.scopes.includes("keyword.operator.tung"));
+});
+test("textmate recogniseth a term type ascription", async () => {
+  const line = "let answer = (1: integer);";
+  const token = (await loadGrammar()).tokenizeLine(line).tokens.find(
+    ({ startIndex, endIndex }) =>
+      line.slice(startIndex, endIndex) === "integer",
+  );
+  assert(token.scopes.includes("support.type.tung"));
 });
 test("textmate keepeth law expressions distinct from parameter types", async () => {
   const line = "law (a: a): a * ∅ ~ a";

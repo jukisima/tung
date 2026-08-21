@@ -17,33 +17,37 @@ fill unicode equal {
   let ≡ = equal-unicode
 }
 
-fill text order-partial {
+fill text less-equal {
   let ≤ = less-equal-text
 }
 
+fill text order-partial {}
+
 fill text order-total {}
 
-fill unicode order-partial {
+fill unicode less-equal {
   let ≤ = less-equal-unicode
 }
 
+fill unicode order-partial {}
+
 fill unicode order-total {}
 
-fill text semilattice-infimum {
+fill text semilattice-infimal {
   let a ∧ b = (a ≤ b) if a b
 }
 
-fill text semilattice-supremum {
+fill text semilattice-supremal {
   let a ∨ b = (a ≤ b) if b a
 }
 
 fill text lattice {}
 
-fill unicode semilattice-infimum {
+fill unicode semilattice-infimal {
   let a ∧ b = (a ≤ b) if a b
 }
 
-fill unicode semilattice-supremum {
+fill unicode semilattice-supremal {
   let a ∨ b = (a ≤ b) if b a
 }
 

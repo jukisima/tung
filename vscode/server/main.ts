@@ -37,7 +37,11 @@ const compiler = new CompilerBridge();
 const timers = new Map();
 const checks = new Map();
 const diagnostics = new Map();
-const typeCache = new Map<string, Promise<string | undefined>>();
+const diagnosticReports = new Map();
+const typeCache = new Map<
+  string,
+  { promise: Promise<string | undefined>; cancel: () => void }
+>();
 const defaultCheckDelay = 500;
 const dependentCheckDelay = 1000;
 const semanticRefreshDelay = 200;
@@ -113,6 +117,11 @@ connection.onInitialized(() => {
     })
     .catch(() => {});
 });
+connection.onShutdown(() => {
+  compiler.dispose();
+  return null;
+});
+process.on("exit", () => compiler.dispose());
 connection.onNotification(
   "workspace/didChangeWorkspaceFolders",
   ({ event }) => {
@@ -174,13 +183,13 @@ connection.onCompletion(({ textDocument, position }) => {
     }));
   return unique([...definitionItems, ...keywordItems], ({ label }) => label);
 });
-connection.onHover(async ({ textDocument, position }) => {
+connection.onHover(async ({ textDocument, position }, cancellation) => {
   const resolved = workspace.resolveAt(textDocument.uri, position);
   if (resolved.definition) {
     const definition = resolved.definition;
     const header = definition.detail ||
       `${definition.role} ${definition.bareName}`;
-    const inferred = await inspectType(definition);
+    const inferred = await inspectType(definition, cancellation);
     const docText = definition.documentation
       ? `${definition.documentation}\n\n`
       : "";
@@ -430,8 +439,10 @@ documents.onDidSave(({ document }) => {
 documents.onDidClose(({ document }) => {
   cancelCheck(document.uri);
   workspace.invalidate(document.uri);
-  diagnostics.delete(document.uri);
-  connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+  const previous = diagnosticReports.get(document.uri);
+  diagnosticReports.delete(document.uri);
+  refreshDiagnostics(previous?.targetUri);
+  refreshDiagnostics(document.uri);
 });
 // semantic requests are synchronous over the latest tolerant model so stale
 // compiler work cannot block highlighting after an edit.
@@ -487,14 +498,14 @@ const scheduleCheck = (document, delay = defaultCheckDelay) => {
 const cancelCheck = (uri) => {
   clearTimeout(timers.get(uri));
   timers.delete(uri);
-  checks.get(uri)?.kill();
+  checks.get(uri)?.cancel();
   checks.delete(uri);
 };
 const checkAllOpenDocuments = () => {
   for (const document of documents.all()) scheduleCheck(document, 0);
 };
-// diagnostics are debounced and generation-checked; only the latest compiler
-// process for a document may publish a result.
+// diagnostics are debounced and versioned; cancellation stopeth obsolete work
+// in the persistent compiler session before a newer request is sent.
 const runCheck = (document) => {
   timers.delete(document.uri);
   if (!tongueDir) {
@@ -509,66 +520,125 @@ const runCheck = (document) => {
     return;
   }
   const model = workspace.model(document.uri);
-  const running = compiler.check(model, workspace.importSources(model));
-  checks.set(document.uri, running.process);
+  const running = compiler.check(
+    model,
+    workspace.importSources(model),
+    document.version,
+  );
+  checks.set(document.uri, running);
   running.result.then((output) => {
-    if (checks.get(document.uri) !== running.process) return;
+    if (checks.get(document.uri) !== running) return;
     checks.delete(document.uri);
     const current = documents.get(document.uri);
-    if (!current || current.version !== document.version) return;
+    if (!current || current.version !== running.version) return;
     publish(current, parseCompilerDiagnostic(output));
   });
 };
-const inspectType = (definition) => {
+const inspectType = (definition, cancellation = undefined) => {
   if (!definition?.uri || definition.primitive || !tongueDir) {
     return Promise.resolve(undefined);
   }
   const model = workspace.model(definition.uri);
   if (!model) return Promise.resolve(undefined);
   const key = `${definition.uri}\0${definition.bareName}\0${model.text}`;
-  if (typeCache.has(key)) return typeCache.get(key);
-  const promise = new Promise<string | undefined>((resolve) => {
-    const running = compiler.typeOf(
-      model,
-      workspace.importSources(model),
-      definition.bareName,
-    );
-    running.result.then((output) =>
-      resolve(
-        output
-          .split(/\r?\n/)
-          .find((line) => line.startsWith("type: "))
-          ?.slice(6),
-      )
-    );
+  const cached = typeCache.get(key);
+  if (cached) return cached.promise;
+  const version = documents.get(definition.uri)?.version || 0;
+  const running = compiler.typeOf(
+    model,
+    workspace.importSources(model),
+    definition.bareName,
+    version,
+  );
+  const entry = {
+    cancel: running.cancel,
+    promise: running.result.then((output) =>
+      output
+        .split(/\r?\n/)
+        .find((line) => line.startsWith("type: "))
+        ?.slice(6)
+    ),
+  };
+  typeCache.set(key, entry);
+  const cancelled = cancellation?.onCancellationRequested(() => {
+    if (typeCache.get(key) !== entry) return;
+    typeCache.delete(key);
+    entry.cancel();
   });
-  typeCache.set(key, promise);
-  return promise;
+  return entry.promise.finally(() => cancelled?.dispose());
 };
 const clearTypeCache = (uri) => {
   for (const key of typeCache.keys()) {
-    if (key.startsWith(`${uri}\0`)) typeCache.delete(key);
+    if (!key.startsWith(`${uri}\0`)) continue;
+    typeCache.get(key)?.cancel();
+    typeCache.delete(key);
   }
 };
 const publish = (document, diagnostic) => {
+  const previous = diagnosticReports.get(document.uri);
   const message = typeof diagnostic === "string"
     ? diagnostic
     : diagnostic?.message;
+  const owner = diagnosticOwner(document, diagnostic);
   const items = message
     ? [
       {
-        range: errorRange(document, diagnostic),
+        range: errorRange(owner.document, diagnostic),
         severity: DiagnosticSeverity.Error,
         source: "tung",
         message,
       },
     ]
     : [];
-  diagnostics.set(document.uri, items);
+  if (items.length) {
+    diagnosticReports.set(document.uri, {
+      targetUri: owner.document.uri,
+      items,
+    });
+  } else {
+    diagnosticReports.delete(document.uri);
+  }
+  refreshDiagnostics(previous?.targetUri);
+  refreshDiagnostics(document.uri);
+  refreshDiagnostics(owner.document.uri);
+};
+const diagnosticOwner = (document, diagnostic) => {
+  if (typeof diagnostic !== "string" && diagnostic?.path) {
+    const root = workspace.model(document.uri);
+    const imported = workspace.importModel(root, diagnostic.path);
+    if (imported) {
+      const open = documents.get(imported.uri);
+      return {
+        document: open ||
+          TextDocument.create(imported.uri, "tung", 0, imported.text),
+      };
+    }
+  }
+  return { document };
+};
+const refreshDiagnostics = (uri) => {
+  if (!uri) return;
+  const items = uniqueDiagnostics(
+    [...diagnosticReports.values()]
+      .filter(({ targetUri }) => targetUri === uri)
+      .flatMap(({ items: reported }) => reported),
+  );
+  diagnostics.set(uri, items);
+  const open = documents.get(uri);
   connection.sendDiagnostics({
-    uri: document.uri,
-    version: document.version,
+    uri,
+    ...(open ? { version: open.version } : {}),
     diagnostics: items,
+  });
+};
+const uniqueDiagnostics = (items) => {
+  const seen = new Set();
+  return items.filter(({ range, message }) => {
+    const key =
+      `${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}:${message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 };
 const errorRange = (document, diagnostic) => {

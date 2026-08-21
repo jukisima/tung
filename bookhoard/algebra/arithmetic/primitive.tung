@@ -1,16 +1,41 @@
 bring _foreign.tung;
 bring algebra/arithmetic/semiring.tung;
 
-fill integer semiring {
-  let + = add-integer;
-  let zero = 0;
-  let × = multiply-integer;
+fill integer add {
+  let + = add-integer
+}
+
+fill integer zero {
+  let zero = 0
+}
+
+fill integer multiply {
+  let × = multiply-integer
+}
+
+fill integer one {
   let one = 1
 }
 
-fill float semiring {
-  let + = add-float;
-  let zero = 0.0;
-  let × = multiply-float;
+fill integer monoid-additive {}
+
+fill integer monoid-multiplicative {}
+
+fill integer semiring {}
+
+## ieee floats keep their useful operations without claiming exact semiring laws.
+fill float add {
+  let + = add-float
+}
+
+fill float zero {
+  let zero = 0.0
+}
+
+fill float multiply {
+  let × = multiply-float
+}
+
+fill float one {
   let one = 1.0
 }

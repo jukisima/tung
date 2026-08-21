@@ -2,8 +2,7 @@
 
 {- | bundled bookhoard paths and loading. paths are source-relative public import
 names; this module intentionally provideth no historical aliases. ghc tracketh
-each discovered file once this module rebuildeth; changes to the file set require
-an explicit rebuild.
+each discovered file and a build-refreshed directory-membership manifest.
 -}
 module Tung.Bookhoard (
   bookhoardImportFiles,

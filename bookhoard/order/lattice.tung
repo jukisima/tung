@@ -2,33 +2,33 @@ bring data/two.tung;
 bring data/three.tung;
 
 ## a carrier whose every pair hath an infimum.
-show shape a semilattice-infimum {
+show shape a semilattice-infimal {
   a ∧ a: a;
   law (x: a): x ∧ x ~ x;
   law (x: a, y: a): x ∧ y ~ y ∧ x;
   law (x: a, y: a, z: a): (x ∧ y) ∧ z ~ x ∧ (y ∧ z)
 }
 
-graith b semilattice-infimum
-fill (a func b) semilattice-infimum {
-  let f ∧ g = { a | (a f) ∧ (a g) }
+graith b semilattice-infimal
+fill (a func b) semilattice-infimal {
+  let f ∧ g a = (a f) ∧ (a g)
 }
 
 ## a carrier whose every pair hath a supremum.
-show shape a semilattice-supremum {
+show shape a semilattice-supremal {
   a ∨ a: a;
   law (x: a): x ∨ x ~ x;
   law (x: a, y: a): x ∨ y ~ y ∨ x;
   law (x: a, y: a, z: a): (x ∨ y) ∨ z ~ x ∨ (y ∨ z)
 }
 
-graith b semilattice-supremum
-fill (a func b) semilattice-supremum {
-  let f ∨ g = { a | (a f) ∨ (a g) }
+graith b semilattice-supremal
+fill (a func b) semilattice-supremal {
+  let f ∨ g a = (a f) ∨ (a g)
 }
 
 ## a carrier with compatible infimum and supremum semilattices.
-graith a semilattice-infimum, a semilattice-supremum
+graith a semilattice-infimal, a semilattice-supremal
 show shape a lattice {
   law (x: a, y: a): x ∧ (x ∨ y) ~ x;
   law (x: a, y: a): x ∨ (x ∧ y) ~ x
@@ -38,31 +38,31 @@ graith b lattice
 fill (a func b) lattice {}
 
 ## an infimum semilattice with a greatest value.
-graith a semilattice-infimum
-show shape a semilattice-infimum-bounded {
+graith a semilattice-infimal
+show shape a semilattice-infimal-bounded {
   ⊤: a;
-  law (value: a): ⊤ ∧ value ~ value
+  law (a: a): ⊤ ∧ a ~ a
 }
 
-graith b semilattice-infimum-bounded
-fill (a func b) semilattice-infimum-bounded {
-  let ⊤ = { _ | ⊤ }
+graith b semilattice-infimal-bounded
+fill (a func b) semilattice-infimal-bounded {
+  let _ ⊤ = ⊤
 }
 
 ## a supremum semilattice with a least value.
-graith a semilattice-supremum
-show shape a semilattice-supremum-bounded {
+graith a semilattice-supremal
+show shape a semilattice-supremal-bounded {
   ⟂: a;
-  law (value: a): ⟂ ∨ value ~ value
+  law (a: a): ⟂ ∨ a ~ a
 }
 
-graith b semilattice-supremum-bounded
-fill (a func b) semilattice-supremum-bounded {
-  let ⟂ = { _ | ⟂ }
+graith b semilattice-supremal-bounded
+fill (a func b) semilattice-supremal-bounded {
+  let _ ⟂ = ⟂
 }
 
 ## a lattice with greatest and least values.
-graith a lattice, a semilattice-infimum-bounded, a semilattice-supremum-bounded
+graith a lattice, a semilattice-infimal-bounded, a semilattice-supremal-bounded
 show shape a lattice-bounded {}
 
 graith b lattice-bounded
@@ -72,36 +72,31 @@ fill (a func b) lattice-bounded {}
 graith a lattice-bounded
 show shape a complement {
   a ¬: a;
-  law (value: a): value ∧ (value ¬) ~ ⟂;
-  law (value: a): value ∨ (value ¬) ~ ⊤
+  law (a: a): a ∧ (a ¬) ~ ⟂;
+  law (a: a): a ∨ (a ¬) ~ ⊤
 }
 
-graith b complement
-fill (a func b) complement {
-  let f ¬ = { a | (a f) ¬ }
-}
-
-fill 𝟚 semilattice-infimum {
+fill 𝟚 semilattice-infimal {
   let ∧ = {
     nay, _ | nay,
-    yea, value | value
+    yea, a | a
   }
 }
 
-fill 𝟚 semilattice-supremum {
+fill 𝟚 semilattice-supremal {
   let ∨ = {
     yea, _ | yea,
-    nay, value | value
+    nay, a | a
   }
 }
 
 fill 𝟚 lattice {}
 
-fill 𝟚 semilattice-infimum-bounded {
+fill 𝟚 semilattice-infimal-bounded {
   let ⊤ = yea
 }
 
-fill 𝟚 semilattice-supremum-bounded {
+fill 𝟚 semilattice-supremal-bounded {
   let ⟂ = nay
 }
 
@@ -114,32 +109,32 @@ fill 𝟚 complement {
   }
 }
 
-fill three semilattice-infimum {
+fill 𝟛 semilattice-infimal {
   let ∧ = {
     fore, _ | fore,
     mid, fore | fore,
     mid, _ | mid,
-    aft, value | value
+    aft, a | a
   }
 }
 
-fill three semilattice-supremum {
+fill 𝟛 semilattice-supremal {
   let ∨ = {
     aft, _ | aft,
     mid, aft | aft,
     mid, _ | mid,
-    fore, value | value
+    fore, a | a
   }
 }
 
-fill three lattice {}
+fill 𝟛 lattice {}
 
-fill three semilattice-infimum-bounded {
+fill 𝟛 semilattice-infimal-bounded {
   let ⊤ = aft
 }
 
-fill three semilattice-supremum-bounded {
+fill 𝟛 semilattice-supremal-bounded {
   let ⟂ = fore
 }
 
-fill three lattice-bounded {}
+fill 𝟛 lattice-bounded {}

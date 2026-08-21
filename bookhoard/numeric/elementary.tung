@@ -2,13 +2,13 @@ bring _foreign.tung;
 bring algebra/arithmetic/field.tung;
 bring numeric/constant.tung;
 
-graith a field
+graith a divide
 show shape a elementary {
   a exponent: a;
   a logarithm: a;
   a sine: a;
   a cosine: a;
-  let (a: a) tangent: a ! text fail = a sine $ ÷ (a cosine)
+  let (a: a) tangent: a = (a sine) ∕ (a cosine)
 }
 
 fill float elementary {

@@ -61,7 +61,10 @@ the server provideth:
 - document and range formatting
 - quick fixes for supported parse errors
 
-the workspace index followeth local and bundled imports, honoureth `show`, understandeth qualify-if-needed lookup, and sendeth unsaved imported sources to the haskell checker. the checker bridge asketh cabal for `exe:tung` and falleth back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. an error-tolerant source model keepeth navigation and highlighting available while code is incomplete; the haskell implementation remaineth authoritative for diagnostics and inferred types.
+the workspace index followeth local and bundled imports, honoureth `show`, understandeth qualify-if-needed lookup, and sendeth unsaved imported sources to the haskell checker. the checker bridge asketh cabal for `exe:tung` and falleth back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. it keepeth one versioned checker session alive and cancelleth obsolete diagnostic and hover work after edits. an error-tolerant source model keepeth navigation and highlighting available while code is incomplete; the haskell implementation remaineth authoritative for diagnostics and inferred types.
+
+term type ascriptions use `(term: type)`; semantic highlighting and formatting
+recognise the type tail while compiler diagnostics remain authoritative.
 
 `make language-metadata` runneth `tongue/tool/language-names.tung` and refresheth the generated keyword and primitive-type table used by semantic highlighting.
 

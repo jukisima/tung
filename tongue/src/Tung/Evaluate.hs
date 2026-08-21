@@ -6,6 +6,9 @@ module Tung.Evaluate (
   evaluate,
   evaluateWithImports,
   evaluateWithArgsAndImports,
+  evaluateCoreProgram,
+  evaluateMainCoreProgram,
+  evaluateMainCoreProgramWithArgs,
   evaluateMainWithImports,
   evaluateMainWithArgsAndImports,
 )
@@ -32,7 +35,7 @@ import System.IO (hFlush, stdout)
 import System.Process qualified as Process
 import System.Timeout qualified as Timeout
 import Text.Read (readMaybe)
-import Tung.Core (CoreProgram, coreDeclarations)
+import Tung.Core (CoreProgram, coreDeclarations, coreImportDeclarations)
 import Tung.Import (ImportStack, enterImport)
 import Tung.Name (importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
 import Tung.Parse (parse)
@@ -175,35 +178,46 @@ evaluateWithImports :: String -> Map.Map String String -> IO String
 evaluateWithImports = evaluateWithArgsAndImports []
 
 evaluateWithArgsAndImports :: [String] -> String -> Map.Map String String -> IO String
-evaluateWithArgsAndImports args source imports = evaluateParsedWith False args source imports evalProgramWithImports
+evaluateWithArgsAndImports args source imports = evaluateParsedWith False args source imports evalProgram
+
+evaluateCoreProgram :: CoreProgram -> IO String
+evaluateCoreProgram program = runCoreProgram [] program evalProgram
+
+evaluateMainCoreProgram :: CoreProgram -> IO String
+evaluateMainCoreProgram = evaluateMainCoreProgramWithArgs []
+
+evaluateMainCoreProgramWithArgs :: [String] -> CoreProgram -> IO String
+evaluateMainCoreProgramWithArgs arguments program = runCoreProgram arguments program runMain
 
 evaluateMainWithImports :: String -> Map.Map String String -> IO String
 evaluateMainWithImports = evaluateMainWithArgsAndImports []
 
 evaluateMainWithArgsAndImports :: [String] -> String -> Map.Map String String -> IO String
-evaluateMainWithArgsAndImports args source imports = evaluateParsedWith True args source imports runMainWithImports
+evaluateMainWithArgsAndImports args source imports = evaluateParsedWith True args source imports runMain
 
 -- evaluation never accepteth surface syntax directly: this function first asketh
 -- the type checker for a mode-appropriate 'CoreProgram'.
-evaluateParsedWith :: Bool -> [String] -> String -> Map.Map String String -> (CoreProgram -> Map.Map String String -> Eval RuntimeValue) -> IO String
+evaluateParsedWith :: Bool -> [String] -> String -> Map.Map String String -> (CoreProgram -> Eval RuntimeValue) -> IO String
 evaluateParsedWith runnable arguments source imports action = case parse source of
   Left msg -> pure ("parse error: " ++ msg)
   Right parsed -> case elaborate parsed of
     Left msg -> pure ((if runnable then "type error: " else "eval error: type error: ") ++ msg)
-    Right program -> runProgram program
+    Right program -> runCoreProgram arguments program action
  where
   -- interactive evaluation alloweth top-level computation, but still checketh and
   -- elaborateth it. runnable evaluation additionally checketh the main boundary.
   elaborate program
     | runnable = elaborateProgramWithImports program imports True
     | otherwise = elaborateInteractiveProgramWithImports program imports
-  runProgram program = do
-    host <- newRuntimeHost arguments
-    result <- runEval (action program imports) host `finally` cancelActiveTasks host
-    pure $ case result of
-      RuntimeOk value -> "eval ok: " ++ showRuntimeValue value
-      RuntimeErr err -> "eval error: " ++ showRuntimeError err
-      RuntimeOp effectName opName _ _ -> "eval error: " ++ showUnhandledOperation effectName opName
+
+runCoreProgram :: [String] -> CoreProgram -> (CoreProgram -> Eval RuntimeValue) -> IO String
+runCoreProgram arguments program action = do
+  host <- newRuntimeHost arguments
+  result <- runEval (action program) host `finally` cancelActiveTasks host
+  pure $ case result of
+    RuntimeOk value -> "eval ok: " ++ showRuntimeValue value
+    RuntimeErr err -> "eval error: " ++ showRuntimeError err
+    RuntimeOp effectName opName _ _ -> "eval error: " ++ showUnhandledOperation effectName opName
 
 newRuntimeHost :: [String] -> IO RuntimeHost
 newRuntimeHost arguments = do
@@ -222,27 +236,27 @@ cancelActiveTasks host@RuntimeHost{hostActiveTasks} = do
     mapM_ (readMVar . runtimeTaskResult) tasks
     cancelActiveTasks host
 
-runMainWithImports :: CoreProgram -> Map.Map String String -> Eval RuntimeValue
-runMainWithImports program imports = do
-  (env, _) <- evalProgramEnvWithImports [] program imports
+runMain :: CoreProgram -> Eval RuntimeValue
+runMain program = do
+  (env, _) <- evalProgramEnv [] program (coreDeclarations program)
   mainValue <- maybe (runtimeError "runnable file must declare main") pure (lookupValue "main" env)
   applyOne mainValue runtimeNull
 
-evalProgramWithImports :: CoreProgram -> Map.Map String String -> Eval RuntimeValue
-evalProgramWithImports program imports = snd <$> evalProgramEnvWithImports [] program imports
+evalProgram :: CoreProgram -> Eval RuntimeValue
+evalProgram program = snd <$> evalProgramEnv [] program (coreDeclarations program)
 
-evalImportedProgram :: ImportStack -> CoreProgram -> Map.Map String String -> Eval RuntimeEnv
-evalImportedProgram importStack program imports = fst <$> evalProgramEnvWithImports importStack program imports
+evalImportedProgram :: ImportStack -> CoreProgram -> [Decl] -> Eval RuntimeEnv
+evalImportedProgram importStack program declarations = fst <$> evalProgramEnv importStack program declarations
 
-evalProgramEnvWithImports :: ImportStack -> CoreProgram -> Map.Map String String -> Eval (RuntimeEnv, RuntimeValue)
-evalProgramEnvWithImports importStack program imports = evalDeclsWithImports importStack (coreDeclarations program) imports baseRuntimeEnv VUnit
+evalProgramEnv :: ImportStack -> CoreProgram -> [Decl] -> Eval (RuntimeEnv, RuntimeValue)
+evalProgramEnv importStack program declarations = evalDeclsWithImports importStack program declarations baseRuntimeEnv VUnit
 
-evalDeclsWithImports :: ImportStack -> [Decl] -> Map.Map String String -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
-evalDeclsWithImports importStack ds imports env lastValue = foldM step (env, lastValue) ds
+evalDeclsWithImports :: ImportStack -> CoreProgram -> [Decl] -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
+evalDeclsWithImports importStack program ds env lastValue = foldM step (env, lastValue) ds
  where
   step (currentEnv, currentLast) = \case
     Import path -> do
-      importedEnv <- evalImport importStack path imports
+      importedEnv <- evalImport importStack path program
       let env2 = mergeRuntimeEnv (namespaceRuntimeImportEnv (importNamespace path) importedEnv) currentEnv
       pure (env2, currentLast)
     d -> do
@@ -251,22 +265,18 @@ evalDeclsWithImports importStack ds imports env lastValue = foldM step (env, las
 
 -- runtime import caching mirrors static imports, but stores evaluated exported
 -- environments so repeated brings do not repeat module initialisation.
-evalImport :: ImportStack -> String -> Map.Map String String -> Eval RuntimeEnv
-evalImport importStack path imports = case enterImport importStack path of
+evalImport :: ImportStack -> String -> CoreProgram -> Eval RuntimeEnv
+evalImport importStack path program = case enterImport importStack path of
   Left message -> runtimeError message
   Right nextStack ->
     lookupRuntimeImport path >>= \case
       Just env -> pure env
-      Nothing -> case Map.lookup path imports of
-        Nothing -> runtimeError ("missing bring '" ++ path ++ "'")
-        Just source -> case parse source of
-          Left msg -> runtimeError ("in bring '" ++ path ++ "': " ++ msg)
-          Right parsed -> case elaborateProgramWithImports parsed imports False of
-            Left msg -> runtimeError ("in bring '" ++ path ++ "': type error: " ++ msg)
-            Right program -> do
-              env <- evalImportedProgram nextStack program imports
-              cacheRuntimeImport path env
-              pure env
+      Nothing -> case coreImportDeclarations path program of
+        Nothing -> runtimeError ("internal missing checked bring '" ++ path ++ "'")
+        Just declarations -> do
+          env <- evalImportedProgram nextStack program declarations
+          cacheRuntimeImport path env
+          pure env
 
 lookupRuntimeImport :: String -> Eval (Maybe RuntimeEnv)
 lookupRuntimeImport path = Eval $ \RuntimeHost{hostImportCache} -> RuntimeOk . Map.lookup path <$> readIORef hostImportCache
@@ -351,12 +361,11 @@ evalDecl decl env = case decl of
     pure (addValue name value env, lastValue)
 
 evalBoundValue :: String -> Expr -> RuntimeEnv -> Eval RuntimeValue
-evalBoundValue name expr env = case expr of
-  ELocated _ inner -> evalBoundValue name inner env
-  EMatch [] cases ->
+evalBoundValue name expr env = case unlocatedMatch expr of
+  Just cases ->
     let value = newMatcher (compileMatchCases (Just env) cases) (addLocalValue name value env)
      in pure value
-  _ -> compileExpr expr env
+  Nothing -> compileExpr expr env
 
 addShapeSelectors :: String -> [ShapeMember] -> RuntimeEnv -> RuntimeEnv
 addShapeSelectors shapeName members env = foldl' add env (shapeMemberNames members)
@@ -367,9 +376,11 @@ addShapeSelectors shapeName members env = foldl' add env (shapeMemberNames membe
 
 addSelectedRuntimeFill :: String -> String -> [ShapeNeed] -> [Decl] -> RuntimeEnv -> RuntimeEnv
 addSelectedRuntimeFill key shapeName needs members env@RuntimeEnv{runtimeFills} =
-  env{runtimeFills = Map.insert key template runtimeFills}
+  fillEnv
  where
-  template = RuntimeFill shapeName needs (Map.fromList [(name, expr) | Let name _ expr <- members]) env
+  -- a member may select this dictionary while calling another member.
+  fillEnv = env{runtimeFills = Map.insert key template runtimeFills}
+  template = RuntimeFill shapeName needs (Map.fromList [(name, expr) | Let name _ expr <- members]) fillEnv
 
 -- core expressions contain selected evidence and field accesses, but no raw
 -- fills or unresolved evidence holes.
@@ -390,6 +401,7 @@ compileExprWith staticEnv = \case
   EText s -> const (pure (VText (Text.pack s)))
   EForeign -> const (runtimeError "internal misplaced foreign marker")
   EVar name -> evalVar name
+  EAscribe expression _ -> compileExprWith staticEnv expression
   EApply function arguments ->
     let compiledArguments = map (compileExprWith staticEnv) (NE.toList arguments)
      in case staticEnv >>= \env -> resolveClosedShapeMemberCall env function (length compiledArguments) of
@@ -434,6 +446,7 @@ resolveClosedShapeMember env function evidence = do
  where
   variableName = \case
     ELocated _ inner -> variableName inner
+    EAscribe inner _ -> variableName inner
     EVar name -> Just name
     _ -> Nothing
   pureEval = \case
@@ -449,6 +462,7 @@ resolveClosedShapeMemberCall env expression argumentCount = do
  where
   evidenceApplication = \case
     ELocated _ inner -> evidenceApplication inner
+    EAscribe inner _ -> evidenceApplication inner
     EWithEvidence function evidence -> Just (function, evidence)
     _ -> Nothing
 
@@ -501,6 +515,7 @@ compileLocalDecl _ _ = RuntimeLocalOther
 unlocatedMatch :: Expr -> Maybe [MatchCase]
 unlocatedMatch = \case
   ELocated _ inner -> unlocatedMatch inner
+  EAscribe inner _ -> unlocatedMatch inner
   EMatch [] cases -> Just cases
   _ -> Nothing
 
@@ -752,7 +767,7 @@ evalNative name args = case (name, args) of
   ("add-integer", [VInteger a, VInteger b]) -> pure (VInteger (a + b))
   ("subtract-integer", [VInteger a, VInteger b]) -> pure (VInteger (a - b))
   ("multiply-integer", [VInteger a, VInteger b]) -> pure (VInteger (a * b))
-  ("divide-integer", [VInteger a, VInteger b]) -> evalIntegerDivide a b
+  ("divide-remainder-integer", [VInteger a, VInteger b]) -> evalIntegerDivideRemainder a b
   ("add-float", [VFloat a, VFloat b]) -> evalFloatBinary (+) a b
   ("subtract-float", [VFloat a, VFloat b]) -> evalFloatBinary (-) a b
   ("multiply-float", [VFloat a, VFloat b]) -> evalFloatBinary (*) a b
@@ -785,8 +800,8 @@ evalNative name args = case (name, args) of
   ("-", [VFloat a, VFloat b]) -> evalFloatBinary (-) a b
   ("×", [VInteger a, VInteger b]) -> pure (VInteger (a * b))
   ("×", [VFloat a, VFloat b]) -> evalFloatBinary (*) a b
-  ("÷", [VInteger a, VInteger b]) -> evalIntegerDivide a b
-  ("÷", [VFloat a, VFloat b]) -> evalFloatDivide a b
+  ("∕", [VFloat a, VFloat b]) -> evalFloatDivide a b
+  ("÷", [VInteger a, VInteger b]) -> evalIntegerDivideRemainder a b
   ("≡", [a, b]) -> pure (runtimeBool (a == b))
   ("≤", [VInteger a, VInteger b]) -> pure (runtimeBool (a <= b))
   ("≤", [VFloat a, VFloat b]) -> evalFloatLessEqual a b
@@ -944,10 +959,13 @@ runtimeList = foldr (\value rest -> VData "data/list@list@.*" ".*" [value, rest]
 runtimeOption :: Maybe RuntimeValue -> RuntimeValue
 runtimeOption = maybe (VData "data/option@option@none" "none" []) (\value -> VData "data/option@option@some" "some" [value])
 
+runtimeProduct :: RuntimeValue -> RuntimeValue -> RuntimeValue
+runtimeProduct left right = VData "data/product@∏@∏" "∏" [left, right]
+
 runtimeTextBehead :: Text.Text -> RuntimeValue
 runtimeTextBehead value = runtimeOption do
   (codePoint, rest) <- Text.uncons value
-  pure (VData "data/product@∏@∏" "∏" [VUnicode codePoint, VText rest])
+  pure (runtimeProduct (VUnicode codePoint) (VText rest))
 
 runtimeListToText :: RuntimeValue -> Eval RuntimeValue
 runtimeListToText value = case runtimeListValues value >>= traverse runtimeUnicode of
@@ -992,15 +1010,23 @@ arctanFloat real imaginary =
       tau = 2 * pi
    in if angle < 0 then angle + tau else angle
 
-evalIntegerDivide :: Integer -> Integer -> Eval RuntimeValue
-evalIntegerDivide _ 0 = failRuntime "division by zero"
-evalIntegerDivide a b = pure (VInteger (a `div` b))
+evalIntegerDivideRemainder :: Integer -> Integer -> Eval RuntimeValue
+evalIntegerDivideRemainder _ 0 = failRuntime "division by zero"
+evalIntegerDivideRemainder a b =
+  let (quotient, remainder) = euclideanQuotRem a b
+   in pure (runtimeProduct (VInteger quotient) (VInteger remainder))
+
+euclideanQuotRem :: Integer -> Integer -> (Integer, Integer)
+euclideanQuotRem dividend divisor =
+  let (quotient, remainder) = dividend `divMod` divisor
+   in if remainder < 0
+        then (quotient + 1, remainder - divisor)
+        else (quotient, remainder)
 
 evalFloatLessEqual :: Double -> Double -> Eval RuntimeValue
 evalFloatLessEqual left right = pure (runtimeBool (left <= right))
 
 evalFloatDivide :: Double -> Double -> Eval RuntimeValue
-evalFloatDivide _ 0 = failRuntime "division by zero"
 evalFloatDivide left right = pure (VFloat (left / right))
 
 evalFloatFloor :: Double -> Eval RuntimeValue
@@ -1162,7 +1188,7 @@ escapeUnicodeCodePoint :: Char -> String
 escapeUnicodeCodePoint codePoint = fromMaybe fallback (escapedSourceCharacter codePoint)
  where
   fallback
-    | isControl codePoint = "\\{" ++ show (ord codePoint) ++ "}"
+    | isControl codePoint = "\\" ++ show (ord codePoint) ++ ";"
     | otherwise = [codePoint]
 
 escapedSourceCharacter :: Char -> Maybe String

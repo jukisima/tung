@@ -8,6 +8,7 @@ module Tung.Token (
   lexTokens,
   lexLocatedTokens,
   keywordNames,
+  languageKeywordNames,
   specialNameChars,
   isNameChar,
   unicodeScalar,
@@ -147,14 +148,7 @@ floatParser = do
 unicodeLiteralParser :: Lexer Token
 unicodeLiteralParser = do
   _ <- C.char '`'
-  TUnicode <$> M.choice [escapedCodePointParser, bracedCodePointParser, scalarCodePointParser]
-
-bracedCodePointParser :: Lexer Char
-bracedCodePointParser = do
-  _ <- C.char '{'
-  digits <- some C.digitChar
-  _ <- C.char '}'
-  decimalCodePoint digits
+  TUnicode <$> M.choice [escapedCodePointParser, scalarCodePointParser]
 
 textParser :: Lexer Token
 textParser = TText <$> (C.char '\'' *> many textCharParser <* C.char '\'')
@@ -175,8 +169,14 @@ escapedCodePointParser = do
     , '\t' <$ C.char 't'
     , '\'' <$ C.char '\''
     , '\\' <$ C.char '\\'
-    , bracedCodePointParser
+    , decimalEscapeParser
     ]
+
+decimalEscapeParser :: Lexer Char
+decimalEscapeParser = do
+  digits <- some C.digitChar
+  _ <- C.char ';'
+  decimalCodePoint digits
 
 decimalCodePoint :: String -> Lexer Char
 decimalCodePoint digits = maybe (fail "decimal unicode escape must name a unicode scalar value") pure (unicodeScalar (read digits))
@@ -207,6 +207,11 @@ lexeme = L.lexeme spaceConsumer
 
 keywordNames :: [String]
 keywordNames = map fst keywordTokens
+
+-- handler words are contextual rather than lexer tokens, but editor metadata
+-- still presenteth them as language keywords.
+languageKeywordNames :: [String]
+languageKeywordNames = keywordNames ++ ["return", "resume"]
 
 keywordOrIdent :: String -> Token
 keywordOrIdent name = fromMaybe (TIdent name) (lookup name keywordTokens)

@@ -7,6 +7,7 @@ import {
   CompilerBridge,
   haskellString,
   parseCompilerDiagnostic,
+  sessionRequest,
   sourceBundle,
 } from "../server/checker.ts";
 test("checker bundle preserveth unicode, quotes, slashes, and control characters", () => {
@@ -15,14 +16,19 @@ test("checker bundle preserveth unicode, quotes, slashes, and control characters
     sourceBundle("main", [["dep.tung", "source"]]),
     '("main",[("dep.tung","source")])',
   );
+  assert.equal(
+    sessionRequest(7, 4, "check", "", "main", [["dep.tung", "source"]]),
+    '(7,4,"check","",("main",[("dep.tung","source")]))\n',
+  );
 });
 test("checker protocol carrieth an exact source range", () => {
   assert.deepEqual(
     parseCompilerDiagnostic(
-      "tung-diagnostic\ttype\t4\t9\ntype error: in 'value'",
+      "tung-diagnostic\ttype\tdep.tung\t4\t9\ntype error: in 'value'",
     ),
     {
       kind: "type",
+      path: "dep.tung",
       start: 4,
       end: 9,
       message: "type error: in 'value'",
@@ -52,4 +58,21 @@ test("checker findeth a built executable without cabal list-bin", (context) => {
   bridge.configure(root);
   bridge.findCabalExecutable = () => undefined;
   assert.equal(bridge.findExecutable(), executable);
+});
+test("checker reuseth one versioned session and cancellable requests", async (context) => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const bridge = new CompilerBridge();
+  bridge.configure(path.join(root, "tongue"));
+  context.after(() => bridge.dispose());
+  const model = { text: "let value: integer = 1;" };
+  const checked = bridge.check(model, [], 3);
+  const typed = bridge.typeOf(model, [], "value", 3);
+  assert.equal(checked.process, typed.process);
+  assert.equal(checked.version, 3);
+  assert.equal((await checked.result).trim(), "tung-ok");
+  assert.equal((await typed.result).trim(), "type: integer");
+  const cancelled = bridge.check(model, [], 4);
+  cancelled.cancel();
+  assert.equal(await cancelled.result, "checker request cancelled");
+  assert.equal((await bridge.check(model, [], 5).result).trim(), "tung-ok");
 });

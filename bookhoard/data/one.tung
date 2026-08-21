@@ -7,7 +7,5 @@ show kin 𝟙 {
 show let (_: a) terminal: 𝟙 = null;
 
 fill 𝟙 to-text {
-  let to-text = {
-    null | 'null'
-  }
+  let _ to-text = 'null'
 }

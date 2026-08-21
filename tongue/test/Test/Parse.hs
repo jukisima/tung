@@ -4,6 +4,7 @@ module Test.Parse (group) where
 import Data.List.NonEmpty (NonEmpty (..))
 import Test.Harness (Group, Test, expectEq, parseErr, parseOk)
 import Test.Harness qualified as Harness
+import Test.QuickCheck qualified as QuickCheck
 import Tung
 
 group :: IO Group
@@ -13,6 +14,7 @@ group =
       ++ map (uncurry parseErr) rejected
       ++ map expressionCase expressions
       ++ generatedDefinitionForms
+      ++ parserProperties
 
 accepted :: [(String, String)]
 accepted =
@@ -52,7 +54,8 @@ accepted =
   , ("empty consuming match", "match x {}")
   , ("handler return and operation cases", "try action { return x | x, message fail | message }")
   , ("parenthesised local block", "(let x = 1; x + 2;)")
-  , ("func is a binary type constructor", "let id: integer func integer = { x | x };")
+  , ("term type ascription", "let answer = (1 + 2: integer);")
+  , ("func is a binary type constructor", "let (x: integer) id: integer = x;")
   ]
 
 rejected :: [(String, String)]
@@ -70,6 +73,7 @@ rejected =
   , ("fill requireth a target type", "fill equal {}")
   , ("law parameters require types", "shape a bad { law (x): x ~ x }")
   , ("law requireth equivalence separator", "shape a bad { law (x: a): x }")
+  , ("shape default before law requireth semicolon", "shape a bad { let (x: a) identity: a = x law (x: a): x identity ~ x }")
   , ("shape member requirement needeth a member", "shape f bad { graith m applicative };")
   , ("match arm requireth bar", "match 1 { _ 1 }")
   , ("try requireth handler cases", "try action")
@@ -80,12 +84,14 @@ rejected =
   , ("effects require a function type", "let bad: integer ! fail = 1")
   , ("deed members use commas", "deed e { 𝟙 one: 𝟙; 𝟙 two: 𝟙 }")
   , ("fill members use semicolons", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
+  , ("fill members require semicolons", "fill integer bad { let x first = x let x second = x }")
   , ("handler hath at most one return clause", "try 1 { return x | x, return y | y }")
   ]
 
 expressions :: [(String, String, Expr)]
 expressions =
-  [ ("integer match pattern", "match 1 { 0 | 2, _ | 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])
+  [ ("term type ascription", "(1: integer)", EAscribe (EInteger 1) (TypeName "integer"))
+  , ("integer match pattern", "match 1 { 0 | 2, _ | 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])
   , ("second term is function", "1 + 2", apply (EVar "+") [EInteger 1, EInteger 2])
   , ("unmarked sequence sendeth every argument", "a f b g", apply (EVar "f") [EVar "a", EVar "b", EVar "g"])
   , ("dollar bare segment", "a f $h b g", apply (EVar "h") [apply (EVar "f") [EVar "a"], EVar "b", EVar "g"])
@@ -125,8 +131,29 @@ definitionForms =
   , "let (a: a, b: b, c: c) foo = c"
   , "let (a: a, b, c: c) foo: d = c"
   , "let (a: a, b, c: c) foo = c"
-  , "let (a: a, b: b) foo: c → d = { c | c }"
-  , "let (a: a, b) foo: c → d = { c | c }"
   , "graith a functor, b monoid let a foo b c: d = c"
   , "graith a functor, b monoid let (a: a, b: b, c: c) foo: d = c"
   ]
+
+parserProperties :: [Test]
+parserProperties =
+  [ Harness.propertyTest "property: top-level definition boundaries parse" $
+      QuickCheck.forAll boundarySeparator \separator ->
+        QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \first ->
+          QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \second ->
+            let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second ++ ";"
+             in QuickCheck.counterexample source (isRight (parse source))
+  , Harness.propertyTest "property: bring boundaries require a semicolon" $
+      QuickCheck.forAll (QuickCheck.elements ["ground.tung", "data/list.tung", "nested/deep.tung"]) \path ->
+        let incomplete = "bring " ++ path
+            complete = incomplete ++ ";"
+         in QuickCheck.counterexample incomplete (isLeft (parse incomplete) QuickCheck..&&. isRight (parse complete))
+  ]
+ where
+  boundarySeparator = QuickCheck.elements [" ", "\n", "\t", ";", ";\n", " # boundary\n", " /* boundary */ "]
+
+isLeft :: Either a b -> Bool
+isLeft = either (const True) (const False)
+
+isRight :: Either a b -> Bool
+isRight = either (const False) (const True)

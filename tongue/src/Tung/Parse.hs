@@ -368,7 +368,9 @@ parseShape needs ts = do
   (paramTerms, name) <- maybeToEither "shape declaration requireth a name" (trailingHeaderFromTokens header)
   params <- maybeToEither "shape parameters must be names" (namesFromHeaderTerms paramTerms)
   (members, rest) <- parseShapeMembers body
-  pure (ShapeDecl params name needs members, rest)
+  case rest of
+    TRBrace : following -> pure (ShapeDecl params name needs members, following)
+    _ -> Left "expected '}' after shape body"
 
 parseShapeNeeds :: P [ShapeNeed]
 parseShapeNeeds = go []
@@ -406,17 +408,7 @@ parseFill needs ts = do
     _ -> Left "expected '}' after fill body"
 
 parseFillMembers :: P [Decl]
-parseFillMembers (TRBrace : rest) = Right ([], TRBrace : rest)
-parseFillMembers (TSemicolon : rest) = parseFillMembers rest
-parseFillMembers ts@(TGraith : _) = parseFillLetMember ts
-parseFillMembers ts@(TLet : _) = parseFillLetMember ts
-parseFillMembers _ = Left "expected fill member let"
-
-parseFillLetMember :: P [Decl]
-parseFillLetMember ts = do
-  (d, rest) <- parseFillLetDecl ts
-  (ds, rest2) <- parseFillMembers rest
-  pure (d : ds, rest2)
+parseFillMembers = parseSemicolonMembers "fill members" parseFillLetDecl
 
 parseFillLetDecl :: P Decl
 parseFillLetDecl = \case
@@ -459,18 +451,19 @@ showTokenHead = \case
   _ -> "token"
 
 parseShapeMembers :: P [ShapeMember]
-parseShapeMembers (TRBrace : rest) = Right ([], rest)
-parseShapeMembers (TSemicolon : rest) = parseShapeMembers rest
-parseShapeMembers ts@(TGraith : _)
+parseShapeMembers = parseSemicolonMembers "shape members" parseShapeMember
+
+parseShapeMember :: P ShapeMember
+parseShapeMember ts@(TGraith : _)
   | startsGraithLet ts = parseShapeDefaultLet ts
   | otherwise = parseGraithShapeSignature ts
-parseShapeMembers ts@(TLet : _) = parseShapeDefaultLet ts
-parseShapeMembers ts@(TLaw : _) = parseShapeLaw ts
-parseShapeMembers ts@(TIdent _ : _) = parsePostfixShapeSignature ts
-parseShapeMembers ts@(TLParen : _) = parsePostfixShapeSignature ts
-parseShapeMembers _ = Left "expected shape member"
+parseShapeMember ts@(TLet : _) = parseShapeDefaultLet ts
+parseShapeMember ts@(TLaw : _) = parseShapeLaw ts
+parseShapeMember ts@(TIdent _ : _) = parsePostfixShapeSignature ts
+parseShapeMember ts@(TLParen : _) = parsePostfixShapeSignature ts
+parseShapeMember _ = Left "expected shape member"
 
-parsePostfixShapeSignature :: P [ShapeMember]
+parsePostfixShapeSignature :: P ShapeMember
 parsePostfixShapeSignature ts = do
   (header, rest) <- takeUntilColon ts
   (argTypes, name) <- maybe (Left "expected shape member name") Right (shapeMemberHeader header)
@@ -478,7 +471,7 @@ parsePostfixShapeSignature ts = do
     TColon : result -> parseShapeSignature [] argTypes name result
     _ -> Left "expected ':' in shape member"
 
-parseGraithShapeSignature :: P [ShapeMember]
+parseGraithShapeSignature :: P ShapeMember
 parseGraithShapeSignature (TGraith : ts) = do
   (header, rest) <- takeUntilColon ts
   (needs, argTypes, name) <- case mapMaybe (candidate header) [1 .. length header - 1] of
@@ -496,12 +489,11 @@ parseGraithShapeSignature (TGraith : ts) = do
     pure (needs, argTypes, name)
 parseGraithShapeSignature _ = Left "expected graith shape member"
 
-parseShapeSignature :: [ShapeNeed] -> [TypeExpr] -> String -> P [ShapeMember]
+parseShapeSignature :: [ShapeNeed] -> [TypeExpr] -> String -> P ShapeMember
 parseShapeSignature needs argTypes name ts = do
   ((result, rest), _) <- parseShapeMemberResultType ts
   ann <- functionLetAnn needs (map Just argTypes) result
-  (members, rest') <- parseShapeMembers rest
-  pure (ShapeSpec name ann : members, rest')
+  pure (ShapeSpec name ann, rest)
 
 startsGraithLet :: [Token] -> Bool
 startsGraithLet = elem TLet . takeWhile (`notElem` [TEquals, TSemicolon, TRBrace])
@@ -519,19 +511,17 @@ parseShapeMemberResultType ts =
     Right (t, rest) -> Right ((t, rest), [])
     Left msg -> Left msg
 
-parseShapeDefaultLet :: P [ShapeMember]
+parseShapeDefaultLet :: P ShapeMember
 parseShapeDefaultLet ts = do
   d <- case ts of
     TGraith : rest -> parseGraithLet rest
     TLet : rest -> parseLetDecl [] rest
     _ -> Left "expected shape default"
   case d of
-    (Let name ann expr, rest) -> do
-      (members, rest2) <- parseShapeMembers rest
-      pure (ShapeDefault name ann expr : members, rest2)
+    (Let name ann expr, rest) -> pure (ShapeDefault name ann expr, rest)
     _ -> Left "shape default must be a let"
 
-parseShapeLaw :: P [ShapeMember]
+parseShapeLaw :: P ShapeMember
 parseShapeLaw (TLaw : TLParen : ts) = do
   ((patterns, annotations), rest) <- parseTypedLetParams ts
   parameters <- traverse lawParameter (zip patterns annotations)
@@ -543,8 +533,7 @@ parseShapeLaw (TLaw : TLParen : ts) = do
         _ -> Left "expected '~' between law sides"
       left <- parseWhole "unexpected tokens on left side of law" parseExpr leftTokens
       right <- parseWhole "unexpected tokens on right side of law" parseExpr rightTokens
-      (members, rest3) <- parseShapeMembers rest2
-      pure (ShapeLaw parameters left right : members, rest3)
+      pure (ShapeLaw parameters left right, rest2)
     _ -> Left "expected ':' after law parameters"
  where
   lawParameter (PVar name, Just annotation) = Right (name, annotation)
@@ -556,6 +545,18 @@ parseShapeLaw (TLaw : TLParen : ts) = do
   lawEnd TRBrace = True
   lawEnd _ = False
 parseShapeLaw _ = Left "expected parenthesised law parameters"
+
+parseSemicolonMembers :: String -> P a -> P [a]
+parseSemicolonMembers _ _ ts@(TRBrace : _) = Right ([], ts)
+parseSemicolonMembers owner parseMember (TSemicolon : rest) = parseSemicolonMembers owner parseMember rest
+parseSemicolonMembers owner parseMember ts = do
+  (member, rest) <- parseMember ts
+  case rest of
+    TSemicolon : following -> do
+      (members, remaining) <- parseSemicolonMembers owner parseMember following
+      pure (member : members, remaining)
+    TRBrace : _ -> pure ([member], rest)
+    _ -> Left ("expected ';' between " ++ owner)
 
 -- '$' is the only lower-precedence application layer. ordinary sequences are
 -- parsed below it and use the second term as their function.
@@ -717,6 +718,12 @@ parseParen ts = do
   (e, rest) <- parseExpr ts
   case rest of
     TRParen : rest2 -> Right (e, rest2)
+    TColon : rest2 -> do
+      (typeTokens, rest3) <- takeTopLevelUntil rest2 (\case TRParen -> True; _ -> False) "expected ')' after type ascription"
+      annotation <- parseWhole "could not parse type ascription" parseTypeTokens typeTokens
+      case rest3 of
+        TRParen : rest4 -> Right (EAscribe e annotation, rest4)
+        _ -> Left "expected ')' after type ascription"
     _ -> Left "expected ')' after expression"
 
 parseTry :: P Expr
@@ -1337,8 +1344,16 @@ locateExpr expression tokens = case expression of
   EFloat value -> locateLeaf (TFloat value) expression tokens
   EUnicode value -> locateLeaf (TUnicode value) expression tokens
   EText value -> locateLeaf (TText value) expression tokens
-  EForeign -> locateLeaf TForeign expression tokens
+  EForeign -> case break ((== TForeign) . locatedToken) tokens of
+    (_, _ : rest) -> (EForeign, rest)
+    _ -> (EForeign, tokens)
   EVar name -> locateLeaf (TIdent name) expression tokens
+  EAscribe inner annotation ->
+    let bodyTokens = afterToken TLParen tokens
+        (inner2, _) = locateExpr inner bodyTokens
+        (wholeSpan, rest) = locatedParenBlock tokens
+        node = EAscribe inner2 annotation
+     in (maybe (locateAround [inner2] node) (`ELocated` node) wholeSpan, rest)
   EApply function arguments ->
     let firstArgument :| remainingArguments = arguments
         (first2, rest) = locateExpr firstArgument tokens
@@ -1467,3 +1482,17 @@ afterBraceBlock tokens = case dropWhile ((/= TLBrace) . locatedToken) tokens of
       | depth == 1 -> rest
       | otherwise -> go (depth - 1) rest
     _ -> go depth rest
+
+locatedParenBlock :: [LocatedToken] -> (Maybe SourceSpan, [LocatedToken])
+locatedParenBlock tokens = case dropWhile ((/= TLParen) . locatedToken) tokens of
+  [] -> (Nothing, tokens)
+  LocatedToken openSpan _ : body -> go openSpan 1 body
+ where
+  go :: SourceSpan -> Int -> [LocatedToken] -> (Maybe SourceSpan, [LocatedToken])
+  go _ _ [] = (Nothing, [])
+  go openSpan depth (LocatedToken closeSpan token : rest) = case token of
+    TLParen -> go openSpan (depth + 1) rest
+    TRParen
+      | depth == 1 -> (Just (SourceSpan (spanStart openSpan) (spanEnd closeSpan)), rest)
+      | otherwise -> go openSpan (depth - 1) rest
+    _ -> go openSpan depth rest

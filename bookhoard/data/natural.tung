@@ -17,7 +17,7 @@ fill natural equal {
   }
 }
 
-fill natural order-partial {
+fill natural less-equal {
   let ≤ = {
     zero, _ | yea,
     _, zero | nay,
@@ -25,19 +25,21 @@ fill natural order-partial {
   }
 }
 
+fill natural order-partial {}
+
 fill natural order-total {}
 
-fill natural semilattice-infimum {
+fill natural semilattice-infimal {
   let a ∧ b = (a ≤ b) if a b
 }
 
-fill natural semilattice-supremum {
+fill natural semilattice-supremal {
   let a ∨ b = (a ≤ b) if b a
 }
 
 fill natural lattice {}
 
-fill natural semilattice-supremum-bounded {
+fill natural semilattice-supremal-bounded {
   let ⟂ = zero
 }
 

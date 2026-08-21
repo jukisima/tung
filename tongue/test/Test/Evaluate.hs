@@ -8,49 +8,77 @@ import Data.Time.Clock.POSIX (getPOSIXTime)
 import System.Environment qualified as Environment
 import Test.Harness (Group, Test, evalErr, evalOk, evalOkWith, evalTypeErr, evalTypeErrWith)
 import Test.Harness qualified as Harness
+import Test.QuickCheck qualified as QuickCheck
 import Text.Read (readMaybe)
 import Tung
 
 group :: IO Group
 group = do
   imports <- readBookhoardImports
-  Harness.group "evaluate" (map evalCase deterministic ++ map runtimeErrorCase runtimeErrors ++ map typeErrorCase typeErrors ++ importedCases imports)
+  Harness.group "evaluate" (map evalCase deterministic ++ map runtimeErrorCase runtimeErrors ++ map typeErrorCase typeErrors ++ importedCases imports ++ handlerProperties)
+
+handlerProperties :: [Test]
+handlerProperties =
+  [ Harness.propertyTest "property: a handler may resume a continuation any generated number of times" $
+      QuickCheck.forAll (QuickCheck.resize 6 (QuickCheck.listOf (QuickCheck.chooseInt (0, 9)))) \answers ->
+        QuickCheck.ioProperty do
+          actual <- evaluate (handlerSource answers)
+          let expected = "eval ok: " ++ show (sum answers)
+          pure (QuickCheck.counterexample (handlerSource answers ++ "\n" ++ actual) (actual QuickCheck.=== expected))
+  ]
+
+handlerSource :: [Int] -> String
+handlerSource answers =
+  unitData
+    ++ "deed choice { 𝟙 pick: integer }; try null pick { pick | "
+    ++ resumeSum answers
+    ++ " }"
+
+resumeSum :: [Int] -> String
+resumeSum [] = "0"
+resumeSum [answer] = show answer ++ " resume"
+resumeSum (answer : answers) = "(" ++ show answer ++ " resume) + (" ++ resumeSum answers ++ ")"
 
 deterministic :: [(String, String, String)]
 deterministic =
   [ ("integer arithmetic", "(1 + 2) × 3", "eval ok: 9")
+  , ("term type ascription is erased before evaluation", "(1 + 2: integer)", "eval ok: 3")
+  , ("ascribed anonymous function remaineth recursive", "let factorial = ({ 0 | 1, n | n × ((n - 1) factorial) }: integer → integer); 5 factorial", "eval ok: 120")
   , ("integer arithmetic is arbitrary precision", "999999999999999999999999999999 + 1", "eval ok: 1000000000000000000000000000000")
   , ("foreign let", "let add-integer: integer → integer → integer = foreign; 1 add-integer 2", "eval ok: 3")
   , ("unicode text", "'λ字'", "eval ok: 'λ字'")
+  , ("unicode control rendering useth decimal terminator", "`\\1;", "eval ok: `\\1;")
   , ("float arithmetic", "let a = '0.5' from-text; let b = '0.25' from-text; a + b", "eval ok: 0.75")
+  , ("float division useth the division slash", "6.0 ∕ 4.0", "eval ok: 1.5")
+  , ("float division by zero followeth ieee", "1.0 ∕ 0.0", "eval ok: Infinity")
   , ("float equality ignoreth literal spelling", "kin 𝟚 { yea, nay }; 1.0 ≡ 1.00", "eval ok: yea")
   , ("float ordering is numeric", "kin 𝟚 { yea, nay }; 2.0 ≤ 10.0", "eval ok: yea")
-  , ("curried partial application", "let add = { a, b | a + b }; let add-one = 1 add; 2 add-one", "eval ok: 3")
-  , ("three curried arguments", "let add = { a, b, c | (a + b) + c }; 1 add 2 3", "eval ok: 6")
+  , ("curried partial application", "let a add b = a + b; let add-one = 1 add; 2 add-one", "eval ok: 3")
+  , ("three curried arguments", "let a add b c = (a + b) + c; 1 add 2 3", "eval ok: 6")
   , ("local recursive function", "kin natural { zero, natural suc }; let count = (let loop = { zero | 0, n suc | 1 + (n loop) }; loop); ((zero suc) suc) count", "eval ok: 2")
   , ("second-position function header", "let a add b = a + b; 1 add 2", "eval ok: 3")
-  , ("dollar function segment", "let f = { x | x + 1 }; let h = { x, y, z | (x + y) × z }; 1 f $h 2 3", "eval ok: 12")
-  , ("lexical closure", "let x = 1; let f = { _ | x }; (let x = 2; 0 f)", "eval ok: 1")
+  , ("dollar function segment", "let x f = x + 1; let x h y z = (x + y) × z; 1 f $h 2 3", "eval ok: 12")
+  , ("lexical closure", "let x = 1; let _ f = x; (let x = 2; 0 f)", "eval ok: 1")
   , ("multi-scrutinee match", boolData ++ "match yea, nay { yea, yea | 1, yea, nay | 2, nay, yea | 3, nay, nay | 4 }", "eval ok: 2")
   , ("nested constructor match", boolData ++ optionData ++ "match nay some { yea some | 1, nay some | 2, none | 0 }", "eval ok: 2")
   , ("first matching arm winneth", boolData ++ "match yea { yea | 1, _ | 2 }", "eval ok: 1")
   , ("integer match patterns", "match -1 { 0 | 10, -1 | 20, _ | 30 }", "eval ok: 20")
   , ("integer patterns fall through", "match 2 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 30")
   , ("integer function patterns", "let classify: integer → integer = { 0 | 10, 1 | 20, _ | 30 }; 1 classify", "eval ok: 20")
-  , ("unchosen arm is not evaluated", boolData ++ "match yea { yea | 1, nay | 1 ÷ 0 }", "eval ok: 1")
+  , ("unchosen arm is not evaluated", boolData ++ "let _ ignore = 1; match yea { yea | 1, nay | (1 ÷ 0) ignore }", "eval ok: 1")
   , ("let right side is strict", stopEffect ++ "try (let x = 1 stop; 2 stop) { x stop | x }", "eval ok: 1")
   , ("function expression runneth before arguments", stopEffect ++ "try 0 (1 stop) (2 stop) { x stop | x }", "eval ok: 1")
-  , ("arguments run left to right", stopEffect ++ "let choose = { x, _ | x }; try (1 stop) choose (2 stop) { return x | x, x stop | x }", "eval ok: 1")
+  , ("arguments run left to right", stopEffect ++ "let x choose _ = x; try (1 stop) choose (2 stop) { return x | x, x stop | x }", "eval ok: 1")
   , ("record fields run left to right", stopEffect ++ "try [first = 1 stop, second = 2 stop] { return _ | 0, x stop | x }", "eval ok: 1")
   , ("record update evaluateth base first", stopEffect ++ "let base = [field = 0]; try [= (let _ = 1 stop; base), field = 2 stop] { return _ | 0, x stop | x }", "eval ok: 1")
   , ("match scrutinees run left to right", stopEffect ++ "try match 1 stop, 2 stop { x, y | x } { x stop | x }", "eval ok: 1")
   , ("record update", "let person = [name = 'n', age = 1]; [= person, age = 2]", "eval ok: [age = 2, name = 'n']")
   , ("record access", "let person = [name = 'n', age = 1]; person@age", "eval ok: 1")
   , ("record removal", "let person = [name = 'n', age = 1]; [= person, - age]", "eval ok: [name = 'n']")
-  , ("handled division failure", "try 1 ÷ 0 { fail | 9 }", "eval ok: 9")
-  , ("operation payload", "deed e fail { e fail: a }; try 1 ÷ 0 { return n | n to-text, message fail | message }", "eval ok: 'division by zero'")
+  , ("handled division failure", "let _ ignore = 1; try (1 ÷ 0) ignore { fail | 9 }", "eval ok: 9")
+  , ("operation payload", "deed e fail { e fail: a }; let _ ignore = 'ok'; try (1 ÷ 0) ignore { return text | text, message fail | message }", "eval ok: 'division by zero'")
   , ("return clause mapeth normal answer", "try 2 + 3 { return n | n to-text }", "eval ok: '5'")
-  , ("partial call performeth only when saturated", "try 0 (1 ÷) { fail | 7 }", "eval ok: 7")
+  , ("partial call performeth only when saturated", "let _ ignore = 0; try (0 (1 ÷)) ignore { fail | 7 }", "eval ok: 7")
   , ("resume once", "deed ask { integer ask: integer }; try 10 ask { x ask | (x + 1) resume }", "eval ok: 11")
   , ("resume zero times", "deed ask { integer ask: integer }; try 10 ask { x ask | x + 1 }", "eval ok: 11")
   , ("deep resume handleth later operation", unitData ++ "deed choice { 𝟙 pick: integer }; try (null pick) + (null pick) { pick | 1 resume }", "eval ok: 2")
@@ -90,8 +118,14 @@ typeErrors =
 
 importedCases :: Map.Map String String -> [Test]
 importedCases imports =
-  [ evalOkWith "imported call" "bring file.tung; 2 inc" (Map.insert "file.tung" "show let inc = { x | x + 1 };" imports) "eval ok: 3"
+  [ evalOkWith "imported call" "bring file.tung; 2 inc" (Map.insert "file.tung" "show let x inc = x + 1;" imports) "eval ok: 3"
   , evalOkWith "primitive shape defaults" "bring ground.tung; (1 < 2) ∧ (1 ≢ 2)" imports "eval ok: yea"
+  , evalOkWith "false implieth false" "bring ground.tung; nay ≤ nay" imports "eval ok: yea"
+  , evalOkWith "true doth not imply false" "bring ground.tung; yea ≤ nay" imports "eval ok: nay"
+  , evalOkWith "euclidean division returneth quotient and remainder for a negative divisor" "bring ground.tung; bring data/product.tung; 5 ÷ -3" imports "eval ok: (-1 2 ∏)"
+  , evalOkWith "euclidean division returneth quotient and remainder for a negative dividend" "bring ground.tung; bring data/product.tung; -5 ÷ 3" imports "eval ok: (-2 1 ∏)"
+  , evalOkWith "euclidean quotient and remainder reconstruct the dividend" "bring ground.tung; bring data/product.tung; let dividend = -5; let divisor = -3; match dividend ÷ divisor { quotient ∏ rest | (quotient × divisor) + rest }" imports "eval ok: -5"
+  , evalOkWith "euclidean division faileth at zero" "bring ground.tung; let _ ignore = 1; try (1 ÷ 0) ignore { fail | 9 }" imports "eval ok: 9"
   , evalOkWith "three-way comparison distinguishes each result" "bring ground.tung; bring data/product.tung; (0 compare 1) ∏ (1 compare 1) $∏ (2 compare 1)" imports "eval ok: ((fore mid ∏) aft ∏)"
   , evalOkWith "clamp keepeth a value inside its bounds" "bring ground.tung; 0 clamp 10 12" imports "eval ok: 10"
   , evalOkWith "qualified duplicate values" "bring left.tung; bring right.tung; left@foo + right@foo" duplicateImports "eval ok: 3"
@@ -119,6 +153,7 @@ importedCases imports =
   , evalOkWith "unicode shapes dispatch" "bring ground.tung; (`a ≡ `a) ∧ (`a ≤ `b)" imports "eval ok: yea"
   , evalOkWith "imported fill doth not shadow native integer order" "bring data/list.tung; 0 till 2" imports "eval ok: (0 (1 (2 empty .*) .*) .*)"
   , evalOkWith "list map pipeline keepeth the list functor" "bring ground.tung; bring data/list.tung; 0 till 2 $ map { x | x + 1 } $ map to-text" imports "eval ok: ('1' ('2' ('3' empty .*) .*) .*)"
+  , evalOkWith "list apply calleth its separately filled map" "bring ground.tung; bring data/list.tung; let values = 1 .* (2 .* empty); let functions = { x | x + 10 } .* ({ x | x × 2 } .* empty); values apply functions" imports "eval ok: (11 (12 (2 (4 empty .*) .*) .*) .*)"
   , evalOkWith "list traversal sequences option values" "bring ground.tung; bring data/list.tung; bring data/option.tung; bring collection/traverse.tung; (1 .* (2 .* empty)) traverse { x | x data/option@some }" imports "eval ok: ((1 (2 empty .*) .*) some)"
   , evalOkWith "fold-map combineth mapped list values" "bring ground.tung; bring data/list.tung; bring collection/catamorphism.tung; (0 till 2) fold-map to-text" imports "eval ok: '012'"
   , evalOkWith "bounded conjunction folds values" "bring ground.tung; bring data/list.tung; bring collection/catamorphism.tung; yea .* (nay .* empty) $ …∧" imports "eval ok: nay"
@@ -134,7 +169,16 @@ importedCases imports =
   , evalOkWith "control branch suspends actions" "bring ground.tung; nay branch { _ | 1 } { _ | 2 }" imports "eval ok: 2"
   , evalOkWith "option maybe mapeth present value" "bring ground.tung; bring data/option.tung; (3 some) maybe 0 { x | x + 1 }" imports "eval ok: 4"
   , evalOkWith "sum either consumeth selected side" "bring ground.tung; bring data/sum.tung; (2 inject₁) either { x | x + 1 } { y | y × 3 }" imports "eval ok: 6"
+  , evalOkWith "sum functor mapeth the right side" "bring ground.tung; bring data/sum.tung; let value: text ∐ integer = 2 inject₁; match (value map { x | x + 1 }) { _ inject₀ | 0, x inject₁ | x }" imports "eval ok: 3"
+  , evalOkWith "sum applicative applieth the right side" "bring ground.tung; bring data/sum.tung; let value: text ∐ integer = 2 inject₁; let f: text ∐ (integer → integer) = { x | x + 3 } inject₁; match value apply f { _ inject₀ | 0, x inject₁ | x }" imports "eval ok: 5"
+  , evalOkWith "sum monad preserveth a left value" "bring ground.tung; bring data/sum.tung; let value: text ∐ integer = 'left' inject₀; match (value map-flat { x | (x + 1) inject₁ }) { message inject₀ | message, x inject₁ | x to-text }" imports "eval ok: 'left'"
+  , evalOkWith "sum catamorphism foldeth the right side" "bring ground.tung; bring data/sum.tung; bring collection/catamorphism.tung; let value: text ∐ integer = 3 inject₁; value foldl 1 +" imports "eval ok: 4"
+  , evalOkWith "sum traversal preserveth its side" "bring ground.tung; bring data/sum.tung; bring data/option.tung; bring collection/traverse.tung; let value: text ∐ integer = 3 inject₁; value traverse { x | (x + 1) some }" imports "eval ok: ((4 inject₁) some)"
   , evalOkWith "product bimap mapeth both fields" "bring ground.tung; bring data/product.tung; (1 ∏ 2) bimap { x | x + 1 } { y | y × 3 }" imports "eval ok: (2 6 ∏)"
+  , evalOkWith "product applicative accumulateth value context first" "bring ground.tung; bring data/product.tung; let value = 'value:' ∏ 2; let f = 'function:' ∏ { x | x + 1 }; value apply f" imports "eval ok: ('value:function:' 3 ∏)"
+  , evalOkWith "product monad accumulateth outer context first" "bring ground.tung; bring data/product.tung; ('outer:' ∏ 2) map-flat { x | 'inner:' ∏ (x + 1) }" imports "eval ok: ('outer:inner:' 3 ∏)"
+  , evalOkWith "product catamorphism foldeth the second field" "bring ground.tung; bring data/product.tung; bring collection/catamorphism.tung; ('ignored' ∏ 3) foldl 1 +" imports "eval ok: 4"
+  , evalOkWith "product traversal preserveth the first field" "bring ground.tung; bring data/product.tung; bring data/option.tung; bring collection/traverse.tung; ('context' ∏ 3) traverse { x | (x + 1) some }" imports "eval ok: (('context' 4 ∏) some)"
   , evalOkWith "applicative lift2 for option" "bring ground.tung; bring data/option.tung; (1 some) lift₂ (2 some) +" imports "eval ok: (3 some)"
   , evalOkWith "monad void for option" "bring data/option.tung; bring collection/monad.tung; (1 some) void" imports "eval ok: (null some)"
   , evalOkWith "list behead exposeth the head and tail" "bring data/list.tung; bring data/option.tung; bring data/product.tung; match (1 .* empty) behead { (head data/product@∏ _) data/option@some | head, data/option@none | 0 }" imports "eval ok: 1"
@@ -155,11 +199,25 @@ importedCases imports =
   , evalOkWith "n-ary product multiplies a foldable collection" "bring ground.tung; bring data/list.tung; bring collection/catamorphism.tung; (2 .* (3 .* (4 .* empty))) …×" imports "eval ok: 24"
   , evalOkWith "n-ary product of an empty collection is one" "bring ground.tung; bring data/list.tung; bring collection/catamorphism.tung; let values: integer list = empty; values …×" imports "eval ok: 1"
   , evalTypeErrWith "n-ary product needeth a multiplicative monoid" "bring ground.tung; bring data/list.tung; bring collection/catamorphism.tung; ('a' .* empty) …×" imports
+  , evalOkWith "boolean supremal wrapper useth disjunction" "bring ground.tung; bring data/list.tung; bring algebra/total/semigroup.tung; bring collection/catamorphism.tung; let values = (nay supremal) .* ((yea supremal) .* data/list@empty); match values fold { result supremal | result }" imports "eval ok: yea"
+  , evalOkWith "empty boolean supremal fold yieldeth nay" "bring ground.tung; bring data/list.tung; bring algebra/total/semigroup.tung; bring collection/catamorphism.tung; let values: (𝟚 supremal) list = data/list@empty; match values fold { result supremal | result }" imports "eval ok: nay"
+  , evalOkWith "boolean infimal wrapper useth conjunction" "bring ground.tung; bring data/list.tung; bring algebra/total/semigroup.tung; bring collection/catamorphism.tung; let values = (yea infimal) .* ((nay infimal) .* data/list@empty); match values fold { result infimal | result }" imports "eval ok: nay"
+  , evalOkWith "empty boolean infimal fold yieldeth yea" "bring ground.tung; bring data/list.tung; bring algebra/total/semigroup.tung; bring collection/catamorphism.tung; let values: (𝟚 infimal) list = data/list@empty; match values fold { result infimal | result }" imports "eval ok: yea"
   , evalOkWith "natural semiring computeth with both identities" "bring ground.tung; bring data/natural.tung; let two: natural = (data/natural@zero suc) suc; let three = two suc; ((two × three) + one) natural-to-integer" imports "eval ok: 7"
   , evalOkWith "natural semiring supplieth multiplicative monoid evidence" "bring ground.tung; bring data/list.tung; bring data/natural.tung; bring collection/catamorphism.tung; let two: natural = (data/natural@zero suc) suc; let three = two suc; ((two .* (three .* data/list@empty)) …×) natural-to-integer" imports "eval ok: 6"
   , evalOkWith "nonnegative integer converteth to natural" "bring ground.tung; bring data/natural.tung; 3 integer-to-natural $ natural-to-integer" imports "eval ok: 3"
   , evalOkWith "negative integer cannot become natural" "bring ground.tung; try -1 integer-to-natural { return _ | 'valid', message fail | message }" imports "eval ok: 'negative cannot be a natural'"
-  , evalOkWith "nonempty map preserveth the first element" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; ((1 nonempty (2 .* empty)) map-nonempty { x | x + 1 }) nonempty-to-list" imports "eval ok: (2 (3 empty .*) .*)"
+  , evalOkWith "complex sine of zero is zero" "bring ground.tung; bring numeric/complex.tung; ((0.0 complex 0.0) sine) real" imports "eval ok: 0.0"
+  , evalOkWith "complex cosine of zero is one" "bring ground.tung; bring numeric/complex.tung; ((0.0 complex 0.0) cosine) real" imports "eval ok: 1.0"
+  , evalOkWith "complex exponentiation scaleth by the real exponent" "bring ground.tung; bring numeric/complex.tung; ((1.0 complex 0.0) exponent) real" imports "eval ok: 2.718281828459045"
+  , evalOkWith "complex sine of unit imaginary yieldeth hyperbolic sine" "bring ground.tung; bring numeric/complex.tung; ((0.0 complex 1.0) sine) imaginary" imports "eval ok: 1.1752011936438014"
+  , evalOkWith "complex cosine of unit imaginary yieldeth hyperbolic cosine" "bring ground.tung; bring numeric/complex.tung; ((0.0 complex 1.0) cosine) real" imports "eval ok: 1.5430806348152437"
+  , evalOkWith "nonempty map preserveth the first element" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; ((1 nonempty (2 .* empty)) map { x | x + 1 }) nonempty-to-list" imports "eval ok: (2 (3 empty .*) .*)"
+  , evalOkWith "nonempty semigroup appendeth without losing the head" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; bring algebra/total/magma.tung; ((1 nonempty (2 .* empty)) * (3 nonempty empty)) nonempty-to-list" imports "eval ok: (1 (2 (3 empty .*) .*) .*)"
+  , evalOkWith "nonempty applicative applieth every function" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; let values = 1 nonempty (2 .* empty); let fs = { x | x + 1 } nonempty ({ x | x × 2 } .* empty); (values apply fs) nonempty-to-list" imports "eval ok: (2 (3 (2 (4 empty .*) .*) .*) .*)"
+  , evalOkWith "nonempty monad concatenateth every result" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; let values = 1 nonempty (2 .* empty); (values map-flat { x | x nonempty ((x + 10) .* empty) }) nonempty-to-list" imports "eval ok: (1 (11 (2 (12 empty .*) .*) .*) .*)"
+  , evalOkWith "nonempty catamorphism visiteth the head first" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; bring collection/catamorphism.tung; (1 nonempty (2 .* empty)) foldl 0 +" imports "eval ok: 3"
+  , evalOkWith "nonempty traversal keepeth a nonempty result" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; bring data/option.tung; bring collection/traverse.tung; ((1 nonempty (2 .* empty)) traverse { x | (x + 1) some }) map nonempty-to-list" imports "eval ok: ((2 (3 empty .*) .*) some)"
   , evalOkWith "nonempty membership delegateth to list" "bring ground.tung; bring data/list.tung; bring data/nonempty.tung; (1 nonempty (2 .* empty)) ∋ 2" imports "eval ok: yea"
   , evalOkWith "table put replaceth a key" "bring ground.tung; bring data/table.tung; let table = (empty put 'a' 1) put 'a' 2; table lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table membership dispatcheth through inhold" "bring ground.tung; bring data/table.tung; let table = empty put 'a' 1; table ∋ 'a'" imports "eval ok: yea"
@@ -192,20 +250,21 @@ importedCases imports =
   , evalOkWith "table merge preferreth right values" "bring ground.tung; bring data/table.tung; let left = empty put 'a' 1; let right = empty put 'a' 2; (left merge right) lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table adjust changeth an existing value" "bring ground.tung; bring data/table.tung; let table = empty put 'a' 1; (table adjust 'a' { x | x + 1 }) lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "text operations use unicode code points" "bring ground.tung; bring text/operation.tung; ('aβ字' reverse-text) take-text 2" imports "eval ok: '字β'"
+  , evalOkWith "text size counteth unicode code points" "bring ground.tung; bring text/operation.tung; bring collection/size.tung; bring data/natural.tung; ('aβ字' size) natural-to-integer" imports "eval ok: 3"
   , evalOkWith "text split and join preserve empty fields" "bring ground.tung; bring text/operation.tung; ('a,b,,c' split-text `,) join-with-text '|'" imports "eval ok: 'a|b||c'"
   , evalOkWith "text words collapse whitespace runs" "bring ground.tung; bring text/operation.tung; ' red\\tblue\\nred ' words-text $ join-with-text '|'" imports "eval ok: 'red|blue|red'"
-  , evalOkWith "typed paths join components" "bring ground.tung; bring data/path.tung; (('root' path) join-path ('leaf' path)) path-to-text" imports "eval ok: 'root/leaf'"
+  , evalOkWith "typed paths join components" "bring ground.tung; bring data/path.tung; (('root' path) join-path ('leaf' path)) to-text" imports "eval ok: 'root/leaf'"
   , evalOkWith "time spans drive async sleep" "bring ground.tung; bring data/time-span.tung; (0 milliseconds) sleep-for" imports "eval ok: null"
   , evalOkWith "process captureth standard output" "bring ground.tung; bring data/list.tung; ('printf' run-process ('hello' .* empty)) process-output" imports "eval ok: 'hello'"
   , evalTypeErrWith "missing import is rejected before runtime" "bring missing.tung;" Map.empty
   , evalTypeErrWith "import cycle is rejected before runtime" "bring left.tung;" cyclicImports
   , evalOkWith "arctan range is nonnegative" "bring _foreign.tung; 0.0 arctan-float -1.0" imports "eval ok: 4.71238898038469"
-  , evalOkWith "fork and wait" "bring ground.tung; let work = { _ | 42 }; let task = work fork; task wait" imports "eval ok: 42"
-  , evalOkWith "task result may be awaited repeatedly" "bring ground.tung; let work = { _ | 21 }; let task = work fork; (task wait) + (task wait)" imports "eval ok: 42"
-  , evalOkWith "task wait may time out" "bring ground.tung; let work = { _ | (let _ = 200 sleep; 42) }; let task = work fork; task wait-for 0" imports "eval ok: none"
-  , evalOkWith "task wait-for returneth a finished value" "bring ground.tung; let work = { _ | 42 }; let task = work fork; task wait-for 1000" imports "eval ok: (42 some)"
-  , evalOkWith "fordone task faileth through the declared effect" "bring ground.tung; let work = { _ | (let _ = 1000 sleep; 42) }; let task = work fork; let _ = task fordo; try task wait { return _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
-  , evalOkWith "cpu-bound task remaineth cancellable" "bring ground.tung; let spin = (let loop = { _ | null loop }; loop); let task = spin fork; let _ = task fordo; try task wait { return _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
+  , evalOkWith "fork and wait" "bring ground.tung; let _ work = 42; let task = work fork; task wait" imports "eval ok: 42"
+  , evalOkWith "task result may be awaited repeatedly" "bring ground.tung; let _ work = 21; let task = work fork; (task wait) + (task wait)" imports "eval ok: 42"
+  , evalOkWith "task wait may time out" "bring ground.tung; let _ work = (let _ = 200 sleep; 42); let task = work fork; task wait-for 0" imports "eval ok: none"
+  , evalOkWith "task wait-for returneth a finished value" "bring ground.tung; let _ work = 42; let task = work fork; task wait-for 1000" imports "eval ok: (42 some)"
+  , evalOkWith "fordone task faileth through the declared effect" "bring ground.tung; let _ work = (let _ = 1000 sleep; 42); let task = work fork; let _ = task fordo; try task wait { return _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
+  , evalOkWith "cpu-bound task remaineth cancellable" "bring ground.tung; let _ loop = null loop; let spin = loop; let task = spin fork; let _ = task fordo; try task wait { return _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
   , evalTypeErrWith "task constructor is private" "bring ground.tung; 42 done" imports
   , concurrentForks imports
   , randomRange imports
@@ -268,11 +327,11 @@ concurrentForks imports = do
  where
   baselineSource =
     "bring ground.tung; "
-      ++ "let work = { _ | 21 }; "
+      ++ "let _ work = 21; "
       ++ "let left = work fork; let right = work fork; (left wait) + (right wait)"
   source =
     "bring ground.tung; "
-      ++ "let work = { _ | (let _ = 600 sleep; 21) }; "
+      ++ "let _ work = (let _ = 600 sleep; 21); "
       ++ "let left = work fork; let right = work fork; (left wait) + (right wait)"
 
 systemArguments :: Map.Map String String -> Test

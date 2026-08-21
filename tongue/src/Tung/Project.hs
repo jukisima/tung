@@ -27,8 +27,10 @@ import Tung.Parse (parse)
 import Tung.Syntax (Decl (..), Program (..))
 
 data Project = Project
-  { projectSource :: String
+  { projectPath :: FilePath
+  , projectSource :: String
   , projectImports :: Map.Map String String
+  , projectImportPaths :: Map.Map String FilePath
   }
   deriving stock (Eq, Show)
 
@@ -44,7 +46,7 @@ loadProjectFile builtins = loadProjectFileWithRoots builtins []
 
 loadProjectFileWithRoots :: Map.Map String String -> [FilePath] -> FilePath -> IO (Either String Project)
 loadProjectFileWithRoots builtins roots path = runExceptT do
-  absolute <- liftIOError "resolve" path (normalise <$> makeAbsolute path)
+  absolute <- liftIOError "resolve" path (canonicalizePath =<< makeAbsolute path)
   absoluteRoots <- traverse absoluteRoot roots
   source <- readSource absolute
   loadProjectSourceM builtins absoluteRoots absolute (takeDirectory absolute) source
@@ -62,7 +64,8 @@ loadProjectSourceM :: Map.Map String String -> [FilePath] -> FilePath -> FilePat
 loadProjectSourceM builtins roots owner base source = do
   loaded <- execStateT (discover builtins roots owner base source) (Loaded Map.empty Set.empty)
   let locals = snd <$> loadedFiles loaded
-  pure (Project source (Map.union locals builtins))
+      paths = fst <$> loadedFiles loaded
+  pure (Project owner source (Map.union locals builtins) paths)
 
 discover :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> String -> Loader ()
 discover builtins roots owner base source = mapM_ (loadImport builtins roots owner base) (sourceImports source)
