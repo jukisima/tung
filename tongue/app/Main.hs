@@ -34,12 +34,21 @@ main = do
     ["--check", path] -> checkFile True path
     ["--check-module", path] -> checkFile False path
     ["--type-of", name, path] -> typeOfFile name path
+    ["--format-stdin"] -> formatSource <$> getContents >>= putStr
+    "--format" : paths | not (null paths) -> mapM_ formatFile paths
     ["--run-quiet", path] -> runFile True path []
     ["--repl"] -> repl
     ["--help"] -> putStr usage
     path : programArgs
       | not ("-" `isPrefixOf` path) -> runFile False path programArgs
     _ -> putStr usage >> exitFailure
+
+formatFile :: FilePath -> IO ()
+formatFile path = do
+  source <- readFile path
+  _ <- Exception.evaluate (length source)
+  let formatted = formatSource source
+  unless (formatted == source) (writeFile path formatted)
 
 runFile :: Bool -> FilePath -> [String] -> IO ()
 runFile quiet path programArgs = withProject path \Project{projectSource, projectImports} -> do
@@ -175,6 +184,7 @@ editorResponse bookhoard (_, _, command, name, (source, imports)) =
         "type" -> case typeOfWithImports source allImports name of
           Right ty -> "type: " ++ ty
           Left message -> "type error: " ++ message
+        "format" -> "tung-format\n" ++ formatSource source
         _ -> "checker session failed: unknown command '" ++ command ++ "'"
 
 sendEditorResponse :: MVar () -> Int -> Int -> String -> IO ()
@@ -296,7 +306,7 @@ withReplProject bookhoard Repl{replBase} source action =
 
 combineSource :: String -> String -> String
 combineSource "" addition = addition
-combineSource source addition = source ++ "\n;\n" ++ addition
+combineSource source addition = source ++ "\n" ++ addition
 
 loadConfiguredFile :: Map.Map String String -> FilePath -> IO (Either String Project)
 loadConfiguredFile bookhoard path = moduleRoots >>= \roots -> loadProjectFileWithRoots bookhoard roots path
@@ -317,6 +327,8 @@ usage =
     , "       tung --check <file.tung>"
     , "       tung --check-module <file.tung>"
     , "       tung --type-of <name> <file.tung>"
+    , "       tung --format <file.tung>..."
+    , "       tung --format-stdin"
     , "       tung --repl"
     ]
 
@@ -329,5 +341,6 @@ replUsage =
     , ":run        run the session main"
     , ":clear      remove session declarations"
     , ":{ and :}   enter multiline source"
+    , "yield expr   evaluate without keeping the result"
     , ":quit       leave the repl"
     ]

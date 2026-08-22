@@ -1,9 +1,9 @@
-bring _foreign.tung;
-bring algebra/arithmetic/semiring.tung;
-bring algebra/arithmetic/ring.tung;
+bring _foreign.tung
+bring algebra/arithmetic/semiring.tung
+bring algebra/arithmetic/ring.tung
 
 show shape a divide {
-  a ∕ a: a
+  let a ∕ a: a
 }
 
 graith a ring, a divide

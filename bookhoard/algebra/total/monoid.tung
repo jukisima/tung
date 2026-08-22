@@ -1,13 +1,13 @@
-bring algebra/total/magma.tung;
-bring algebra/total/semigroup.tung;
-bring data/two.tung;
-bring order/lattice.tung;
+bring algebra/total/magma.tung
+bring algebra/total/semigroup.tung
+bring data/two.tung
+bring order/lattice.tung
 
 graith a semigroup
 show shape a monoid {
-  ∅: a;
+  let ∅: a
 
-  law (a: a): ∅ * a ~ a;
+  law (a: a): ∅ * a ~ a
   law (a: a): a * ∅ ~ a
 }
 

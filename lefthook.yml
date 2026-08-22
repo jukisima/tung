@@ -1,5 +1,10 @@
 pre-commit:
   jobs:
+    - name: tung library formatter
+      glob: "bookhoard/**/*.tung"
+      run: tung --format {staged_files}
+      stage_fixed: true
+
     - name: bookhoard membership
       glob: "bookhoard/**/*.tung"
       run: make bookhoard-membership

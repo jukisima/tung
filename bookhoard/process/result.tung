@@ -4,10 +4,10 @@ show kin process-result {
 }
 
 show let (status process-result _ _: process-result) process-status: integer =
-  status;
+  status
 
 show let (_ process-result output _: process-result) process-output: text =
-  output;
+  output
 
 show let (_ process-result _ errors: process-result) process-errors: text =
   errors

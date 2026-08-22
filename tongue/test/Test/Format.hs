@@ -1,0 +1,317 @@
+module Test.Format (group) where
+
+import Data.List (intercalate)
+import Test.Harness (Group, Test, expect, expectEq)
+import Test.Harness qualified as Harness
+import Tung (formatSource)
+
+group :: IO Group
+group = Harness.group "format" (map formatCase cases ++ [idempotence, generatedIdempotence])
+
+formatCase :: (String, String, String) -> Test
+formatCase (name, source, expected) = expectEq name expected (formatSource source)
+
+idempotence :: Test
+idempotence = expect "formatter is idempotent" (all (\(_, source, _) -> isIdempotent source) cases)
+
+generatedIdempotence :: Test
+generatedIdempotence = expect "formatter is idempotent for generated structural sources" (all isIdempotent generatedSources)
+ where
+  generatedSources =
+    [ intercalate "\n" (map (prefix ++) declaration) ++ ending
+    | declaration <- declarations
+    , prefix <- ["", " ", "  ", "\t"]
+    , ending <- ["", "\n"]
+    ]
+  declarations =
+    [ ["show kin a box {", "a box", "}"]
+    , ["let result =", "match value {", "yea | 1,", "nay | 0", "}"]
+    , ["let handled =", "try risky {", "message fail | 0", "}"]
+    , ["shape a identity {", "let a identity: a", "law (x: a):", "x identity ~ x", "}"]
+    ]
+
+isIdempotent :: String -> Bool
+isIdempotent source = formatSource formatted == formatted
+ where
+  formatted = formatSource source
+
+cases :: [(String, String, String)]
+cases =
+  [
+    ( "nested declarations"
+    , """
+      show kin a box {
+      a box
+      }
+      let text = '{not a block}' # }
+
+      """
+    , """
+      show kin a box {
+        a box
+      }
+      let text = '{not a block}' # }
+
+      """
+    )
+  ,
+    ( "current application syntax"
+    , """
+      show let (x: a option, f: a → 𝟚) filter: a option = x match {
+      a some | a f $ if (a some) none
+      none | none
+      }
+
+      """
+    , """
+      show let (x: a option, f: a → 𝟚) filter: a option = x match {
+        a some | a f $ if (a some) none
+        none | none
+      }
+
+      """
+    )
+  ,
+    ( "expression continuations"
+    , """
+      let picked =
+      match value {
+      yea | 1,
+      nay | 0
+      }
+      let handled =
+      try risky {
+      message fail | 0
+      }
+      let identity =
+      { x | x }
+
+      """
+    , """
+      let picked =
+        match value {
+          yea | 1,
+          nay | 0
+        }
+      let handled =
+        try risky {
+          message fail | 0
+        }
+      let identity =
+        { x | x }
+
+      """
+    )
+  ,
+    ( "local result"
+    , """
+      let main = (
+      let first =
+      1 + 2
+      let second = 3
+      yield first + second
+      )
+
+      """
+    , """
+      let main = (
+        let first =
+          1 + 2
+        let second = 3
+        yield first + second
+      )
+
+      """
+    )
+  ,
+    ( "nested continuation"
+    , """
+      let fixtures =
+      first .*
+      (second .*
+      (third .* empty))
+
+      let next =
+      value
+
+      """
+    , """
+      let fixtures =
+        first .*
+          (second .*
+            (third .* empty))
+
+      let next =
+        value
+
+      """
+    )
+  ,
+    ( "split right side"
+    , """
+      fill (float complex) elementary {
+      let (a complex b) sine =
+      (((0.0 subtract-float b) complex a) exponent)
+      sine-from-exponents ((b complex (0.0 subtract-float a)) exponent)
+      }
+
+      """
+    , """
+      fill (float complex) elementary {
+        let (a complex b) sine =
+          (((0.0 subtract-float b) complex a) exponent)
+            sine-from-exponents ((b complex (0.0 subtract-float a)) exponent)
+      }
+
+      """
+    )
+  ,
+    ( "split annotation and definition"
+    , """
+      show let (f0: a → b ! e0, f1: b → c ! e1) compose
+      : a → c ! e0, e1
+      = { a | a f0 $ f1 }
+
+      """
+    , """
+      show let (f0: a → b ! e0, f1: b → c ! e1) compose
+        : a → c ! e0, e1
+        = { a | a f0 $ f1 }
+
+      """
+    )
+  ,
+    ( "term type ascription"
+    , """
+      let answer = (1 + 2: integer)
+
+      """
+    , """
+      let answer = (1 + 2: integer)
+
+      """
+    )
+  ,
+    ( "multiline law header"
+    , """
+      shape f applicative {
+      law (a: a f):
+      a apply (identity pure) ~ a
+      law (a: a): a pure ~ a pure
+      }
+
+      """
+    , """
+      shape f applicative {
+        law (a: a f):
+          a apply (identity pure) ~ a
+        law (a: a): a pure ~ a pure
+      }
+
+      """
+    )
+  ,
+    ( "equals signs in strings and comments"
+    , """
+      let text = 'a = b' # =
+      let next = 1
+
+      """
+    , """
+      let text = 'a = b' # =
+      let next = 1
+
+      """
+    )
+  ,
+    ( "decimal unicode and block comments"
+    , """
+      let result =
+      match character {
+      `\\32; | 1,
+      _ | 0
+      }
+      /*
+        {
+      */
+      let next = 1
+
+      """
+    , """
+      let result =
+        match character {
+          `\\32; | 1,
+          _ | 0
+        }
+      /*
+        {
+      */
+      let next = 1
+
+      """
+    )
+  ,
+    ( "delimiters in block comments"
+    , """
+      let x = 1 /* { = */
+      let y = 2
+      /*
+        {
+      */
+      let z = 3
+
+      """
+    , """
+      let x = 1 /* { = */
+      let y = 2
+      /*
+        {
+      */
+      let z = 3
+
+      """
+    )
+  , ("windows newlines", "kin box {\r\nbox\r\n}\r\n", "kin box {\n  box\n}\n")
+  ,
+    ( "blank line endeth continuation"
+    , """
+      show let value =
+      1
+
+      ## the next declaration.
+      show let next = 2
+
+      """
+    , """
+      show let value =
+        1
+
+      ## the next declaration.
+      show let next = 2
+
+      """
+    )
+  ,
+    ( "comment useth structural indentation"
+    , """
+      shape a identity {
+      law (x: a):
+      # the equation.
+      x identity ~ x
+      # the next law.
+      law (x: a): x identity ~ x
+      }
+
+      """
+    , """
+      shape a identity {
+        law (x: a):
+        # the equation.
+          x identity ~ x
+        # the next law.
+        law (x: a): x identity ~ x
+      }
+
+      """
+    )
+  ]

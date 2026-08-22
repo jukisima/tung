@@ -1,4 +1,4 @@
-bring ground.tung;
+bring ground.tung
 
 deed pick {
   𝟙 pick: integer
@@ -7,9 +7,9 @@ deed pick {
 let branch-sum: integer =
   try (null pick) + (null pick) {
     pick | 2 resume $ + (3 resume)
-  };
+  }
 
 let (_: 𝟙) main: 𝟙 ! console = (
-  let _ = 'multi-shot' write-line;
-  branch-sum to-text $ write-line
+  let _ = 'multi-shot' write-line
+  yield branch-sum to-text $ write-line
 )

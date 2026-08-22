@@ -1,10 +1,10 @@
-bring algebra/arithmetic/semiring.tung;
-bring data/two.tung;
-bring _foreign.tung;
+bring algebra/arithmetic/semiring.tung
+bring data/two.tung
+bring _foreign.tung
 
 graith a add
 show shape a subtract {
-  a - a: a;
+  let a - a: a
 }
 
 graith a semiring, a subtract

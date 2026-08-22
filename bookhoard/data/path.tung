@@ -1,6 +1,6 @@
-bring _foreign.tung;
-bring data/one.tung;
-bring text/to-text.tung;
+bring _foreign.tung
+bring data/one.tung
+bring text/to-text.tung
 
 ## a path kept distinct from arbitrary text at api boundaries.
 show kin path {
@@ -12,13 +12,13 @@ fill path to-text {
 }
 
 show let (text₀ path: path, text₁ path: path) join-path: path =
-  ((text₀ join-text '/') join-text text₁) path;
+  ((text₀ join-text '/') join-text text₁) path
 
 show let (text path: path) read-path: text ! file, text fail =
-  text read-file;
+  text read-file
 
 show let (text path: path, contents: text) write-path: 𝟙 ! file, text fail =
-  text write-file contents;
+  text write-file contents
 
 show let (text path: path, contents: text) append-path: 𝟙 ! file, text fail =
   text append-file contents

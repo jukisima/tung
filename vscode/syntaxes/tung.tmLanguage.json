@@ -124,12 +124,7 @@
               "name": "keyword.declaration.tung"
             }
           },
-          "end": ";",
-          "endCaptures": {
-            "0": {
-              "name": "punctuation.separator.tung"
-            }
-          },
+          "end": "(?=\\b(?:bring|graith|yield|show|show-ilk|let|let-ilk|kin|deed|shape|fill)\\b)|$",
           "name": "meta.export.tung"
         }
       ]
@@ -143,12 +138,7 @@
               "name": "keyword.declaration.tung"
             }
           },
-          "end": ";",
-          "endCaptures": {
-            "0": {
-              "name": "punctuation.separator.tung"
-            }
-          },
+          "end": "(?=\\b(?:bring|graith|yield|show|show-ilk|let|let-ilk|kin|deed|shape|fill)\\b)|$",
           "name": "meta.export.type.tung",
           "patterns": [
             {
@@ -214,7 +204,7 @@
     "control-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:match|try|return|resume)\\b",
+          "match": "\\b(?:yield|match|try|return|resume)\\b",
           "name": "keyword.control.tung"
         }
       ]

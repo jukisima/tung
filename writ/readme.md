@@ -1,7 +1,9 @@
 # tung documentation
 
 this project buildeth the searchable standard-bookhoard html reference from shown
-declarations and attached doc comments in the repository-level `bookhoard/` tree.
+declarations, fills, and attached doc comments in the repository-level
+`bookhoard/` tree. generated links connect modules, declaration owners and
+members, signature references, shapes, fill targets, and their reverse usages.
 
 ```sh
 npm install

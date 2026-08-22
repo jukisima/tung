@@ -1603,6 +1603,7 @@ inferApplyM f args ctx = case flatApply f args of
   (other, allArgs) -> inferExprM other ctx >>= \inferred -> inferCurriedApplyM inferred allArgs ctx
 
 flatApply :: Expr -> [Expr] -> (Expr, [Expr])
+flatApply (ELocated _ inner) args = flatApply inner args
 flatApply (EApply inner innerArgs) args =
   let (base, baseArgs) = flatApply inner (NE.toList innerArgs)
    in (base, baseArgs ++ args)
@@ -2023,14 +2024,16 @@ declLabel = \case
   DataDecl _ name _ -> "kin '" ++ name ++ "'"
   EffectDecl _ name _ -> "deed '" ++ name ++ "'"
   ShapeDecl _ name _ _ -> "shape '" ++ name ++ "'"
-  FillDecl tyArgs shapeName _ _ -> "fill '" ++ showTyArgs tyArgs ++ " " ++ shapeName ++ "'"
-  ElaboratedFill _ tyArgs shapeName _ _ -> "fill '" ++ showTyArgs tyArgs ++ " " ++ shapeName ++ "'"
+  FillDecl tyArgs shapeName _ _ -> "fill '" ++ showShapeHeader tyArgs shapeName ++ "'"
+  ElaboratedFill _ tyArgs shapeName _ _ -> "fill '" ++ showShapeHeader tyArgs shapeName ++ "'"
   Export declaration -> "show " ++ declLabel declaration
   ReExport name -> "show '" ++ name ++ "'"
   ReExportType name -> "show-ilk '" ++ name ++ "'"
 
-showTyArgs :: [TypeExpr] -> String
-showTyArgs = unwords . map showTypeExprLabel
+showShapeHeader :: [TypeExpr] -> String -> String
+showShapeHeader arguments name = case map showTypeExprLabel arguments of
+  [] -> name
+  first : rest -> unwords (first : name : rest)
 
 showTypeExprLabel :: TypeExpr -> String
 showTypeExprLabel = \case
@@ -2120,6 +2123,8 @@ inferShapeDefaultMembersM shapeParams shapeName members ctx =
     _ -> pure (member : acc, currentCtx)
 
 inferShapeDefaultTypeM :: [String] -> String -> Expr -> TcContext -> Tc TypeAnn
+inferShapeDefaultTypeM shapeParams name (ELocated span expression) ctx =
+  withTcSpan span (inferShapeDefaultTypeM shapeParams name expression ctx)
 inferShapeDefaultTypeM shapeParams name expr ctx = case expr of
   EMatch [] [MatchCase ps body] -> do
     let argTypeExprs = replicate (NE.length ps) (defaultShapeArgumentType shapeParams)
@@ -2278,7 +2283,7 @@ checkFillM tyArgs shapeName needs members ctx = do
   let actualShape = canonicalShapeName shapeName ctx
       key = fillKeyFor actualShape (map (canonicalTypeExpr ctx) tyArgs)
       duplicateCount = length [() | FillInfo{fillKey, fillDirect = True} <- fillsForShape actualShape ctx, fillKey == key]
-  unless (duplicateCount == 1) (failTc ("duplicate fill '" ++ showTyArgs tyArgs ++ " " ++ shapeName ++ "'"))
+  unless (duplicateCount == 1) (failTc ("duplicate fill '" ++ showShapeHeader tyArgs shapeName ++ "'"))
   case findShapeInfo shapeName ctx of
     Nothing -> failTc ("unknown shape '" ++ shapeName ++ "' in fill")
     Just ShapeInfo{shapeParams} -> do
@@ -2361,7 +2366,7 @@ checkRedundantFillNeedsM shapeName tyArgs needs members specs ctx = do
     Just need -> failTc (owner ++ " hath redundant graith " ++ showSourceNeed (convertShapeNeed need ctx))
     Nothing -> pure ()
  where
-  owner = "fill '" ++ showTyArgs tyArgs ++ " " ++ shapeName ++ "'"
+  owner = "fill '" ++ showShapeHeader tyArgs shapeName ++ "'"
   ownKey = canonicalFillKey (fillKeyFor (canonicalShapeName shapeName ctx) (map (canonicalTypeExpr ctx) tyArgs))
   parentNeeds = fillParentNeeds shapeName tyArgs ctx
   checkWithout index = do
@@ -3024,7 +3029,9 @@ showSourceTypeArgument ty@TyFun{} = "(" ++ showSourceTy ty ++ ")"
 showSourceTypeArgument ty = showSourceTy ty
 
 showSourceNeed :: Need -> String
-showSourceNeed (Need arguments name) = unwords (map showSourceTypeArgument arguments ++ [name])
+showSourceNeed (Need arguments name) = case map showSourceTypeArgument arguments of
+  [] -> name
+  first : rest -> unwords (first : name : rest)
 
 checkPrepared :: String -> Map.Map String String -> Bool -> String
 checkPrepared source imports runnable = case parse source of

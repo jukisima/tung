@@ -1,6 +1,18 @@
 // tolerant lexical and structural role inference. it never consults imports or
 // types; workspace definitions may refine a role after this pass.
-import generatedLanguageNames from "../generated/language-names.json";
+import {
+  declarationKeywords,
+  findFileDeclarationBoundary,
+  findMatching,
+  isClose,
+  isOpen,
+  languageNames,
+  openForClose,
+  primitiveTypes,
+  splitDeclarations,
+  splitTopLevel,
+  tokenize,
+} from "./syntax.ts";
 const tokenTypes = [
   "namespace",
   "type",
@@ -21,9 +33,6 @@ const tokenModifiers = [
   "defaultLibrary",
   "effect",
 ];
-const keywords = new Set(generatedLanguageNames.keywords);
-const primitiveTypes = new Set(generatedLanguageNames.primitiveTypes);
-const specialNameChars = new Set([...generatedLanguageNames.specialNameChars]);
 const applicationStartTexts = new Set([
   "(",
   "{",
@@ -35,30 +44,12 @@ const applicationStartTexts = new Set([
   ";",
   "~",
 ]);
-const declarationKeywords = new Set([
-  "let",
-  "let-ilk",
-  "kin",
-  "deed",
-  "shape",
-  "fill",
-]);
 const graithEndKeywords = new Set(["let", "shape", "fill", "show", "show-ilk"]);
 const typeRoles = new Set(["type", "typeParameter", "shape"]);
 const callableRoles = new Set(["function", "method", "operator"]);
 const separators = {
   comma: new Set([","]),
-  semicolon: new Set([";"]),
-  member: new Set([";", ","]),
 };
-const closeForOpen = new Map([
-  ["(", ")"],
-  ["{", "}"],
-  ["[", "]"],
-]);
-const openForClose = new Map(
-  [...closeForOpen].map(([open, close]) => [close, open]),
-);
 const buildSemanticRanges = (
   text,
   resolveDefinition = (_token) => undefined,
@@ -163,171 +154,6 @@ const semanticRole = (token, tokens, info) => {
   return info.semantic.get(token.index) ||
     inferredSemantic(token, tokens, info);
 };
-const tokenize = (text) => {
-  const tokens = [];
-  let offset = 0;
-  let line = 0;
-  let char = 0;
-  const current = () => text[offset];
-  const next = () => text[offset + 1];
-  const atEnd = () => offset >= text.length;
-  const advance = () => {
-    const ch = text[offset];
-    if (ch === "\r" && next() === "\n") {
-      offset += 2;
-      line += 1;
-      char = 0;
-    } else if (ch === "\n" || ch === "\r") {
-      offset += 1;
-      line += 1;
-      char = 0;
-    } else {
-      offset += 1;
-      char += 1;
-    }
-  };
-  const advanceCodePoint = () => {
-    const width = (text.codePointAt(offset) || 0) > 0xffff ? 2 : 1;
-    for (let index = 0; index < width && !atEnd(); index += 1) advance();
-  };
-  const push = (kind, startOffset, startLine, startChar) => {
-    tokens.push({
-      index: tokens.length,
-      kind,
-      text: text.slice(startOffset, offset),
-      offset: startOffset,
-      line: startLine,
-      char: startChar,
-      endOffset: offset,
-      endLine: line,
-      endChar: char,
-    });
-  };
-  const consumeName = () => {
-    const startOffset = offset;
-    const startLine = line;
-    const startChar = char;
-    if (current() === "." && next() === "*") {
-      advance();
-      advance();
-    }
-    while (!atEnd() && isNameChar(current())) {
-      advance();
-    }
-    const value = text.slice(startOffset, offset);
-    push(
-      keywords.has(value) ? "keyword" : "name",
-      startOffset,
-      startLine,
-      startChar,
-    );
-  };
-  const consumeString = () => {
-    const startOffset = offset;
-    const startLine = line;
-    const startChar = char;
-    advance();
-    while (!atEnd()) {
-      if (current() === "\\") {
-        advance();
-        if (!atEnd()) {
-          advance();
-        }
-      } else if (current() === "'") {
-        advance();
-        break;
-      } else {
-        advance();
-      }
-    }
-    push("string", startOffset, startLine, startChar);
-  };
-  const consumeCharacter = () => {
-    const startOffset = offset;
-    const startLine = line;
-    const startChar = char;
-    advance();
-    if (!atEnd() && current() === "\\") {
-      advance();
-      if (!atEnd() && /[0-9]/.test(current())) {
-        while (!atEnd() && /[0-9]/.test(current())) {
-          advance();
-        }
-        if (!atEnd() && current() === ";") {
-          advance();
-        }
-      } else if (!atEnd()) {
-        advance();
-      }
-    } else if (!atEnd()) {
-      advanceCodePoint();
-    }
-    push("character", startOffset, startLine, startChar);
-  };
-  const consumeNumber = () => {
-    const startOffset = offset;
-    const startLine = line;
-    const startChar = char;
-    if (current() === "-") {
-      advance();
-    }
-    while (!atEnd() && /[0-9]/.test(current())) {
-      advance();
-    }
-    if (!atEnd() && current() === "." && /[0-9]/.test(next() || "")) {
-      advance();
-      while (!atEnd() && /[0-9]/.test(current())) {
-        advance();
-      }
-    }
-    push("number", startOffset, startLine, startChar);
-  };
-  while (!atEnd()) {
-    const ch = current();
-    if (/\s/.test(ch)) {
-      advance();
-    } else if (ch === "#") {
-      while (!atEnd() && current() !== "\n" && current() !== "\r") {
-        advance();
-      }
-    } else if (ch === "/" && next() === "*") {
-      advance();
-      advance();
-      while (!atEnd() && !(current() === "*" && next() === "/")) {
-        advance();
-      }
-      if (!atEnd()) {
-        advance();
-        advance();
-      }
-    } else if (ch === "'") {
-      consumeString();
-    } else if (ch === "`") {
-      consumeCharacter();
-    } else if (ch === "." && next() === "*") {
-      consumeName();
-    } else if (isNumberStart(text, offset)) {
-      consumeNumber();
-    } else if (specialNameChars.has(ch)) {
-      const startOffset = offset;
-      const startLine = line;
-      const startChar = char;
-      advance();
-      push("punctuation", startOffset, startLine, startChar);
-    } else {
-      consumeName();
-    }
-  }
-  return tokens;
-};
-const isNumberStart = (text, offset) => {
-  const ch = text[offset];
-  const nextCh = text[offset + 1];
-  return /[0-9]/.test(ch) || (ch === "-" && /[0-9]/.test(nextCh || ""));
-};
-const isNameChar = (ch) => {
-  return ch !== undefined && !/\s/.test(ch) && !specialNameChars.has(ch);
-};
 // declaration collectors establish known roles first; a later inference pass
 // colours use sites from syntax position and lexical scope.
 const analyze = (tokens) => {
@@ -367,11 +193,8 @@ const collectExportLists = (tokens, info) => {
     if (!["show", "show-ilk"].includes(token.text)) continue;
     const next = tokens[token.index + 1];
     if (!next || next.kind === "keyword" || next.text === ";") continue;
-    for (
-      let i = next.index;
-      i < tokens.length && tokens[i].text !== ";";
-      i += 1
-    ) {
+    const end = findFileDeclarationBoundary(tokens, next.index);
+    for (let i = next.index; i < end; i += 1) {
       if (token.text === "show-ilk" && tokens[i].kind === "name") {
         mark(info, i, "type", [], 110);
       } else if (token.text === "show") {
@@ -385,7 +208,8 @@ const collectImport = (tokens, index, info) => {
   if (!path || !["name", "keyword"].includes(path.kind)) {
     return;
   }
-  for (let i = index + 1; i < tokens.length && tokens[i].text !== ";"; i += 1) {
+  const end = findFileDeclarationBoundary(tokens, index + 1);
+  for (let i = index + 1; i < end; i += 1) {
     info.importTokens.add(i);
   }
   const namespace = path.text.split(".")[0];
@@ -411,8 +235,12 @@ const collectGraith = (tokens, index, info) => {
     const segment of splitTopLevel(tokens, index + 1, end, separators.comma)
   ) {
     const terms = headerTerms(tokens, segment.start, segment.end);
-    const requirement = trailingHeader(terms);
-    markTypeTerms(terms.slice(0, -1), info, new Set());
+    const requirement = defaultHeader(terms);
+    markTypeTerms(
+      terms,
+      info,
+      new Set(requirement.name ? [requirement.name.index] : []),
+    );
     if (requirement.name) mark(info, requirement.name.index, "shape", [], 85);
   }
 };
@@ -421,11 +249,11 @@ const collectTypeAlias = (tokens, index, info) => {
   if (equals < 0) return;
   const terms = headerTerms(tokens, index + 1, equals);
   markOwnerHeader(info, defaultHeader(terms), info.types, "type");
-  const semicolon = findNextText(tokens, equals + 1, ";");
+  const end = findFileDeclarationBoundary(tokens, equals + 1);
   markTypeTokens(
     tokens,
     equals + 1,
-    semicolon < 0 ? tokens.length : semicolon,
+    end,
     info,
   );
 };
@@ -472,64 +300,32 @@ const collectShape = (tokens, index, info) => {
   const body = declarationBody(tokens, index + 1);
   if (!body) return;
   const { open, close } = body;
-  const header = trailingHeader(headerTerms(tokens, index + 1, open));
+  const header = defaultHeader(headerTerms(tokens, index + 1, open));
   markOwnerHeader(info, header, info.shapes, "shape");
-  for (
-    const segment of splitTopLevel(tokens, open + 1, close, separators.member)
-  ) {
-    if (tokens[segment.start]?.text === "graith") {
-      collectGraithShapeMember(tokens, segment, info);
-    } else if (tokens[segment.start] && tokens[segment.start].text === "let") {
-      collectMemberLet(tokens, segment, info);
-    } else if (tokens[segment.start] && tokens[segment.start].text === "law") {
+  const heads = new Set(["let", "graith", "law"]);
+  for (const segment of splitDeclarations(tokens, open + 1, close, heads)) {
+    let member = segment.start;
+    if (tokens[member]?.text === "graith") {
+      member = findTopLevelText(tokens, member + 1, segment.end, "let");
+      if (member < 0) continue;
+    }
+    if (tokens[member]?.text === "let") {
+      const equals = findTopLevelText(tokens, member + 1, segment.end, "=");
+      if (equals >= 0) {
+        collectMemberLet(tokens, { start: member, end: segment.end }, info);
+      } else {
+        collectTypedMember(
+          tokens,
+          { start: member + 1, end: segment.end },
+          info,
+          "method",
+          ["declaration"],
+        );
+      }
+    } else if (tokens[member]?.text === "law") {
       collectShapeLaw(tokens, segment, info);
-    } else {
-      collectTypedMember(tokens, segment, info, "method", ["declaration"]);
     }
   }
-};
-const collectGraithShapeMember = (tokens, segment, info) => {
-  const colon = findTopLevelText(tokens, segment.start, segment.end, ":");
-  if (colon < 0) return;
-  const parts = splitTopLevel(
-    tokens,
-    segment.start + 1,
-    colon,
-    separators.comma,
-  );
-  if (parts.length === 0) return;
-  for (const requirement of parts.slice(0, -1)) {
-    markGraithTerms(
-      headerTerms(tokens, requirement.start, requirement.end),
-      info,
-    );
-  }
-  const tail = headerTerms(
-    tokens,
-    parts[parts.length - 1].start,
-    parts[parts.length - 1].end,
-  );
-  const candidates = [];
-  for (let split = 1; split < tail.length; split += 1) {
-    const requirement = trailingHeader(tail.slice(0, split));
-    const member = defaultHeader(tail.slice(split));
-    if (requirement.name && member.name) {
-      candidates.push({ split, member });
-    }
-  }
-  if (candidates.length !== 1) return;
-  const { split, member } = candidates[0];
-  markGraithTerms(tail.slice(0, split), info);
-  const memberTerms = tail.slice(split);
-  markTypeTerms(memberTerms, info, new Set([member.name.index]));
-  markTypeTokens(tokens, colon + 1, segment.end, info);
-  info.functions.add(member.name.text);
-  mark(info, member.name.index, "method", ["declaration"], 110);
-};
-const markGraithTerms = (terms, info) => {
-  const requirement = trailingHeader(terms);
-  markTypeTerms(terms.slice(0, -1), info, new Set());
-  if (requirement.name) mark(info, requirement.name.index, "shape", [], 95);
 };
 const collectShapeLaw = (tokens, segment, info) => {
   const open = segment.start + 1;
@@ -548,19 +344,26 @@ const collectFill = (tokens, index, info) => {
   if (!body) return;
   const { open, close } = body;
   const terms = headerTerms(tokens, index + 1, open);
-  const header = trailingHeader(terms);
-  markTypeTerms(terms.slice(0, -1), info, new Set());
+  const header = defaultHeader(terms);
+  markTypeTerms(
+    terms,
+    info,
+    new Set(header.name ? [header.name.index] : []),
+  );
   if (header.name) mark(info, header.name.index, "shape", [], 70);
-  for (
-    const segment of splitTopLevel(
-      tokens,
-      open + 1,
-      close,
-      separators.semicolon,
-    )
-  ) {
+  for (const segment of splitDeclarations(tokens, open + 1, close)) {
     if (tokens[segment.start] && tokens[segment.start].text === "let") {
       collectMemberLet(tokens, segment, info);
+    } else if (tokens[segment.start]?.text === "graith") {
+      const member = findTopLevelText(
+        tokens,
+        segment.start + 1,
+        segment.end,
+        "let",
+      );
+      if (member >= 0) {
+        collectMemberLet(tokens, { start: member, end: segment.end }, info);
+      }
     }
   }
 };
@@ -610,7 +413,13 @@ const collectMemberLet = (tokens, segment, info) => {
   collectValueLet(tokens, segment.start + 1, segment.end, info, true);
 };
 const collectLet = (tokens, index, info) => {
-  collectValueLet(tokens, index + 1, tokens.length, info, false);
+  collectValueLet(
+    tokens,
+    index + 1,
+    findFileDeclarationBoundary(tokens, index + 1),
+    info,
+    false,
+  );
 };
 const collectValueLet = (tokens, start, end, info, member) => {
   const equals = findTopLevelText(tokens, start, end, "=");
@@ -805,47 +614,6 @@ const findTopLevelText = (tokens, start, end, text) => {
   }
   return -1;
 };
-const findMatching = (tokens, openIndex) => {
-  const open = tokens[openIndex] && tokens[openIndex].text;
-  const close = matchingClose(open);
-  if (!close) {
-    return -1;
-  }
-  let depth = 0;
-  for (let i = openIndex; i < tokens.length; i += 1) {
-    if (tokens[i].text === open) {
-      depth += 1;
-    } else if (tokens[i].text === close) {
-      depth -= 1;
-      if (depth === 0) {
-        return i;
-      }
-    }
-  }
-  return -1;
-};
-const splitTopLevel = (tokens, start, end, separators) => {
-  const segments = [];
-  let depth = 0;
-  let segmentStart = start;
-  for (let i = start; i < end; i += 1) {
-    const value = tokens[i].text;
-    if (isOpen(value)) {
-      depth += 1;
-    } else if (isClose(value)) {
-      depth -= 1;
-    } else if (depth === 0 && separators.has(value)) {
-      if (segmentStart < i) {
-        segments.push({ start: segmentStart, end: i });
-      }
-      segmentStart = i + 1;
-    }
-  }
-  if (segmentStart < end) {
-    segments.push({ start: segmentStart, end });
-  }
-  return segments;
-};
 const headerTerms = (tokens, start, end) => {
   const terms = [];
   for (let i = start; i < end; i += 1) {
@@ -881,18 +649,6 @@ const defaultHeader = (terms) => {
     };
   }
   return { name: undefined, params: [] };
-};
-const trailingHeader = (terms) => {
-  if (terms.length === 0) {
-    return { name: undefined, params: [] };
-  }
-  return {
-    name: terms[terms.length - 1].name,
-    params: terms
-      .slice(0, -1)
-      .map((term) => term.name)
-      .filter(Boolean),
-  };
 };
 const markTypedGroupParams = (term, info) => {
   if (term.tokens[0]?.text === "(") {
@@ -1003,22 +759,9 @@ const isTypePosition = (tokens, index) => {
   const prev = tokens[index - 1];
   return prev && [":", "!", "→"].includes(prev.text);
 };
-const isOpen = (text) => {
-  return closeForOpen.has(text);
-};
-const isClose = (text) => {
-  return openForClose.has(text);
-};
-const matchingClose = (text) => {
-  return closeForOpen.get(text);
-};
 const lastQualifiedSegment = (name) => {
   const at = name.lastIndexOf("@");
   return at >= 0 ? name.slice(at + 1) : name;
-};
-const languageNames = {
-  keywords: [...keywords],
-  primitiveTypes: [...primitiveTypes],
 };
 export {
   analyze as analyzeTokens,

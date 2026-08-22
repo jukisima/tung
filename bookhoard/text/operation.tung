@@ -1,23 +1,23 @@
-bring _foreign.tung;
-bring data/list.tung;
-bring data/natural.tung;
-bring data/option.tung;
-bring data/two.tung;
-bring collection/size.tung;
-bring collection/catamorphism.tung;
-bring collection/functor.tung;
-bring collection/filter.tung;
-bring algebra/total/semigroup.tung;
-bring algebra/total/magma.tung;
-bring order/lattice.tung;
-bring text/structure.tung;
+bring _foreign.tung
+bring data/list.tung
+bring data/natural.tung
+bring data/option.tung
+bring data/two.tung
+bring collection/size.tung
+bring collection/catamorphism.tung
+bring collection/functor.tung
+bring collection/filter.tung
+bring algebra/total/semigroup.tung
+bring algebra/total/magma.tung
+bring order/lattice.tung
+bring text/structure.tung
 
 ## true when text hath no unicode code points.
 show let (text: text) is-empty-text: 𝟚 =
   match text behead-text {
     data/option@none | yea,
     _ data/option@some | nay
-  };
+  }
 
 ## count unicode code points, not bytes or utf-16 units.
 fill text size {
@@ -25,19 +25,19 @@ fill text size {
 }
 
 show let (text: text, count: integer) take-text: text =
-  text text-to-list $ take count $ list-to-text;
+  text text-to-list $ take count $ list-to-text
 
 show let (text: text, count: integer) drop-text: text =
-  text text-to-list $ drop count $ list-to-text;
+  text text-to-list $ drop count $ list-to-text
 
 show let (text: text) reverse-text: text =
-  text text-to-list $ reverse $ list-to-text;
+  text text-to-list $ reverse $ list-to-text
 
 show let (character: unicode, text: text) prepend-text: text =
-  character .* (text text-to-list) $ list-to-text;
+  character .* (text text-to-list) $ list-to-text
 
 show let (text: text, character: unicode) append-text: text =
-  text text-to-list $ * (character .* empty) $ list-to-text;
+  text text-to-list $ * (character .* empty) $ list-to-text
 
 let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
   match list {
@@ -49,12 +49,12 @@ let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode
         nay | (character .* current) .* previous
       }
     }
-  };
+  }
 
 let (list: unicode list, separator: unicode) split-unicode: (unicode list) list =
   list split-unicode-by { character |
     character equal-unicode separator
-  };
+  }
 
 let (unicode: unicode) is-whitespace: 𝟚 =
   match unicode equal-unicode `\32; {
@@ -66,17 +66,17 @@ let (unicode: unicode) is-whitespace: 𝟚 =
         nay | unicode equal-unicode `\13;
       }
     }
-  };
+  }
 
 ## split text at each separator code point.
 show let (text: text, separator: unicode) split-text: text list =
-  ((text text-to-list) split-unicode separator) map list-to-text;
+  ((text text-to-list) split-unicode separator) map list-to-text
 
 ## split text on runs of common ascii whitespace.
 show let (text: text) words-text: text list =
   (((text text-to-list) split-unicode-by is-whitespace) map list-to-text) filter {
     word | (word is-empty-text) ¬
-  };
+  }
 
 ## join text values with a separator between neighbours.
 show let (list: text list, separator: text) join-with-text: text = match list {

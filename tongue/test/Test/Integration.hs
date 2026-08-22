@@ -40,25 +40,25 @@ runnableFileCase imports path = do
 
 mainEntry :: Imports -> Test
 mainEntry imports = do
-  actual <- evaluateMainWithImports "bring ground.tung; let (_: 𝟙) main: 𝟙 = null; 42" imports
+  actual <- evaluateMainWithImports "bring ground.tung let (_: 𝟙) main: 𝟙 = null yield 42" imports
   pure $ if actual == "eval ok: null" then Nothing else Just ("main entry: " ++ actual)
 
 rejectedMain :: Imports -> Test
 rejectedMain imports = do
-  actual <- evaluateMainWithImports "bring ground.tung; let (_: 𝟙) main: 𝟙 = missing;" imports
+  actual <- evaluateMainWithImports "bring ground.tung let (_: 𝟙) main: 𝟙 = missing" imports
   pure $ if "type error:" `isPrefixOf` actual then Nothing else Just ("rejected main reached evaluation: " ++ actual)
 
 fibonacciSampleResult :: Imports -> Test
 fibonacciSampleResult imports = do
   source <- readFile "../benchmark/fibonacci.tung"
-  actual <- evaluateWithImports (source ++ ";\n20 fibonacci") imports
+  actual <- evaluateWithImports (source ++ "\nyield 20 fibonacci") imports
   pure $ if actual == "eval ok: 6765" then Nothing else Just ("fibonacci 20: " ++ actual)
 
 fileRoundTrip :: Imports -> Test
 fileRoundTrip imports = do
   directory <- getTemporaryDirectory
   let path = directory ++ "/tung-file-effect-test.txt"
-      source = "bring ground.tung; let _ = '" ++ path ++ "' write-file 'hello'; let _ = '" ++ path ++ "' append-file ' world'; '" ++ path ++ "' read-file"
+      source = "bring ground.tung let _ = '" ++ path ++ "' write-file 'hello' let _ = '" ++ path ++ "' append-file ' world' yield '" ++ path ++ "' read-file"
   removeIfPresent path
   actual <- evaluateWithImports source imports
   removeIfPresent path

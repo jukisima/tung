@@ -1,9 +1,7 @@
-// vscode entry point: starteth the lsp client and keepeth structural formatting
-// available locally when the server hath not registered a formatter.
+// vscode entry point: starteth the lsp client and refresheth semantic tokens.
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";
-import { formatDocument, formatRange } from "../server/format.ts";
 import { documentSelector } from "./options.ts";
 let client;
 export const activate = (context) => {
@@ -27,10 +25,6 @@ export const activate = (context) => {
         ),
       },
       synchronize: { fileEvents: watcher },
-      middleware: {
-        provideDocumentFormattingEdits: formatDocumentInClient,
-        provideDocumentRangeFormattingEdits: formatRangeInClient,
-      },
     },
   );
   context.subscriptions.push(client);
@@ -62,40 +56,4 @@ export const refreshOpenSemanticTokens = (
       )
       .then(undefined, () => {});
   }
-};
-const formatDocumentInClient = (document, options) => {
-  const source = document.getText();
-  const formatted = formatDocument(source, options);
-  return formatted === source
-    ? []
-    : [vscode.TextEdit.replace(fullRange(document), formatted)];
-};
-const formatRangeInClient = (document, range, options) => {
-  const edit = formatRange(document.getText(), toPlainRange(range), options);
-  return edit
-    ? [vscode.TextEdit.replace(toVscodeRange(edit.range), edit.newText)]
-    : [];
-};
-const fullRange = (document) => {
-  const lastLine = Math.max(0, document.lineCount - 1);
-  return new vscode.Range(
-    0,
-    0,
-    lastLine,
-    document.lineAt(lastLine).text.length,
-  );
-};
-const toPlainRange = (range) => {
-  return {
-    start: { line: range.start.line, character: range.start.character },
-    end: { line: range.end.line, character: range.end.character },
-  };
-};
-const toVscodeRange = (range) => {
-  return new vscode.Range(
-    range.start.line,
-    range.start.character,
-    range.end.line,
-    range.end.character,
-  );
 };

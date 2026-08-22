@@ -1,6 +1,6 @@
-bring data/two.tung;
+bring data/two.tung
 
 ## a container whose membership can be decided.
-show shape a b inhold {
-  a ∋ b: 𝟚
+show shape a inhold b {
+  let a ∋ b: 𝟚
 }

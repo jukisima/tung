@@ -1,13 +1,13 @@
-bring data/list.tung;
-bring data/option.tung;
-bring algebra/total/magma.tung;
-bring algebra/total/semigroup.tung;
-bring collection/functor.tung;
-bring collection/applicative.tung;
-bring collection/monad.tung;
-bring collection/catamorphism.tung;
-bring collection/traverse.tung;
-bring collection/inhold.tung;
+bring data/list.tung
+bring data/option.tung
+bring algebra/total/magma.tung
+bring algebra/total/semigroup.tung
+bring collection/functor.tung
+bring collection/applicative.tung
+bring collection/monad.tung
+bring collection/catamorphism.tung
+bring collection/traverse.tung
+bring collection/inhold.tung
 
 ## a list with a statically known first element.
 show kin a nonempty {
@@ -16,24 +16,24 @@ show kin a nonempty {
 
 ## build a one-element non-empty list.
 show let (a: a) singleton-nonempty: a nonempty =
-  a nonempty empty;
+  a nonempty empty
 
 ## expose a non-empty list as an ordinary list.
 show let (head nonempty tail: a nonempty) nonempty-to-list: a list =
-  head .* tail;
+  head .* tail
 
 ## make a non-empty list when the input hath a first element.
 show let list-to-nonempty: a list → (a nonempty) option = {
   empty | data/option@none,
   first .* rest | (first nonempty rest) data/option@some
-};
+}
 
-show let (first nonempty _: a nonempty) nonempty-head: a = first;
+show let (first nonempty _: a nonempty) nonempty-head: a = first
 
-show let (_ nonempty rest: a nonempty) nonempty-tail: a list = rest;
+show let (_ nonempty rest: a nonempty) nonempty-tail: a list = rest
 
-graith (a list) a inhold
-fill (a nonempty) a inhold {
+graith (a list) inhold a
+fill (a nonempty) inhold a {
   let (first nonempty rest) ∋ a = (first .* rest) ∋ a
 }
 
@@ -47,7 +47,7 @@ fill (a nonempty) semigroup {
 }
 
 fill nonempty applicative {
-  let pure = singleton-nonempty;
+  let pure = singleton-nonempty
   let (first nonempty rest) apply (f nonempty fs) =
     (first f) nonempty (
       (rest map f) * ((first .* rest) apply fs)
@@ -59,13 +59,13 @@ fill nonempty monad {
 }
 
 fill nonempty cata {
-  let (first nonempty rest) foldr b f = first f (rest foldr b f);
+  let (first nonempty rest) foldr b f = first f (rest foldr b f)
   let (first nonempty rest) foldl b f = rest foldl (b f first) f
 }
 
 fill nonempty traverse {
   let (first nonempty rest) traverse f =
-    (first f) lift₂ (rest traverse f) nonempty;
+    (first f) lift₂ (rest traverse f) nonempty
   let (first nonempty rest) sequence =
     first lift₂ (rest sequence) nonempty
 }

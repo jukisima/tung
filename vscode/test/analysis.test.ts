@@ -7,7 +7,7 @@ import {
 } from "../server/analysis.ts";
 test("analysis recordeth shown owners, members, parameters, and imports", () => {
   const source =
-    "bring ground.tung; graith a equal show shape a order-partial { a ≤ a: 𝟚; let a < b = a ≤ b };";
+    "bring ground.tung graith a equal show shape a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }";
   const model = analyzeDocument(source, "file:///model.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
@@ -33,7 +33,7 @@ test("analysis recordeth shown owners, members, parameters, and imports", () => 
   );
 });
 test("analysis recordeth foreign import paths", () => {
-  const source = "bring _foreign.tung;\nbring algebra/arithmetic/field.tung;";
+  const source = "bring _foreign.tung\nbring algebra/arithmetic/field.tung";
   const model = analyzeDocument(source, "file:///imports.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
@@ -42,7 +42,7 @@ test("analysis recordeth foreign import paths", () => {
 });
 test("analysis keepeth term and type re-exports distinct", () => {
   const model = analyzeDocument(
-    "show value; show-ilk value;",
+    "show value show-ilk value",
     "file:///exports.tung",
   );
   assert.deepEqual(model.reexports, [
@@ -53,12 +53,12 @@ test("analysis keepeth term and type re-exports distinct", () => {
 test("analysis attacheth doc comments to following shown declarations", () => {
   const source = [
     "## identity value.",
-    "graith a equal show let (x: a) identity: a = x;",
+    "graith a equal show let (x: a) identity: a = x",
     "",
     "/**",
     " * boxed data.",
     " */",
-    "show kin a box { a box };",
+    "show kin a box { a box }",
   ].join("\n");
   const model = analyzeDocument(source, "file:///docs.tung");
   assert.equal(
@@ -73,7 +73,7 @@ test("analysis attacheth doc comments to following shown declarations", () => {
   );
 });
 test("local resolution preferreth the narrowest binder scope", () => {
-  const source = "let (x: integer) keep: integer = match x { x | x };";
+  const source = "let (x: integer) keep: integer = match x { x | x }";
   const model = analyzeDocument(source, "file:///scope.tung");
   const use = model.tokens.filter(({ text }) => text === "x").at(-1);
   const definition = findDefinition(model, use, use.offset);
@@ -84,7 +84,7 @@ test("local resolution preferreth the narrowest binder scope", () => {
   );
 });
 test("token lookup excludeth the character after a token", () => {
-  const model = analyzeDocument("let answer = 42;", "file:///token.tung");
+  const model = analyzeDocument("let answer = 42", "file:///token.tung");
   assert.equal(
     tokenAtPosition(model, { line: 0, character: 4 }).text,
     "answer",

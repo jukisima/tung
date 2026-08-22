@@ -1,13 +1,13 @@
-bring ground.tung;
-bring data/list.tung;
-bring data/product.tung;
-bring algebra/partial/semigroupoid.tung;
+bring ground.tung
+bring data/list.tung
+bring data/product.tung
+bring algebra/partial/semigroupoid.tung
 
 graith a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =
   try ((dividend ÷ divisor) project₁) ≡ zero {
     _ fail | nay
-  };
+  }
 
 kin fizzbuzz {
   fizz,
@@ -31,7 +31,7 @@ let (integer: integer) to-fizzbuzz: fizzbuzz =
     yea, nay | fizz,
     nay, yea | buzz,
     nay, nay | integer raw
-  };
+  }
 
 let _ main: 𝟙 ! console =
   0 till 32 $ map (to-fizzbuzz ∘ to-text) $ each write-line

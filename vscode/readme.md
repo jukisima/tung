@@ -7,8 +7,8 @@ this vscode extension and lsp server support `.tung` files.
 - `client/extension.ts`: vscode extension entry point and language-client setup
 - `server/main.ts`: lsp entry point and protocol handlers
 - `server/analysis.ts`: error-tolerant document model and symbol analysis
-- `server/checker.ts`: bridge to the haskell compiler
-- `server/format.ts`: source formatter
+- `server/checker.ts`: bridge to the haskell compiler and formatter
+- `server/format.ts`: lsp edit-range conversion
 - `server/semantic.ts`: lexer-aware semantic highlighting
 - `server/workspace.ts`: file index, imports, and name resolution
 - `generated/language-names.json`: lexical names emitted by a tung tool during the build
@@ -61,7 +61,7 @@ the server provideth:
 - document and range formatting
 - quick fixes for supported parse errors
 
-the workspace index followeth local and bundled imports, honoureth `show`, understandeth qualify-if-needed lookup, and sendeth unsaved imported sources to the haskell checker. the checker bridge asketh cabal for `exe:tung` and falleth back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. it keepeth one versioned checker session alive and cancelleth obsolete diagnostic and hover work after edits. an error-tolerant source model keepeth navigation and highlighting available while code is incomplete; the haskell implementation remaineth authoritative for diagnostics and inferred types.
+the workspace index followeth local and bundled imports, honoureth `show`, understandeth qualify-if-needed lookup, and sendeth unsaved imported sources to the haskell checker. the checker bridge asketh cabal for `exe:tung` and falleth back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. it keepeth one versioned session alive for checking, inferred types, and formatting, and cancelleth obsolete work after edits. an error-tolerant source model keepeth navigation and highlighting available while code is incomplete; the haskell implementation remaineth authoritative for diagnostics, inferred types, and formatting.
 
 term type ascriptions use `(term: type)`; semantic highlighting and formatting
 recognise the type tail while compiler diagnostics remain authoritative.

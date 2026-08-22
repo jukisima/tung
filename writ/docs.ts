@@ -14,13 +14,14 @@ const bookhoardModules = (repository) => {
   });
   const root = path.join(repository, "bookhoard");
   workspace.configure([root]);
-  return workspace
+  const modules = workspace
     .workspaceFileUris()
     .filter((uri) => toFilePath(uri)?.endsWith(".tung"))
     .map((uri) => workspace.model(uri))
     .filter(Boolean)
     .map((model) => ({
       name: moduleName(root, model),
+      model,
       definitions: workspace
         .publicDefinitions(model)
         .filter((definition) =>
@@ -32,12 +33,182 @@ const bookhoardModules = (repository) => {
             a.bareName.localeCompare(b.bareName),
         ),
     }))
-    .filter(({ definitions }) => definitions.length > 0)
+    .filter(({ definitions, model }) =>
+      definitions.length > 0 || model.fills.length > 0
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
+  return crossLinkModules(workspace, modules);
+};
+const crossLinkModules = (workspace, modules) => {
+  const definitions = new Map();
+  for (const module of modules) {
+    const definitionEntries = module.definitions.map((definition, index) => {
+      const entry = makeEntry({
+        id: definitionId(module.name, definition, index),
+        kind: "definition",
+        name: definition.bareName,
+        role: definition.role,
+        detail: definition.detail,
+        documentation: definition.documentation,
+        definition,
+        module,
+      });
+      definitions.set(definition.id, entry);
+      return entry;
+    });
+    const fills = fillEntries(module);
+    module.entries = [...definitionEntries, ...fills].sort(
+      (a, b) =>
+        roleOrder(a.role) - roleOrder(b.role) ||
+        a.name.localeCompare(b.name),
+    );
+  }
+  for (const module of modules) {
+    for (const entry of module.entries) {
+      if (entry.kind === "fill") {
+        linkFill(workspace, definitions, entry);
+      } else {
+        linkDefinition(workspace, definitions, entry);
+      }
+    }
+  }
+  return modules;
+};
+const makeEntry = (entry) => ({
+  ...entry,
+  relations: {
+    owner: [],
+    members: [],
+    shape: [],
+    targets: [],
+    fills: [],
+    references: [],
+    referencedBy: [],
+  },
+});
+const fillEntries = (module) => {
+  return module.model.fills.map((fill, index) => {
+    const region = containingRegion(module.model, fill.token.offset, "fill");
+    const detail = declarationHeader(module.model, region) ||
+      `fill ${fill.shapeName}`;
+    return makeEntry({
+      id: fillId(module.name, detail, index),
+      kind: "fill",
+      name: detail,
+      role: "fill",
+      detail,
+      documentation: region?.doc,
+      fill,
+      region,
+      module,
+    });
+  });
+};
+const linkDefinition = (workspace, definitions, entry) => {
+  const { definition, module } = entry;
+  if (definition.containerName) {
+    const owner = module.entries.find(
+      (candidate) =>
+        candidate.kind === "definition" &&
+        candidate.name === definition.containerName &&
+        ["type", "shape"].includes(candidate.role),
+    );
+    if (owner) {
+      addRelation(entry, "owner", owner);
+      addRelation(owner, "members", entry);
+    }
+  }
+  if (!definition.topLevel) return;
+  for (const token of headerTokens(module.model, definition.token.offset)) {
+    if (token.kind !== "name") continue;
+    const resolved = resolveHeaderReference(workspace, module.model, token);
+    const target = resolved && definitions.get(resolved.id);
+    if (!target || target === entry) continue;
+    addRelation(entry, "references", target);
+    addRelation(target, "referencedBy", entry);
+  }
+};
+const linkFill = (workspace, definitions, entry) => {
+  const { fill, module, region } = entry;
+  const shape = workspace.resolveAt(module.model.uri, fill.range.start)
+    .definition;
+  const shapeEntry = shape && definitions.get(shape.id);
+  if (shapeEntry) {
+    addRelation(entry, "shape", shapeEntry);
+    addRelation(shapeEntry, "fills", entry);
+  }
+  if (!region) return;
+  for (
+    const token of module.model.tokens.slice(
+      region.startIndex + 1,
+      fill.token.index,
+    )
+  ) {
+    if (token.kind !== "name") continue;
+    const resolved = workspace.resolveVisibleRole(
+      module.model,
+      token.text,
+      "type",
+    );
+    const target = resolved.length === 1 && definitions.get(resolved[0].id);
+    if (!target || target.role !== "type") continue;
+    addRelation(entry, "targets", target);
+    addRelation(target, "fills", entry);
+  }
+};
+const resolveHeaderReference = (workspace, model, token) => {
+  const analyzedRole = model.roles.get(token.index)?.type;
+  const role = analyzedRole === "typeParameter" ? "type" : analyzedRole;
+  if (role) {
+    const matching = workspace.resolveVisibleRole(model, token.text, role);
+    if (matching.length === 1) return matching[0];
+  }
+  return workspace.resolveAt(model.uri, {
+    line: token.line,
+    character: token.char,
+  }).definition;
+};
+const addRelation = (entry, relation, target) => {
+  if (!entry.relations[relation].some(({ id }) => id === target.id)) {
+    entry.relations[relation].push(target);
+  }
+};
+const headerTokens = (model, offset) => {
+  const region = containingRegion(model, offset);
+  if (!region) return [];
+  const start = declarationPrefixStart(model, region);
+  return model.tokens.slice(start, region.headerEnd + 1);
+};
+const declarationPrefixStart = (model, region) => {
+  let start = region.startIndex;
+  while (start > 0) {
+    const previous = model.tokens[start - 1];
+    const depth = model.depths[previous.index];
+    if (depth < region.depth) break;
+    if ([";", "}"].includes(previous.text)) break;
+    start -= 1;
+  }
+  return start;
+};
+const containingRegion = (model, offset, kind = undefined) => {
+  return model.regions
+    .filter(
+      (region) =>
+        (!kind || region.kind === kind) &&
+        region.startOffset <= offset && offset <= region.endOffset,
+    )
+    .sort(
+      (a, b) => a.endOffset - a.startOffset - (b.endOffset - b.startOffset),
+    )[0];
+};
+const declarationHeader = (model, region) => {
+  if (!region) return "";
+  const end = model.tokens[region.headerEnd]?.offset ?? region.endOffset;
+  return oneLine(model.text.slice(region.startOffset, end));
 };
 const renderPage = (modules) => {
   const count = modules.reduce(
-    (total, module) => total + module.definitions.length,
+    (total, module) => total + module.entries.length,
     0,
   );
   const navigation = modules
@@ -60,7 +231,7 @@ const renderPage = (modules) => {
 <body>
   <aside>
     <header><a href="#top">tung bookhoard</a></header>
-    <label for="search">search ${count} shown names</label>
+    <label for="search">search ${count} shown names and fills</label>
     <input id="search" type="search" autocomplete="off" placeholder="name, kind, or wording">
     <output id="result-count" aria-live="polite"></output>
     <nav aria-label="bookhoard modules">${navigation}</nav>
@@ -69,7 +240,7 @@ const renderPage = (modules) => {
     <header class="page-head">
       <p class="eyebrow">standard bookhoard</p>
       <h1>tung names and types</h1>
-      <p>generated from shown declarations and their attached doc comments.</p>
+      <p>generated from shown declarations, fills, their relationships, and attached doc comments.</p>
     </header>
     ${content}
   </main>
@@ -80,7 +251,7 @@ const renderPage = (modules) => {
 const renderModule = (module) => {
   const search = [
     module.name,
-    ...module.definitions.flatMap(definitionSearch),
+    ...module.entries.flatMap(entrySearch),
   ]
     .join(" ")
     .toLowerCase();
@@ -91,29 +262,57 @@ const renderModule = (module) => {
     <h2>${html(module.name)}</h2>
     <a href="${sourceHref(module.name)}">source</a>
   </header>
-  ${
-    module.definitions.map((definition, index) =>
-      renderDefinition(module.name, definition, index)
-    ).join("\n  ")
-  }
+  ${module.entries.map(renderEntry).join("\n  ")}
 </section>`;
 };
-const renderDefinition = (moduleName, definition, index) => {
-  const id = definitionId(moduleName, definition, index);
-  const owner = definition.containerName
-    ? `<div><dt>owner</dt><dd>${html(definition.containerName)}</dd></div>`
+const renderEntry = (entry) => {
+  const detail = entry.detail
+    ? `<pre><code>${html(oneLine(entry.detail))}</code></pre>`
     : "";
-  const detail = definition.detail
-    ? `<pre><code>${html(oneLine(definition.detail))}</code></pre>`
-    : "";
-  return `<article id="${id}" data-definition data-search="${
-    html(definitionSearch(definition).join(" ").toLowerCase())
+  return `<article id="${entry.id}" data-definition data-search="${
+    html(entrySearch(entry).join(" ").toLowerCase())
   }">
-    <h3><a href="#${id}">${html(definition.bareName)}</a></h3>
-    <dl><div><dt>kind</dt><dd>${html(definition.role)}</dd></div>${owner}</dl>
+    <h3><a href="#${entry.id}">${html(entry.name)}</a></h3>
+    <dl>
+      <div><dt>kind</dt><dd>${html(entry.role)}</dd></div>
+      <div><dt>module</dt><dd>${
+    entryLink(entry.module, entry.module.name, "module")
+  }</dd></div>
+      ${renderRelations(entry)}
+    </dl>
     ${detail}
-    ${renderDocumentation(definition.documentation)}
+    ${renderDocumentation(entry.documentation)}
   </article>`;
+};
+const renderRelations = (entry) => {
+  return [
+    ["owner", "owner"],
+    ["members", "members"],
+    ["shape", "shape"],
+    ["targets", "targets"],
+    ["fills", "fills"],
+    ["references", "references"],
+    ["referencedBy", "referenced by"],
+  ].map(([relation, label]) => {
+    const targets = entry.relations[relation];
+    if (!targets.length) return "";
+    return `<div><dt>${label}</dt><dd class="cross-links">${
+      targets.map((target) =>
+        entryLink(target, entryLabel(entry, target), relation)
+      ).join(", ")
+    }</dd></div>`;
+  }).join("");
+};
+const entryLink = (target, label, relation) => {
+  const id = target.id || moduleId(target.name);
+  return `<a href="#${id}" data-cross-link="${html(relation)}">${
+    html(label)
+  }</a>`;
+};
+const entryLabel = (source, target) => {
+  return source.module.name === target.module.name
+    ? target.name
+    : `${target.module.name}@${target.name}`;
 };
 const renderDocumentation = (documentation) => {
   if (!documentation) return "";
@@ -123,23 +322,26 @@ const renderDocumentation = (documentation) => {
     .map((paragraph) => `<p>${html(paragraph).replaceAll("\n", "<br>")}</p>`)
     .join("\n    ");
 };
-const definitionSearch = (definition) => {
+const entrySearch = (entry) => {
   return [
-    definition.bareName,
-    definition.role,
-    definition.containerName,
-    definition.detail,
-    definition.documentation,
+    entry.name,
+    entry.role,
+    entry.detail,
+    entry.documentation,
+    ...(Object.values(entry.relations) as any[][]).flatMap((targets) =>
+      targets.map(({ name, module }) => `${module.name} ${name}`)
+    ),
   ].filter(Boolean);
 };
 const roleOrder = (role) => {
   return {
     type: 0,
     shape: 1,
-    enumMember: 2,
-    method: 3,
-    function: 4,
-    variable: 5,
+    fill: 2,
+    enumMember: 3,
+    method: 4,
+    function: 5,
+    variable: 6,
   }[role] ?? 9;
 };
 const moduleName = (bookhoard, model) => {
@@ -156,6 +358,11 @@ const definitionId = (moduleName, definition, index) => {
     Buffer.from(
       `${moduleName}:${definition.role}:${definition.bareName}:${index}`,
     ).toString("base64url")
+  }`;
+};
+const fillId = (moduleName, detail, index) => {
+  return `fill-${
+    Buffer.from(`${moduleName}:${detail}:${index}`).toString("base64url")
   }`;
 };
 const sourceHref = (name) => {
@@ -223,6 +430,7 @@ dl { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin: 0 0 .8rem; color
 dl div { display: flex; gap: .35rem; }
 dt { font-weight: 700; }
 dd { margin: 0; }
+.cross-links a { white-space: nowrap; }
 pre { overflow-x: auto; margin: .7rem 0; padding: .8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, CanvasText 5%, Canvas); }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 article p { margin: .7rem 0 0; max-width: 44rem; }

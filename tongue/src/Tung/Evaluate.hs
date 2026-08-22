@@ -105,8 +105,6 @@ newtype RuntimeError = RuntimeError String
 -- through that continuation, which giveth handlers deep, reusable resumption.
 data RuntimeResult a = RuntimeOk a | RuntimeErr RuntimeError | RuntimeOp String String [RuntimeValue] (RuntimeValue -> Eval a)
 
-data PatternBind = PatternMatched RuntimeEnv | PatternNoMatch
-
 data Eval a
   = EvalPure (RuntimeResult a)
   | Eval (RuntimeHost -> IO (RuntimeResult a))
@@ -347,7 +345,7 @@ evalDecl decl env = case decl of
     pure (markRuntimeDeclExport declaration env2, value)
   ReExport name -> pure (addShownValue name env, Nothing)
   ReExportType _ -> pure (env, Nothing)
-  TypeAlias _ _ _ -> pure (env, Nothing)
+  TypeAlias{} -> pure (env, Nothing)
   DataDecl _ name ctors -> pure (addConstructors name ctors env, Nothing)
   EffectDecl _ name ops -> pure (addEffectOps name ops env, Nothing)
   ShapeDecl params shapeName needs members -> pure (addShapeSelectors shapeName members (addRuntimeShapeInfo shapeName params needs members env), Nothing)
@@ -414,7 +412,7 @@ compileExprWith staticEnv = \case
      in \env -> evalCompiledRecord compiledFields env Map.empty
   EField base field ->
     let compiledBase = compileExprWith staticEnv base
-     in \env -> compiledBase env >>= evalRecordField field
+     in compiledBase >=> evalRecordField field
   EUpdate base updates ->
     let compiledBase = compileExprWith staticEnv base
         compiledUpdates = map (compileRecordUpdate staticEnv) updates
@@ -430,7 +428,7 @@ compileExprWith staticEnv = \case
   EBlock declarations body ->
     let compiledDeclarations = map (compileLocalDecl staticEnv) declarations
         compiledBody = compileExprWith staticEnv body
-     in \env -> evalCompiledLocalDecls compiledDeclarations env >>= compiledBody
+     in evalCompiledLocalDecls compiledDeclarations >=> compiledBody
   EWithEvidence function evidence -> case staticEnv >>= \env -> resolveClosedShapeMember env function evidence of
     Just value -> const (pure value)
     Nothing ->
@@ -572,10 +570,7 @@ evalVar name env = case lookupValue name env of
 
 evalFieldAccessName :: String -> RuntimeEnv -> Eval RuntimeValue
 evalFieldAccessName name env = case splitFieldAccessName name of
-  Just (baseName, fieldName) ->
-    evalVar baseName env >>= \case
-      VRecord fields -> maybe (runtimeError ("unknown record field '" ++ fieldName ++ "'")) pure (Map.lookup fieldName fields)
-      value -> runtimeError ("record field access expected record, found " ++ showRuntimeValue value)
+  Just (baseName, fieldName) -> evalVar baseName env >>= evalRecordField fieldName
   Nothing -> runtimeError ("unknown name '" ++ name ++ "'")
 
 -- function and arguments are evaluated left to right. 'applyOne' is the sole
@@ -597,7 +592,7 @@ applyOne fn arg = case fn of
 evalDictionaryMember :: String -> RuntimeDictionary -> Eval RuntimeValue
 evalDictionaryMember member = \case
   dictionary@(PrimitiveDictionary shapeName typeName env parents)
-    | primitiveDictionarySupports shapeName typeName member -> primitiveDictionaryMember shapeName typeName member
+    | Just value <- primitiveDictionaryValue shapeName typeName member -> pure value
     | Just expr <- shapeDefaultExpr member shapeName env ->
         evalBoundValue ("$primitive-member@" ++ member) expr (addLocalValue "$evidence0" (VDictionary dictionary) env)
     | Just parent <- find (dictionaryHasMember member) parents -> evalDictionaryMember member parent
@@ -616,7 +611,7 @@ evalDictionaryMember member = \case
 dictionaryHasMember :: String -> RuntimeDictionary -> Bool
 dictionaryHasMember member = \case
   PrimitiveDictionary shapeName typeName env parents ->
-    primitiveDictionarySupports shapeName typeName member
+    isJust (primitiveDictionaryValue shapeName typeName member)
       || isJust (shapeDefaultExpr member shapeName env)
       || any (dictionaryHasMember member) parents
   FillDictionary fill _ parents -> isJust (fillMemberExpr member fill) || any (dictionaryHasMember member) parents
@@ -643,22 +638,13 @@ primitiveDictionary key env parents = case stripPrefix "$primitive@" key of
     (shapeName, '@' : typeName) -> Just (PrimitiveDictionary shapeName typeName env parents)
     _ -> Nothing
 
-primitiveDictionaryMember :: String -> String -> String -> Eval RuntimeValue
-primitiveDictionaryMember shapeName typeName member = case (shapeName, typeName, member) of
-  ("zero", "integer", "zero") -> pure (VInteger 0)
-  ("zero", "float", "zero") -> pure (VFloat 0)
-  ("one", "integer", "one") -> pure (VInteger 1)
-  ("one", "float", "one") -> pure (VFloat 1)
-  _ | Just arity <- lookup member runtimeNativeSpecs -> pure (VNative member arity [])
-  _ -> runtimeError ("primitive fill '" ++ shapeName ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
-
-primitiveDictionarySupports :: String -> String -> String -> Bool
-primitiveDictionarySupports shapeName typeName member = case (shapeName, typeName, member) of
-  ("zero", "integer", "zero") -> True
-  ("zero", "float", "zero") -> True
-  ("one", "integer", "one") -> True
-  ("one", "float", "one") -> True
-  _ -> isJust (lookup member runtimeNativeSpecs)
+primitiveDictionaryValue :: String -> String -> String -> Maybe RuntimeValue
+primitiveDictionaryValue shapeName typeName member = case (shapeName, typeName, member) of
+  ("zero", "integer", "zero") -> Just (VInteger 0)
+  ("zero", "float", "zero") -> Just (VFloat 0)
+  ("one", "integer", "one") -> Just (VInteger 1)
+  ("one", "float", "one") -> Just (VFloat 1)
+  _ -> (\arity -> VNative member arity []) <$> lookup member runtimeNativeSpecs
 
 applyArity :: Int -> [RuntimeValue] -> RuntimeValue -> (Int -> [RuntimeValue] -> RuntimeValue) -> ([RuntimeValue] -> Eval RuntimeValue) -> Eval RuntimeValue
 applyArity remaining supplied arg partial full
@@ -689,8 +675,8 @@ evalReturnCase :: Maybe ReturnCase -> RuntimeValue -> RuntimeEnv -> Eval Runtime
 evalReturnCase Nothing value _ = pure value
 evalReturnCase (Just (ReturnCase pat body)) value env =
   case bindRuntimePattern pat value env of
-    PatternNoMatch -> runtimeError "handler return value did not match pattern"
-    PatternMatched handlerEnv -> evalExpr body handlerEnv
+    Nothing -> runtimeError "handler return value did not match pattern"
+    Just handlerEnv -> evalExpr body handlerEnv
 
 findHandler :: String -> String -> [HandlerCase] -> Maybe HandlerCase
 findHandler effectName opName = find (\(HandlerCase name _ _) -> handlerMatches name effectName opName)
@@ -702,11 +688,11 @@ handlerMatches name effectName opName =
 evalHandlerCase :: HandlerCase -> [RuntimeValue] -> (RuntimeValue -> Eval RuntimeValue) -> RuntimeEnv -> Eval RuntimeValue
 evalHandlerCase (HandlerCase _ patterns body) args resume env =
   case bindHandlerRuntimePatterns patterns args env of
-    PatternNoMatch -> runtimeError "handler operation arguments did not match pattern"
-    PatternMatched handlerEnv -> evalExpr body (addLocalValue "resume" (VContinuation resume) handlerEnv)
+    Nothing -> runtimeError "handler operation arguments did not match pattern"
+    Just handlerEnv -> evalExpr body (addLocalValue "resume" (VContinuation resume) handlerEnv)
 
-bindHandlerRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> PatternBind
-bindHandlerRuntimePatterns [] _ env = PatternMatched env
+bindHandlerRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
+bindHandlerRuntimePatterns [] _ env = Just env
 bindHandlerRuntimePatterns patterns values env = bindRuntimePatterns patterns values env
 
 evalMatchCases :: [RuntimeMatchCase] -> [RuntimeValue] -> RuntimeEnv -> Eval RuntimeValue
@@ -715,31 +701,25 @@ evalMatchCases cases values env = foldr step noMatch cases
   -- coverage checking should make this defensive branch unreachable for typed data.
   noMatch = runtimeError ("non-exhaustive match " ++ show (map (NE.toList . runtimeMatchPatterns) cases) ++ " on " ++ showRuntimeValues values)
   runtimeMatchPatterns (RuntimeMatchCase patterns _) = patterns
-  step (RuntimeMatchCase patterns body) fallback =
-    case bindRuntimePatterns (NE.toList patterns) values env of
-      PatternNoMatch -> fallback
-      PatternMatched boundEnv -> body boundEnv
+  step (RuntimeMatchCase patterns body) fallback = maybe fallback body (bindRuntimePatterns (NE.toList patterns) values env)
 
-bindRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> PatternBind
+bindRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
 bindRuntimePatterns patterns values env
-  | length patterns /= length values = PatternNoMatch
-  | otherwise = foldl' step (PatternMatched env) (zip patterns values)
- where
-  step PatternNoMatch _ = PatternNoMatch
-  step (PatternMatched currentEnv) (pat, value) = bindRuntimePattern pat value currentEnv
+  | length patterns /= length values = Nothing
+  | otherwise = foldM (\current (pat, value) -> bindRuntimePattern pat value current) env (zip patterns values)
 
-bindRuntimePattern :: Pattern -> RuntimeValue -> RuntimeEnv -> PatternBind
-bindRuntimePattern (PVar "_") _ env = PatternMatched env
+bindRuntimePattern :: Pattern -> RuntimeValue -> RuntimeEnv -> Maybe RuntimeEnv
+bindRuntimePattern (PVar "_") _ env = Just env
 bindRuntimePattern (PVar name) value env =
   if isNullaryConstructorPattern name env
-    then if runtimeConstructorMatches env name value then PatternMatched env else PatternNoMatch
-    else PatternMatched (addLocalValue name value env)
+    then if runtimeConstructorMatches env name value then Just env else Nothing
+    else Just (addLocalValue name value env)
 bindRuntimePattern (PInteger expected) value env = case value of
-  VInteger actual | actual == expected -> PatternMatched env
-  _ -> PatternNoMatch
+  VInteger actual | actual == expected -> Just env
+  _ -> Nothing
 bindRuntimePattern (PCon name args) value env = case value of
   VData _ _ fields | runtimeConstructorMatches env name value -> bindRuntimePatterns args fields env
-  _ -> PatternNoMatch
+  _ -> Nothing
 
 isNullaryConstructorPattern :: String -> RuntimeEnv -> Bool
 isNullaryConstructorPattern name env = case lookupValue name env of
@@ -771,7 +751,7 @@ evalNative name args = case (name, args) of
   ("add-float", [VFloat a, VFloat b]) -> evalFloatBinary (+) a b
   ("subtract-float", [VFloat a, VFloat b]) -> evalFloatBinary (-) a b
   ("multiply-float", [VFloat a, VFloat b]) -> evalFloatBinary (*) a b
-  ("divide-float", [VFloat a, VFloat b]) -> evalFloatDivide a b
+  ("divide-float", [VFloat a, VFloat b]) -> pure (VFloat (a / b))
   ("exponent-float", [VFloat a]) -> evalFloatUnary exp a
   ("sine-float", [VFloat a]) -> evalFloatUnary sin a
   ("arctan-float", [VFloat a, VFloat b]) -> evalFloatBinary arctanFloat a b
@@ -800,11 +780,11 @@ evalNative name args = case (name, args) of
   ("-", [VFloat a, VFloat b]) -> evalFloatBinary (-) a b
   ("×", [VInteger a, VInteger b]) -> pure (VInteger (a * b))
   ("×", [VFloat a, VFloat b]) -> evalFloatBinary (*) a b
-  ("∕", [VFloat a, VFloat b]) -> evalFloatDivide a b
+  ("∕", [VFloat a, VFloat b]) -> pure (VFloat (a / b))
   ("÷", [VInteger a, VInteger b]) -> evalIntegerDivideRemainder a b
   ("≡", [a, b]) -> pure (runtimeBool (a == b))
   ("≤", [VInteger a, VInteger b]) -> pure (runtimeBool (a <= b))
-  ("≤", [VFloat a, VFloat b]) -> evalFloatLessEqual a b
+  ("≤", [VFloat a, VFloat b]) -> pure (runtimeBool (a <= b))
   ("from-text", [VText text]) -> floatFromText text
   ("to-text", [value]) -> pure (VText (Text.pack (showRuntimeValue value)))
   _ -> runtimeError ("native '" ++ name ++ "' doth not support these arguments")
@@ -846,9 +826,9 @@ ioRuntime action = do
     Right value -> pure value
 
 runProcessRuntime :: Text.Text -> RuntimeValue -> Eval RuntimeValue
-runProcessRuntime command arguments = case runtimeListValues arguments >>= traverse runtimeText of
-  Nothing -> runtimeError "native 'run-process' received an invalid text list"
-  Just texts -> ioRuntime do
+runProcessRuntime command arguments = do
+  texts <- runtimeListOf "run-process" "text" runtimeText arguments
+  ioRuntime do
     (status, output, errors) <- Process.readProcessWithExitCode (Text.unpack command) (map Text.unpack texts) ""
     pure
       ( VData
@@ -968,14 +948,14 @@ runtimeTextBehead value = runtimeOption do
   pure (runtimeProduct (VUnicode codePoint) (VText rest))
 
 runtimeListToText :: RuntimeValue -> Eval RuntimeValue
-runtimeListToText value = case runtimeListValues value >>= traverse runtimeUnicode of
-  Just codePoints -> pure (VText (Text.pack codePoints))
-  Nothing -> runtimeError "native 'list-to-text' received an invalid unicode list"
+runtimeListToText value = VText . Text.pack <$> runtimeListOf "list-to-text" "unicode" runtimeUnicode value
 
 runtimeFoldJoinText :: RuntimeValue -> Eval RuntimeValue
-runtimeFoldJoinText value = case runtimeListValues value >>= traverse runtimeText of
-  Just values -> pure (VText (Text.concat values))
-  Nothing -> runtimeError "native 'fold-join-text' received an invalid text list"
+runtimeFoldJoinText value = VText . Text.concat <$> runtimeListOf "fold-join-text" "text" runtimeText value
+
+runtimeListOf :: String -> String -> (RuntimeValue -> Maybe a) -> RuntimeValue -> Eval [a]
+runtimeListOf native element project value =
+  maybe (runtimeError ("native '" ++ native ++ "' received an invalid " ++ element ++ " list")) pure (runtimeListValues value >>= traverse project)
 
 runtimeListValues :: RuntimeValue -> Maybe [RuntimeValue]
 runtimeListValues = \case
@@ -1022,12 +1002,6 @@ euclideanQuotRem dividend divisor =
    in if remainder < 0
         then (quotient + 1, remainder - divisor)
         else (quotient, remainder)
-
-evalFloatLessEqual :: Double -> Double -> Eval RuntimeValue
-evalFloatLessEqual left right = pure (runtimeBool (left <= right))
-
-evalFloatDivide :: Double -> Double -> Eval RuntimeValue
-evalFloatDivide left right = pure (VFloat (left / right))
 
 evalFloatFloor :: Double -> Eval RuntimeValue
 evalFloatFloor value
@@ -1124,7 +1098,7 @@ markRuntimeDeclExport declaration env = case declaration of
   ReExport name -> addShownValue name env
   ReExportType _ -> env
   Let name _ _ -> addShownValue name env
-  TypeAlias _ _ _ -> env
+  TypeAlias{} -> env
   DataDecl _ _ constructors -> foldl' (flip addShownValue) env [name | Ctor name _ <- constructors]
   EffectDecl _ _ operations -> foldl' (flip addShownValue) env [name | EffectOp name _ <- operations]
   ShapeDecl _ shapeName _ members ->

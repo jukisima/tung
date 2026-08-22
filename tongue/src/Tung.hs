@@ -34,6 +34,7 @@ module Tung (
   TcResult (..),
   TypeFailure (..),
   CoreProgram,
+  formatSource,
   parse,
   parseLocated,
   lexTokens,
@@ -82,6 +83,7 @@ import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
 import Tung.Core (CoreProgram)
 import Tung.Diagnostic
 import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainCoreProgram, evaluateMainCoreProgramWithArgs, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
+import Tung.Format (formatSource)
 import Tung.Import (enterImport)
 import Tung.Parse (ParsedSource (..), parse, parseLocated)
 import Tung.Primitive

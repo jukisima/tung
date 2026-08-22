@@ -48,6 +48,7 @@ lexCases =
   , ("double minus remaineth a name", "--1", [TIdent "--1"])
   , ("dot prepend is one name", ".*", [TIdent ".*"])
   , ("standalone dot is syntax", ".", [TDot])
+  , ("go is an ordinary name", "go", [TIdent "go"])
   , ("backslash is an ordinary name", "\\\\", [TIdent "\\\\"])
   , ("comment endeth at newline", "1 # hidden\n2", [TInteger 1, TInteger 2])
   , ("block comment is skipped", "1 /* hidden { = */ 2", [TInteger 1, TInteger 2])
@@ -93,6 +94,7 @@ keywordToken = \case
   "let-ilk" -> TLetIlk
   "kin" -> TKin
   "deed" -> TDeed
+  "yield" -> TYield
   "foreign" -> TForeign
   "shape" -> TShape
   "fill" -> TFill

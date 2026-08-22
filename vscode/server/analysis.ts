@@ -1,19 +1,14 @@
 // tolerant structural model for incomplete buffers. it joineth semantic roles,
 // declaration regions, docs, imports, and scopes without attempting type checks.
+import { analyzeTokens, semanticRole } from "./semantic.ts";
 import {
-  analyzeTokens,
+  bracketPairs,
+  declarationKeywords,
+  findFileDeclarationBoundary,
   languageNames,
-  semanticRole,
+  tokenDepths,
   tokenize,
-} from "./semantic.ts";
-const declarationKeywords = new Set([
-  "let",
-  "let-ilk",
-  "kin",
-  "deed",
-  "shape",
-  "fill",
-]);
+} from "./syntax.ts";
 const ownedKinds = new Set(["kin", "deed", "shape"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
@@ -22,6 +17,8 @@ const keywordHelp = {
   show: "publish a declaration or re-export a visible term.",
   "show-ilk": "re-export a visible type.",
   graith: "state the shapes required by a declaration.",
+  yield:
+    "introduce the result expression after declarations in a file or local block.",
   shape: "declare a shape and its members.",
   foreign: "mark an annotated let body as supplied by the host runtime.",
   fill: "provide evidence and member definitions for a shape.",
@@ -195,35 +192,6 @@ const hasDeclarationBetween = (tokens, startOffset, endOffset) => {
       declarationKeywords.has(token.text),
   );
 };
-const tokenDepths = (tokens) => {
-  const depths = [];
-  let depth = 0;
-  for (const token of tokens) {
-    depths.push(depth);
-    if (isOpen(token.text)) depth += 1;
-    if (isClose(token.text)) depth = Math.max(0, depth - 1);
-  }
-  return depths;
-};
-const bracketPairs = (tokens) => {
-  const pairs = new Map();
-  const stack = [];
-  for (const token of tokens) {
-    if (isOpen(token.text)) {
-      stack.push(token.index);
-    } else if (isClose(token.text)) {
-      const open = stack.at(-1);
-      if (
-        open !== undefined &&
-        matchingClose(tokens[open].text) === token.text
-      ) {
-        stack.pop();
-        pairs.set(open, token.index);
-      }
-    }
-  }
-  return pairs;
-};
 // regions supply ownership and source extents for symbols, folding, docs, and
 // local scope. unmatched delimiters fall back to the document end.
 const declarationRegions = (text, tokens, depths, pairs) => {
@@ -236,9 +204,15 @@ const declarationRegions = (text, tokens, depths, pairs) => {
     const open = ownedKinds.has(token.text)
       ? findAtDepth(tokens, depths, token.index + 1, "{", baseDepth)
       : -1;
+    const boundary = findFileDeclarationBoundary(
+      tokens,
+      token.index + 1,
+      depths,
+      baseDepth,
+    );
     const endIndex = open >= 0 && pairs.has(open)
       ? pairs.get(open)
-      : findDeclarationEnd(tokens, depths, token.index + 1, baseDepth);
+      : Math.max(token.index, boundary - 1);
     const endToken = tokens[endIndex] || tokens.at(-1) || token;
     const headerEnd = findHeaderEnd(
       tokens,
@@ -263,25 +237,6 @@ const declarationRegions = (text, tokens, depths, pairs) => {
   }
   return regions;
 };
-const findDeclarationEnd = (tokens, depths, start, baseDepth) => {
-  for (let index = start; index < tokens.length; index += 1) {
-    if (tokens[index].text === ";" && depths[index] === baseDepth) {
-      return index;
-    }
-    if (isClose(tokens[index].text) && depths[index] === baseDepth) {
-      return Math.max(start - 1, index - 1);
-    }
-    if (
-      index > start &&
-      depths[index] === baseDepth &&
-      tokens[index].kind === "keyword" &&
-      declarationKeywords.has(tokens[index].text)
-    ) {
-      return index - 1;
-    }
-  }
-  return tokens.length - 1;
-};
 const findHeaderEnd = (tokens, depths, start, end, baseDepth) => {
   for (let index = start; index < end; index += 1) {
     if (
@@ -295,8 +250,12 @@ const collectImports = (tokens, depths) => {
   const imports = [];
   for (const token of tokens) {
     if (token.text !== "bring") continue;
-    const end = findText(tokens, token.index + 1, ";");
-    if (end < 0) continue;
+    const end = findFileDeclarationBoundary(
+      tokens,
+      token.index + 1,
+      depths,
+      depths[token.index],
+    );
     const pathTokens = tokens.slice(token.index + 1, end);
     const importPath = pathTokens.map(({ text }) => text).join("");
     if (!importPath) continue;
@@ -319,11 +278,13 @@ const collectReexports = (tokens, depths) => {
     ) continue;
     const next = tokens[token.index + 1];
     if (!next || next.kind !== "name") continue;
-    for (
-      let index = next.index;
-      index < tokens.length && tokens[index].text !== ";";
-      index += 1
-    ) {
+    const end = findFileDeclarationBoundary(
+      tokens,
+      next.index,
+      depths,
+      depths[token.index],
+    );
+    for (let index = next.index; index < end; index += 1) {
       if (tokens[index].kind === "name") {
         reexports.push({
           name: tokens[index].text,
@@ -582,15 +543,6 @@ const uniqueDefinitions = (definitions) => {
     seen.add(key);
     return true;
   });
-};
-const isOpen = (text) => {
-  return ["(", "{", "["].includes(text);
-};
-const isClose = (text) => {
-  return [")", "}", "]"].includes(text);
-};
-const matchingClose = (text) => {
-  return { "(": ")", "{": "}", "[": "]" }[text];
 };
 const lastQualifiedSegment = (name) => {
   return name.slice(name.lastIndexOf("@") + 1);

@@ -1,10 +1,10 @@
-bring algebra/partial/semigroupoid.tung;
+bring algebra/partial/semigroupoid.tung
 
 graith ⇨ semigroupoid
 show shape ⇨ category {
-  identity: a ⇨ a;
+  let identity: a ⇨ a
 
-  law (f: a ⇨ b): identity ∘ f ~ f;
+  law (f: a ⇨ b): identity ∘ f ~ f
   law (f: a ⇨ b): f ∘ identity ~ f
 }
 

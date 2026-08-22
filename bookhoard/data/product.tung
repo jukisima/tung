@@ -1,25 +1,25 @@
-bring order/lattice.tung;
-bring algebra/total/magma.tung;
-bring algebra/total/semigroup.tung;
-bring algebra/total/monoid.tung;
-bring collection/functor.tung;
-bring collection/applicative.tung;
-bring collection/monad.tung;
-bring collection/catamorphism.tung;
-bring collection/traverse.tung;
+bring order/lattice.tung
+bring algebra/total/magma.tung
+bring algebra/total/semigroup.tung
+bring algebra/total/monoid.tung
+bring collection/functor.tung
+bring collection/applicative.tung
+bring collection/monad.tung
+bring collection/catamorphism.tung
+bring collection/traverse.tung
 
 show kin a ∏ b {
   a ∏ b
 }
 
-show let (a ∏ _: a ∏ b) project₀: a = a;
+show let (a ∏ _: a ∏ b) project₀: a = a
 
-show let (a ∏ b: a ∏ b) project₁: b = b;
+show let (a ∏ b: a ∏ b) project₁: b = b
 
-show let (a ∏ b: a ∏ b) swap: b ∏ a = b ∏ a;
+show let (a ∏ b: a ∏ b) swap: b ∏ a = b ∏ a
 
 show let (a ∏ b: a ∏ b, f: a → c ! e0, g: b → d ! e1) bimap: c ∏ d ! e0, e1 =
-  (a f) ∏ (b g);
+  (a f) ∏ (b g)
 
 fill (a ∏) functor {
   let (a ∏ b) map f = a ∏ (b f)
@@ -27,7 +27,7 @@ fill (a ∏) functor {
 
 graith a monoid
 fill (a ∏) applicative {
-  let b pure = ∅ ∏ b;
+  let b pure = ∅ ∏ b
   let (a0 ∏ b) apply (a1 ∏ f) = (a0 * a1) ∏ (b f)
 }
 
@@ -38,13 +38,13 @@ fill (a ∏) monad {
 }
 
 fill (a ∏) cata {
-  let (_ ∏ a) foldr b f = a f b;
+  let (_ ∏ a) foldr b f = a f b
   let (_ ∏ a) foldl b f = b f a
 }
 
 fill (a ∏) traverse {
   let (a ∏ b) traverse f =
-    (b f) map (a ∏);
+    (b f) map (a ∏)
   let (a ∏ b) sequence =
     b map (a ∏)
 }

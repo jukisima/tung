@@ -1,53 +1,53 @@
-bring data/list.tung;
-bring data/option.tung;
-bring data/product.tung;
-bring data/two.tung;
-bring equal.tung;
-bring collection/catamorphism.tung;
-bring collection/functor.tung;
-bring collection/filter.tung;
-bring collection/inhold.tung;
-bring collection/size.tung;
+bring data/list.tung
+bring data/option.tung
+bring data/product.tung
+bring data/two.tung
+bring equal.tung
+bring collection/catamorphism.tung
+bring collection/functor.tung
+bring collection/filter.tung
+bring collection/inhold.tung
+bring collection/size.tung
 
 ## a list-backed finite association table.
 show kin k table v {
   ((k ∏ v) list) from-list
 }
 
-show let empty: k table v = data/list@empty from-list;
+show let empty: k table v = data/list@empty from-list
 
 show let (key: k, value: v) singleton: k table v =
-  key ∏ value $ .* data/list@empty $ from-list;
+  key ∏ value $ .* data/list@empty $ from-list
 
 show let (entries from-list: k table v) entries: (k ∏ v) list =
-  entries;
+  entries
 
 graith k equal
 show let (entries from-list: k table v, key: k) lookup: v option =
   entries foldr data/option@none {
     pair, found | (key ≡ (pair project₀)) if (pair project₁ $ data/option@some) found
-  };
+  }
 
 graith k equal
 show let (entries from-list: k table v, key: k, value: v) put: k table v =
   (key ∏ value) .* (entries foldr data/list@empty {
       pair, rest | (key ≡ (pair project₀)) if rest (pair .* rest)
-  }) $ from-list;
+  }) $ from-list
 
 graith k equal
 show let (entries from-list: k table v, key: k) rid: k table v =
   entries foldr data/list@empty {
     pair, rest | key ≡ (pair project₀) $ if rest (pair .* rest)
-  } $ from-list;
+  } $ from-list
 
 show let (entries from-list: k table v) keys: k list =
-  entries map project₀;
+  entries map project₀
 
 show let (entries from-list: k table v) values: v list =
-  entries map project₁;
+  entries map project₁
 
-graith (k list) k inhold
-fill (k table v) k inhold {
+graith (k list) inhold k
+fill (k table v) inhold k {
   let table ∋ key = (table keys) ∋ key
 }
 
@@ -73,7 +73,7 @@ graith k equal
 show let (left: k table v, right: k table v) merge: k table v =
   (right entries) foldl left {
     table, pair | table put (pair project₀) (pair project₁)
-  };
+  }
 
 graith k equal
 show let (entries from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =

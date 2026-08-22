@@ -21,11 +21,11 @@ checkedImportGraph = case parse source >>= (\program -> elaborateInteractiveProg
   Left message -> pure (Just ("checked import graph: elaboration failed: " ++ message))
   Right program -> evaluateCoreProgram program >>= Harness.expectEq "checked import graph evaluateth without source imports" "eval ok: 7"
  where
-  source = "bring middle.tung; middle@value"
+  source = "bring middle.tung yield middle@value"
   imports =
     Map.fromList
-      [ ("middle.tung", "bring leaf.tung; show let value = leaf@value + 1;")
-      , ("leaf.tung", "show let value = 6;")
+      [ ("middle.tung", "bring leaf.tung show let value = leaf@value + 1")
+      , ("leaf.tung", "show let value = 6")
       ]
 
 checkedMainCore :: Test
@@ -33,10 +33,10 @@ checkedMainCore = case parse source >>= (\program -> elaborateProgramWithImports
   Left message -> pure (Just ("checked main core: elaboration failed: " ++ message))
   Right program -> evaluateMainCoreProgram program >>= Harness.expectEq "checked main core evaluateth without surface syntax" "eval ok: null"
  where
-  source = "kin 𝟙 { null }; let (_: 𝟙) main: 𝟙 = null"
+  source = "kin 𝟙 { null } let (_: 𝟙) main: 𝟙 = null"
 
 integerCase :: Map.Map String String -> (String, Integer) -> Test
-integerCase imports (source, expected) = safeResult imports ("generated integer " ++ source) source ("eval ok: " ++ show expected)
+integerCase imports (source, expected) = safeResult imports ("generated integer " ++ source) ("yield " ++ source) ("eval ok: " ++ show expected)
 
 languageCase :: Map.Map String String -> (String, String, String) -> Test
 languageCase imports (name, source, expected) = safeResult imports name source expected
@@ -79,29 +79,29 @@ integerTerms = atoms ++ take 90 firstLevel ++ take 90 secondLevel
 
 languagePrograms :: [(String, String, String)]
 languagePrograms =
-  [ ("checked record access", "let value = [left = 1, right = 2]; value@right", "eval ok: 2")
-  , ("checked record update", "let value = [left = 1, right = 2]; [= value, right = 3, - left]", "eval ok: [right = 3]")
-  , ("checked exhaustive match", "kin 𝟚 { yea, nay }; match nay { yea | 1, nay | 2 }", "eval ok: 2")
-  , ("checked integer match", "match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
-  , ("checked class evidence", "shape a identity { a identity: a }; fill integer identity { let x identity = x }; 7 identity", "eval ok: 7")
-  , ("checked fill member calleth sibling", "shape a linked { a first: a; a second: a }; fill integer linked { let x first = x; let x second = x first }; 7 second", "eval ok: 7")
-  , ("checked multi-shot handler", "kin 𝟙 { null }; deed choice { 𝟙 choose: integer }; try null choose { choose | (1 resume) + (2 resume) }", "eval ok: 3")
-  , ("checked non-finite floor failure", "bring ground.tung; try ('Infinity' from-text $ ⌊) { _ fail | 0 }", "eval ok: 0")
+  [ ("checked record access", "let value = [left = 1, right = 2] yield value@right", "eval ok: 2")
+  , ("checked record update", "let value = [left = 1, right = 2] yield [= value, right = 3, - left]", "eval ok: [right = 3]")
+  , ("checked exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1, nay | 2 }", "eval ok: 2")
+  , ("checked integer match", "yield match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
+  , ("checked class evidence", "shape a identity { let a identity: a } fill integer identity { let x identity = x } yield 7 identity", "eval ok: 7")
+  , ("checked fill member calleth sibling", "shape a linked { let a first: a let a second: a } fill integer linked { let x first = x let x second = x first } yield 7 second", "eval ok: 7")
+  , ("checked multi-shot handler", "kin 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 resume) + (2 resume) }", "eval ok: 3")
+  , ("checked non-finite floor failure", "bring ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail | 0 }", "eval ok: 0")
   ]
 
 rejectedPrograms :: [(String, String)]
 rejectedPrograms =
-  [ ("reject non-function application", "1 2")
-  , ("reject constructor overapplication", "kin a box { a box }; 1 box 2")
-  , ("reject missing record field", "let value = [field = 1]; value@missing")
-  , ("reject non-exhaustive match", "kin 𝟚 { yea, nay }; match nay { yea | 1 }")
-  , ("reject refutable handler return", "kin 𝟚 { yea, nay }; try nay { return yea | 1 }")
+  [ ("reject non-function application", "yield 1 2")
+  , ("reject constructor overapplication", "kin a box { a box } yield 1 box 2")
+  , ("reject missing record field", "let value = [field = 1] yield value@missing")
+  , ("reject non-exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1 }")
+  , ("reject refutable handler return", "kin 𝟚 { yea, nay } yield try nay { return yea | 1 }")
   ]
 
 booleanProductPrograms :: [(String, String, String)]
 booleanProductPrograms =
   [ ( "checked boolean product " ++ unwords input
-    , boolData ++ "match " ++ intercalate ", " input ++ " { " ++ cases ++ " }"
+    , boolData ++ "yield match " ++ intercalate ", " input ++ " { " ++ cases ++ " }"
     , "eval ok: " ++ show expected
     )
   | arity <- [1 .. 3]
@@ -111,5 +111,5 @@ booleanProductPrograms =
         cases = intercalate ", " [intercalate ", " row ++ " | " ++ show result | (row, result) <- zip rows [0 :: Int ..]]
   ]
  where
-  boolData = "kin 𝟚 { yea, nay }; "
+  boolData = "kin 𝟚 { yea, nay } "
   booleanRows arity = replicateM arity ["yea", "nay"]

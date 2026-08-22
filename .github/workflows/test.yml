@@ -23,7 +23,7 @@ jobs:
       - name: set up haskell
         uses: haskell-actions/setup@v2
         with:
-          ghc-version: 9.10.3
+          ghc-version: 9.12.4
           cabal-version: 3.16.1.0
 
       - name: set up node

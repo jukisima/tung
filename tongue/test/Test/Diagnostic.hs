@@ -6,40 +6,75 @@ import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
-group = Harness.group "diagnostic" [locatedTokens, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
+group = Harness.group "diagnostic" [locatedTokens, locatedForeign, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, semicolonlessEvidence, semicolonlessImportedEvidence, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
 
 locatedTokens :: Test
 locatedTokens = case lexLocatedTokens "  answer + 1" of
   Left message -> pure (Just ("located tokens: " ++ message))
   Right tokens -> expectEq "located tokens" [SourceSpan 2 8, SourceSpan 9 10, SourceSpan 11 12] (map locatedSpan tokens)
 
+locatedForeign :: Test
+locatedForeign = case checkEditorDiagnosticWithImports source Map.empty of
+  Nothing -> pure Nothing
+  Just diagnostic -> pure (Just ("located foreign declaration: " ++ show diagnostic))
+ where
+  source = "let add-integer: integer → integer → integer = foreign"
+
 namedTypeError :: Test
 namedTypeError =
-  expectDiagnostic "named type error" "let value: text = 1;" TypeDiagnostic (SourceSpan 18 19)
+  expectDiagnostic "named type error" "let value: text = 1" TypeDiagnostic (SourceSpan 18 19)
 
 repeatedName :: Test
 repeatedName =
-  expectDiagnostic "later repeated name" "let value = 1; let other: text = value;" TypeDiagnostic (SourceSpan 33 38)
+  expectDiagnostic "later repeated name" "let value = 1 let other: text = value" TypeDiagnostic (SourceSpan 32 37)
 
 precedingTypeAlias :: Test
 precedingTypeAlias =
-  expectDiagnostic "term after type alias" "let-ilk count = integer; let value: text = integer;" TypeDiagnostic (SourceSpan 43 50)
+  expectDiagnostic "term after type alias" "let-ilk count = integer let value: text = integer" TypeDiagnostic (SourceSpan 42 49)
 
 precedingData :: Test
 precedingData =
-  expectDiagnostic "term after data declaration" "kin item { value }; let other: text = value;" TypeDiagnostic (SourceSpan 38 43)
+  expectDiagnostic "term after data declaration" "kin item { value } let other: text = value" TypeDiagnostic (SourceSpan 37 42)
 
 finalExpression :: Test
 finalExpression =
-  expectDiagnostic "final expression after type alias" "let-ilk count = integer; integer" TypeDiagnostic (SourceSpan 25 32)
+  expectDiagnostic "final expression after type alias" "let-ilk count = integer yield integer" TypeDiagnostic (SourceSpan 30 37)
 
 unicodeOffset :: Test
 unicodeOffset =
-  expectDiagnostic "unicode source offset" "let 😀 = 1; let value: text = 😀;" TypeDiagnostic (SourceSpan 30 32)
+  expectDiagnostic "unicode source offset" "let 😀 = 1 let value: text = 😀" TypeDiagnostic (SourceSpan 29 31)
 
 parsePosition :: Test
 parsePosition =
   expectDiagnostic "parse position" "\n  'unterminated" ParseDiagnostic (SourceSpan 16 16)
+
+semicolonlessEvidence :: Test
+semicolonlessEvidence =
+  case checkEditorDiagnosticWithImports source Map.empty of
+    Nothing -> pure Nothing
+    Just diagnostic -> pure (Just ("semicolonless located evidence: " ++ show diagnostic))
+ where
+  source =
+    unlines
+      [ "kin truth { yea, nay }"
+      , "shape a less { let a < a: truth }"
+      , "fill integer less { let x < y = yea }"
+      , "let (score: integer) checked: integer = match score < 0 { yea | score, nay | score }"
+      ]
+
+semicolonlessImportedEvidence :: Test
+semicolonlessImportedEvidence =
+  case checkEditorDiagnosticWithImports source (Map.singleton "dep.tung" dependency) of
+    Nothing -> pure Nothing
+    Just diagnostic -> pure (Just ("semicolonless imported evidence: " ++ show diagnostic))
+ where
+  source = "bring dep.tung\nlet checked: truth = 1 < 0"
+  dependency =
+    unlines
+      [ "show kin truth { yea, nay }"
+      , "show shape a less { let a ≤ a: truth let a < b = a ≤ b }"
+      , "fill integer less { let x ≤ y = yea }"
+      ]
 
 renderedProtocol :: Test
 renderedProtocol =
@@ -59,8 +94,8 @@ importedTypeError :: Test
 importedTypeError =
   expectImportedDiagnostic
     "imported type error"
-    "bring dep.tung;"
-    (Map.singleton "dep.tung" "let value: text = 1;")
+    "bring dep.tung"
+    (Map.singleton "dep.tung" "let value: text = 1")
     "dep.tung"
     (SourceSpan 18 19)
 
@@ -68,10 +103,10 @@ nestedImportedTypeError :: Test
 nestedImportedTypeError =
   expectImportedDiagnostic
     "nested imported type error"
-    "bring dep.tung;"
+    "bring dep.tung"
     ( Map.fromList
-        [ ("dep.tung", "bring nested.tung;")
-        , ("nested.tung", "let value: text = 1;")
+        [ ("dep.tung", "bring nested.tung")
+        , ("nested.tung", "let value: text = 1")
         ]
     )
     "nested.tung"

@@ -100,7 +100,7 @@ groundEffectExportsCase imports =
     "type ok" -> Nothing
     actual -> Just ("ground effect exports: " ++ actual)
  where
-  source = "bring ground.tung; show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file, ground@system, ground@clock, ground@process;"
+  source = "bring ground.tung show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file, ground@system, ground@clock, ground@process"
 
 runnerEffectsCase :: Map.Map String String -> Test
 runnerEffectsCase imports =
@@ -109,11 +109,11 @@ runnerEffectsCase imports =
     actual -> Just ("runner effects: " ++ actual)
  where
   source =
-    "bring ground.tung; bring data/list.tung; bring data/option.tung; "
+    "bring ground.tung bring data/list.tung bring data/option.tung "
       ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process = ("
-      ++ "let args = null arguments; "
-      ++ "let setting = 'TUNG_SETTING' environment; "
-      ++ "let stamp = null unix-time; null);"
+      ++ "let args = null arguments "
+      ++ "let setting = 'TUNG_SETTING' environment "
+      ++ "let stamp = null unix-time yield null)"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
 primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) of

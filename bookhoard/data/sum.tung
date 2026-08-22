@@ -1,9 +1,9 @@
-bring data/two.tung;
-bring collection/functor.tung;
-bring collection/applicative.tung;
-bring collection/monad.tung;
-bring collection/catamorphism.tung;
-bring collection/traverse.tung;
+bring data/two.tung
+bring collection/functor.tung
+bring collection/applicative.tung
+bring collection/monad.tung
+bring collection/catamorphism.tung
+bring collection/traverse.tung
 
 show kin a ∐ b {
   a inject₀,
@@ -14,12 +14,12 @@ show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) either: c ! 
   match sum {
     a inject₀ | a f₀,
     b inject₁ | b f₁
-  };
+  }
 
 show let is-inject₀: a ∐ b → 𝟚 = {
   _ inject₀ | yea,
   _ inject₁ | nay
-};
+}
 
 show let is-inject₁: a ∐ b → 𝟚 = {
   _ inject₀ | nay,
@@ -34,7 +34,7 @@ fill (a ∐) functor {
 }
 
 fill (a ∐) applicative {
-  let pure = inject₁;
+  let pure = inject₁
   let apply = {
     a inject₀, _ | a inject₀,
     _, a inject₀ | a inject₀,
@@ -53,7 +53,7 @@ fill (a ∐) cata {
   let sum foldr b f = match sum {
     _ inject₀ | b,
     a inject₁ | a f b
-  };
+  }
   let sum foldl b f = match sum {
     _ inject₀ | b,
     a inject₁ | b f a
@@ -64,7 +64,7 @@ fill (a ∐) traverse {
   let sum traverse f = match sum {
     a inject₀ | (a inject₀) pure,
     b inject₁ | (b f) map inject₁
-  };
+  }
   let sequence = {
     a inject₀ | (a inject₀) pure,
     b inject₁ | b map inject₁

@@ -1,13 +1,13 @@
-bring data/list.tung;
-bring data/option.tung;
-bring data/product.tung;
-bring data/two.tung;
+bring data/list.tung
+bring data/option.tung
+bring data/product.tung
+bring data/two.tung
 
 kin a task {
   a done
 }
 
-show-ilk task;
+show-ilk task
 
 show deed divergent {}
 
@@ -43,30 +43,30 @@ show deed file {
   text append-file text: 𝟙 ! text fail
 }
 
-show let add-integer: integer → integer → integer = foreign;
-show let subtract-integer: integer → integer → integer = foreign;
-show let multiply-integer: integer → integer → integer = foreign;
-show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = foreign;
-show let add-float: float → float → float = foreign;
-show let subtract-float: float → float → float = foreign;
-show let multiply-float: float → float → float = foreign;
-show let divide-float: float → float → float = foreign;
-show let sine-float: float → float = foreign;
-show let arctan-float: float → float → float = foreign;
-show let exponent-float: float → float = foreign;
-show let logarithm-float: float → float = foreign;
-show let ⌊: float → integer ! text fail = foreign;
-show let equal-integer: integer → integer → 𝟚 = foreign;
-show let integer-to-text: integer → text = foreign;
-show let float-to-text: float → text = foreign;
-show let unicode-to-integer: unicode → integer = foreign;
-show let integer-to-unicode: integer → unicode ! text fail = foreign;
-show let behead-text: text → (unicode ∏ text) option = foreign;
-show let text-to-list: text → unicode list = foreign;
-show let list-to-text: (unicode list) → text = foreign;
-show let fold-join-text: (text list) → text = foreign;
-show let join-text: text → text → text = foreign;
-show let equal-text: text → text → 𝟚 = foreign;
-show let equal-unicode: unicode → unicode → 𝟚 = foreign;
-show let less-equal-text: text → text → 𝟚 = foreign;
-show let less-equal-unicode: unicode → unicode → 𝟚 = foreign;
+show let add-integer: integer → integer → integer = foreign
+show let subtract-integer: integer → integer → integer = foreign
+show let multiply-integer: integer → integer → integer = foreign
+show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = foreign
+show let add-float: float → float → float = foreign
+show let subtract-float: float → float → float = foreign
+show let multiply-float: float → float → float = foreign
+show let divide-float: float → float → float = foreign
+show let sine-float: float → float = foreign
+show let arctan-float: float → float → float = foreign
+show let exponent-float: float → float = foreign
+show let logarithm-float: float → float = foreign
+show let ⌊: float → integer ! text fail = foreign
+show let equal-integer: integer → integer → 𝟚 = foreign
+show let integer-to-text: integer → text = foreign
+show let float-to-text: float → text = foreign
+show let unicode-to-integer: unicode → integer = foreign
+show let integer-to-unicode: integer → unicode ! text fail = foreign
+show let behead-text: text → (unicode ∏ text) option = foreign
+show let text-to-list: text → unicode list = foreign
+show let list-to-text: (unicode list) → text = foreign
+show let fold-join-text: (text list) → text = foreign
+show let join-text: text → text → text = foreign
+show let equal-text: text → text → 𝟚 = foreign
+show let equal-unicode: unicode → unicode → 𝟚 = foreign
+show let less-equal-text: text → text → 𝟚 = foreign
+show let less-equal-unicode: unicode → unicode → 𝟚 = foreign

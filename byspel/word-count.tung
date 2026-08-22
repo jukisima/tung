@@ -1,35 +1,35 @@
-bring ground.tung;
-bring data/list.tung;
-bring data/option.tung;
-bring data/product.tung;
-bring data/table.tung;
-bring text/operation.tung;
-bring collection/catamorphism.tung;
+bring ground.tung
+bring data/list.tung
+bring data/option.tung
+bring data/product.tung
+bring data/table.tung
+bring text/operation.tung
+bring collection/catamorphism.tung
 
 let (counts: text table integer, word: text) count-word: text table integer =
   match counts lookup word {
     none | counts put word 1,
     count data/option@some | counts put word (count + 1)
-  };
+  }
 
 let (content: text) count-words: text table integer = (
-  let words = content words-text;
-  words foldl data/table@empty count-word
-);
+  let words = content words-text
+  yield words foldl data/table@empty count-word
+)
 
 let (entry: text ∏ integer) write-count: 𝟙 ! console = (
-  let _ = (entry project₀) write;
-  let _ = ': ' write;
-  (entry project₁) to-text $ write-line
-);
+  let _ = (entry project₀) write
+  let _ = ': ' write
+  yield (entry project₁) to-text $ write-line
+)
 
 let (_: 𝟙) main: 𝟙 ! console, file, system =
   match null arguments {
     data/list@empty | 'usage: tung word-count.tung <file>' write-line,
     path .* _ | try (
-      let content = path read-file;
-      let counts = content count-words;
-      (counts entries) each write-count
+      let content = path read-file
+      let counts = content count-words
+      yield (counts entries) each write-count
     ) {
       message fail | ('error: ' join-text message) write-line
     }

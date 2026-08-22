@@ -25,6 +25,7 @@ library
     , Tung.Coverage
     , Tung.Diagnostic
     , Tung.Evaluate
+    , Tung.Format
     , Tung.Embed
     , Tung.Import
     , Tung.Bookhoard
@@ -83,10 +84,12 @@ test-suite tung-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   hs-source-dirs: test
+  default-extensions: MultilineStrings
   other-modules:
       Test.Core
     , Test.Diagnostic
     , Test.Evaluate
+    , Test.Format
     , Test.Harness
     , Test.Import
     , Test.Integration
@@ -99,7 +102,7 @@ test-suite tung-test
     , Test.Validate
   default-language: Haskell2010
   build-depends:
-      base >=4.20 && <5
+      base >=4.21 && <5
     , containers
     , directory
     , filepath

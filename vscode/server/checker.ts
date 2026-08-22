@@ -2,23 +2,23 @@
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+interface PendingRequest {
+  resolve: (value: string) => void;
+  version: number;
+}
+interface ResponseFrame {
+  requestId: number;
+  version: number;
+  length: number;
+}
 class CompilerBridge {
   tongue: string | undefined;
   executable: string | undefined;
-  session: any;
-  pending: Map<number, any>;
-  nextRequestId: number;
-  output: string;
-  responseFrame: any;
-  constructor() {
-    this.tongue = undefined;
-    this.executable = undefined;
-    this.session = undefined;
-    this.pending = new Map();
-    this.nextRequestId = 1;
-    this.output = "";
-    this.responseFrame = undefined;
-  }
+  session: childProcess.ChildProcessWithoutNullStreams | undefined;
+  pending = new Map<number, PendingRequest>();
+  nextRequestId = 1;
+  output = "";
+  responseFrame: ResponseFrame | undefined;
   configure(tongue) {
     if (tongue !== this.tongue) {
       this.dispose();
@@ -30,12 +30,23 @@ class CompilerBridge {
     return Boolean(this.findExecutable());
   }
   check(model, imports, version = 0) {
-    return this.request("check", model, imports, "", version);
+    return this.request("check", model.text, imports, "", version);
   }
   typeOf(model, imports, name, version = 0) {
-    return this.request("type", model, imports, name, version);
+    return this.request("type", model.text, imports, name, version);
   }
-  request(command, model, imports, name, version) {
+  format(source, version = 0) {
+    const request = this.request("format", source, [], "", version);
+    return {
+      ...request,
+      result: request.result.then((output) =>
+        output.startsWith(formatResponseHeader)
+          ? output.slice(formatResponseHeader.length)
+          : undefined
+      ),
+    };
+  }
+  request(command, source, imports, name, version) {
     const executable = this.findExecutable();
     if (!executable) {
       return {
@@ -52,7 +63,7 @@ class CompilerBridge {
     const result = new Promise<string>((resolve) => (resolveResult = resolve));
     this.pending.set(requestId, { resolve: resolveResult, version });
     process.stdin.write(
-      sessionRequest(requestId, version, command, name, model.text, imports),
+      sessionRequest(requestId, version, command, name, source, imports),
     );
     return {
       process,
@@ -141,22 +152,20 @@ class CompilerBridge {
   }
   failSession(process, message) {
     if (this.session !== process) return;
-    this.session = undefined;
-    this.output = "";
-    this.responseFrame = undefined;
-    for (const { resolve } of this.pending.values()) resolve(message);
-    this.pending.clear();
+    this.reset(message);
   }
   dispose() {
+    const process = this.reset("checker request cancelled");
+    if (process && process.exitCode === null && !process.killed) process.kill();
+  }
+  reset(message) {
     const process = this.session;
     this.session = undefined;
-    for (const { resolve } of this.pending.values()) {
-      resolve("checker request cancelled");
-    }
+    for (const { resolve } of this.pending.values()) resolve(message);
     this.pending.clear();
     this.output = "";
     this.responseFrame = undefined;
-    if (process && process.exitCode === null && !process.killed) process.kill();
+    return process;
   }
   findExecutable() {
     if (!this.tongue) return undefined;
@@ -181,13 +190,13 @@ class CompilerBridge {
   }
   findDistExecutable() {
     const root = path.join(this.tongue, "dist-newstyle", "build");
-    const found = findFile(
+    return findFile(
       root,
       (file) => file.endsWith(path.join("x", "tung", "build", "tung", "tung")),
     );
-    return found && fs.existsSync(found) ? found : undefined;
   }
 }
+const formatResponseHeader = "tung-format\n";
 const findFile = (root, predicate) => {
   if (!fs.existsSync(root)) return undefined;
   const stack = [root];

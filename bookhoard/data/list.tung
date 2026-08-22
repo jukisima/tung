@@ -1,23 +1,23 @@
-bring data/one.tung;
-bring data/two.tung;
-bring algebra/partial/category.tung;
-bring equal.tung;
-bring order.tung;
-bring data/product.tung;
-bring algebra/total/magma.tung;
-bring algebra/total/semigroup.tung;
-bring algebra/total/monoid.tung;
-bring algebra/arithmetic/semiring.tung;
-bring data/natural.tung;
-bring data/option.tung;
-bring collection/size.tung;
-bring collection/catamorphism.tung;
-bring collection/functor.tung;
-bring collection/applicative.tung;
-bring collection/monad.tung;
-bring collection/filter.tung;
-bring collection/inhold.tung;
-bring collection/traverse.tung;
+bring data/one.tung
+bring data/two.tung
+bring algebra/partial/category.tung
+bring equal.tung
+bring order.tung
+bring data/product.tung
+bring algebra/total/magma.tung
+bring algebra/total/semigroup.tung
+bring algebra/total/monoid.tung
+bring algebra/arithmetic/semiring.tung
+bring data/natural.tung
+bring data/option.tung
+bring collection/size.tung
+bring collection/catamorphism.tung
+bring collection/functor.tung
+bring collection/applicative.tung
+bring collection/monad.tung
+bring collection/filter.tung
+bring collection/inhold.tung
+bring collection/traverse.tung
 
 ## finite linked lists.
 show kin a list {
@@ -26,7 +26,7 @@ show kin a list {
 }
 
 graith a equal
-fill (a list) a inhold {
+fill (a list) inhold a {
   let ∋ = {
     empty, _ | nay,
     first .* rest, a | (a ≡ first) if yea (rest ∋ a)
@@ -37,10 +37,10 @@ fill (a list) a inhold {
 show let (start: integer, stop: integer) till: integer list = match start ≤ stop {
   yea | start .* (start + 1 $ till stop),
   nay | empty
-};
+}
 
 ## build a one-element list.
-show let (a: a) singleton: a list = a .* empty;
+show let (a: a) singleton: a list = a .* empty
 
 fill (a list) semigroup {
   let * = {
@@ -61,15 +61,15 @@ fill list functor {
 }
 
 fill list monad {
-  let a pure = a .* empty;
+  let a pure = a .* empty
   let list apply = {
     empty | empty,
     first .* rest | (list map first) * (list apply rest)
-  };
+  }
   let flat = {
     empty | empty,
     first .* rest | first * (rest flat)
-  };
+  }
   let list map-flat f = (list map f) flat
 }
 
@@ -86,27 +86,27 @@ fill list filter {
 show let each: a list → (a → 𝟙 ! e) → 𝟙 ! e = {
   empty, _ | null,
   first .* rest, action | (
-    let _ = first action;
-    rest each action
+    let _ = first action
+    yield rest each action
   )
-};
+}
 
 ## first list element, if present.
 show let head: a list → a option = {
   empty | none,
   first .* _ | first data/option@some
-};
+}
 
 ## list without its first element, if present.
 show let tail: a list → (a list) option = {
   empty | none,
   _ .* rest | rest data/option@some
-};
+}
 
 show let behead: a list → (a ∏ (a list)) option = {
   empty | none,
   first .* rest | (first ∏ rest) data/option@some
-};
+}
 
 ## first count elements.
 show let (list: a list, count: integer) take: a list =
@@ -116,7 +116,7 @@ show let (list: a list, count: integer) take: a list =
       empty | empty,
       first .* rest | first .* (rest take (count - 1))
     }
-  };
+  }
 
 ## list after removing count elements.
 show let (list: a list, count: integer) drop: a list =
@@ -126,7 +126,7 @@ show let (list: a list, count: integer) drop: a list =
       empty | empty,
       _ .* rest | rest drop (count - 1)
     }
-  };
+  }
 
 ## first element accepted by a predicate.
 show let find: a list → (a → 𝟚 ! e) → a option ! e = {
@@ -135,13 +135,13 @@ show let find: a list → (a → 𝟚 ! e) → a option ! e = {
     yea | first data/option@some,
     nay | rest find f
   }
-};
+}
 
 fill list cata {
   let list foldr b f = match list {
     empty | b,
     first .* rest | first f (rest foldr b f)
-  };
+  }
   let list foldl b f = match list {
     empty | b,
     first .* rest | rest foldl (b f first) f
@@ -152,7 +152,7 @@ fill list traverse {
   let traverse = {
     empty, _ | empty pure,
     first .* rest, f | (first f) lift₂ (rest traverse f) .*
-  };
+  }
   let list sequence = list traverse identity
 }
 
@@ -161,30 +161,30 @@ fill (a list) size {
 }
 
 show let (list: a list) reverse: a list =
-  list foldl empty { outcome, a | a .* outcome };
+  list foldl empty { outcome, a | a .* outcome }
 
 show let zip: a list → b list → (a ∏ b) list = {
   empty, _ | empty,
   _, empty | empty,
   a .* a…, b .* b… | (a ∏ b) .* (a… zip b…)
-};
+}
 
 ## element at a zero-based index.
 show let (list: a list, index: integer) at: a option = match index ≤ -1 {
   yea | none,
   nay | (list drop index) head
-};
+}
 
 ## final element, if present.
 show let (list: a list) last: a option =
-  (list reverse) head;
+  (list reverse) head
 
 ## repeat a value count times.
 show let (a: a, count: integer) replicate: a list =
   match count ≤ 0 {
     yea | empty,
     nay | a .* (a replicate (count - 1))
-  };
+  }
 
 ## split values accepted and rejected by a predicate.
 show let partition
@@ -197,7 +197,7 @@ show let partition
         nay | accepted ∏ (first .* rejected)
       }
     }
-  };
+  }
 
 ## split a list of products into two lists.
 show let unzip: (a ∏ b) list → ((a list) ∏ (b list)) = {

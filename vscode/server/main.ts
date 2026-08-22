@@ -4,7 +4,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  CodeActionKind,
   CompletionItemKind,
   createConnection,
   DiagnosticSeverity,
@@ -27,7 +26,7 @@ import {
   tokenRange,
 } from "./analysis.ts";
 import { CompilerBridge, parseCompilerDiagnostic } from "./checker.ts";
-import { formatDocument, formatRange } from "./format.ts";
+import { formatRangeEdit } from "./format.ts";
 import { toFilePath, WorkspaceIndex } from "./workspace.ts";
 import { buildSemanticRanges, tokenModifiers, tokenTypes } from "./semantic.ts";
 const connection = createConnection(ProposedFeatures.all);
@@ -98,7 +97,6 @@ connection.onInitialize((params) => {
       documentFormattingProvider: true,
       documentRangeFormattingProvider: true,
       signatureHelpProvider: { triggerCharacters: [" ", "$"] },
-      codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix] },
       workspace: {
         workspaceFolders: {
           supported: true,
@@ -337,22 +335,30 @@ connection.onDocumentLinks(({ textDocument }) => {
       : [];
   });
 });
-connection.onDocumentFormatting(({ textDocument, options }) => {
-  const document = documents.get(textDocument.uri);
-  if (!document) return [];
+const formatDocument = async (uri) => {
+  const document = documents.get(uri);
+  if (!document) return undefined;
   const source = document.getText();
-  const formatted = formatDocument(source, options);
-  return formatted === source
+  const version = document.version;
+  const formatted = await compiler.format(source, version).result;
+  return formatted !== undefined && documents.get(uri)?.version === version
+    ? { document, source, formatted }
+    : undefined;
+};
+connection.onDocumentFormatting(async ({ textDocument }) => {
+  const result = await formatDocument(textDocument.uri);
+  return !result || result.formatted === result.source
     ? []
-    : [{ range: fullRange(document), newText: formatted }];
+    : [{ range: fullRange(result.document), newText: result.formatted }];
 });
-connection.onDocumentRangeFormatting(({ textDocument, range, options }) => {
-  const document = documents.get(textDocument.uri);
-  if (!document) return [];
-  const source = document.getText();
-  const edit = formatRange(source, range, options);
-  return edit ? [edit] : [];
-});
+connection.onDocumentRangeFormatting(
+  async ({ textDocument, range }) => {
+    const result = await formatDocument(textDocument.uri);
+    if (!result) return [];
+    const edit = formatRangeEdit(result.source, result.formatted, range);
+    return edit ? [edit] : [];
+  },
+);
 connection.onSignatureHelp(({ textDocument, position }) => {
   const model = workspace.model(textDocument.uri);
   if (!model) return null;
@@ -382,39 +388,6 @@ connection.onSignatureHelp(({ textDocument, position }) => {
     activeSignature: 0,
     activeParameter: 0,
   };
-});
-connection.onCodeAction(({ textDocument, context }) => {
-  const actions = [];
-  for (const diagnostic of context.diagnostics) {
-    if (/expected ';' after bring/.test(diagnostic.message)) {
-      const document = documents.get(textDocument.uri);
-      if (!document) continue;
-      actions.push({
-        title: "add bring semicolon",
-        kind: CodeActionKind.QuickFix,
-        diagnostics: [diagnostic],
-        isPreferred: true,
-        edit: {
-          changes: {
-            [textDocument.uri]: [
-              {
-                range: {
-                  start: document.positionAt(
-                    document.getText().length,
-                  ),
-                  end: document.positionAt(
-                    document.getText().length,
-                  ),
-                },
-                newText: ";",
-              },
-            ],
-          },
-        },
-      });
-    }
-  }
-  return actions;
 });
 documents.onDidOpen(({ document }) => {
   workspace.invalidate(document.uri);

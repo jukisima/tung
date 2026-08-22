@@ -159,6 +159,12 @@ run any tung file:
 cabal run tung -- path/to/file.tung [arguments...]
 ```
 
+format one or more tung files in place:
+
+```sh
+cabal run tung -- --format path/to/file.tung [more.tung...]
+```
+
 check the vscode extension and lsp server from `../vscode`:
 
 ```sh
@@ -177,7 +183,9 @@ run `make setup` from the repository root to test all parts, generate documentat
 and install the standalone runner and vscode extension. use `make install` for
 installation alone and `make docs` for documentation alone.
 
-the pre-commit hook runneth fourmolu on staged haskell files and re-stageth formatting fixes.
+the pre-commit hook formateth staged bookhoard sources with `tung --format`
+before refreshing membership, runneth fourmolu on staged haskell files, and
+linteth and formateth staged typescript and html. formatting fixes are re-staged.
 
 if cabal faileth only because it cannot write under `~/.cabal/logs`, rerun the same cabal command with the needed permission. do not change source to work around cabal log permissions.
 
@@ -226,7 +234,7 @@ the tolerant path tokeniseth incomplete buffers, assigneth lexical and structura
 the authoritative path sendeth complete source bundles to the haskell compiler for diagnostics and inferred types. compiler diagnostics carry an owning import path, kind, message, and utf-16 source range. expression failures use spans preserved by the parser and checker; failures without an expression location use a token fallback. editor analysis must not silently become a second type checker, and compiler failure must not erase useful tolerant highlighting.
 
 the language server keepeth one `tung --editor-session` process alive for
-diagnostics and inferred hover types. every request carrieth an id and document
+diagnostics, inferred hover types, and formatting. every request carrieth an id and document
 version, and every response echoeth both before its length-framed body. a newer
 document version or cancelled hover sendeth a cancellation message which
 stoppeth the matching haskell worker. stale responses must never enter editor
@@ -235,9 +243,9 @@ exit faileth pending requests and the next request starteth a fresh session.
 
 document changes invalidate the affected model, imported-name views, semantic tokens, diagnostics, and inferred-type cache. changes to a brought file must also refresh open dependants.
 
-formatting is a fast structural operation over source text. it must preserve syntax and comments, remain idempotent, and must not invoke the compiler.
+formatting is a fast structural operation over source text with a canonical two-space indentation. the haskell implementation is authoritative for the cli and editor; typescript only converteth lsp edit ranges. formatting must preserve syntax and comments, remain idempotent, and must not invoke parsing or type checking.
 
-bookhoard documentation is a separate project under `writ/`, derived from the same public-definition and doc-comment model used by editor help. `npm --prefix writ run docs` regenerateth the ignored html wiki from current source; generated output is never a source of truth. the compiler under `tongue/` discovereth and embedeth the sibling `bookhoard/` sources at build time, so the bookhoard stayeth ordinary tung source while an installed runner remaineth independent of the checkout and current working directory.
+bookhoard documentation is a separate project under `writ/`, derived from the same public-definition, fill, relationship, and doc-comment model used by editor help. `npm --prefix writ run docs` regenerateth the ignored html wiki from current source; generated output is never a source of truth. the compiler under `tongue/` discovereth and embedeth the sibling `bookhoard/` sources at build time, so the bookhoard stayeth ordinary tung source while an installed runner remaineth independent of the checkout and current working directory.
 
 `make compiler-build` refresheth `.bookhoard-membership` before cabal buildeth.
 the manifest recordeth each source path and content fingerprint, so cabal
@@ -289,17 +297,23 @@ the implementation is in haskell.
 
 ## source files
 
-a file is a sequence of self-delimiting declarations followed by an optional final expression.
+a file is a sequence of declarations followed optionally by `yield` and a final expression.
 
-a trailing semicolon at the end of a file may be omitted.
+file-level declarations do not require semicolons, whether they are braced or
+unbraced.
 
-`bring` declarations require semicolons.
+declaration keywords and closing braces delimit file-level declarations.
 
-local block `let` declarations require semicolons.
+local block `let` declarations do not take semicolons. a following `let`,
+`graith`, or `yield` delimiteth each declaration.
 
-file-level declarations do not require semicolons between them.
+braced `kin`, `deed`, `shape`, and `fill` declarations end at `}` and do not
+require trailing semicolons.
 
-file-level semicolons are accepted as optional separators.
+file-level semicolons are not accepted.
+
+`yield` introduceth the optional final expression and the expression hath no
+trailing semicolon.
 
 the outer file acteth like an implicit block.
 
@@ -314,8 +328,8 @@ effectful work must be wrapped in a function. module initialisation is pure.
 do not write an effect annotation on a non-function value type. effects belong to computations and function arrows, not stored values.
 
 ```tung
-bring ground.tung;
-bring data/list.tung;
+bring ground.tung
+bring data/list.tung
 
 let answer: integer = 42
 ```
@@ -324,7 +338,7 @@ any term may be ascribed a type as `(term: type)`. the ascription constraineth
 the value type and preserveth every immediate effect and graith requirement of
 the term.
 
-`bring path;` imports another file.
+`bring path` imports another file.
 
 the import graph must be acyclic. a direct or indirect bring cycle is a type error.
 
@@ -332,9 +346,9 @@ a shown imported definition is available as `namespace@name`.
 
 the namespace is the full import path before `.tung`.
 
-for `bring ground.tung;`, the namespace is `ground`.
+for `bring ground.tung`, the namespace is `ground`.
 
-for `bring data/list.tung;`, the namespace is `data/list`.
+for `bring data/list.tung`, the namespace is `data/list`.
 
 an imported name may also be used bare when it is unambiguous.
 
@@ -357,14 +371,14 @@ prefix a declaration with `show` to publish it.
 when a declaration starteth with `graith`, put `show` after the requirements and directly before the main declaration keyword.
 
 ```tung
-show let answer = 42;
-graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y;
-show let-ilk count = integer;
+show let answer = 42
+graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y
+show let-ilk count = integer
 show kin a option { none, a some }
 show deed ask { integer ask: integer }
-show let add-integer: integer → integer → integer = foreign;
-show shape a identity { a identity: a }
-graith a equal show shape a order-partial { a ≤ a: 𝟚 }
+show let add-integer: integer → integer → integer = foreign
+show shape a identity { let a identity: a }
+graith a equal show shape a order-partial { let a ≤ a: 𝟚 }
 ```
 
 showing a data declaration publisheth its type and constructors.
@@ -377,28 +391,28 @@ showing a shape also publisheth its methods, including defaults.
 
 fill declarations are instance evidence rather than named api entries. fill evidence crosseth imports automatically and is not prefixed with `show`.
 
-`show name;` re-exports an already visible term without redefining it.
+`show name` re-exports an already visible term without redefining it.
 
-`show-ilk name;` re-exports an already visible type, including an effect constructor. it doth not re-export data constructors or effect operations.
+`show-ilk name` re-exports an already visible type, including an effect constructor. it doth not re-export data constructors or effect operations.
 
 term and type names are looked up in separate namespaces. data types and effect constructors share the type namespace. if a bare name is ambiguous within its namespace, the re-export is an error and the source must use a qualified name.
 
 ```tung
-bring data/option.tung;
-show-ilk data/option@option;
-show data/option@default;
+bring data/option.tung
+show-ilk data/option@option
+show data/option@default
 ```
 
-there is no wildcard re-export. re-export each term or type with `show name;` or `show-ilk name;`.
+there is no wildcard re-export. re-export each term or type with `show name` or `show-ilk name`.
 
 an ordinary `bring` never re-exports its imported surface.
 
 private names are unavailable to importers both bare and qualified.
 
 ```tung
-bring ground.tung;
+bring ground.tung
 
-let x = ground@yea;
+let x = ground@yea
 let y = yea
 ```
 
@@ -586,7 +600,7 @@ deep handlers are reinstalled around resumed computation.
 `let` always useth `=`.
 
 ```tung
-let (x: a) id: a = x;
+let (x: a) id: a = x
 ```
 
 function definition headers use the same sequence rule as expressions.
@@ -604,7 +618,7 @@ same structure instead retain relational names such as `left` and `right`.
 the second term is the function name.
 
 ```tung
-let x add-two y = x + y;
+let x add-two y = x + y
 ```
 
 typed non-infix arguments may also be grouped before the function name.
@@ -618,13 +632,13 @@ grouped typed-argument syntax is allowed for ordinary definitions and shape defa
 shape requirements for a definition are written with leading `graith`.
 
 ```tung
-graith a equal let (x: a, y: a) same: 𝟚 = x ≡ y;
+graith a equal let (x: a, y: a) same: 𝟚 = x ≡ y
 ```
 
 the grouped typed-argument form maketh this:
 
 ```tung
-let (x: integer, y: integer) add: integer = x + y;
+let (x: integer, y: integer) add: integer = x + y
 ```
 
 mean a curried function:
@@ -639,7 +653,7 @@ effect annotations after the result in grouped typed-argument syntax belong to t
 
 ```tung
 let (f₀: a → b ! e₀, f₁: b → c ! e₁, x: a) compose: c ! e₀, e₁ =
-  (x f₀) f₁;
+  (x f₀) f₁
 ```
 
 second-is-function headers also work with named arguments:
@@ -656,8 +670,8 @@ let value default-option default = match value {
 type aliases use `let-ilk`.
 
 ```tung
-let-ilk count = integer;
-let-ilk a powerset = a func 𝟚;
+let-ilk count = integer
+let-ilk a powerset = a func 𝟚
 ```
 
 aliases are transparent during unification.
@@ -705,7 +719,7 @@ these byspels mean:
 type application followeth second-is-function syntax too.
 
 ```tung
-let pair-value: integer ∏ text = 1 ∏ 'one';
+let pair-value: integer ∏ text = 1 ∏ 'one'
 ```
 
 constructor application is curried.
@@ -806,13 +820,10 @@ use current language terms consistently.
 
 `graith` requirements use comma separation.
 
-members inside `shape` use semicolon separators.
+members inside `shape` do not take semicolons. a following `let`, `graith`,
+`law`, or `}` delimiteth each member.
 
-the last member may omit its semicolon before `}`.
-
-required members are bare signatures.
-
-do not put `let` before a required member signature.
+required members use `let` followed by a signature without `=`.
 
 default members use the same `let` syntax as ordinary functions.
 
@@ -827,8 +838,7 @@ laws use `law (name: ilk, ...): left ~ right` inside a `shape`.
 law parameters are comma-separated local term names and each parameter requireth
 a type annotation.
 
-law entries use the same semicolon separators as other shape members. the final
-law may omit its semicolon before `}`.
+law entries are semicolonless like other shape members.
 
 both law sides are inferred in one shared local context. they must have the same
 value type and the same immediate effect row.
@@ -861,7 +871,7 @@ member rather than parents of the whole shape.
 
 ```tung
 shape f traverse {
-  graith m applicative (a f) traverse (a → b m): (b f) m
+  graith m applicative let (a f) traverse (a → b m): (b f) m
 }
 ```
 
@@ -872,27 +882,29 @@ when a default useth grouped typed arguments, the annotation after the member na
 
 ```tung
 shape a equal {
-  a ≡ a: 𝟚;
-  let a ≢ b = (a ≡ b) ¬;
+  let a ≡ a: 𝟚
+  let a ≢ b = (a ≡ b) ¬
   law (x: a): x ≡ x ~ yea
 }
 ```
 
 ```tung
 graith a equal shape a order-partial {
-  a ≤ a: 𝟚
+  let a ≤ a: 𝟚
 }
 ```
 
 ```tung
 graith a add shape a subtract {
-  a - a: a
+  let a - a: a
 }
 ```
 
 `fill` implementeth a `shape`.
 
-`fill` headers use second-is-function syntax.
+`shape` and `fill` headers use second-is-function syntax. for example, a shape
+with two parameters is written `shape a inhold b`, and its fill is written
+`fill (a list) inhold a`.
 
 `fill` declarations may have requirements introduced by leading `graith`.
 
@@ -912,9 +924,8 @@ a `fill` for a child shape also witnesseth its required parent shapes. this is t
 
 members inside `fill` use the same `let` syntax as ordinary functions.
 
-members inside `fill` use semicolon separators.
-
-the final semicolon before `}` may be omitted.
+fill members do not take semicolons. a following `let`, `graith`, or `}`
+delimiteth each member.
 
 ```tung
 fill 𝟚 equal {
@@ -1002,16 +1013,16 @@ each case useth `|`.
 
 blocks are parenthesised.
 
-blocks contain local `let` declarations plus a final expression.
+blocks contain local `let` declarations followed by `yield` and a final expression.
 
-local block `let` declarations require semicolons.
+local block `let` declarations do not take semicolons.
 
-the final expression in a block may be followed by an optional semicolon before `)`.
+`yield` is required before the final expression, which hath no trailing semicolon.
 
 ```tung
 (
-  let x = 2 × 3;
-  x + 1
+  let x = 2 × 3
+  yield x + 1
 )
 ```
 
@@ -1029,7 +1040,7 @@ scrutinees are separated by commas.
 let chosen = match yea, nay {
   yea, b | b,
   nay, _ | nay
-};
+}
 ```
 
 anonymous functions do not use `match`.
@@ -1042,7 +1053,7 @@ when a bare brace function case hath multiple patterns, the result is a curried 
 let not: 𝟚 → 𝟚 = {
   yea | nay,
   nay | yea
-};
+}
 ```
 
 this bare brace form is recognised as a function over its pattern inputs.
@@ -1076,7 +1087,7 @@ the empty anonymous function `{}` is allowed when its annotated input type is un
 this is the eliminator for `𝟘`.
 
 ```tung
-let initial: 𝟘 → a = {};
+let initial: 𝟘 → a = {}
 ```
 
 an unannotated empty anonymous match `{}` is not allowed, because it hath no pattern arity.
@@ -1112,9 +1123,9 @@ if no exact name is found, `record@field` readeth `field` from `record`.
 field removal useth `- field`.
 
 ```tung
-let person = [name = 'naoki', age = 35];
-let older = [= person, age = 36];
-let public = [= person, - age];
+let person = [name = 'naoki', age = 35]
+let older = [= person, age = 36]
+let public = [= person, - age]
 ```
 
 closed records mean field sets must match when an annotated record type is checked.
@@ -1189,7 +1200,7 @@ deed choice {
 let branched: integer =
   try (null pick) + (null pick) {
     pick | (1 resume) + (2 resume)
-  };
+  }
 ```
 
 ```tung
@@ -1200,7 +1211,7 @@ deed ask {
 let answered: integer =
   try 10 ask {
     x ask | x resume
-  };
+  }
 ```
 
 ```tung
@@ -1208,7 +1219,7 @@ let answered-text: text =
   try 10 ask {
     return n | n to-text,
     x ask | x resume
-  };
+  }
 ```
 
 effect-level handlers may not bind operation arguments.
@@ -1240,12 +1251,12 @@ the default runner runneth forked closures concurrently and giveth each task a s
 ```tung
 let (_: 𝟙) answer: integer ! async =
   (
-    let left = ({ _ | let _ = 200 sleep; 20 }) fork;
-    let right = ({ _ | let _ = 200 sleep; 22 }) fork;
-    try (left wait) + (right wait) {
+    let left = ({ _ | (let _ = 200 sleep yield 20) }) fork
+    let right = ({ _ | (let _ = 200 sleep yield 22) }) fork
+    yield try (left wait) + (right wait) {
       _ fail | 0
     }
-  );
+  )
 ```
 
 both sleeps overlap. task construction remaineth unavailable to user code, so only the runner may produce a completed task. the handler covereth cancellation or host-thread failure from either wait.
@@ -1415,8 +1426,8 @@ write-line: text → 𝟙 ! console
 an annotated top-level let may use `foreign` in place of its body.
 
 ```tung
-show let add-integer: integer → integer → integer = foreign;
-show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = foreign;
+show let add-integer: integer → integer → integer = foreign
+show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = foreign
 ```
 
 this declareth a host-provided function with an ordinary tung type.

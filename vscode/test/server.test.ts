@@ -17,9 +17,9 @@ test("server implementeth the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show kin natural { zero };\nshow kin a parcel { a wrap };\nshow let (x: integer) identity: integer = x;\nshow let answer: integer = 42;\nshow shape a convert { a convert: a };\n";
+    "show kin natural { zero }\nshow kin a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow shape a convert { let a convert: a }\n";
   const mainText =
-    'bring dep.tung;\nlet value: integer = answer;\nlet count: natural = zero;\nlet ratio: float = 1.5;\nlet shipment: integer parcel = 1 wrap;\nlet same: integer = 1 identity; # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle;\nlet picker = { first, second, third | second };\nfill integer convert { let x convert = x };\nshow kin a box {\na box\n}\n';
+    'bring dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third | second }\nfill integer convert { let x convert = x }\nshow kin a box {\na box\n}\n';
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -340,8 +340,8 @@ test("server implementeth the editor workflow over stdio", async (context) => {
     ({ diagnostics }) => diagnostics.length > 0,
   );
   const badText = mainText.replace(
-    "let value: integer = answer;",
-    "let value: text = answer;",
+    "let value: integer = answer",
+    "let value: text = answer",
   );
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: mainUri, version: 2 },
@@ -353,25 +353,17 @@ test("server implementeth the editor workflow over stdio", async (context) => {
     badResult.diagnostics[0].range.start,
     positionOf(badText, "answer"),
   );
-  const missingSemicolon = "bring dep.tung";
-  const parseDiagnostics = nextDiagnostics(
+  const semicolonlessBring = "bring dep.tung";
+  const bringDiagnostics = nextDiagnostics(
     connection,
     mainUri,
-    ({ diagnostics }) =>
-      diagnostics.length > 0 &&
-      /expected ';' after bring/.test(diagnostics[0].message),
+    ({ diagnostics }) => diagnostics.length === 0,
   );
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: mainUri, version: 3 },
-    contentChanges: [{ text: missingSemicolon }],
+    contentChanges: [{ text: semicolonlessBring }],
   });
-  const parseResult = await parseDiagnostics;
-  const actions = await request("textDocument/codeAction", {
-    textDocument: { uri: mainUri },
-    range: parseResult.diagnostics[0].range,
-    context: { diagnostics: parseResult.diagnostics },
-  });
-  assert.equal(actions[0].title, "add bring semicolon");
+  assert.deepEqual((await bringDiagnostics).diagnostics, []);
   connection.sendNotification("textDocument/didClose", {
     textDocument: { uri: mainUri },
   });
@@ -435,7 +427,7 @@ test("server sendeth semantic fallback notification without refresh capability",
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-lsp-fallback-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, "main.tung");
-  const text = "let value: integer = 1;\n";
+  const text = "let value: integer = 1\n";
   fs.writeFileSync(file, text);
   const uri = pathToFileURL(file).href;
   const server = childProcess.spawn(

@@ -1,5 +1,5 @@
-bring _foreign.tung;
-bring data/one.tung;
+bring _foreign.tung
+bring data/one.tung
 
 ## a non-normalised span measured in milliseconds.
 show kin milliseconds {
@@ -7,14 +7,14 @@ show kin milliseconds {
 }
 
 show let (value: integer) seconds: milliseconds =
-  value × 1000 $ milliseconds;
+  value × 1000 $ milliseconds
 
 show let (value: integer) minutes: milliseconds =
-  (value × 60) seconds;
+  (value × 60) seconds
 
 
 show let (value: integer) hours: milliseconds =
-  (value × 60) minutes;
+  (value × 60) minutes
 
 show let (value milliseconds: milliseconds) sleep-for: 𝟙 ! async =
   value sleep

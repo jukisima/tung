@@ -1,10 +1,10 @@
-bring _foreign.tung;
-bring algebra/total/semigroup.tung;
-bring algebra/total/monoid.tung;
+bring _foreign.tung
+bring algebra/total/semigroup.tung
+bring algebra/total/monoid.tung
 
 graith a monoid
 show shape a group {
-  a / a: a;
+  let a / a: a
 
   law (a: a): a / a ~ ∅
 }

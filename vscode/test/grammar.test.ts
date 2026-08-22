@@ -17,7 +17,7 @@ const manifest = JSON.parse(
 );
 test("textmate fallback scopeth bring paths as one import string", () => {
   const pattern = grammar.repository["import-path"].patterns[0];
-  const match = "bring algebra/foreign.tung;".match(
+  const match = "bring algebra/foreign.tung".match(
     new RegExp(pattern.match, "u"),
   );
   assert.equal(match[1], "bring");
@@ -29,15 +29,15 @@ test("textmate giveth a whole bring path one scope", async () => {
   const loaded = await loadGrammar();
   for (
     const line of [
-      "bring ground.tung;",
-      "bring algebra/arithmetic/field.tung;",
-      "bring _foreign.tung;",
-      "bring equal.tung;",
-      "bring order.tung;",
+      "bring ground.tung",
+      "bring algebra/arithmetic/field.tung",
+      "bring _foreign.tung",
+      "bring equal.tung",
+      "bring order.tung",
     ]
   ) {
     const start = "bring ".length;
-    const end = line.indexOf(";");
+    const end = line.length;
     const pathTokens = loaded
       .tokenizeLine(line)
       .tokens.filter((token) =>
@@ -91,8 +91,8 @@ test("textmate scopeth decimal unicode escapes", async () => {
 test("textmate keepeth standalone export names plain", async () => {
   const loaded = await loadGrammar();
   const cases: Array<[string, string[]]> = [
-    ["show write, write-line, read;", ["write", "write-line", "read"]],
-    ["show +, zero, ×, one, -, ∕, ÷;", [
+    ["show write, write-line, read", ["write", "write-line", "read"]],
+    ["show +, zero, ×, one, -, ∕, ÷", [
       "+",
       "zero",
       "×",
@@ -118,7 +118,7 @@ test("textmate keepeth standalone export names plain", async () => {
   }
 });
 test("textmate giveth standalone show-ilk names the type scope", async () => {
-  const line = "show-ilk integer, item-box, 𝟚;";
+  const line = "show-ilk integer, item-box, 𝟚";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   for (const name of ["integer", "item-box", "𝟚"]) {
     const offset = line.indexOf(name);
@@ -129,7 +129,7 @@ test("textmate giveth standalone show-ilk names the type scope", async () => {
   }
 });
 test("textmate still highlighteth declarations prefixed by show", async () => {
-  const line = "show let value: integer = 1;";
+  const line = "show let value: integer = 1";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   const at = (name) =>
     tokens.find(
@@ -174,6 +174,13 @@ test("textmate recogniseth declaration and member keywords", async () => {
       );
     assert(token.scopes.includes("keyword.declaration.tung"), line);
   }
+});
+test("textmate recogniseth the yield result keyword", async () => {
+  const line = "yield value";
+  const token = (await loadGrammar()).tokenizeLine(line).tokens.find(
+    ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "yield",
+  );
+  assert(token.scopes.includes("keyword.control.tung"));
 });
 test("textmate recogniseth the foreign let-body marker", async () => {
   const line = "show let join-text: text → text → text = foreign;";

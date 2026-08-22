@@ -57,7 +57,8 @@ compiler-install: compiler-build
 
 runner-check:
 	@printf 'checking installed tung runner\n'
-	@printf '%s\n' 'let value identity = value;' | (cd /tmp && "$(BIN_DIR)/tung" --check-stdin) | grep -qx 'type ok'
+	@printf '%s\n' 'let value identity = value' | (cd /tmp && "$(BIN_DIR)/tung" --check-stdin) | grep -qx 'type ok'
+	@printf '%s\n' ' let value = 1 ' | (cd /tmp && "$(BIN_DIR)/tung" --format-stdin) | grep -qx 'let value = 1'
 	@if ! printf '%s' ":$$PATH:" | grep -Fq ':$(BIN_DIR):'; then \
 		printf 'add %s to path to run: tung filename.tung\n' "$(BIN_DIR)"; \
 	fi

@@ -1,8 +1,8 @@
-bring _foreign.tung;
-bring data/natural.tung;
-bring data/two.tung;
-bring order.tung;
-bring order/lattice.tung;
+bring _foreign.tung
+bring data/natural.tung
+bring data/two.tung
+bring order.tung
+bring order/lattice.tung
 
 fill integer semilattice-infimal {
   let a ∧ b = (a ≤ b) if a b

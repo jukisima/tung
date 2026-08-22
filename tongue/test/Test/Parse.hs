@@ -18,63 +18,74 @@ group =
 
 accepted :: [(String, String)]
 accepted =
-  [ ("last declaration may omit semicolon", "let answer = 42")
+  [ ("last let declaration needeth no semicolon", "let answer = 42")
   , ("top-level declaration boundary needeth no semicolon", "let x = 1 let y = 2")
-  , ("last expression may omit semicolon", "let answer = 42; answer")
-  , ("type alias", "let-ilk count = integer;")
-  , ("parameterised type alias", "let-ilk a powerset = a func 𝟚;")
-  , ("algebraic data", "kin a option { none, a some };")
-  , ("empty algebraic data", "kin 𝟘 {};")
-  , ("parameterised effect", "deed a state { 𝟙 get: a, a set: 𝟙 };")
-  , ("foreign let", "let add-integer: integer → integer → integer = foreign;")
-  , ("shape requirement and default", "graith a equal shape a order-partial { a ≤ a: 𝟚; let a < b = a ≤ b };")
-  , ("shape member requirement", "shape f traverse { graith m applicative (a f) traverse (a → b m): (b f) m };")
-  , ("shape law", "shape a identity { a identity: a; law (x: a): x identity ~ x };")
-  , ("fill methods use let", "graith a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y };")
-  , ("exported value", "show let answer = 42;")
-  , ("exported graith value", "graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y;")
-  , ("exported type alias", "show let-ilk count = integer;")
-  , ("exported parameterised type alias", "show let-ilk a powerset = a func 𝟚;")
-  , ("exported data", "show kin a option { none, a some };")
-  , ("exported effect", "show deed ask { integer ask: integer };")
-  , ("exported foreign let", "show let add-integer: integer → integer → integer = foreign;")
-  , ("exported shape", "show shape a equal { a ≡ a: 𝟚 };")
-  , ("exported graith shape", "graith a equal show shape a order-partial { a ≤ a: 𝟚 };")
-  , ("name re-export", "bring file.tung; show file@value;")
-  , ("grouped name re-export", "bring file.tung; show file@first, file@second;")
-  , ("type re-export", "bring file.tung; show-ilk file@value;")
-  , ("grouped type re-export", "bring file.tung; show-ilk file@first, file@second;")
-  , ("closed record and update", "let person = [name = 'n', age = 1]; [= person, age = 2, - name]")
-  , ("record removal needeth space", "[= person, - age]")
-  , ("multi-scrutinee match", "match 1, 2 { a, b | a }")
-  , ("integer patterns in a match", "match 1 { 0 | 0, 1 | 1, _ | 2 }")
-  , ("integer pattern in a function header", "let 0 zero-only = 0;")
-  , ("bare brace unary function", "{ x | x }")
-  , ("bare brace curried function", "{ x, y, z | z }")
-  , ("empty consuming match", "match x {}")
-  , ("handler return and operation cases", "try action { return x | x, message fail | message }")
-  , ("parenthesised local block", "(let x = 1; x + 2;)")
-  , ("term type ascription", "let answer = (1 + 2: integer);")
-  , ("func is a binary type constructor", "let (x: integer) id: integer = x;")
+  , ("type alias boundary needeth no semicolon", "let-ilk count = integer let answer: count = 42")
+  , ("yield introduceth the final file expression", "let answer = 42 yield answer")
+  , ("type alias", "let-ilk count = integer")
+  , ("parameterised type alias", "let-ilk a powerset = a func 𝟚")
+  , ("algebraic data", "kin a option { none, a some }")
+  , ("empty algebraic data", "kin 𝟘 {}")
+  , ("parameterised effect", "deed a state { 𝟙 get: a, a set: 𝟙 }")
+  , ("foreign let", "let add-integer: integer → integer → integer = foreign")
+  , ("shape requirement and default", "graith a equal shape a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }")
+  , ("shape member requirement", "shape f traverse { graith m applicative let (a f) traverse (a → b m): (b f) m }")
+  , ("shape law", "shape a identity { let a identity: a law (x: a): x identity ~ x }")
+  , ("shape members need no separators", "shape a identity { let a identity: a let (x: a) same: a = x law (x: a): x identity ~ x }")
+  , ("shape and fill headers use second-is-function order", "shape a convert b { let a convert: b } fill integer convert text { let x convert = 'x' }")
+  , ("fill methods use let", "graith a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y }")
+  , ("fill members need no semicolons", "fill integer linked { let x first = x let x second = x first }")
+  , ("graith fill members need no semicolons", "fill integer linked { graith a equal let x first = x let x second = x }")
+  , ("exported value", "show let answer = 42")
+  , ("exported graith value", "graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y")
+  , ("exported type alias", "show let-ilk count = integer")
+  , ("exported parameterised type alias", "show let-ilk a powerset = a func 𝟚")
+  , ("exported data", "show kin a option { none, a some }")
+  , ("exported effect", "show deed ask { integer ask: integer }")
+  , ("exported foreign let", "show let add-integer: integer → integer → integer = foreign")
+  , ("exported shape", "show shape a equal { let a ≡ a: 𝟚 }")
+  , ("exported graith shape", "graith a equal show shape a order-partial { let a ≤ a: 𝟚 }")
+  , ("name re-export", "bring file.tung show file@value")
+  , ("grouped name re-export", "bring file.tung show file@first, file@second")
+  , ("type re-export", "bring file.tung show-ilk file@value")
+  , ("grouped type re-export", "bring file.tung show-ilk file@first, file@second")
+  , ("closed record and update", "let person = [name = 'n', age = 1] yield [= person, age = 2, - name]")
+  , ("record removal needeth space", "yield [= person, - age]")
+  , ("multi-scrutinee match", "yield match 1, 2 { a, b | a }")
+  , ("integer patterns in a match", "yield match 1 { 0 | 0, 1 | 1, _ | 2 }")
+  , ("integer pattern in a function header", "let 0 zero-only = 0")
+  , ("bare brace unary function", "yield { x | x }")
+  , ("bare brace curried function", "yield { x, y, z | z }")
+  , ("empty consuming match", "yield match x {}")
+  , ("handler return and operation cases", "yield try action { return x | x, message fail | message }")
+  , ("parenthesised local block", "yield (let x = 1 yield x + 2)")
+  , ("multiple local lets need no semicolons", "yield (let x = 1 let y = 2 yield x + y)")
+  , ("term type ascription", "let answer = (1 + 2: integer)")
+  , ("func is a binary type constructor", "let (x: integer) id: integer = x")
   ]
 
 rejected :: [(String, String)]
 rejected =
-  [ ("bring requireth semicolon", "bring ground.tung")
-  , ("bring requireth a path", "bring ;")
+  [ ("bare final expression requireth yield", "42")
+  , ("go is an ordinary name rather than a result keyword", "go 42")
+  , ("top-level semicolon is rejected", "let x = 1;")
+  , ("bring requireth a path", "bring")
   , ("show requireth a name", "show;")
   , ("show cannot prefix bring", "show bring ground.tung;")
   , ("show-ilk requireth a name", "show-ilk;")
   , ("show cannot prefix an expression", "show 42")
-  , ("local let requireth semicolon", "(let x = 1 x)")
+  , ("local block requireth yield", "yield (let x = 1 x)")
+  , ("local let rejecteth semicolon", "yield (let x = 1; yield x)")
   , ("empty typed argument list", "let () bad: integer = 1")
   , ("kin requireth a body", "kin option;")
   , ("deed operation requireth a type", "deed pulse { pulse }")
   , ("fill requireth a target type", "fill equal {}")
   , ("law parameters require types", "shape a bad { law (x): x ~ x }")
   , ("law requireth equivalence separator", "shape a bad { law (x: a): x }")
-  , ("shape default before law requireth semicolon", "shape a bad { let (x: a) identity: a = x law (x: a): x identity ~ x }")
-  , ("shape member requirement needeth a member", "shape f bad { graith m applicative };")
+  , ("shape member requirement needeth a member", "shape f bad { graith m applicative }")
+  , ("required shape member needeth let", "shape a bad { a bad: a }")
+  , ("shape member rejecteth semicolon", "shape a bad { let a bad: a; }")
+  , ("graith shape member needeth let", "shape f bad { graith m applicative (a f) bad: a }")
   , ("match arm requireth bar", "match 1 { _ 1 }")
   , ("try requireth handler cases", "try action")
   , ("dollar requireth a left expression", "$ + 1 2")
@@ -83,8 +94,8 @@ rejected =
   , ("record update requireth a base", "[= , value = 1]")
   , ("effects require a function type", "let bad: integer ! fail = 1")
   , ("deed members use commas", "deed e { 𝟙 one: 𝟙; 𝟙 two: 𝟙 }")
-  , ("fill members use semicolons", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
-  , ("fill members require semicolons", "fill integer bad { let x first = x let x second = x }")
+  , ("fill members reject commas", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
+  , ("fill members reject semicolons", "fill integer bad { let x first = x; let x second = x }")
   , ("handler hath at most one return clause", "try 1 { return x | x, return y | y }")
   ]
 
@@ -104,7 +115,7 @@ expressions =
   ]
 
 expressionCase :: (String, String, Expr) -> Test
-expressionCase (name, source, expected) = case parse source of
+expressionCase (name, source, expected) = case parse ("yield " ++ source) of
   Right (Program [Let "_" Nothing actual]) -> expectEq name expected actual
   Right actual -> pure (Just (name ++ ": unexpected ast " ++ show actual))
   Left message -> pure (Just (name ++ ": parse failed: " ++ message))
@@ -137,23 +148,19 @@ definitionForms =
 
 parserProperties :: [Test]
 parserProperties =
-  [ Harness.propertyTest "property: top-level definition boundaries parse" $
+  [ Harness.propertyTest "property: top-level let boundaries need no semicolons" $
       QuickCheck.forAll boundarySeparator \separator ->
         QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \first ->
           QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \second ->
-            let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second ++ ";"
+            let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second
              in QuickCheck.counterexample source (isRight (parse source))
-  , Harness.propertyTest "property: bring boundaries require a semicolon" $
+  , Harness.propertyTest "property: bring needeth no semicolon" $
       QuickCheck.forAll (QuickCheck.elements ["ground.tung", "data/list.tung", "nested/deep.tung"]) \path ->
-        let incomplete = "bring " ++ path
-            complete = incomplete ++ ";"
-         in QuickCheck.counterexample incomplete (isLeft (parse incomplete) QuickCheck..&&. isRight (parse complete))
+        let source = "bring " ++ path
+         in QuickCheck.counterexample source (isRight (parse source))
   ]
  where
-  boundarySeparator = QuickCheck.elements [" ", "\n", "\t", ";", ";\n", " # boundary\n", " /* boundary */ "]
-
-isLeft :: Either a b -> Bool
-isLeft = either (const True) (const False)
+  boundarySeparator = QuickCheck.elements [" ", "\n", "\t", " # boundary\n", " /* boundary */ "]
 
 isRight :: Either a b -> Bool
 isRight = either (const False) (const True)
