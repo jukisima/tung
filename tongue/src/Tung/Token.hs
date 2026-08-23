@@ -27,6 +27,7 @@ import Text.Megaparsec (Parsec)
 import Text.Megaparsec qualified as M
 import Text.Megaparsec.Char qualified as C
 import Text.Megaparsec.Char.Lexer qualified as L
+import Tung.Name (hasPathNamespace)
 
 data SourceSpan = SourceSpan
   { spanStart :: !Int
@@ -275,7 +276,11 @@ unicodeScalar value
   | otherwise = Nothing
 
 nameParser :: Lexer Token
-nameParser = keywordOrIdent . concat <$> some nameChunk
+nameParser = do
+  name <- concat <$> some nameChunk
+  if hasPathNamespace name
+    then fail "namespace must not contain '/'"
+    else pure (keywordOrIdent name)
 
 nameChunk :: Lexer String
 nameChunk = M.try (C.string ".*") M.<|> ((: []) <$> M.satisfy isNameChar)
@@ -289,10 +294,10 @@ lexeme = L.lexeme spaceConsumer
 keywordNames :: [String]
 keywordNames = map fst keywordTokens
 
--- handler words are contextual rather than lexer tokens, but editor metadata
--- still presenteth them as language keywords.
+-- eftgin is contextual rather than a lexer token, but editor metadata still
+-- presenteth it as a language keyword.
 languageKeywordNames :: [String]
-languageKeywordNames = keywordNames ++ ["return", "resume"]
+languageKeywordNames = keywordNames ++ ["eftgin"]
 
 keywordOrIdent :: String -> Token
 keywordOrIdent name = fromMaybe (TIdent name) (lookup name keywordTokens)
@@ -308,7 +313,7 @@ keywordTokens =
   , ("kin", TKin)
   , ("deed", TDeed)
   , ("yield", TYield)
-  , ("foreign", TForeign)
+  , ("fremmed", TForeign)
   , ("shape", TShape)
   , ("fill", TFill)
   , ("law", TLaw)

@@ -48,7 +48,6 @@ lexCases =
   , ("double minus remaineth a name", "--1", [TIdent "--1"])
   , ("dot prepend is one name", ".*", [TIdent ".*"])
   , ("standalone dot is syntax", ".", [TDot])
-  , ("go is an ordinary name", "go", [TIdent "go"])
   , ("backslash is an ordinary name", "\\\\", [TIdent "\\\\"])
   , ("comment endeth at newline", "1 # hidden\n2", [TInteger 1, TInteger 2])
   , ("block comment is skipped", "1 /* hidden { = */ 2", [TInteger 1, TInteger 2])
@@ -63,7 +62,8 @@ lexCases =
 
 lexErrors :: [(String, String)]
 lexErrors =
-  [ ("unterminated text", "'no")
+  [ ("path-qualified namespace", "data/list@empty")
+  , ("unterminated text", "'no")
   , ("unknown text escape", "'\\q'")
   , ("unicode escape above range", "`\\1114112;")
   , ("unicode surrogate escape", "`\\55296;")
@@ -95,7 +95,7 @@ keywordToken = \case
   "kin" -> TKin
   "deed" -> TDeed
   "yield" -> TYield
-  "foreign" -> TForeign
+  "fremmed" -> TForeign
   "shape" -> TShape
   "fill" -> TFill
   "law" -> TLaw

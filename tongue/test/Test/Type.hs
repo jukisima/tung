@@ -7,7 +7,7 @@ import Data.Map.Strict qualified as Map
 import Test.Harness (Group, Test, expect, expectEq, runnableErr, runnableOk, typeErr, typeErrContaining, typeErrWith, typeOk, typeOkWith)
 import Test.Harness qualified as Harness
 import Test.QuickCheck qualified as QuickCheck
-import Tung (check, elaborateProgramWithImports, parse, readBookhoardImports, typeOfWithImports)
+import Tung (check, checkWithImports, elaborateProgramWithImports, parse, readBookhoardImports, typeOfWithImports)
 
 group :: IO Group
 group = do
@@ -72,13 +72,14 @@ accepted =
   , ("parametric child fill useth its parent method", inheritedMethodHierarchy)
   , ("fill graith may construct a parent dictionary", parentDictionaryGraith)
   , ("parameterised state effect", unitData ++ "deed a state { 𝟙 get: a, a set: 𝟙 } let got: 𝟙 → integer ! integer state = get")
-  , ("operation handler resumeth", "deed ask { integer ask: integer } let ok: integer = try 10 ask { x ask | x resume }")
-  , ("handler changeth answer through return", "deed ask { integer ask: integer } let ok: text = try 10 ask { return n | n to-text, x ask | x resume }")
+  , ("eftgin continueth an operation handler", "deed ask { integer ask: integer } let ok: integer = try 10 ask { x ask | x eftgin }")
+  , ("handler changeth answer through yield", "deed ask { integer ask: integer } let ok: text = try 10 ask { yield n | n to-text, x ask | x eftgin }")
   , ("all operation clauses remove an effect", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null first { first | null, second | null }")
   , ("effect clause removeth every operation", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null first { duo | null }")
   , ("handler clause effects escape handler", duoEffect ++ "let (_: 𝟙) run: 𝟙 ! duo = try null first { first | null second, second | null }")
   , ("operation keepeth declared extra effect", unitData ++ "deed other { 𝟙 other: 𝟙 } deed mine { 𝟙 op: 𝟙 ! other } let (_: 𝟙) run: 𝟙 ! other = try null op { op | null other }")
-  , ("foreign let entereth value scope", "let add-integer: integer → integer → integer = foreign let answer: integer = 1 add-integer 2")
+  , ("operation propagateth a handler effect row", unitData ++ "kin request { request } kin response { response } deed e fail { e fail: a } deed clock { 𝟙 tick: 𝟙 } deed web { integer serve (request → response ! e): 𝟙 ! e, text fail } let (_: request) route: response ! clock = (let _ = null tick yield response) let (_: 𝟙) run: 𝟙 ! web, clock, text fail = 8080 serve route")
+  , ("fremmed key entereth value scope under another name", "let plus: integer → integer → integer = 'add-integer' fremmed let answer: integer = 1 plus 2")
   , ("declaration-only file is runnable", "let answer = 42")
   ]
 
@@ -128,24 +129,31 @@ rejected =
   , ("partial coverage doth not combine across handlers", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try (try null second { first | null }) { second | null }")
   , ("handler for absent effect", "let bad: integer = try 1 { fail | 2 }")
   , ("ordinary function is not an operation", "deed ask { integer ask: integer } let (x: integer) f: integer ! ask = x ask let bad = try 1 f { x f | x }")
-  , ("resume argument hath operation result type", "deed ask { integer ask: integer } let bad: integer = try 10 ask { x ask | 'bad' resume }")
-  , ("resume is scoped to operation clauses", "let bad = 1 resume")
-  , ("handler return pattern must be irrefutable", boolData ++ "let bad = try nay { return yea | 1 }")
-  , ("handler return integer pattern is refutable", "let bad = try 1 { return 1 | 1 }")
+  , ("eftgin argument hath operation result type", "deed ask { integer ask: integer } let bad: integer = try 10 ask { x ask | 'bad' eftgin }")
+  , ("eftgin is scoped to operation clauses", "let bad = 1 eftgin")
+  , ("handler yield pattern must be irrefutable", boolData ++ "let bad = try nay { yield yea | 1 }")
+  , ("handler yield integer pattern is refutable", "let bad = try 1 { yield 1 | 1 }")
   , ("handler operation patterns must be irrefutable", boolData ++ "deed choose { 𝟚 choose: integer } let bad = try nay choose { yea choose | 1 }")
   , ("effect handler cannot bind operation arguments", duoEffect ++ "let bad: 𝟙 = try null first { x duo | null }")
   , ("effectful let result stayeth monomorphic", unitData ++ "deed a state { 𝟙 get: a } let _ run = (let value = null get let number: integer = value let word: text = value yield null)")
   , ("bookhoard let cannot run immediate effects", "let answer = 'hello' write")
-  , ("foreign let requireth an annotation", "let add-integer = foreign")
-  , ("foreign let requireth a host implementation", "let unknown: integer → integer = foreign")
-  , ("foreign let must match its host signature", "let add-integer: integer → integer = foreign")
-  , ("foreign marker cannot be nested", "let bad: [value: integer] = [value = foreign]")
-  , ("foreign let must be file-level", "let _ outer = (let add-integer: integer → integer → integer = foreign yield 1)")
+  , ("fremmed let requireth an annotation", "let plus = 'add-integer' fremmed")
+  , ("fremmed key requireth a host implementation", "let unknown: integer → integer = 'unknown' fremmed")
+  , ("fremmed key must match its host signature", "let plus: integer → integer = 'add-integer' fremmed")
+  , ("fremmed marker cannot be nested", "let bad: [value: integer] = [value = 'add-integer' fremmed]")
+  , ("fremmed let must be file-level", "let _ outer = (let plus: integer → integer → integer = 'add-integer' fremmed yield 1)")
   ]
 
 importCases :: [Test]
 importCases =
   [ typeOkWith "shown value and type cross a bring" "bring file.tung let value: box = box" shown
+  , typeOkWith "default bring namespace covereth terms, types, and shapes" "bring data/item.tung let value: item@item = item@empty let same: item@item = value let result = same item@identity" aliased
+  , typeErrWith "bring aliases cannot collide" "bring left.tung common bring right.tung common" duplicateAliases
+  , typeErrWith "default bring aliases cannot collide" "bring data/item.tung bring syntax/item.tung" defaultAliasCollisionImports
+  , typeOkWith "explicit bring aliases override colliding defaults" "bring data/item.tung data-item bring syntax/item.tung syntax-item let result = data-item@value + syntax-item@value" defaultAliasCollisionImports
+  , expect "ambiguous imports suggest surface namespaces" $
+      let message = checkWithImports "bring data/natural.tung bring algebra/arithmetic/semiring.tung let bad = zero" ambiguousZeros
+       in "natural@zero" `isInfixOf` message && "semiring@zero" `isInfixOf` message && not ("/" `isInfixOf` message)
   , typeErrWith "unshown value stayeth hidden" "bring file.tung let bad = hidden" shown
   , typeErrWith "missing bring is rejected" "bring missing.tung" Map.empty
   , typeErrWith "bad brought source is rejected" "bring bad.tung" (Map.singleton "bad.tung" "let =")
@@ -169,6 +177,10 @@ importCases =
   ]
  where
   shown = Map.fromList [("file.tung", "show kin box { box } let hidden = 1")]
+  aliased = Map.singleton "data/item.tung" "show kin item { item } show shape a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item"
+  duplicateAliases = Map.fromList [("left.tung", "show let left = 1"), ("right.tung", "show let right = 2")]
+  defaultAliasCollisionImports = Map.fromList [("data/item.tung", "show let value = 1"), ("syntax/item.tung", "show let value = 2")]
+  ambiguousZeros = Map.fromList [("data/natural.tung", "show let zero = 0"), ("algebra/arithmetic/semiring.tung", "show let zero = 1")]
   cyclic = Map.fromList [("left.tung", "bring right.tung"), ("right.tung", "bring left.tung")]
   sharedImports =
     Map.fromList
@@ -184,16 +196,16 @@ tableAndSetCases :: Map.Map String String -> [Test]
 tableAndSetCases imports =
   [ typeOkWith "table, set, and powerset may qualify shared names" (source ++ qualifiedValues) imports
   , typeErrWith "table, set, powerset, and list empty values are ambiguous bare" (source ++ "let bad = empty") imports
-  , typeErrWith "table and set from-list constructors are ambiguous bare" (source ++ "let values: integer list = data/list@empty let bad = values from-list") imports
+  , typeErrWith "table and set from-list constructors are ambiguous bare" (source ++ "let values: integer list = list@empty let bad = values from-list") imports
   ]
  where
   source = "bring data/list.tung bring data/table.tung bring data/set.tung bring data/powerset.tung "
   qualifiedValues =
-    "let table-value: integer table text = data/table@empty "
-      ++ "let set-value: integer set = data/set@empty "
-      ++ "let powerset-value: integer powerset = data/powerset@empty "
-      ++ "let table-built: integer table text = data/list@empty data/table@from-list "
-      ++ "let set-built: integer set = data/list@empty data/set@from-list"
+    "let table-value: integer table text = table@empty "
+      ++ "let set-value: integer set = set@empty "
+      ++ "let powerset-value: integer powerset = powerset@empty "
+      ++ "let table-built: integer table text = list@empty table@from-list "
+      ++ "let set-built: integer set = list@empty set@from-list"
 
 orderCases :: Map.Map String String -> [Test]
 orderCases imports =
@@ -222,9 +234,9 @@ orderCases imports =
 boundCases :: Map.Map String String -> [Test]
 boundCases imports =
   [ typeOkWith "finite orders provide both endpoints" (prefix ++ "let low: 𝟚 = ⟂ let high: 𝟛 = ⊤") imports
-  , typeOkWith "natural supporteth the lower-bound fold" (prefix ++ "let value: natural = (data/natural@zero .* data/list@empty) …∨") imports
-  , typeErrWith "natural doth not claim an upper bound" (prefix ++ "let value: natural = (data/natural@zero .* data/list@empty) …∧") imports
-  , typeOkWith "powerset is a bounded lattice without total order" (powersetPrefix ++ "let joined: integer powerset = (empty-set .* (full-set .* data/list@empty)) …∨") imports
+  , typeOkWith "natural supporteth the lower-bound fold" (prefix ++ "let value: natural = (natural@zero .* list@empty) …∨") imports
+  , typeErrWith "natural doth not claim an upper bound" (prefix ++ "let value: natural = (natural@zero .* list@empty) …∧") imports
+  , typeOkWith "powerset is a bounded lattice without total order" (powersetPrefix ++ "let joined: integer powerset = (empty-set .* (full-set .* list@empty)) …∨") imports
   , typeErrWith "lattice doth not imply total order" (powersetPrefix ++ "let bad = empty-set ≤ full-set") imports
   , typeErrWith "float doth not claim a lawful lattice" "bring ground.tung let bad: float = 1.0 ∧ 2.0" imports
   , typeOkWith "infimum semilattice stands without supremum" (semilatticePrefix ++ "let good = item ∧ item") imports
@@ -234,7 +246,7 @@ boundCases imports =
   ]
  where
   prefix = "bring ground.tung bring data/list.tung bring data/natural.tung bring collection/catamorphism.tung "
-  powersetPrefix = "bring ground.tung bring data/list.tung bring data/powerset.tung bring collection/catamorphism.tung let empty-set: integer powerset = data/powerset@empty let full-set: integer powerset = universe "
+  powersetPrefix = "bring ground.tung bring data/list.tung bring data/powerset.tung bring collection/catamorphism.tung let empty-set: integer powerset = powerset@empty let full-set: integer powerset = universe "
   semilatticePrefix = "bring order/lattice.tung kin one-sided { item } fill one-sided semilattice-infimal { let _ ∧ _ = item } "
   supremumPrefix = "bring order/lattice.tung kin one-sided { item } fill one-sided semilattice-supremal { let _ ∨ _ = item } "
 

@@ -16,9 +16,9 @@ locatedTokens = case lexLocatedTokens "  answer + 1" of
 locatedForeign :: Test
 locatedForeign = case checkEditorDiagnosticWithImports source Map.empty of
   Nothing -> pure Nothing
-  Just diagnostic -> pure (Just ("located foreign declaration: " ++ show diagnostic))
+  Just diagnostic -> pure (Just ("located fremmed declaration: " ++ show diagnostic))
  where
-  source = "let add-integer: integer → integer → integer = foreign"
+  source = "let plus: integer → integer → integer = 'add-integer' fremmed"
 
 namedTypeError :: Test
 namedTypeError =

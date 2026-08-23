@@ -32,7 +32,7 @@ import Tung.Token (SourceSpan)
 newtype Program = Program [Decl] deriving (Eq, Show)
 
 data Decl
-  = Import String
+  = Import String (Maybe String)
   | Export Decl
   | ReExport String
   | ReExportType String
@@ -88,7 +88,7 @@ data Expr
   | EFloat Double
   | EUnicode Char
   | EText String
-  | EForeign
+  | EForeign String
   | EVar String
   | EAscribe Expr TypeExpr
   | EApply Expr (NonEmpty Expr)

@@ -25,7 +25,7 @@ import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.List (find, intercalate, isPrefixOf, stripPrefix)
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe, isJust, listToMaybe)
+import Data.Maybe (fromMaybe, isJust, listToMaybe, mapMaybe)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TextIO
 import Data.Time.Clock.POSIX (getPOSIXTime)
@@ -37,11 +37,13 @@ import System.Timeout qualified as Timeout
 import Text.Read (readMaybe)
 import Tung.Core (CoreProgram, coreDeclarations, coreImportDeclarations)
 import Tung.Import (ImportStack, enterImport)
-import Tung.Name (importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
+import Tung.Name (importAlias, importNamespace, isQualifiedName, lastQualifiedSegment, replaceNamespace, splitFieldAccessName)
 import Tung.Parse (parse)
+import Tung.Primitive (findForeignBinding, hostArity)
 import Tung.Syntax
 import Tung.Token (unicodeScalar)
 import Tung.Type
+import Tung.Web qualified as Web
 
 -- callable values retain supplied arguments, making partial application a pure
 -- value. natives and effect operations run only when 'applyArity' is saturated.
@@ -253,9 +255,11 @@ evalDeclsWithImports :: ImportStack -> CoreProgram -> [Decl] -> RuntimeEnv -> Ru
 evalDeclsWithImports importStack program ds env lastValue = foldM step (env, lastValue) ds
  where
   step (currentEnv, currentLast) = \case
-    Import path -> do
+    Import path alias -> do
       importedEnv <- evalImport importStack path program
-      let env2 = mergeRuntimeEnv (namespaceRuntimeImportEnv (importNamespace path) importedEnv) currentEnv
+      let canonical = importNamespace path
+          namespaced = namespaceRuntimeImportEnv canonical importedEnv
+          env2 = mergeRuntimeEnv (aliasRuntimeImportEnv canonical (importAlias path alias) namespaced) currentEnv
       pure (env2, currentLast)
     d -> do
       (env2, value) <- evalDecl d currentEnv
@@ -294,6 +298,22 @@ namespaceRuntimeImportEnv ns RuntimeEnv{..} =
         , runtimeShapes = namespaceImportShapes ns runtimeShapes
         , runtimeFills = Map.mapKeys (\key -> ns ++ "@" ++ key) runtimeFills
         }
+
+aliasRuntimeImportEnv :: String -> String -> RuntimeEnv -> RuntimeEnv
+aliasRuntimeImportEnv canonical alias env@RuntimeEnv{..}
+  | alias == canonical = env
+  | otherwise =
+      let aliases = mapMaybe aliasBinding runtimeValues
+          values = aliases ++ runtimeValues
+       in env
+            { runtimeValues = values
+            , runtimeLookup = indexRuntimeValues values
+            , runtimeShapes = Map.union (Map.mapKeys (replaceNamespace canonical alias) (Map.filterWithKey (\name _ -> canonicalPrefix name) runtimeShapes)) runtimeShapes
+            }
+ where
+  aliasBinding (name, value, rank, origin) =
+    (\rest -> (alias ++ "@" ++ rest, value, rank, origin)) <$> stripPrefix (canonical ++ "@") name
+  canonicalPrefix = isJust . stripPrefix (canonical ++ "@")
 
 namespaceRuntimeImportValues :: String -> [RuntimeBinding] -> [RuntimeBinding]
 namespaceRuntimeImportValues ns = concatMap one
@@ -339,7 +359,7 @@ exportRuntimeRank = 3
 -- anonymous matches capture their own binding without evaluating a body.
 evalDecl :: Decl -> RuntimeEnv -> Eval (RuntimeEnv, Maybe RuntimeValue)
 evalDecl decl env = case decl of
-  Import path -> runtimeError ("evaluation doth not support bring '" ++ path ++ "'")
+  Import path _ -> runtimeError ("evaluation doth not support bring '" ++ path ++ "'")
   Export declaration -> do
     (env2, value) <- evalDecl declaration env
     pure (markRuntimeDeclExport declaration env2, value)
@@ -351,8 +371,9 @@ evalDecl decl env = case decl of
   ShapeDecl params shapeName needs members -> pure (addShapeSelectors shapeName members (addRuntimeShapeInfo shapeName params needs members env), Nothing)
   FillDecl{} -> runtimeError "internal unelaborated fill"
   ElaboratedFill key _ shapeName needs members -> pure (addSelectedRuntimeFill key shapeName needs members env, Nothing)
-  Let name (Just (TypeAnn functionType _)) EForeign ->
-    pure (addValue name (VNative name (typeArity functionType) []) env, Nothing)
+  Let name (Just _) (EForeign hostKey) -> case findForeignBinding hostKey of
+    Just binding -> pure (addValue name (VNative hostKey (hostArity binding) []) env, Nothing)
+    Nothing -> runtimeError ("internal unknown fremmed host binding '" ++ hostKey ++ "'")
   Let name _ expr -> do
     value <- evalBoundValue name expr env
     let lastValue = if name == "_" then Just value else Nothing
@@ -397,7 +418,7 @@ compileExprWith staticEnv = \case
   EFloat s -> const (pure (VFloat s))
   EUnicode codePoint -> const (pure (VUnicode codePoint))
   EText s -> const (pure (VText (Text.pack s)))
-  EForeign -> const (runtimeError "internal misplaced foreign marker")
+  EForeign{} -> const (runtimeError "internal misplaced fremmed marker")
   EVar name -> evalVar name
   EAscribe expression _ -> compileExprWith staticEnv expression
   EApply function arguments ->
@@ -675,7 +696,7 @@ evalReturnCase :: Maybe ReturnCase -> RuntimeValue -> RuntimeEnv -> Eval Runtime
 evalReturnCase Nothing value _ = pure value
 evalReturnCase (Just (ReturnCase pat body)) value env =
   case bindRuntimePattern pat value env of
-    Nothing -> runtimeError "handler return value did not match pattern"
+    Nothing -> runtimeError "handler yield value did not match pattern"
     Just handlerEnv -> evalExpr body handlerEnv
 
 findHandler :: String -> String -> [HandlerCase] -> Maybe HandlerCase
@@ -689,7 +710,7 @@ evalHandlerCase :: HandlerCase -> [RuntimeValue] -> (RuntimeValue -> Eval Runtim
 evalHandlerCase (HandlerCase _ patterns body) args resume env =
   case bindHandlerRuntimePatterns patterns args env of
     Nothing -> runtimeError "handler operation arguments did not match pattern"
-    Just handlerEnv -> evalExpr body (addLocalValue "resume" (VContinuation resume) handlerEnv)
+    Just handlerEnv -> evalExpr body (addLocalValue "eftgin" (VContinuation resume) handlerEnv)
 
 bindHandlerRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
 bindHandlerRuntimePatterns [] _ env = Just env
@@ -740,8 +761,8 @@ runtimeConstructorName = \case
   VConstructor qualifiedName _ _ _ -> Just qualifiedName
   _ -> Nothing
 
--- foreign lets reach this boundary only after their names and full signatures
--- pass the type registry; base natives and deeds use their runtime spec tables.
+-- fremmed lets reach this boundary only after their keys and full signatures
+-- pass the host registry; base natives and deeds use their runtime spec tables.
 evalNative :: String -> [RuntimeValue] -> Eval RuntimeValue
 evalNative name args = case (name, args) of
   ("add-integer", [VInteger a, VInteger b]) -> pure (VInteger (a + b))
@@ -768,7 +789,6 @@ evalNative name args = case (name, args) of
   ("behead-text", [VText value]) -> pure (runtimeTextBehead value)
   ("text-to-list", [VText value]) -> pure (runtimeList (map VUnicode (Text.unpack value)))
   ("list-to-text", [value]) -> runtimeListToText value
-  ("fold-join-text", [value]) -> runtimeFoldJoinText value
   ("join-text", [VText left, VText right]) -> pure (VText (Text.append left right))
   ("equal-text", [VText left, VText right]) -> pure (runtimeBool (left == right))
   ("equal-unicode", [VUnicode left, VUnicode right]) -> pure (runtimeBool (left == right))
@@ -807,6 +827,7 @@ evalEffectOp effectName opName args = case (effectName, opName, args) of
   ("system", "exit", [VInteger status]) -> liftIO (exitWith (if status == 0 then ExitSuccess else ExitFailure (boundedInt status)))
   ("clock", "unix-time", [VData _ "null" []]) -> VInteger . floor <$> liftIO getPOSIXTime
   ("process", "run-process", [VText command, arguments]) -> runProcessRuntime command arguments
+  ("web", "serve", [VInteger port, handler]) -> serveWeb port handler
   _ -> performRuntime effectName opName args
 
 readHostArguments :: Eval [String]
@@ -836,6 +857,68 @@ runProcessRuntime command arguments = do
           "process-result"
           [VInteger (exitStatus status), VText (Text.pack output), VText (Text.pack errors)]
       )
+
+serveWeb :: Integer -> RuntimeValue -> Eval RuntimeValue
+serveWeb port handler
+  | port < 1 || port > 65535 = failRuntime "web port must be between 1 and 65535"
+  | otherwise = Eval $ \host -> do
+      outcome <- tryIOException (Web.serve port (handleWebRequest host handler))
+      case outcome of
+        Left exception -> runEval (failRuntime (displayException exception)) host
+        Right result -> pure result
+
+handleWebRequest :: RuntimeHost -> RuntimeValue -> Web.Request -> IO (Either (RuntimeResult RuntimeValue) Web.Response)
+handleWebRequest host handler request =
+  runEval (applyOne handler (runtimeWebRequest request)) host >>= \case
+    RuntimeOk value -> pure case runtimeWebResponse value of
+      Left message -> Left (RuntimeErr (RuntimeError message))
+      Right response -> Right response
+    result -> pure (Left result)
+
+runtimeWebRequest :: Web.Request -> RuntimeValue
+runtimeWebRequest request =
+  VData
+    "web/request@request@request"
+    "request"
+    [ VText (Web.requestMethod request)
+    , VText (Web.requestTarget request)
+    , runtimeWebHeaderTable (Web.requestHeaders request)
+    , VText (Web.requestBody request)
+    ]
+
+runtimeWebResponse :: RuntimeValue -> Either String Web.Response
+runtimeWebResponse = \case
+  VData _ "response" [VInteger status, headers, VText body]
+    | status < 100 || status > 599 -> Left "web response status must be between 100 and 599"
+    | otherwise -> Web.Response status <$> runtimeWebHeaderTableValues headers <*> pure body
+  _ -> Left "web handler returned an invalid response"
+
+runtimeWebHeaderTableValues :: RuntimeValue -> Either String [(Text.Text, Text.Text)]
+runtimeWebHeaderTableValues = \case
+  VData _ "from-list" [entries] -> runtimeWebHeaderList entries
+  _ -> Left "web response containeth an invalid header table"
+
+runtimeWebHeaderList :: RuntimeValue -> Either String [(Text.Text, Text.Text)]
+runtimeWebHeaderList value = case runtimeListValues value of
+  Nothing -> Left "web response containeth an invalid header list"
+  Just headers -> traverse runtimeWebHeader headers
+
+runtimeWebHeader :: RuntimeValue -> Either String (Text.Text, Text.Text)
+runtimeWebHeader = \case
+  VData _ "∏" [VText name, VText value]
+    | Web.validHeaderName name && Web.validHeaderValue value -> Right (name, value)
+    | otherwise -> Left "web response containeth an invalid header"
+  _ -> Left "web response containeth a non-text header"
+
+runtimeWebHeaderTable :: [(Text.Text, Text.Text)] -> RuntimeValue
+runtimeWebHeaderTable headers =
+  VData
+    "data/table@table@from-list"
+    "from-list"
+    [runtimeList [runtimeProduct (VText name) (VText value) | (name, value) <- headers]]
+
+tryIOException :: IO a -> IO (Either IOException a)
+tryIOException = try
 
 exitStatus :: ExitCode -> Integer
 exitStatus ExitSuccess = 0
@@ -949,9 +1032,6 @@ runtimeTextBehead value = runtimeOption do
 
 runtimeListToText :: RuntimeValue -> Eval RuntimeValue
 runtimeListToText value = VText . Text.pack <$> runtimeListOf "list-to-text" "unicode" runtimeUnicode value
-
-runtimeFoldJoinText :: RuntimeValue -> Eval RuntimeValue
-runtimeFoldJoinText value = VText . Text.concat <$> runtimeListOf "fold-join-text" "text" runtimeText value
 
 runtimeListOf :: String -> String -> (RuntimeValue -> Maybe a) -> RuntimeValue -> Eval [a]
 runtimeListOf native element project value =
@@ -1093,7 +1173,7 @@ indexRuntimeValues = foldr (\(name, value, _, _) -> Map.insert name value) Map.e
 
 markRuntimeDeclExport :: Decl -> RuntimeEnv -> RuntimeEnv
 markRuntimeDeclExport declaration env = case declaration of
-  Import _ -> env
+  Import _ _ -> env
   Export nested -> markRuntimeDeclExport nested env
   ReExport name -> addShownValue name env
   ReExportType _ -> env

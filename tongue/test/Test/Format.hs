@@ -38,6 +38,17 @@ isIdempotent source = formatSource formatted == formatted
 cases :: [(String, String, String)]
 cases =
   [
+    ( "bring alias"
+    , """
+      bring data/list.tung list
+
+      """
+    , """
+      bring data/list.tung list
+
+      """
+    )
+  ,
     ( "nested declarations"
     , """
       show kin a box {
@@ -81,6 +92,7 @@ cases =
       }
       let handled =
       try risky {
+      yield value | value,
       message fail | 0
       }
       let identity =
@@ -95,6 +107,7 @@ cases =
         }
       let handled =
         try risky {
+          yield value | value,
           message fail | 0
         }
       let identity =

@@ -3,6 +3,8 @@
 import { analyzeTokens, semanticRole } from "./semantic.ts";
 import {
   bracketPairs,
+  bringNamespace,
+  bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
   languageNames,
@@ -13,25 +15,25 @@ const ownedKinds = new Set(["kin", "deed", "shape"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
   bring:
-    "bring a tung file into scope; imported names may be qualified with `namespace@name`.",
+    "bring a tung file into scope; its last path segment is the default namespace, and a third element overrideeth it.",
   show: "publish a declaration or re-export a visible term.",
   "show-ilk": "re-export a visible type.",
   graith: "state the shapes required by a declaration.",
   yield:
-    "introduce the result expression after declarations in a file or local block.",
+    "introduce a block result or handle the normal result of a `try` expression.",
   shape: "declare a shape and its members.",
-  foreign: "mark an annotated let body as supplied by the host runtime.",
+  fremmed:
+    "bind an annotated file-level let to the host function named by a preceding text key.",
   fill: "provide evidence and member definitions for a shape.",
   law:
     "state a type-checked equation required of a shape; equivalence is not proved.",
   deed: "declare an algebraic effect and its operations.",
   try: "handle effect operations for an expression.",
-  resume: "continue the handled computation from an operation clause.",
+  eftgin: "continue the handled computation from an operation clause.",
   match: "match one or more values against exhaustive pattern rows.",
   let: "bind a value or curried function.",
   kin: "declare an algebraic data type.",
   "let-ilk": "declare a type alias.",
-  return: "handle the returned value of a `try` expression.",
 };
 const analyzeDocument = (text, uri = "") => {
   const tokens = tokenize(text);
@@ -250,20 +252,17 @@ const collectImports = (tokens, depths) => {
   const imports = [];
   for (const token of tokens) {
     if (token.text !== "bring") continue;
-    const end = findFileDeclarationBoundary(
-      tokens,
-      token.index + 1,
-      depths,
-      depths[token.index],
-    );
-    const pathTokens = tokens.slice(token.index + 1, end);
+    const { pathTokens, aliasToken } = bringParts(tokens, token.index, depths);
     const importPath = pathTokens.map(({ text }) => text).join("");
     if (!importPath) continue;
+    const namespace = bringNamespace(importPath, aliasToken?.text);
     imports.push({
       path: importPath,
-      namespace: importPath.split(".")[0],
+      namespace,
+      alias: aliasToken?.text,
       exported: tokens[token.index - 1]?.text === "show",
       range: tokenRange(pathTokens[0], pathTokens.at(-1)),
+      aliasRange: aliasToken && tokenRange(aliasToken),
       depth: depths[token.index],
     });
   }

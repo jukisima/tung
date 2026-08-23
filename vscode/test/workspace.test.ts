@@ -24,6 +24,50 @@ test("workspace resolveth only shown names across a bring", (context) => {
     pathToFileURL(dep).href,
   );
 });
+test("workspace explicit bring alias replaceeth the default namespace", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-bring-alias-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dep = path.join(root, "data", "dep.tung");
+  const main = path.join(root, "main.tung");
+  fs.mkdirSync(path.dirname(dep), { recursive: true });
+  fs.writeFileSync(dep, "show let answer: integer = 42");
+  fs.writeFileSync(main, "bring data/dep.tung d yield d@answer");
+  const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
+  workspace.configure([root]);
+  const model = workspace.model(pathToFileURL(main).href);
+  assert.equal(workspace.resolveVisible(model, "d@answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "dep@answer").length, 0);
+  const labels = new Set(
+    workspace.completions(model.uri, { line: 0, character: 40 }).map(
+      ({ completionName, bareName }) => completionName || bareName,
+    ),
+  );
+  assert(labels.has("d@answer"));
+  assert(!labels.has("dep@answer"));
+});
+test("workspace resolveth and completeth a default basename alias", (context) => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "tung-default-bring-alias-"),
+  );
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dep = path.join(root, "data", "dep.tung");
+  const main = path.join(root, "main.tung");
+  fs.mkdirSync(path.dirname(dep), { recursive: true });
+  fs.writeFileSync(dep, "show let answer: integer = 42");
+  fs.writeFileSync(main, "bring data/dep.tung yield dep@answer");
+  const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
+  workspace.configure([root]);
+  const model = workspace.model(pathToFileURL(main).href);
+  assert.equal(workspace.resolveVisible(model, "dep@answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "data/dep@answer").length, 0);
+  const labels = new Set(
+    workspace.completions(model.uri, { line: 0, character: 40 }).map(
+      ({ completionName, bareName }) => completionName || bareName,
+    ),
+  );
+  assert(labels.has("dep@answer"));
+  assert(!labels.has("data/dep@answer"));
+});
 test("workspace leaveth duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));

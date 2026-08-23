@@ -6,7 +6,7 @@ deed pick {
 
 let branch-sum: integer =
   try (null pick) + (null pick) {
-    pick | 2 resume $ + (3 resume)
+    pick | 2 eftgin $ + (3 eftgin)
   }
 
 let (_: 𝟙) main: 𝟙 ! console = (

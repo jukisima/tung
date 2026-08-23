@@ -34,7 +34,7 @@
       "include": "#control-keyword"
     },
     {
-      "include": "#foreign-marker"
+      "include": "#fremmed-marker"
     },
     {
       "include": "#primitive-type"
@@ -102,13 +102,16 @@
     "import-path": {
       "patterns": [
         {
-          "match": "\\b(bring)\\b(\\s+)([^\\s;#]+)",
+          "match": "\\b(bring)\\b(\\s+)([^\\s;#]+)(?:([ \\t]+)([^\\s;#]+))?",
           "captures": {
             "1": {
               "name": "keyword.declaration.tung"
             },
             "3": {
               "name": "string.unquoted.import-path.tung"
+            },
+            "5": {
+              "name": "entity.name.namespace.tung"
             }
           },
           "name": "meta.import.tung"
@@ -204,15 +207,15 @@
     "control-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:yield|match|try|return|resume)\\b",
+          "match": "\\b(?:yield|match|try|eftgin)\\b",
           "name": "keyword.control.tung"
         }
       ]
     },
-    "foreign-marker": {
+    "fremmed-marker": {
       "patterns": [
         {
-          "match": "\\bforeign\\b",
+          "match": "\\bfremmed\\b",
           "name": "keyword.other.tung"
         }
       ]

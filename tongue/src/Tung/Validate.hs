@@ -3,23 +3,35 @@ operations, and members. name and type questions belong to later stages.
 -}
 module Tung.Validate (validateProgram) where
 
+import Control.Monad (foldM_)
 import Data.Foldable (traverse_)
 import Data.List (group, sort)
+import Data.Map.Strict qualified as Map
+import Tung.Name (checkImportAlias, importAlias)
 import Tung.Syntax
 
 validateProgram :: Program -> Either String ()
-validateProgram (Program declarations) = traverse_ validateDecl declarations
+validateProgram (Program declarations) = validateBringNamespaces declarations >> traverse_ validateDecl declarations
+
+validateBringNamespaces :: [Decl] -> Either String ()
+validateBringNamespaces declarations = do
+  traverse_ checkImportAlias [alias | Import _ (Just alias) <- declarations]
+  foldM_ register Map.empty [(importAlias path alias, path) | Import path alias <- declarations]
+ where
+  register owners (namespace, path) = case Map.lookup namespace owners of
+    Just other | other /= path -> Left ("bring namespace '" ++ namespace ++ "' referreth to both '" ++ other ++ "' and '" ++ path ++ "'")
+    _ -> pure (Map.insert namespace path owners)
 
 validateDecl :: Decl -> Either String ()
 validateDecl = \case
-  Import _ -> pure ()
+  Import _ _ -> pure ()
   Export Import{} -> Left "bring cannot be shown"
   Export FillDecl{} -> Left "fill evidence cannot be shown"
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
   ReExportType _ -> pure ()
-  Let _ Nothing EForeign -> Left "foreign let requireth a type annotation"
-  Let _ (Just annotation) EForeign -> validateTypeAnn annotation
+  Let _ Nothing EForeign{} -> Left "fremmed let requireth a type annotation"
+  Let _ (Just annotation) EForeign{} -> validateTypeAnn annotation
   Let _ annotation body -> traverse_ validateTypeAnn annotation >> validateExpr body
   TypeAlias params name target -> distinct ("type alias '" ++ name ++ "' parameter") params >> validateType target
   DataDecl params name constructors -> do
@@ -78,7 +90,7 @@ validateExpr = \case
   EFloat _ -> pure ()
   EUnicode _ -> pure ()
   EText _ -> pure ()
-  EForeign -> Left "foreign is only allowed as the direct body of an annotated let"
+  EForeign{} -> Left "fremmed is only allowed as the direct body of an annotated let"
   EVar _ -> pure ()
   EAscribe expression annotation -> validateExpr expression >> validateType annotation
   EApply function arguments -> validateExpr function >> traverse_ validateExpr arguments

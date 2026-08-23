@@ -14,29 +14,29 @@ show kin k table v {
   ((k ∏ v) list) from-list
 }
 
-show let empty: k table v = data/list@empty from-list
+show let empty: k table v = list@empty from-list
 
 show let (key: k, value: v) singleton: k table v =
-  key ∏ value $ .* data/list@empty $ from-list
+  key ∏ value $ .* list@empty $ from-list
 
 show let (entries from-list: k table v) entries: (k ∏ v) list =
   entries
 
 graith k equal
 show let (entries from-list: k table v, key: k) lookup: v option =
-  entries foldr data/option@none {
-    pair, found | (key ≡ (pair project₀)) if (pair project₁ $ data/option@some) found
+  entries foldr none {
+    pair, found | (key ≡ (pair project₀)) if (pair project₁ $ some) found
   }
 
 graith k equal
 show let (entries from-list: k table v, key: k, value: v) put: k table v =
-  (key ∏ value) .* (entries foldr data/list@empty {
+  (key ∏ value) .* (entries foldr list@empty {
       pair, rest | (key ≡ (pair project₀)) if rest (pair .* rest)
   }) $ from-list
 
 graith k equal
 show let (entries from-list: k table v, key: k) rid: k table v =
-  entries foldr data/list@empty {
+  entries foldr list@empty {
     pair, rest | key ≡ (pair project₀) $ if rest (pair .* rest)
   } $ from-list
 
@@ -77,7 +77,7 @@ show let (left: k table v, right: k table v) merge: k table v =
 
 graith k equal
 show let (entries from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
-  entries foldr data/list@empty {
+  entries foldr list@empty {
     pair, changed | match key ≡ (pair project₀) {
       yea | ((pair project₀) ∏ (pair project₁ $ change)) .* changed,
       nay | pair .* changed

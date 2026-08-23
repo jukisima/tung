@@ -15,8 +15,8 @@ let (list: text list) json-array: text =
 
 let keywords =
   'let' .* ('graith' .* ('show' .* ('show-ilk' .* ('bring' .* ('let-ilk' .*
-            ('kin' .* ('deed' .* ('yield' .* ('foreign' .* ('shape' .* ('fill' .* ('law' .*
-                          ('match' .* ('try' .* ('return' .* ('resume' .* empty))))))))))))))))
+            ('kin' .* ('deed' .* ('yield' .* ('fremmed' .* ('shape' .* ('fill' .* ('law' .*
+                          ('match' .* ('try' .* ('eftgin' .* empty)))))))))))))))
 
 let primitive-types =
   'integer' .* ('float' .* ('unicode' .* ('text' .* ('func' .* empty))))

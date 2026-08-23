@@ -100,7 +100,11 @@ groundEffectExportsCase imports =
     "type ok" -> Nothing
     actual -> Just ("ground effect exports: " ++ actual)
  where
-  source = "bring ground.tung show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file, ground@system, ground@clock, ground@process"
+  source =
+    "bring ground.tung "
+      ++ "show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file, ground@system, ground@clock, ground@process, ground@web "
+      ++ "show-ilk ground@request, ground@response "
+      ++ "show ground@request-target, ground@ok, ground@serve"
 
 runnerEffectsCase :: Map.Map String String -> Test
 runnerEffectsCase imports =
@@ -110,10 +114,12 @@ runnerEffectsCase imports =
  where
   source =
     "bring ground.tung bring data/list.tung bring data/option.tung "
-      ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process = ("
+      ++ "let (_: request) route: response = 'ok' ok "
+      ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process, web = ("
       ++ "let args = null arguments "
       ++ "let setting = 'TUNG_SETTING' environment "
-      ++ "let stamp = null unix-time yield null)"
+      ++ "let stamp = null unix-time "
+      ++ "yield try 8080 serve route { _ fail | null })"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
 primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) of
@@ -125,7 +131,7 @@ primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) 
         catalogueForeigns = Set.fromList [hostName | HostBinding{hostName, hostRole = ForeignBinding} <- hostBindings]
         catalogueEffects = Map.fromList [((owner, hostName), length hostArguments) | HostBinding{hostName, hostRole = SourceEffect owner, hostSignature = HostSignature{hostArguments}} <- hostBindings]
      in if catalogueForeigns /= declaredForeigns
-          then Just "host catalogue and foreign declarations differ"
+          then Just "host catalogue and fremmed declarations differ"
           else
             if not (Map.isSubmapOfBy (==) catalogueEffects declaredEffects)
               then Just "host catalogue and source effect declarations differ"
@@ -136,7 +142,7 @@ primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) 
  where
   foreignNames = \case
     Export declaration -> foreignNames declaration
-    Let name _ EForeign -> [name]
+    Let _ _ (EForeign hostKey) -> [hostKey]
     _ -> []
   effectArities = \case
     Export declaration -> effectArities declaration
@@ -155,7 +161,7 @@ oneDataTypeCase path = do
        in if count <= 1 then Nothing else Just (path ++ " owneth " ++ show count ++ " data types")
 
 importedPaths :: Decl -> [String]
-importedPaths (Import path) = [path]
+importedPaths (Import path _) = [path]
 importedPaths (Export declaration) = importedPaths declaration
 importedPaths _ = []
 

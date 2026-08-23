@@ -1,6 +1,8 @@
 // tolerant lexical and structural role inference. it never consults imports or
 // types; workspace definitions may refine a role after this pass.
 import {
+  bringNamespace,
+  bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
   findMatching,
@@ -204,17 +206,17 @@ const collectExportLists = (tokens, info) => {
   }
 };
 const collectImport = (tokens, index, info) => {
-  const path = tokens[index + 1];
-  if (!path || !["name", "keyword"].includes(path.kind)) {
+  const { pathTokens, aliasToken } = bringParts(tokens, index);
+  if (!pathTokens.length) {
     return;
   }
-  const end = findFileDeclarationBoundary(tokens, index + 1);
-  for (let i = index + 1; i < end; i += 1) {
-    info.importTokens.add(i);
+  for (const token of pathTokens) {
+    info.importTokens.add(token.index);
   }
-  const namespace = path.text.split(".")[0];
-  if (namespace) {
-    info.imports.add(namespace);
+  const path = pathTokens.map(({ text }) => text).join("");
+  info.imports.add(bringNamespace(path, aliasToken?.text));
+  if (aliasToken) {
+    mark(info, aliasToken.index, "namespace", ["declaration"], 110);
   }
 };
 const collectGraith = (tokens, index, info) => {
@@ -539,6 +541,17 @@ const inferredSemantic = (token, tokens, info) => {
   if (info.functions.has(name)) {
     return { type: "variable", modifiers: [] };
   }
+  const qualifier = token.text.slice(0, token.text.lastIndexOf("@"));
+  if (qualifier && info.imports.has(qualifier.split("@")[0])) {
+    return {
+      type: isTypePosition(tokens, token.index)
+        ? "type"
+        : isFunctionPosition(tokens, token.index)
+        ? "call"
+        : "variable",
+      modifiers: [],
+    };
+  }
   if (isFunctionPosition(tokens, token.index)) {
     return { type: "call", modifiers: [] };
   }
@@ -658,14 +671,57 @@ const markTypedGroupParams = (term, info) => {
 const markTypedParameters = (tokens, start, end, info) => {
   for (const segment of splitTopLevel(tokens, start, end, separators.comma)) {
     const colon = findTopLevelText(tokens, segment.start, segment.end, ":");
-    const first = tokens
-      .slice(segment.start, colon < 0 ? segment.end : colon)
-      .find((token) => token.kind === "name");
-    if (first) mark(info, first.index, "parameter", ["declaration"], 90);
+    markPatternParameters(
+      tokens,
+      segment.start,
+      colon < 0 ? segment.end : colon,
+      info,
+    );
     if (colon >= 0) {
       markTypeTokens(tokens, colon + 1, segment.end, info);
     }
   }
+};
+const markPatternParameters = (tokens, start, end, info) => {
+  const terms = patternTerms(tokens, start, end);
+  for (let index = 0; index < terms.length; index += 1) {
+    if (terms.length > 1 && index === 1) continue;
+    const term = terms[index];
+    const token = tokens[term.start];
+    if (token?.text === "(") {
+      markPatternParameters(tokens, term.start + 1, term.end - 1, info);
+    } else if (
+      token?.kind === "name" && token.text !== "_" &&
+      !token.text.includes("@")
+    ) {
+      mark(info, token.index, "parameter", ["declaration"], 90);
+    }
+  }
+};
+const patternTerms = (tokens, start, end) => {
+  const terms = [];
+  for (let index = start; index < end; index += 1) {
+    const token = tokens[index];
+    if (token?.text === "(") {
+      const close = matchingCloseWithin(tokens, index, end);
+      const termEnd = close < 0 ? end : close + 1;
+      terms.push({ start: index, end: termEnd });
+      index = termEnd - 1;
+    } else if (
+      token && ["name", "number", "string", "character"].includes(token.kind)
+    ) {
+      terms.push({ start: index, end: index + 1 });
+    }
+  }
+  return terms;
+};
+const matchingCloseWithin = (tokens, open, end) => {
+  let depth = 0;
+  for (let index = open; index < end; index += 1) {
+    if (isOpen(tokens[index].text)) depth += 1;
+    if (isClose(tokens[index].text) && --depth === 0) return index;
+  }
+  return -1;
 };
 const markTypeTerms = (terms, info, skip) => {
   for (const term of terms) {

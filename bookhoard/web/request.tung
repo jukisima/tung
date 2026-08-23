@@ -1,0 +1,15 @@
+bring data/table.tung
+
+## an incoming http request with its method, target, headers, and utf-8 body.
+show kin request {
+  text request text (text table text) text
+}
+
+show let (method request _ _ _: request) request-method: text = method
+
+show let (_ request target _ _: request) request-target: text = target
+
+show let (_ request _ headers _: request) request-headers: text table text =
+  headers
+
+show let (_ request _ _ body: request) request-body: text = body

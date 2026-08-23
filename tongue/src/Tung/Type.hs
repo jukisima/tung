@@ -42,7 +42,7 @@ import Control.Monad.Trans.State.Strict (StateT (..), get, put, runStateT)
 import Data.Bifunctor (bimap)
 import Data.Char (isAscii, isDigit, isLower)
 import Data.IntMap.Strict qualified as IntMap
-import Data.List (find, intercalate, isPrefixOf, nub, partition)
+import Data.List (find, intercalate, isPrefixOf, nub, partition, stripPrefix)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
@@ -51,7 +51,7 @@ import Data.Traversable (mapAccumM)
 import Tung.Core (CoreProgram, makeCoreProgram, makeCoreProgramWithImports)
 import Tung.Coverage qualified as Coverage
 import Tung.Import (ImportStack, enterImport)
-import Tung.Name (constructorNamesMatch, importNamespace, isQualifiedName, lastQualifiedSegment, splitFieldAccessName)
+import Tung.Name (constructorNamesMatch, importAlias, importNamespace, isQualifiedName, lastQualifiedSegment, replaceNamespace, splitFieldAccessName)
 import Tung.Parse (ParsedSource (..), parse, parseLocated)
 import Tung.Primitive
 import Tung.Syntax
@@ -155,6 +155,7 @@ data TcContext = TcContext
   , tcTypeAmbiguities :: Map.Map String [String]
   , tcShapes :: Map.Map String ShapeInfo
   , tcFills :: Map.Map String [FillInfo]
+  , tcNameAliases :: Map.Map String String
   }
   deriving (Eq, Show)
 
@@ -576,10 +577,12 @@ convertShapeNeed :: ShapeNeed -> TcContext -> Need
 convertShapeNeed (ShapeNeed args name) ctx = Need (map (`convertTypeExpr` ctx) args) (canonicalShapeName name ctx)
 
 canonicalShapeName :: String -> TcContext -> String
-canonicalShapeName name TcContext{tcShapes}
-  | isQualifiedName name = name
-  | otherwise = case [key | key <- Map.keys tcShapes, isQualifiedName key, lastQualifiedSegment key == name] of
-      [key] -> key
+canonicalShapeName name ctx@TcContext{tcShapes}
+  | isQualifiedName name =
+      let canonical = canonicalImportedName name ctx
+       in if Map.member canonical tcShapes then canonical else name
+  | otherwise = case nub [canonicalImportedName key ctx | key <- Map.keys tcShapes, isQualifiedName key, lastQualifiedSegment key == name] of
+      [canonical] -> canonical
       _ -> name
 
 convertTypeExpr :: TypeExpr -> TcContext -> Ty
@@ -772,8 +775,8 @@ showTyList = intercalate ", " . map showTy
 baseEnvNames, baseRuntimeNames, baseEffectNames, runnerEffectNames, primitiveTypeNames :: [String]
 baseEnvNames = baseRuntimeNames
 baseRuntimeNames = nub (map fst runtimeNativeSpecs ++ [opName | (_, opName, _) <- runtimeEffectOpSpecs])
-baseEffectNames = ["console", "random", "fail", "state", "async", "file", "system", "clock", "process"]
-runnerEffectNames = ["console", "random", "async", "file", "system", "clock", "process"]
+baseEffectNames = ["console", "random", "fail", "state", "async", "file", "system", "clock", "process", "web"]
+runnerEffectNames = ["console", "random", "async", "file", "system", "clock", "process", "web"]
 -- literal-backed types are available before bookhoard loading.
 primitiveTypeNames = ["integer", "float", "unicode", "text", "func"]
 
@@ -787,6 +790,7 @@ baseContext =
     , tcTypeAmbiguities = Map.empty
     , tcShapes = Map.empty
     , tcFills = indexFills primitiveFills
+    , tcNameAliases = Map.empty
     }
 
 primitiveFills :: [FillInfo]
@@ -808,12 +812,6 @@ fillKeyFor shapeName types = "$fill@" ++ shapeName ++ "@" ++ intercalate ";" (ma
 runtimeNativeSpecs :: [(String, Int)]
 runtimeNativeSpecs = nub [(hostName binding, hostArity binding) | binding <- baseNativeBindings]
 
--- source-level `foreign` lets are checked against this host abi before they
--- can enter core. keeping full schemes here preventeth a mistyped binding from
--- reaching the dynamically represented native call boundary.
-foreignNativeSchemes :: [(String, Scheme)]
-foreignNativeSchemes = [(hostName binding, hostScheme (hostSignature binding)) | binding <- foreignBindings]
-
 runtimeEffectOpSpecs :: [(String, String, Int)]
 runtimeEffectOpSpecs =
   [(effectName, hostName binding, hostArity binding) | binding@HostBinding{hostRole = BaseEffect effectName} <- baseEffectBindings]
@@ -828,7 +826,35 @@ namespaceImportContext ns TcContext{..} =
     , tcTypeAmbiguities = Map.empty
     , tcShapes = namespaceImportShapes ns tcShapes
     , tcFills = Map.map (namespaceImportFills ns) tcFills
+    , tcNameAliases = Map.empty
     }
+
+aliasImportContext :: String -> String -> TcContext -> TcContext
+aliasImportContext canonical alias ctx@TcContext{..}
+  | alias == canonical = ctx
+  | otherwise =
+      ctx
+        { tcEnv = mapMaybe aliasBinding surfaceEnv ++ surfaceEnv
+        , tcTypes = aliasMap tcTypes
+        , tcShapes = aliasMap tcShapes
+        , tcNameAliases = Map.union aliases tcNameAliases
+        }
+ where
+  surfaceEnv = map surfaceOrigin tcEnv
+  surfaceOrigin (name, scheme, rank, origin) = (name, scheme, rank, replaceNamespace canonical alias origin)
+  aliasBinding (name, scheme, rank, origin) =
+    (\rest -> (alias ++ "@" ++ rest, scheme, rank, origin)) <$> stripPrefix (canonical ++ "@") name
+  aliasMap entries = Map.union (Map.mapKeys (replaceNamespace canonical alias) (Map.filterWithKey (\name _ -> canonicalPrefix name) entries)) entries
+  canonicalPrefix = isJust . stripPrefix (canonical ++ "@")
+  aliases =
+    Map.fromList
+      [ (replaceNamespace canonical alias name, name)
+      | name <- nub ([name | (name, _, _, _) <- tcEnv] ++ Map.keys tcTypes ++ Map.keys tcShapes)
+      , canonicalPrefix name
+      ]
+
+canonicalImportedName :: String -> TcContext -> String
+canonicalImportedName name TcContext{tcNameAliases} = Map.findWithDefault name name tcNameAliases
 
 namespaceImportEnv :: String -> [(String, Scheme, Int, String)] -> [(String, Scheme, Int, String)]
 namespaceImportEnv ns env = concatMap one env
@@ -838,7 +864,7 @@ namespaceImportEnv ns env = concatMap one env
     | rank /= exportEnvRank || not (isShownOrigin origin) = []
     | otherwise =
         let scheme2 = namespaceScheme ns scheme
-            origin2 = ns ++ "@" ++ origin
+            origin2 = ns ++ "@" ++ lastQualifiedSegment origin
             exact = (ns ++ "@" ++ name, scheme2, importEnvRank, origin2)
          in (lastQualifiedSegment name, scheme2, aliasEnvRank, origin2) : [exact]
 
@@ -1008,6 +1034,7 @@ mergeContext left right =
     , tcTypeAmbiguities = Map.unionsWith unionNames [tcTypeAmbiguities left, tcTypeAmbiguities right, collisions]
     , tcShapes = Map.union (tcShapes left) (tcShapes right)
     , tcFills = Map.unionWith (++) (tcFills left) (tcFills right)
+    , tcNameAliases = Map.union (tcNameAliases left) (tcNameAliases right)
     }
  where
   collisions =
@@ -1051,7 +1078,7 @@ collectProgramContext ds ctx = foldl' (flip collectDeclContext) ctx ds
 
 collectDeclContext :: Decl -> TcContext -> TcContext
 collectDeclContext decl ctx = case decl of
-  Import _ -> ctx
+  Import _ _ -> ctx
   Export declaration -> exportDeclContext declaration (collectDeclContext declaration ctx)
   ReExport _ -> ctx
   ReExportType _ -> ctx
@@ -1066,7 +1093,7 @@ collectDeclContext decl ctx = case decl of
 
 exportDeclContext :: Decl -> TcContext -> TcContext
 exportDeclContext declaration ctx = case declaration of
-  Import _ -> ctx
+  Import _ _ -> ctx
   Export nested -> exportDeclContext nested ctx
   ReExport name -> either (const ctx) id (reExportName name ctx)
   ReExportType name -> either (const ctx) id (reExportTypeName name ctx)
@@ -1422,16 +1449,17 @@ bindPatternVariableM name expected ctx bound
   | otherwise = pure (addEnv name (Forall [] [] expected) ctx, name : bound)
 
 knownConstructorArity :: String -> TcContext -> Maybe Int
-knownConstructorArity name TcContext{tcTypes} = case nub arities of
+knownConstructorArity name ctx@TcContext{tcTypes} = case nub arities of
   [arity] -> Just arity
   _ -> Nothing
  where
+  canonical = canonicalImportedName name ctx
   arities =
     [ length fields
     | info <- Map.elems tcTypes
     , DataInfo _ _ constructors <- [unshownTypeInfo info]
     , (constructorName, fields) <- constructors
-    , constructorNamesMatch name constructorName
+    , constructorNamesMatch canonical constructorName
     ]
 
 -- coverage followeth the constructor-specialisation matrix algorithm and returneth
@@ -1441,7 +1469,7 @@ checkExhaustiveM scrutTys cases ctx = do
   st <- getTc
   let constructors ty = constructorsForType ty ctx st
       tys = applyStateAll scrutTys st
-      rows = matchRows cases
+      rows = map (map (canonicalCoveragePattern ctx)) (matchRows cases)
   case Coverage.firstRedundantRow constructors tys rows of
     Just index ->
       let patterns = fromMaybe [] (listToMaybe (drop (index - 1) rows))
@@ -1449,6 +1477,14 @@ checkExhaustiveM scrutTys cases ctx = do
     Nothing -> case Coverage.uncoveredPatterns constructors tys rows of
       Nothing -> pure ()
       Just witness -> failTc ("non-exhaustive match; missing case " ++ Coverage.showPatternList witness)
+
+canonicalCoveragePattern :: TcContext -> Pattern -> Pattern
+canonicalCoveragePattern ctx = \case
+  PVar name
+    | isJust (knownConstructorArity name ctx) -> PVar (canonicalImportedName name ctx)
+    | otherwise -> PVar name
+  PInteger value -> PInteger value
+  PCon name arguments -> PCon (canonicalImportedName name ctx) (map (canonicalCoveragePattern ctx) arguments)
 
 constructorsForType :: Ty -> TcContext -> TcState -> Maybe [(String, [Ty])]
 constructorsForType ty ctx st = do
@@ -1501,7 +1537,7 @@ inferExprM expr ctx = case expr of
   EFloat _ -> pure (Inferred (TyCon "float") [] [] expr)
   EUnicode _ -> pure (Inferred (TyCon "unicode") [] [] expr)
   EText _ -> pure (Inferred (TyCon "text") [] [] expr)
-  EForeign -> failTc "foreign is only allowed as the direct body of an annotated top-level let"
+  EForeign{} -> failTc "fremmed is only allowed as the direct body of an annotated top-level let"
   EVar name -> inferVarM name ctx
   EAscribe expression annotation -> inferAscribedM expression annotation ctx
   EApply f args -> inferApplyM f (NE.toList args) ctx
@@ -1675,7 +1711,7 @@ inferTryHandleM body returnCase cases ctx = do
 inferReturnCaseM :: Maybe ReturnCase -> Ty -> TcContext -> Tc Inferred
 inferReturnCaseM Nothing bodyTy _ = pure (Inferred bodyTy [] [] (EVar "$return"))
 inferReturnCaseM (Just (ReturnCase pat body)) bodyTy ctx = do
-  ensureIrrefutablePatternM "handler return" pat ctx
+  ensureIrrefutablePatternM "handler yield" pat ctx
   ctx2 <- bindPatternM pat bodyTy ctx
   inferExprM body ctx2
 
@@ -1712,20 +1748,21 @@ inferHandlerCasesM body returnCase cases answerTy effects bodyNeeds returnEffect
         , unionEffects accumulatedEffects (applyStateEffects caseEffects st)
         , unionNeeds accumulatedNeeds (applyStateNeeds caseNeeds st)
         )
-      , HandlerCase name patterns handlerBody2
+      , HandlerCase (canonicalImportedName name ctx) patterns handlerBody2
       )
 
 handlerCoverageM :: [Ty] -> TcContext -> HandlerCase -> Tc HandlerCoverage
 handlerCoverageM effects ctx (HandlerCase name patterns _) = do
   st <- getTc
-  let actualEffects = applyStateEffects effects st
-      whole = WholeEffect name <$ find (effectHasName name) actualEffects
+  let canonical = canonicalImportedName name ctx
+      actualEffects = applyStateEffects effects st
+      whole = WholeEffect canonical <$ find (effectHasName canonical) actualEffects
   case lookupEnv name ctx of
     EnvMissing -> maybe (failTc ("handler for absent effect '" ++ name ++ "'")) pure whole
     EnvAmbiguous message -> failTc message
     EnvFound scheme -> case schemeEffectOwner scheme of
       Just owner
-        | null patterns && owner == name && isJust whole -> pure (WholeEffect name)
+        | null patterns && owner == canonical && isJust whole -> pure (WholeEffect canonical)
         | Just actual <- find (effectHasName owner) actualEffects -> pure (OneOperation (handledEffectName actual st) (lastQualifiedSegment name))
       _ -> maybe (failTc ("handler case '" ++ name ++ "' is not an effect operation")) pure whole
 
@@ -1783,7 +1820,7 @@ operationHandlerCaseContextM fullyHandled name patterns answerTy effects scheme 
     st <- getTc
     let resumeEffects = removeEffectNames fullyHandled (applyStateEffects effects st)
         resumeTy = curriedFunction [applyState retTy st] resumeEffects (applyState answerTy st)
-    pure (addEnv "resume" (Forall [] [] resumeTy) ctx2)
+    pure (addEnv "eftgin" (Forall [] [] resumeTy) ctx2)
 
 bindHandlerPatternsM :: [Pattern] -> [Ty] -> TcContext -> Tc TcContext
 bindHandlerPatternsM [] _ ctx = pure ctx
@@ -1878,7 +1915,7 @@ elaborateSequentialDeclM :: Decl -> TcContext -> Tc (Decl, TcContext)
 elaborateSequentialDeclM (Export nested) ctx = do
   (nested2, ctx2) <- elaborateSequentialDeclM nested ctx
   pure (Export nested2, exportDeclContext nested ctx2)
-elaborateSequentialDeclM declaration@(Let name (Just ann) EForeign) ctx =
+elaborateSequentialDeclM declaration@(Let name (Just ann) EForeign{}) ctx =
   pure (declaration, addEnv name (typeAnnScheme ann ctx) ctx)
 elaborateSequentialDeclM (Let name annotation expr) ctx = do
   case annotation of
@@ -1899,7 +1936,7 @@ elaborateSequentialDeclM declaration ctx = (,ctx) <$> elaborateDeclM declaration
 elaborateDeclM :: Decl -> TcContext -> Tc Decl
 elaborateDeclM declaration ctx = case declaration of
   Export nested -> Export <$> elaborateDeclM nested ctx
-  Let _ (Just _) EForeign -> pure declaration
+  Let _ (Just _) EForeign{} -> pure declaration
   Let name annotation expr -> Let name annotation <$> elaborateNamedBindingM name expr ctx
   ShapeDecl params shapeName needs members -> ShapeDecl params shapeName needs <$> traverse (elaborateShapeMemberM shapeName ctx) members
   FillDecl types shapeName needs members -> do
@@ -1987,7 +2024,7 @@ checkMainM ctx = case lookupEnv "main" ctx of
 invalidMainType :: Ty -> Tc a
 invalidMainType actual =
   failTc
-    ( "main must have type 𝟙 → 𝟙, optionally with console, random, async, file, system, clock, or process effects; found "
+    ( "main must have type 𝟙 → 𝟙, optionally with console, random, async, file, system, clock, process, or web effects; found "
         ++ showTy actual
     )
 
@@ -2002,9 +2039,9 @@ checkDeclsContextWithM allowImmediate ds ctx = foldM step ctx ds
     pure (exportDeclContext declaration checkedCtx)
   step currentCtx (ReExport name) = either failTc pure (reExportName name currentCtx)
   step currentCtx (ReExportType name) = either failTc pure (reExportTypeName name currentCtx)
-  step _ (Let name Nothing EForeign) = failTc ("foreign let '" ++ name ++ "' requireth a type annotation")
-  step currentCtx (Let name (Just ann) EForeign) = do
-    checkForeignLetM name ann currentCtx
+  step _ (Let name Nothing EForeign{}) = failTc ("fremmed let '" ++ name ++ "' requireth a type annotation")
+  step currentCtx (Let name (Just ann) (EForeign hostKey)) = do
+    checkForeignLetM name hostKey ann currentCtx
     pure (addEnv name (typeAnnScheme ann currentCtx) currentCtx)
   step currentCtx (Let name Nothing expr) = do
     (ctx2, effects) <- inferUnannotatedBindingM name expr currentCtx
@@ -2018,7 +2055,7 @@ checkDeclsContextWithM allowImmediate ds ctx = foldM step ctx ds
 
 declLabel :: Decl -> String
 declLabel = \case
-  Import path -> "bring '" ++ path ++ "'"
+  Import path _ -> "bring '" ++ path ++ "'"
   Let name _ _ -> "let '" ++ name ++ "'"
   TypeAlias _ name _ -> "let-ilk '" ++ name ++ "'"
   DataDecl _ name _ -> "kin '" ++ name ++ "'"
@@ -2048,7 +2085,7 @@ checkRunnableEffectsM effects = do
   let actualEffects = applyStateEffects effects st
   if allRunnableEffects actualEffects
     then pure ()
-    else failTc ("main hath unsupported effects {" ++ showEffects actualEffects ++ "}; only console, random, async, file, system, clock, and process are allowed")
+    else failTc ("main hath unsupported effects {" ++ showEffects actualEffects ++ "}; only console, random, async, file, system, clock, process, and web are allowed")
 
 allRunnableEffects :: [Ty] -> Bool
 allRunnableEffects = all isRunnableEffect
@@ -2238,8 +2275,8 @@ checkShapeLawsM shapeParams shapeName shapeNeeds members ctx = zipWithM_ checkLa
 -- unannotated lets obey the value restriction through immediate-effect purity;
 -- annotations are checked with rigid variables before their scheme is trusted.
 checkLetM :: String -> Maybe TypeAnn -> Expr -> TcContext -> Tc Decl
-checkLetM name Nothing EForeign _ = failTc ("foreign let '" ++ name ++ "' requireth a type annotation")
-checkLetM name (Just ann) EForeign ctx = checkForeignLetM name ann ctx >> pure (Let name (Just ann) EForeign)
+checkLetM name Nothing EForeign{} _ = failTc ("fremmed let '" ++ name ++ "' requireth a type annotation")
+checkLetM name (Just ann) expression@(EForeign hostKey) ctx = checkForeignLetM name hostKey ann ctx >> pure (Let name (Just ann) expression)
 checkLetM name Nothing expr ctx = do
   Inferred _ effects needs _ <- inferNamedM name expr ctx
   requirePureImmediateEffectsM ("let '" ++ name ++ "'") effects
@@ -2250,22 +2287,25 @@ checkLetM name (Just ann) expr ctx = do
   checkAnnotatedExprM name ann expr ctx
   pure (Let name (Just ann) expr)
 
-checkForeignLetM :: String -> TypeAnn -> TcContext -> Tc ()
-checkForeignLetM name ann ctx = do
-  checkTypeAnnNeedsM ("foreign let '" ++ name ++ "'") ann ctx
+checkForeignLetM :: String -> String -> TypeAnn -> TcContext -> Tc ()
+checkForeignLetM name hostKey ann ctx = do
+  checkTypeAnnNeedsM ("fremmed let '" ++ name ++ "'") ann ctx
   let actual = typeAnnScheme ann ctx
-  case lookup name foreignNativeSchemes of
-    Nothing -> failTc ("foreign let '" ++ name ++ "' hath no host implementation")
-    Just expected ->
-      unless (actual == expected) $
-        failTc
-          ( "foreign let '"
-              ++ name
-              ++ "' hath type "
-              ++ schemeType actual
-              ++ ", but its host implementation hath type "
-              ++ schemeType expected
-          )
+  case findForeignBinding hostKey of
+    Nothing -> failTc ("fremmed let '" ++ name ++ "' referreth to unknown host binding '" ++ hostKey ++ "'")
+    Just binding ->
+      let expected = hostScheme (hostSignature binding)
+       in unless (actual == expected) $
+            failTc
+              ( "fremmed let '"
+                  ++ name
+                  ++ "' hath type "
+                  ++ schemeType actual
+                  ++ ", but host binding '"
+                  ++ hostKey
+                  ++ "' hath type "
+                  ++ schemeType expected
+              )
  where
   schemeType scheme = showTy (let (_, _, ty) = schemeParts scheme in ty)
 
@@ -2431,7 +2471,7 @@ checkLocalDeclsM ds ctx = foldM step (ctx, []) ds
   step acc _ = pure acc
 
 inferLocalLetM :: String -> Maybe TypeAnn -> Expr -> TcContext -> Tc (TcContext, [Ty])
-inferLocalLetM name _ EForeign _ = failTc ("foreign let '" ++ name ++ "' is only allowed at file level")
+inferLocalLetM name _ EForeign{} _ = failTc ("fremmed let '" ++ name ++ "' is only allowed at file level")
 inferLocalLetM name Nothing expr ctx = inferUnannotatedBindingM name expr ctx
 inferLocalLetM name (Just ann) expr ctx = do
   checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann ctx
@@ -2790,7 +2830,7 @@ resolveExprEvidenceM ctx available = go
     literal@EFloat{} -> pure literal
     literal@EUnicode{} -> pure literal
     literal@EText{} -> pure literal
-    EForeign -> pure EForeign
+    fremmed@EForeign{} -> pure fremmed
     variable@EVar{} -> pure variable
     EAscribe expression annotation -> EAscribe <$> go expression <*> pure annotation
     EApply function arguments -> EApply <$> go function <*> traverse go arguments
@@ -3109,10 +3149,10 @@ prepareDeclsM importStack ds imports baseCtx = do
 collectImportContextsM :: ImportStack -> [Decl] -> Map.Map String String -> TcContext -> Tc TcContext
 collectImportContextsM importStack ds imports ctx = foldM step ctx ds
  where
-  step currentCtx (Import path) = importContext currentCtx path
+  step currentCtx (Import path alias) = importContext currentCtx path alias
   step currentCtx _ = pure currentCtx
 
-  importContext currentCtx path = do
+  importContext currentCtx path alias = do
     nextStack <- either failTc pure (enterImport importStack path)
     cached <- Map.lookup path . tcImportCache <$> getTc
     importedCtx <- case cached of
@@ -3123,7 +3163,8 @@ collectImportContextsM importStack ds imports ctx = foldM step ctx ds
         locateImports <- tcLocateImports <$> getTc
         p <- either importError pure (if locateImports then parsedProgram <$> parseLocated source else parse source)
         importedContextM nextStack path p imports
-    let namespaced = namespaceImportContext (importNamespace path) importedCtx
+    let canonical = importNamespace path
+        namespaced = aliasImportContext canonical (importAlias path alias) (namespaceImportContext canonical importedCtx)
     pure (mergeContext namespaced currentCtx)
 
 importedContextM :: ImportStack -> String -> Program -> Map.Map String String -> Tc TcContext

@@ -3,6 +3,7 @@ bring system.tung
 bring clock.tung
 bring process.tung
 bring process/result.tung
+bring web/server.tung
 bring data/zero.tung
 bring data/one.tung
 bring data/two.tung
@@ -47,8 +48,9 @@ show fore, mid, aft
 
 show-ilk task
 
-show-ilk fail, console, random, state, async, file, system, clock, process
+show-ilk fail, console, random, state, async, file, system, clock, process, web
 show-ilk process-result
+show-ilk request, response
 
 show ¬, if
 show when, when-not, branch
@@ -63,6 +65,9 @@ show arguments, environment, exit
 show unix-time
 show run-process
 show process-result, process-status, process-output, process-errors
+show request, request-method, request-target, request-headers, request-body
+show response, response-status, response-headers, response-body
+show respond, ok, not-found, with-header, serve
 
 show ≡, ≢
 show ≤, <, compare, clamp, ∧, ∨, ⟂, ⊤
@@ -75,7 +80,7 @@ show integer-to-natural
 show to-text
 show from-text
 show unicode-to-integer, integer-to-unicode
-show behead-text, text-to-list, list-to-text, join-text, fold-join-text
+show behead-text, text-to-list, list-to-text
 show map
 show pure, apply, lift₂, lift₃, keep-left, keep-right
 show flat, map-flat, then, void

@@ -119,6 +119,7 @@ connection.onShutdown(() => {
   compiler.dispose();
   return null;
 });
+connection.onRequest("tung/executable", () => compiler.findExecutable());
 process.on("exit", () => compiler.dispose());
 connection.onNotification(
   "workspace/didChangeWorkspaceFolders",

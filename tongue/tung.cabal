@@ -37,14 +37,17 @@ library
     , Tung.Token
     , Tung.Type
     , Tung.Validate
+    , Tung.Web
   hs-source-dirs: src
   default-language: Haskell2010
   build-depends:
       base >=4.20 && <5
+    , bytestring
     , containers
     , directory
     , filepath
     , megaparsec
+    , network >=3.1 && <4
     , process
     , stm
     , template-haskell
@@ -103,9 +106,11 @@ test-suite tung-test
   default-language: Haskell2010
   build-depends:
       base >=4.21 && <5
+    , bytestring
     , containers
     , directory
     , filepath
+    , network >=3.1 && <4
     , QuickCheck
     , time
     , tung

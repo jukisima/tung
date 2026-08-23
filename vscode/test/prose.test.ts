@@ -4,6 +4,7 @@ import * as path from "node:path";
 import test from "node:test";
 const root = path.resolve(__dirname, "..", "..", "..");
 const ignored = new Set([".git", "dist-newstyle", "node_modules"]);
+const documentationExtensions = new Set([".adoc"]);
 const sourceExtensions = new Set([".hs", ".sh", ".ts", ".tung"]);
 const sentenceStart = /(?:^|[.!?]\s+)([A-Z][a-z]+)\b/;
 const americanSpelling =
@@ -62,6 +63,12 @@ test("prose distinguisheth second-person number and case", () => {
   );
   assert.deepEqual(failures, []);
 });
+test("project documentation useth asciidoc", () => {
+  assert.deepEqual(
+    repositoryFiles(root).filter((file) => file.endsWith(".md")),
+    [],
+  );
+});
 const proseFiles = (directory) => {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const generatedWiki = directory === path.join(root, "writ") &&
@@ -72,15 +79,27 @@ const proseFiles = (directory) => {
     ) return [];
     const file = path.join(directory, entry.name);
     if (entry.isDirectory()) return proseFiles(file);
-    return entry.name.endsWith(".md") ||
+    return documentationExtensions.has(path.extname(entry.name)) ||
         sourceExtensions.has(path.extname(entry.name))
       ? [file]
       : [];
   });
 };
+const repositoryFiles = (directory) => {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const generatedWiki = directory === path.join(root, "writ") &&
+      entry.name === "bookhoard";
+    if (
+      ignored.has(entry.name) || entry.name === "package-lock.json" ||
+      generatedWiki
+    ) return [];
+    const file = path.join(directory, entry.name);
+    return entry.isDirectory() ? repositoryFiles(file) : [file];
+  });
+};
 const proseFragments = (file) => {
   const text = fs.readFileSync(file, "utf8");
-  if (file.endsWith(".md")) return markdownFragments(text);
+  if (file.endsWith(".adoc")) return asciidocFragments(text);
   const lineMarker = file.endsWith(".hs")
     ? /^\s*--+\s*\|?\s?(.*)$/
     : file.endsWith(".ts")
@@ -99,18 +118,24 @@ const proseFragments = (file) => {
   }));
   return [...lines, ...blocks];
 };
-const markdownFragments = (text) => {
-  let fenced = false;
+const asciidocFragments = (text) => {
+  let delimiter;
   return text.split(/\r?\n/).flatMap((line, index) => {
-    if (/^\s*```/.test(line)) {
-      fenced = !fenced;
+    const trimmed = line.trim();
+    if (delimiter) {
+      if (trimmed === delimiter) delimiter = undefined;
       return [];
     }
-    if (fenced || !line.trim()) return [];
+    if (trimmed === "|===") return [];
+    if (["----", "...."].includes(trimmed)) {
+      delimiter = trimmed;
+      return [];
+    }
+    if (!trimmed || /^\[[^\]]*\]$/.test(trimmed)) return [];
     return [
       {
         line: index + 1,
-        text: line.replace(/^\s*(?:#{1,6}|[-*+]|\d+\.|>)\s*/, ""),
+        text: line.replace(/^\s*(?:={1,6}|\*+|\d+\.|>|\|)\s*/, ""),
       },
     ];
   });

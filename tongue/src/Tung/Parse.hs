@@ -15,7 +15,7 @@ import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (isNothing, mapMaybe)
-import Tung.Name (isQualifiedName)
+import Tung.Name (checkImportAlias, isQualifiedName)
 import Tung.Syntax
 import Tung.Token
 
@@ -80,7 +80,7 @@ parseExportGroup ts = case parseReExportNames ts of
   Left _ -> do
     (decl, rest) <- parseDecl ts
     case decl of
-      Import _ -> Left "show cannot precede bring"
+      Import _ _ -> Left "show cannot precede bring"
       Let "_" _ _ -> Left "show must precede a declaration or name"
       _ -> pure ([Export decl], rest)
 
@@ -164,7 +164,11 @@ parseLetDecl needs = \case
 parseImport :: P Decl
 parseImport ts = do
   (parts, rest) <- parseImportPath ts
-  pure (Import (intercalate "." parts), rest)
+  case rest of
+    TIdent alias : remaining -> do
+      checkImportAlias alias
+      pure (Import (intercalate "." parts) (Just alias), remaining)
+    _ -> pure (Import (intercalate "." parts) Nothing, rest)
 
 parseImportPath :: P [String]
 parseImportPath (TIdent part : TDot : TIdent next : rest) = do
@@ -675,8 +679,9 @@ parseExprAtomRaw = \case
   TInteger i : rest -> Right (EInteger i, rest)
   TFloat s : rest -> Right (EFloat s, rest)
   TUnicode codePoint : rest -> Right (EUnicode codePoint, rest)
+  TText key : TForeign : rest -> Right (EForeign key, rest)
   TText s : rest -> Right (EText s, rest)
-  TForeign : rest -> Right (EForeign, rest)
+  TForeign : _ -> Left "fremmed requireth a preceding text key"
   TIdent s : rest -> Right (EVar s, rest)
   TTry : rest -> parseTry rest
   TMatch : rest -> parseMatchExpr rest
@@ -738,7 +743,7 @@ parseHandlerCases ts = do
   pure ((returnCase, reverse cases), rest)
  where
   collect (Nothing, cases) (HandlerReturnItem returnCase) = Right (Just returnCase, cases)
-  collect (Just _, _) (HandlerReturnItem _) = Left "handler hath more than one return case"
+  collect (Just _, _) (HandlerReturnItem _) = Left "handler hath more than one yield case"
   collect (returnCase, cases) (HandlerCaseItem handlerCase) = Right (returnCase, handlerCase : cases)
 
 parseHandlerItem :: P HandlerItem
@@ -763,7 +768,7 @@ handlerCaseHeader ts = do
   pure (name, params)
 
 returnCaseHeader :: [Token] -> Maybe Pattern
-returnCaseHeader (TIdent "return" : rest) = case parsePattern rest of
+returnCaseHeader (TYield : rest) = case parsePattern rest of
   Right (pat, []) -> Just pat
   _ -> Nothing
 returnCaseHeader _ = Nothing
@@ -900,7 +905,26 @@ parseTypeAnnTokens tokens =
   TypeAnn <$> parseWhole "could not parse whole type" parseTypeTokens tokens <*> pure []
 
 parseFunctionResultUntilCommaOrBrace, parseFunctionResultUntilEquals :: P FunctionResult
-parseFunctionResultUntilCommaOrBrace ts = parseFunctionResultUntilTopLevel ts (\case TComma -> True; TRBrace -> True; _ -> False) "unterminated type"
+parseFunctionResultUntilCommaOrBrace = collect []
+ where
+  collect seen ts = do
+    (part, rest) <- takeTopLevelUntil ts (\case TComma -> True; TRBrace -> True; _ -> False) "unterminated type"
+    let resultTokens = seen ++ part
+    case rest of
+      TRBrace : _ -> finishFunctionResult resultTokens rest
+      TComma : following
+        | startsEffectOperation following || startsRightBrace following -> finishFunctionResult resultTokens rest
+        | otherwise -> collect (resultTokens ++ [TComma]) following
+      _ -> Left "unterminated type"
+
+  startsEffectOperation ts = case takeTopLevelUntil ts (\case TColon -> True; TComma -> True; TRBrace -> True; _ -> False) "expected effect operation" of
+    Right (header, TColon : _) -> case shapeMemberHeader header of
+      Just _ -> True
+      Nothing -> False
+    _ -> False
+
+  startsRightBrace (TRBrace : _) = True
+  startsRightBrace _ = False
 parseFunctionResultUntilEquals ts = parseFunctionResultUntilTopLevel ts (\case TEquals -> True; _ -> False) "expected '=' after type"
 
 parseTypeUntilTopLevel :: [Token] -> (Token -> Bool) -> String -> Either String (TypeExpr, [Token])
@@ -1206,9 +1230,9 @@ locateParsed :: P Expr -> P Expr
 locateParsed parser tokens = do
   (expression, rest) <- parser tokens
   case expression of
-    -- foreign is a declaration marker rather than an ordinary expression; its
+    -- fremmed is a declaration marker rather than an ordinary expression; its
     -- direct-body shape must remain visible to validation and elaboration.
-    EForeign -> pure (expression, rest)
+    EForeign _ -> pure (expression, rest)
     _ -> do
       let consumed = take (length tokens - length rest) tokens
           spans = mapMaybe tokenSpan consumed

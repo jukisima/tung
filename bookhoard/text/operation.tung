@@ -7,6 +7,7 @@ bring collection/size.tung
 bring collection/catamorphism.tung
 bring collection/functor.tung
 bring collection/filter.tung
+bring equal.tung
 bring algebra/total/semigroup.tung
 bring algebra/total/magma.tung
 bring order/lattice.tung
@@ -15,8 +16,8 @@ bring text/structure.tung
 ## true when text hath no unicode code points.
 show let (text: text) is-empty-text: 𝟚 =
   match text behead-text {
-    data/option@none | yea,
-    _ data/option@some | nay
+    none | yea,
+    _ some | nay
   }
 
 ## count unicode code points, not bytes or utf-16 units.
@@ -41,11 +42,11 @@ show let (text: text, character: unicode) append-text: text =
 
 let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
   match list {
-    empty | data/list@empty .* data/list@empty,
+    empty | empty .* empty,
     character .* rest | match rest split-unicode-by separates {
-      empty | (character .* data/list@empty) .* data/list@empty,
+      empty | (character .* empty) .* empty,
       current .* previous | match character separates {
-        yea | data/list@empty .* (current .* previous),
+        yea | empty .* (current .* previous),
         nay | (character .* current) .* previous
       }
     }
@@ -53,17 +54,17 @@ let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode
 
 let (list: unicode list, separator: unicode) split-unicode: (unicode list) list =
   list split-unicode-by { character |
-    character equal-unicode separator
+    character ≡ separator
   }
 
 let (unicode: unicode) is-whitespace: 𝟚 =
-  match unicode equal-unicode `\32; {
+  match unicode ≡ `\32; {
     yea | yea,
-    nay | match unicode equal-unicode `\9; {
+    nay | match unicode ≡ `\9; {
       yea | yea,
-      nay | match unicode equal-unicode `\10; {
+      nay | match unicode ≡ `\10; {
         yea | yea,
-        nay | unicode equal-unicode `\13;
+        nay | unicode ≡ `\13;
       }
     }
   }
@@ -82,6 +83,6 @@ show let (text: text) words-text: text list =
 show let (list: text list, separator: text) join-with-text: text = match list {
   empty | '',
   text .* texts′ | texts′ foldl text {
-    joined, next | (joined join-text separator) join-text next
+    joined, next | (joined * separator) * next
   }
 }

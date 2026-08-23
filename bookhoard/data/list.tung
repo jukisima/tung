@@ -94,18 +94,18 @@ show let each: a list → (a → 𝟙 ! e) → 𝟙 ! e = {
 ## first list element, if present.
 show let head: a list → a option = {
   empty | none,
-  first .* _ | first data/option@some
+  first .* _ | first some
 }
 
 ## list without its first element, if present.
 show let tail: a list → (a list) option = {
   empty | none,
-  _ .* rest | rest data/option@some
+  _ .* rest | rest some
 }
 
 show let behead: a list → (a ∏ (a list)) option = {
   empty | none,
-  first .* rest | (first ∏ rest) data/option@some
+  first .* rest | (first ∏ rest) some
 }
 
 ## first count elements.
@@ -132,7 +132,7 @@ show let (list: a list, count: integer) drop: a list =
 show let find: a list → (a → 𝟚 ! e) → a option ! e = {
   empty, _ | none,
   first .* rest, f | match first f {
-    yea | first data/option@some,
+    yea | first some,
     nay | rest find f
   }
 }
@@ -157,7 +157,7 @@ fill list traverse {
 }
 
 fill (a list) size {
-  let list size = list foldl data/natural@zero { n, _ | n suc }
+  let list size = list foldl natural@zero { n, _ | n suc }
 }
 
 show let (list: a list) reverse: a list =

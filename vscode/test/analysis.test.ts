@@ -40,6 +40,41 @@ test("analysis recordeth foreign import paths", () => {
     ["_foreign.tung", "algebra/arithmetic/field.tung"],
   );
 });
+test("analysis recordeth an optional bring alias separately from its path", () => {
+  const model = analyzeDocument(
+    "bring data/list.tung list yield list@empty",
+    "file:///imports.tung",
+  );
+  assert.deepEqual(
+    model.imports.map(({ path, namespace, alias }) => ({
+      path,
+      namespace,
+      alias,
+    })),
+    [
+      {
+        path: "data/list.tung",
+        namespace: "list",
+        alias: "list",
+      },
+    ],
+  );
+});
+test("analysis defaulteth a bring namespace to its last path segment", () => {
+  const model = analyzeDocument(
+    "bring data/list.tung yield list@empty",
+    "file:///imports.tung",
+  );
+  assert.deepEqual(
+    model.imports.map(({ namespace, alias }) => ({ namespace, alias })),
+    [
+      {
+        namespace: "list",
+        alias: undefined,
+      },
+    ],
+  );
+});
 test("analysis keepeth term and type re-exports distinct", () => {
   const model = analyzeDocument(
     "show value show-ilk value",

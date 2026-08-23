@@ -1,6 +1,8 @@
 bring _foreign.tung
 bring data/one.tung
+bring algebra/total/magma.tung
 bring text/to-text.tung
+bring text/structure.tung
 
 ## a path kept distinct from arbitrary text at api boundaries.
 show kin path {
@@ -12,7 +14,7 @@ fill path to-text {
 }
 
 show let (text₀ path: path, text₁ path: path) join-path: path =
-  ((text₀ join-text '/') join-text text₁) path
+  text₀ * '/' $ * text₁ $ path
 
 show let (text path: path) read-path: text ! file, text fail =
   text read-file

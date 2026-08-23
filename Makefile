@@ -84,7 +84,7 @@ vscode-test: language-metadata vscode-deps
 extension-package: vscode-build
 	@printf 'packaging vscode extension\n'
 	@mkdir -p "$(dir $(VSIX))"
-	@cd "$(VSCODE_DIR)" && $(NPM) exec -- vsce package --allow-missing-repository --skip-license --out "$(VSIX)"
+	@cd "$(VSCODE_DIR)" && $(NPM) exec -- vsce package --readme-path readme.adoc --allow-missing-repository --skip-license --out "$(VSIX)"
 
 extension-install: extension-package
 	@printf 'installing or updating vscode extension\n'

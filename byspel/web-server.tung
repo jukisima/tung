@@ -1,0 +1,15 @@
+bring ground.tung
+bring algebra/total/magma.tung
+
+let (r: request) route: response ! console = (
+  let _ = ('request: ' * (r request-target)) write-line
+  yield match (r request-target) ≡ '/' {
+    yea | 'hello tung\n' ok,
+    nay | 'not found\n' not-found
+  }
+)
+
+let (_: 𝟙) main: 𝟙 ! console, web =
+  try 8080 serve route {
+    message fail | ('web server: ' * message) write-line
+  }

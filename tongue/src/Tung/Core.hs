@@ -9,6 +9,7 @@ module Tung.Core (
 where
 
 import Data.Map.Strict qualified as Map
+import Tung.Primitive (findForeignBinding)
 import Tung.Syntax
 
 -- a CoreProgram hath passed type checking and containeth only resolved evidence.
@@ -42,7 +43,8 @@ validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
     Export declaration -> validateDecl declaration
     ReExport{} -> pure ()
     ReExportType{} -> pure ()
-    Let _ (Just _) EForeign -> pure ()
+    Let _ (Just _) (EForeign hostKey) ->
+      maybe (Left ("internal unknown fremmed host binding '" ++ hostKey ++ "'")) (const (pure ())) (findForeignBinding hostKey)
     Let _ _ body -> validateExpr body
     TypeAlias{} -> pure ()
     DataDecl{} -> pure ()
@@ -62,7 +64,7 @@ validateCoreProgram (Program declarations) = mapM_ validateDecl declarations
     EFloat{} -> pure ()
     EUnicode{} -> pure ()
     EText{} -> pure ()
-    EForeign -> Left "internal misplaced foreign marker"
+    EForeign{} -> Left "internal misplaced fremmed marker"
     EVar{} -> pure ()
     EAscribe expression annotation -> validateExpr expression >> validateType annotation
     EApply function arguments -> validateExpr function >> mapM_ validateExpr arguments

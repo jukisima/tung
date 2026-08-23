@@ -62,13 +62,14 @@ test("semantic analysis marketh declarations and function position", () => {
     ),
   );
 });
-test("semantic analysis marketh foreign lets", () => {
-  const source = "show let join-text: text → text → text = foreign";
-  assert.deepEqual(semanticLabelsOf(source, "join-text"), [
+test("semantic analysis marketh fremmed lets", () => {
+  const source =
+    "show let append-native: text → text → text = 'join-text' fremmed";
+  assert.deepEqual(semanticLabelsOf(source, "append-native"), [
     "function:declaration",
   ]);
   assert.equal(
-    tokenize(source).find(({ text }) => text === "foreign").kind,
+    tokenize(source).find(({ text }) => text === "fremmed").kind,
     "keyword",
   );
 });
@@ -617,6 +618,19 @@ test("workspace highlighting coloureth every binder in each form of function", (
     );
   }
 });
+test("semantic analysis coloureth destructured let-header binders", () => {
+  const source =
+    "kin a ∏ b { a ∏ b } let (left ∏ right: integer ∏ text) swap: text ∏ integer = right ∏ left";
+  const resolve = workspaceResolver(source);
+  assert.deepEqual(semanticLabelsOf(source, "left", resolve), [
+    "parameter:declaration",
+    undefined,
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "right", resolve), [
+    "parameter:declaration",
+    undefined,
+  ]);
+});
 test("semantic analysis keepeth effects distinct from ordinary calls and values", () => {
   const source =
     "deed ask { 𝟙 ask: integer }; deed send { integer send: integer }; let run = null ask; let held = ask; let sent = 1 $send; let ordinary x = x; let out = 1 $ordinary ask;";
@@ -680,6 +694,38 @@ test("semantic analysis leaveth bring paths to the textmate import scope", () =>
       text,
     );
   }
+});
+test("semantic analysis marketh a bring alias as a namespace", () => {
+  const source = "bring data/list.tung list yield list@empty";
+  assert.deepEqual(semanticLabelsOf(source, "list"), [
+    "namespace:declaration",
+  ]);
+  const ranges = buildSemanticRanges(source);
+  const use = source.lastIndexOf("list@empty");
+  assert(
+    ranges.some(({ char, length, type }) =>
+      char === use && length === "list".length && type === "namespace"
+    ),
+  );
+});
+test("semantic analysis marketh a default basename alias as a namespace", () => {
+  const source = "bring data/list.tung yield list@empty";
+  const ranges = buildSemanticRanges(source);
+  const use = source.lastIndexOf("list@empty");
+  assert(
+    ranges.some(({ char, length, type }) =>
+      char === use && length === "list".length && type === "namespace"
+    ),
+  );
+});
+test("semantic analysis doth not expose a path-qualified namespace", () => {
+  const source = "bring data/list.tung yield data/list@empty";
+  const ranges = buildSemanticRanges(source);
+  const use = source.lastIndexOf("data/list@empty");
+  assert.equal(
+    ranges.some(({ char, type }) => char === use && type === "namespace"),
+    false,
+  );
 });
 test("semantic analysis leaveth standalone export names plain", () => {
   const source = [

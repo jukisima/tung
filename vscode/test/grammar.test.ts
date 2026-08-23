@@ -25,6 +25,15 @@ test("textmate fallback scopeth bring paths as one import string", () => {
   assert.equal(pattern.captures["1"].name, "keyword.declaration.tung");
   assert.equal(pattern.captures["3"].name, "string.unquoted.import-path.tung");
 });
+test("textmate fallback scopeth a bring alias as a namespace", () => {
+  const pattern = grammar.repository["import-path"].patterns[0];
+  const match = "bring data/list.tung list".match(
+    new RegExp(pattern.match, "u"),
+  );
+  assert.equal(match[3], "data/list.tung");
+  assert.equal(match[5], "list");
+  assert.equal(pattern.captures["5"].name, "entity.name.namespace.tung");
+});
 test("textmate giveth a whole bring path one scope", async () => {
   const loaded = await loadGrammar();
   for (
@@ -182,11 +191,19 @@ test("textmate recogniseth the yield result keyword", async () => {
   );
   assert(token.scopes.includes("keyword.control.tung"));
 });
-test("textmate recogniseth the foreign let-body marker", async () => {
-  const line = "show let join-text: text → text → text = foreign;";
+test("textmate recogniseth the eftgin continuation keyword", async () => {
+  const line = "eftgin";
+  const token = (await loadGrammar()).tokenizeLine(line).tokens.find(
+    ({ startIndex, endIndex }) => startIndex === 0 && endIndex === line.length,
+  );
+  assert(token.scopes.includes("keyword.control.tung"));
+});
+test("textmate recogniseth the fremmed let-body marker", async () => {
+  const line =
+    "show let append-native: text → text → text = 'join-text' fremmed";
   const token = (await loadGrammar()).tokenizeLine(line).tokens.find(
     ({ startIndex, endIndex }) =>
-      line.slice(startIndex, endIndex) === "foreign",
+      line.slice(startIndex, endIndex) === "fremmed",
   );
   assert(token.scopes.includes("keyword.other.tung"));
 });
@@ -291,6 +308,23 @@ test("manifest mapeth semantic roles to theme scopes", () => {
     false,
   );
 });
+test("manifest exposeth running a tung file from the editor", () => {
+  const command = manifest.contributes.commands.find(
+    ({ command }) => command === "tung.runFile",
+  );
+  const title = manifest.contributes.menus["editor/title"].find(
+    ({ command }) => command === "tung.runFile",
+  );
+  assert.equal(command.title, "Run Tung File");
+  assert.equal(command.icon, "$(play)");
+  assert.equal(title.when, "resourceLangId == tung");
+  assert(manifest.activationEvents.includes("onCommand:tung.runFile"));
+  assert.equal(
+    manifest.contributes.configuration.properties["tung.executablePath"]
+      .default,
+    "",
+  );
+});
 test("semantic modifiers use standard lsp names or manifest contributions", () => {
   const standard = new Set([
     "declaration",
@@ -335,13 +369,15 @@ const loadGrammar = async () => {
       createOnigScanner: (patterns) => new oniguruma.OnigScanner(patterns),
       createOnigString: (source) => new oniguruma.OnigString(source),
     }),
-    loadGrammar: async (scopeName) =>
-      scopeName === grammar.scopeName
-        ? textmate.parseRawGrammar(
-          JSON.stringify(grammar),
-          "tung.tmLanguage.json",
-        )
-        : null,
+    loadGrammar: (scopeName) =>
+      Promise.resolve(
+        scopeName === grammar.scopeName
+          ? textmate.parseRawGrammar(
+            JSON.stringify(grammar),
+            "tung.tmLanguage.json",
+          )
+          : null,
+      ),
   });
   loadedGrammar = registry.loadGrammar(grammar.scopeName);
   return loadedGrammar;

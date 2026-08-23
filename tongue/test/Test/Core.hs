@@ -85,7 +85,7 @@ languagePrograms =
   , ("checked integer match", "yield match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
   , ("checked class evidence", "shape a identity { let a identity: a } fill integer identity { let x identity = x } yield 7 identity", "eval ok: 7")
   , ("checked fill member calleth sibling", "shape a linked { let a first: a let a second: a } fill integer linked { let x first = x let x second = x first } yield 7 second", "eval ok: 7")
-  , ("checked multi-shot handler", "kin 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 resume) + (2 resume) }", "eval ok: 3")
+  , ("checked multi-shot handler", "kin 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 eftgin) + (2 eftgin) }", "eval ok: 3")
   , ("checked non-finite floor failure", "bring ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail | 0 }", "eval ok: 0")
   ]
 
@@ -95,7 +95,7 @@ rejectedPrograms =
   , ("reject constructor overapplication", "kin a box { a box } yield 1 box 2")
   , ("reject missing record field", "let value = [field = 1] yield value@missing")
   , ("reject non-exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1 }")
-  , ("reject refutable handler return", "kin 𝟚 { yea, nay } yield try nay { return yea | 1 }")
+  , ("reject refutable handler yield", "kin 𝟚 { yea, nay } yield try nay { yield yea | 1 }")
   ]
 
 booleanProductPrograms :: [(String, String, String)]

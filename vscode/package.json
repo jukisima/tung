@@ -18,7 +18,8 @@
     "vscode": "^1.90.0"
   },
   "activationEvents": [
-    "onLanguage:tung"
+    "onLanguage:tung",
+    "onCommand:tung.runFile"
   ],
   "categories": [
     "Programming Languages"
@@ -44,6 +45,30 @@
         "path": "./syntaxes/tung.tmLanguage.json"
       }
     ],
+    "commands": [
+      {
+        "command": "tung.runFile",
+        "title": "Run Tung File",
+        "category": "Tung",
+        "icon": "$(play)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "tung.runFile",
+          "when": "resourceLangId == tung",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "tung.runFile",
+          "when": "resourceLangId == tung",
+          "group": "navigation@1"
+        }
+      ]
+    },
     "semanticTokenTypes": [
       {
         "id": "shape",
@@ -126,6 +151,11 @@
     "configuration": {
       "title": "tung",
       "properties": {
+        "tung.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "path or command name for the tung runner; blank useth the compiler found by the language server, then tung on PATH"
+        },
         "tung.tonguePath": {
           "type": "string",
           "default": "",

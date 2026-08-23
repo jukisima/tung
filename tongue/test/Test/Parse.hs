@@ -19,6 +19,7 @@ group =
 accepted :: [(String, String)]
 accepted =
   [ ("last let declaration needeth no semicolon", "let answer = 42")
+  , ("bring accepteth an optional alias", "bring data/list.tung list yield list@empty")
   , ("top-level declaration boundary needeth no semicolon", "let x = 1 let y = 2")
   , ("type alias boundary needeth no semicolon", "let-ilk count = integer let answer: count = 42")
   , ("yield introduceth the final file expression", "let answer = 42 yield answer")
@@ -27,7 +28,8 @@ accepted =
   , ("algebraic data", "kin a option { none, a some }")
   , ("empty algebraic data", "kin 𝟘 {}")
   , ("parameterised effect", "deed a state { 𝟙 get: a, a set: 𝟙 }")
-  , ("foreign let", "let add-integer: integer → integer → integer = foreign")
+  , ("effect operation with an effect row", "deed e fail { e fail: a } deed web { integer serve (request → response ! e): 𝟙 ! e, text fail, 𝟙 stop: 𝟙 }")
+  , ("text-keyed fremmed let", "let plus: integer → integer → integer = 'add-integer' fremmed")
   , ("shape requirement and default", "graith a equal shape a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }")
   , ("shape member requirement", "shape f traverse { graith m applicative let (a f) traverse (a → b m): (b f) m }")
   , ("shape law", "shape a identity { let a identity: a law (x: a): x identity ~ x }")
@@ -42,7 +44,7 @@ accepted =
   , ("exported parameterised type alias", "show let-ilk a powerset = a func 𝟚")
   , ("exported data", "show kin a option { none, a some }")
   , ("exported effect", "show deed ask { integer ask: integer }")
-  , ("exported foreign let", "show let add-integer: integer → integer → integer = foreign")
+  , ("exported fremmed let", "show let plus: integer → integer → integer = 'add-integer' fremmed")
   , ("exported shape", "show shape a equal { let a ≡ a: 𝟚 }")
   , ("exported graith shape", "graith a equal show shape a order-partial { let a ≤ a: 𝟚 }")
   , ("name re-export", "bring file.tung show file@value")
@@ -57,7 +59,7 @@ accepted =
   , ("bare brace unary function", "yield { x | x }")
   , ("bare brace curried function", "yield { x, y, z | z }")
   , ("empty consuming match", "yield match x {}")
-  , ("handler return and operation cases", "yield try action { return x | x, message fail | message }")
+  , ("handler yield and operation cases", "yield try action { yield x | x, message fail | message }")
   , ("parenthesised local block", "yield (let x = 1 yield x + 2)")
   , ("multiple local lets need no semicolons", "yield (let x = 1 let y = 2 yield x + y)")
   , ("term type ascription", "let answer = (1 + 2: integer)")
@@ -67,9 +69,11 @@ accepted =
 rejected :: [(String, String)]
 rejected =
   [ ("bare final expression requireth yield", "42")
-  , ("go is an ordinary name rather than a result keyword", "go 42")
   , ("top-level semicolon is rejected", "let x = 1;")
   , ("bring requireth a path", "bring")
+  , ("bring alias must be unqualified", "bring data/list.tung list@short")
+  , ("bring alias must be slash-free", "bring data/list.tung sequence/list")
+  , ("qualified namespace must be slash-free", "bring data/list.tung yield data/list@empty")
   , ("show requireth a name", "show;")
   , ("show cannot prefix bring", "show bring ground.tung;")
   , ("show-ilk requireth a name", "show-ilk;")
@@ -96,7 +100,7 @@ rejected =
   , ("deed members use commas", "deed e { 𝟙 one: 𝟙; 𝟙 two: 𝟙 }")
   , ("fill members reject commas", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
   , ("fill members reject semicolons", "fill integer bad { let x first = x; let x second = x }")
-  , ("handler hath at most one return clause", "try 1 { return x | x, return y | y }")
+  , ("handler hath at most one yield clause", "try 1 { yield x | x, yield y | y }")
   ]
 
 expressions :: [(String, String, Expr)]

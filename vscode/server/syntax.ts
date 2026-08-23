@@ -275,6 +275,37 @@ const findFileDeclarationBoundary = (
   return tokens.length;
 };
 
+const bringParts = (tokens, bringIndex, depths = tokenDepths(tokens)) => {
+  const end = findFileDeclarationBoundary(
+    tokens,
+    bringIndex + 1,
+    depths,
+    depths[bringIndex] ?? 0,
+  );
+  const pathTokens = [];
+  let index = bringIndex + 1;
+  if (index < end && ["name", "keyword"].includes(tokens[index]?.kind)) {
+    pathTokens.push(tokens[index]);
+    index += 1;
+    while (
+      index + 1 < end && tokens[index]?.text === "." &&
+      ["name", "keyword"].includes(tokens[index + 1]?.kind)
+    ) {
+      pathTokens.push(tokens[index], tokens[index + 1]);
+      index += 2;
+    }
+  }
+  const aliasToken = index < end && tokens[index]?.kind === "name"
+    ? tokens[index]
+    : undefined;
+  return { end, pathTokens, aliasToken };
+};
+
+const bringNamespace = (path, alias) => {
+  const canonical = path.split(".")[0];
+  return alias || canonical.split("/").at(-1) || canonical;
+};
+
 const languageNames = {
   keywords: [...keywords],
   primitiveTypes: [...primitiveTypes],
@@ -282,6 +313,8 @@ const languageNames = {
 
 export {
   bracketPairs,
+  bringNamespace,
+  bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
   findMatching,

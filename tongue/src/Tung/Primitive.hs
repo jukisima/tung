@@ -6,11 +6,13 @@ module Tung.Primitive (
   HostType (..),
   hostBindings,
   hostArity,
-  foreignBindings,
+  findForeignBinding,
   baseNativeBindings,
   baseEffectBindings,
   sourceEffectBindings,
 ) where
+
+import Data.List (find)
 
 data HostType
   = HostVar String
@@ -43,11 +45,13 @@ data HostBinding = HostBinding
 hostArity :: HostBinding -> Int
 hostArity = length . hostArguments . hostSignature
 
-foreignBindings, baseNativeBindings, baseEffectBindings, sourceEffectBindings :: [HostBinding]
-foreignBindings = filter ((== ForeignBinding) . hostRole) hostBindings
+baseNativeBindings, baseEffectBindings, sourceEffectBindings :: [HostBinding]
 baseNativeBindings = filter ((== BaseNative) . hostRole) hostBindings
 baseEffectBindings = filter isBaseEffect hostBindings
 sourceEffectBindings = filter isSourceEffect hostBindings
+
+findForeignBinding :: String -> Maybe HostBinding
+findForeignBinding key = find (\binding -> hostRole binding == ForeignBinding && hostName binding == key) hostBindings
 
 isBaseEffect, isSourceEffect :: HostBinding -> Bool
 isBaseEffect HostBinding{hostRole = BaseEffect _} = True
@@ -78,7 +82,6 @@ hostBindings =
   , foreignBinding "behead-text" (unary text [] (option (product unicode text)))
   , foreignBinding "text-to-list" (unary text [] (list unicode))
   , foreignBinding "list-to-text" (unary (list unicode) [] text)
-  , foreignBinding "fold-join-text" (unary (list text) [] text)
   , foreignBinding "join-text" (binary text text [] text)
   , foreignBinding "equal-text" (binary text text [] two)
   , foreignBinding "equal-unicode" (binary unicode unicode [] two)
@@ -119,6 +122,7 @@ hostBindings =
   , sourceEffect "async" "fordo" 1
   , sourceEffect "async" "wait-for" 2
   , sourceEffect "process" "run-process" 2
+  , sourceEffect "web" "serve" 2
   ]
  where
   integer = HostCon "integer"

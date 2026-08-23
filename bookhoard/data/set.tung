@@ -15,10 +15,10 @@ show kin a set {
   (a list) from-list
 }
 
-show let empty: a set = data/list@empty from-list
+show let empty: a set = list@empty from-list
 
 show let (a: a) singleton: a set =
-  (a .* data/list@empty) from-list
+  (a .* list@empty) from-list
 
 show let (list from-list: a set) to-list: a list = list
 
@@ -33,18 +33,18 @@ show let (list from-list: a set, a: a) put: a set =
 
 graith a equal
 show let (list from-list: a set, a: a) rid: a set =
-  list foldr data/list@empty {
+  list foldr list@empty {
     b, list′ | (a ≡ b) if list′ (b .* list′)
   } $ from-list
 
 graith (a list) inhold a
 show let (list₀ from-list: a set, list₁ from-list: a set) ∖: a set =
-  list₀ foldr data/list@empty {
+  list₀ foldr list@empty {
     value, kept | (list₁ ∋ value) if kept (value .* kept)
   } $ from-list
 
 show let (values from-list: a set, predicate: a → 𝟚 ! e) keep: a set ! e =
-  values foldr data/list@empty {
+  values foldr list@empty {
     value, kept | match value predicate {
       yea | value .* kept,
       nay | kept
@@ -92,7 +92,7 @@ fill (a set) monoid {
 graith (a list) inhold a
 fill (a set) semilattice-infimal {
   let (list₀ from-list) ∧ (list₁ from-list) =
-    list₀ foldr data/list@empty {
+    list₀ foldr list@empty {
       value, kept | (list₁ ∋ value) if (value .* kept) kept
     } $ from-list
 }

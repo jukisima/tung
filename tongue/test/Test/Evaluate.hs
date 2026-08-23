@@ -19,7 +19,7 @@ group = do
 
 handlerProperties :: [Test]
 handlerProperties =
-  [ Harness.propertyTest "property: a handler may resume a continuation any generated number of times" $
+  [ Harness.propertyTest "property: a handler may call eftgin any generated number of times" $
       QuickCheck.forAll (QuickCheck.resize 6 (QuickCheck.listOf (QuickCheck.chooseInt (0, 9)))) \answers ->
         QuickCheck.ioProperty do
           actual <- evaluate (handlerSource answers)
@@ -31,13 +31,13 @@ handlerSource :: [Int] -> String
 handlerSource answers =
   unitData
     ++ "deed choice { 𝟙 pick: integer } yield try null pick { pick | "
-    ++ resumeSum answers
+    ++ eftginSum answers
     ++ " }"
 
-resumeSum :: [Int] -> String
-resumeSum [] = "0"
-resumeSum [answer] = show answer ++ " resume"
-resumeSum (answer : answers) = "(" ++ show answer ++ " resume) + (" ++ resumeSum answers ++ ")"
+eftginSum :: [Int] -> String
+eftginSum [] = "0"
+eftginSum [answer] = show answer ++ " eftgin"
+eftginSum (answer : answers) = "(" ++ show answer ++ " eftgin) + (" ++ eftginSum answers ++ ")"
 
 deterministic :: [(String, String, String)]
 deterministic =
@@ -45,7 +45,7 @@ deterministic =
   , ("term type ascription is erased before evaluation", "yield (1 + 2: integer)", "eval ok: 3")
   , ("ascribed anonymous function remaineth recursive", "let factorial = ({ 0 | 1, n | n × ((n - 1) factorial) }: integer → integer) yield 5 factorial", "eval ok: 120")
   , ("integer arithmetic is arbitrary precision", "yield 999999999999999999999999999999 + 1", "eval ok: 1000000000000000000000000000000")
-  , ("foreign let", "let add-integer: integer → integer → integer = foreign yield 1 add-integer 2", "eval ok: 3")
+  , ("fremmed key selecteth a host function independently of the let name", "let plus: integer → integer → integer = 'add-integer' fremmed yield 1 plus 2", "eval ok: 3")
   , ("unicode text", "yield 'λ字'", "eval ok: 'λ字'")
   , ("unicode control rendering useth decimal terminator", "yield `\\1;", "eval ok: `\\1;")
   , ("float arithmetic", "let a = '0.5' from-text let b = '0.25' from-text yield a + b", "eval ok: 0.75")
@@ -68,23 +68,23 @@ deterministic =
   , ("unchosen arm is not evaluated", boolData ++ "let _ ignore = 1 yield match yea { yea | 1, nay | (1 ÷ 0) ignore }", "eval ok: 1")
   , ("let right side is strict", stopEffect ++ "yield try (let x = 1 stop yield 2 stop) { x stop | x }", "eval ok: 1")
   , ("function expression runneth before arguments", stopEffect ++ "yield try 0 (1 stop) (2 stop) { x stop | x }", "eval ok: 1")
-  , ("arguments run left to right", stopEffect ++ "let x choose _ = x yield try (1 stop) choose (2 stop) { return x | x, x stop | x }", "eval ok: 1")
-  , ("record fields run left to right", stopEffect ++ "yield try [first = 1 stop, second = 2 stop] { return _ | 0, x stop | x }", "eval ok: 1")
-  , ("record update evaluateth base first", stopEffect ++ "let base = [field = 0] yield try [= (let _ = 1 stop yield base), field = 2 stop] { return _ | 0, x stop | x }", "eval ok: 1")
+  , ("arguments run left to right", stopEffect ++ "let x choose _ = x yield try (1 stop) choose (2 stop) { yield x | x, x stop | x }", "eval ok: 1")
+  , ("record fields run left to right", stopEffect ++ "yield try [first = 1 stop, second = 2 stop] { yield _ | 0, x stop | x }", "eval ok: 1")
+  , ("record update evaluateth base first", stopEffect ++ "let base = [field = 0] yield try [= (let _ = 1 stop yield base), field = 2 stop] { yield _ | 0, x stop | x }", "eval ok: 1")
   , ("match scrutinees run left to right", stopEffect ++ "yield try match 1 stop, 2 stop { x, y | x } { x stop | x }", "eval ok: 1")
   , ("record update", "let person = [name = 'n', age = 1] yield [= person, age = 2]", "eval ok: [age = 2, name = 'n']")
   , ("record access", "let person = [name = 'n', age = 1] yield person@age", "eval ok: 1")
   , ("record removal", "let person = [name = 'n', age = 1] yield [= person, - age]", "eval ok: [name = 'n']")
   , ("handled division failure", "let _ ignore = 1 yield try (1 ÷ 0) ignore { fail | 9 }", "eval ok: 9")
-  , ("operation payload", "deed e fail { e fail: a } let _ ignore = 'ok' yield try (1 ÷ 0) ignore { return text | text, message fail | message }", "eval ok: 'division by zero'")
-  , ("return clause mapeth normal answer", "yield try 2 + 3 { return n | n to-text }", "eval ok: '5'")
+  , ("operation payload", "deed e fail { e fail: a } let _ ignore = 'ok' yield try (1 ÷ 0) ignore { yield text | text, message fail | message }", "eval ok: 'division by zero'")
+  , ("yield clause mapeth normal answer", "yield try 2 + 3 { yield n | n to-text }", "eval ok: '5'")
   , ("partial call performeth only when saturated", "let _ ignore = 0 yield try (0 (1 ÷)) ignore { fail | 7 }", "eval ok: 7")
-  , ("resume once", "deed ask { integer ask: integer } yield try 10 ask { x ask | (x + 1) resume }", "eval ok: 11")
-  , ("resume zero times", "deed ask { integer ask: integer } yield try 10 ask { x ask | x + 1 }", "eval ok: 11")
-  , ("deep resume handleth later operation", unitData ++ "deed choice { 𝟙 pick: integer } yield try (null pick) + (null pick) { pick | 1 resume }", "eval ok: 2")
-  , ("multi-shot resume", unitData ++ "deed choice { 𝟙 pick: integer } yield try (null pick) + (null pick) { pick | (1 resume) + (2 resume) }", "eval ok: 12")
-  , ("return runneth on each resumed branch", unitData ++ "deed choice { 𝟙 pick: integer } yield try null pick { return n | n + 10, pick | (1 resume) + (2 resume) }", "eval ok: 23")
-  , ("polymorphic state get", unitData ++ "deed a state { 𝟙 get: a, a set: 𝟙 } yield try null get { get | 4 resume, x set | null resume }", "eval ok: 4")
+  , ("eftgin once", "deed ask { integer ask: integer } yield try 10 ask { x ask | (x + 1) eftgin }", "eval ok: 11")
+  , ("eftgin zero times", "deed ask { integer ask: integer } yield try 10 ask { x ask | x + 1 }", "eval ok: 11")
+  , ("deep eftgin handleth later operation", unitData ++ "deed choice { 𝟙 pick: integer } yield try (null pick) + (null pick) { pick | 1 eftgin }", "eval ok: 2")
+  , ("multi-shot eftgin", unitData ++ "deed choice { 𝟙 pick: integer } yield try (null pick) + (null pick) { pick | (1 eftgin) + (2 eftgin) }", "eval ok: 12")
+  , ("yield runneth on each continued branch", unitData ++ "deed choice { 𝟙 pick: integer } yield try null pick { yield n | n + 10, pick | (1 eftgin) + (2 eftgin) }", "eval ok: 23")
+  , ("polymorphic state get", unitData ++ "deed a state { 𝟙 get: a, a set: 𝟙 } yield try null get { get | 4 eftgin, x set | null eftgin }", "eval ok: 4")
   , ("effect-level clause catches either operation", duoEffect ++ "yield try null second { duo | null }", "eval ok: null")
   , ("nested handlers split operation coverage", duoEffect ++ "yield try (try null second { first | null }) { second | null }", "eval ok: null")
   , ("native sleep", unitData ++ "yield 0 sleep", "eval ok: null")
@@ -119,6 +119,8 @@ typeErrors =
 importedCases :: Map.Map String String -> [Test]
 importedCases imports =
   [ evalOkWith "imported call" "bring file.tung yield 2 inc" (Map.insert "file.tung" "show let x inc = x + 1" imports) "eval ok: 3"
+  , evalOkWith "default bring alias worketh for values, shapes, and constructor patterns" "bring data/item.tung let value: item@item = item@empty yield match (value item@identity) { item@item | 1 }" (Map.insert "data/item.tung" "show kin item { item } show shape a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item" imports) "eval ok: 1"
+  , evalOkWith "bring alias worketh for effect operations and handlers" "bring effect/ask.tung a yield try 3 a@ask { x a@ask | x }" (Map.insert "effect/ask.tung" "show deed ask { integer ask: integer }" imports) "eval ok: 3"
   , evalOkWith "primitive shape defaults" "bring ground.tung yield (1 < 2) ∧ (1 ≢ 2)" imports "eval ok: yea"
   , evalOkWith "false implieth false" "bring ground.tung yield nay ≤ nay" imports "eval ok: yea"
   , evalOkWith "true doth not imply false" "bring ground.tung yield yea ≤ nay" imports "eval ok: nay"
@@ -142,19 +144,18 @@ importedCases imports =
   , evalOkWith "text converteth to a unicode list" "bring ground.tung yield 'λ😀' text-to-list" imports "eval ok: (`λ (`😀 empty .*) .*)"
   , evalOkWith "unicode converteth to its scalar integer" "bring ground.tung yield `😀 unicode-to-integer" imports "eval ok: 128512"
   , evalOkWith "scalar integer converteth to unicode" "bring ground.tung yield 128512 integer-to-unicode" imports "eval ok: `😀"
-  , evalOkWith "negative integer cannot become unicode" "bring ground.tung yield try -1 integer-to-unicode { return _ | 'valid', message fail | message }" imports "eval ok: 'invalid unicode scalar value'"
-  , evalOkWith "surrogate integer cannot become unicode" "bring ground.tung yield try 55296 integer-to-unicode { return _ | 'valid', message fail | message }" imports "eval ok: 'invalid unicode scalar value'"
-  , evalOkWith "out-of-range integer cannot become unicode" "bring ground.tung yield try 1114112 integer-to-unicode { return _ | 'valid', message fail | message }" imports "eval ok: 'invalid unicode scalar value'"
-  , evalOkWith "foreign text join" "bring ground.tung yield 'left' join-text '右'" imports "eval ok: 'left右'"
-  , evalOkWith "text behead exposeth one code point" "bring ground.tung bring data/list.tung bring data/option.tung bring data/product.tung bring algebra/total/magma.tung yield match 'λ字' behead-text { (c ∏ rest) data/option@some | ((c .* empty) list-to-text) * rest, data/option@none | '' }" imports "eval ok: 'λ字'"
+  , evalOkWith "negative integer cannot become unicode" "bring ground.tung yield try -1 integer-to-unicode { yield _ | 'valid', message fail | message }" imports "eval ok: 'invalid unicode scalar value'"
+  , evalOkWith "surrogate integer cannot become unicode" "bring ground.tung yield try 55296 integer-to-unicode { yield _ | 'valid', message fail | message }" imports "eval ok: 'invalid unicode scalar value'"
+  , evalOkWith "out-of-range integer cannot become unicode" "bring ground.tung yield try 1114112 integer-to-unicode { yield _ | 'valid', message fail | message }" imports "eval ok: 'invalid unicode scalar value'"
+  , evalOkWith "text behead exposeth one code point" "bring ground.tung bring data/list.tung bring data/option.tung bring data/product.tung bring algebra/total/magma.tung yield match 'λ字' behead-text { (c ∏ rest) option@some | ((c .* empty) list-to-text) * rest, option@none | '' }" imports "eval ok: 'λ字'"
   , evalOkWith "empty text hath no head" "bring ground.tung bring data/option.tung yield match '' behead-text { none | 1, _ some | 0 }" imports "eval ok: 1"
-  , evalOkWith "bulk text concatenation" "bring ground.tung bring data/list.tung yield ('north' .* ('南' .* empty)) fold-join-text" imports "eval ok: 'north南'"
+  , evalOkWith "generic text fold" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung yield ('north' .* ('南' .* empty)) fold" imports "eval ok: 'north南'"
   , evalOkWith "text shapes dispatch" "bring ground.tung bring algebra/total/magma.tung yield (('a' * 'β') ≡ 'aβ') ∧ ('a' ≤ 'b')" imports "eval ok: yea"
   , evalOkWith "unicode shapes dispatch" "bring ground.tung yield (`a ≡ `a) ∧ (`a ≤ `b)" imports "eval ok: yea"
   , evalOkWith "imported fill doth not shadow native integer order" "bring data/list.tung yield 0 till 2" imports "eval ok: (0 (1 (2 empty .*) .*) .*)"
   , evalOkWith "list map pipeline keepeth the list functor" "bring ground.tung bring data/list.tung yield 0 till 2 $ map { x | x + 1 } $ map to-text" imports "eval ok: ('1' ('2' ('3' empty .*) .*) .*)"
   , evalOkWith "list apply calleth its separately filled map" "bring ground.tung bring data/list.tung let values = 1 .* (2 .* empty) let functions = { x | x + 10 } .* ({ x | x × 2 } .* empty) yield values apply functions" imports "eval ok: (11 (12 (2 (4 empty .*) .*) .*) .*)"
-  , evalOkWith "list traversal sequences option values" "bring ground.tung bring data/list.tung bring data/option.tung bring collection/traverse.tung yield (1 .* (2 .* empty)) traverse { x | x data/option@some }" imports "eval ok: ((1 (2 empty .*) .*) some)"
+  , evalOkWith "list traversal sequences option values" "bring ground.tung bring data/list.tung bring data/option.tung bring collection/traverse.tung yield (1 .* (2 .* empty)) traverse { x | x option@some }" imports "eval ok: ((1 (2 empty .*) .*) some)"
   , evalOkWith "fold-map combineth mapped list values" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung yield (0 till 2) fold-map to-text" imports "eval ok: '012'"
   , evalOkWith "bounded conjunction folds values" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung yield yea .* (nay .* empty) $ …∧" imports "eval ok: nay"
   , evalOkWith "bounded disjunction folds values" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung yield nay .* (yea .* empty) $ …∨" imports "eval ok: yea"
@@ -163,8 +164,8 @@ importedCases imports =
   , evalOkWith "boolean complement negateth" "bring ground.tung yield yea ¬" imports "eval ok: nay"
   , evalTypeErrWith "bounded lattice need not have a complement" "bring ground.tung yield mid ¬" imports
   , evalOkWith "integer lattice chooseth the lesser value" "bring ground.tung yield 3 ∧ 2" imports "eval ok: 2"
-  , evalOkWith "non-total powerset lattice joineth predicates" "bring ground.tung bring data/list.tung bring data/powerset.tung bring collection/catamorphism.tung let one: integer powerset = { x | x ≡ 1 } let two: integer powerset = { x | x ≡ 2 } let joined = one .* (two .* data/list@empty) $ …∨ yield joined ∋ 2" imports "eval ok: yea"
-  , evalOkWith "empty powerset meet yieldeth the universal set" "bring ground.tung bring data/list.tung bring data/powerset.tung bring collection/catamorphism.tung let values: (integer powerset) list = data/list@empty let all = values …∧ yield all ∋ 42" imports "eval ok: yea"
+  , evalOkWith "non-total powerset lattice joineth predicates" "bring ground.tung bring data/list.tung bring data/powerset.tung bring collection/catamorphism.tung let one: integer powerset = { x | x ≡ 1 } let two: integer powerset = { x | x ≡ 2 } let joined = one .* (two .* list@empty) $ …∨ yield joined ∋ 2" imports "eval ok: yea"
+  , evalOkWith "empty powerset meet yieldeth the universal set" "bring ground.tung bring data/list.tung bring data/powerset.tung bring collection/catamorphism.tung let values: (integer powerset) list = list@empty let all = values …∧ yield all ∋ 42" imports "eval ok: yea"
   , evalOkWith "pattern binders do not become constructor patterns" "bring ground.tung bring data/list.tung kin bit { off } yield 0 till 2 $ map { _ | off } $ map { _ | 1 }" imports "eval ok: (1 (1 (1 empty .*) .*) .*)"
   , evalOkWith "control branch suspends actions" "bring ground.tung yield nay branch { _ | 1 } { _ | 2 }" imports "eval ok: 2"
   , evalOkWith "option maybe mapeth present value" "bring ground.tung bring data/option.tung yield (3 some) maybe 0 { x | x + 1 }" imports "eval ok: 4"
@@ -181,7 +182,7 @@ importedCases imports =
   , evalOkWith "product traversal preserveth the first field" "bring ground.tung bring data/product.tung bring data/option.tung bring collection/traverse.tung yield ('context' ∏ 3) traverse { x | (x + 1) some }" imports "eval ok: (('context' 4 ∏) some)"
   , evalOkWith "applicative lift2 for option" "bring ground.tung bring data/option.tung yield (1 some) lift₂ (2 some) +" imports "eval ok: (3 some)"
   , evalOkWith "monad void for option" "bring data/option.tung bring collection/monad.tung yield (1 some) void" imports "eval ok: (null some)"
-  , evalOkWith "list behead exposeth the head and tail" "bring data/list.tung bring data/option.tung bring data/product.tung yield match (1 .* empty) behead { (head data/product@∏ _) data/option@some | head, data/option@none | 0 }" imports "eval ok: 1"
+  , evalOkWith "list behead exposeth the head and tail" "bring data/list.tung bring data/option.tung bring data/product.tung yield match (1 .* empty) behead { (head product@∏ _) option@some | head, option@none | 0 }" imports "eval ok: 1"
   , evalOkWith "list take after drop" "bring data/list.tung yield ((0 till 5) drop 2) take 2" imports "eval ok: (2 (3 empty .*) .*)"
   , evalOkWith "list find returneth first match" "bring ground.tung bring data/list.tung yield (0 till 5) find { x | 3 ≤ x }" imports "eval ok: (3 some)"
   , evalOkWith "list find short-circuits effectful predicates" "bring ground.tung bring data/list.tung bring data/option.tung deed late { 𝟙 late: 𝟚 } let values = 1 .* (2 .* empty) yield try (values find { x | match x ≤ 1 { yea | yea, nay | null late } }) { late | none }" imports "eval ok: (1 some)"
@@ -199,14 +200,14 @@ importedCases imports =
   , evalOkWith "n-ary product multiplies a foldable collection" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung yield (2 .* (3 .* (4 .* empty))) …×" imports "eval ok: 24"
   , evalOkWith "n-ary product of an empty collection is one" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung let values: integer list = empty yield values …×" imports "eval ok: 1"
   , evalTypeErrWith "n-ary product needeth a multiplicative monoid" "bring ground.tung bring data/list.tung bring collection/catamorphism.tung yield ('a' .* empty) …×" imports
-  , evalOkWith "boolean supremal wrapper useth disjunction" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values = (nay supremal) .* ((yea supremal) .* data/list@empty) yield match values fold { result supremal | result }" imports "eval ok: yea"
-  , evalOkWith "empty boolean supremal fold yieldeth nay" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (𝟚 supremal) list = data/list@empty yield match values fold { result supremal | result }" imports "eval ok: nay"
-  , evalOkWith "boolean infimal wrapper useth conjunction" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values = (yea infimal) .* ((nay infimal) .* data/list@empty) yield match values fold { result infimal | result }" imports "eval ok: nay"
-  , evalOkWith "empty boolean infimal fold yieldeth yea" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (𝟚 infimal) list = data/list@empty yield match values fold { result infimal | result }" imports "eval ok: yea"
-  , evalOkWith "natural semiring computeth with both identities" "bring ground.tung bring data/natural.tung let two: natural = (data/natural@zero suc) suc let three = two suc yield ((two × three) + one) natural-to-integer" imports "eval ok: 7"
-  , evalOkWith "natural semiring supplieth multiplicative monoid evidence" "bring ground.tung bring data/list.tung bring data/natural.tung bring collection/catamorphism.tung let two: natural = (data/natural@zero suc) suc let three = two suc yield ((two .* (three .* data/list@empty)) …×) natural-to-integer" imports "eval ok: 6"
+  , evalOkWith "boolean supremal wrapper useth disjunction" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values = (nay supremal) .* ((yea supremal) .* list@empty) yield match values fold { result supremal | result }" imports "eval ok: yea"
+  , evalOkWith "empty boolean supremal fold yieldeth nay" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (𝟚 supremal) list = list@empty yield match values fold { result supremal | result }" imports "eval ok: nay"
+  , evalOkWith "boolean infimal wrapper useth conjunction" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values = (yea infimal) .* ((nay infimal) .* list@empty) yield match values fold { result infimal | result }" imports "eval ok: nay"
+  , evalOkWith "empty boolean infimal fold yieldeth yea" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (𝟚 infimal) list = list@empty yield match values fold { result infimal | result }" imports "eval ok: yea"
+  , evalOkWith "natural semiring computeth with both identities" "bring ground.tung bring data/natural.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two × three) + one) natural-to-integer" imports "eval ok: 7"
+  , evalOkWith "natural semiring supplieth multiplicative monoid evidence" "bring ground.tung bring data/list.tung bring data/natural.tung bring collection/catamorphism.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two .* (three .* list@empty)) …×) natural-to-integer" imports "eval ok: 6"
   , evalOkWith "nonnegative integer converteth to natural" "bring ground.tung bring data/natural.tung yield 3 integer-to-natural $ natural-to-integer" imports "eval ok: 3"
-  , evalOkWith "negative integer cannot become natural" "bring ground.tung yield try -1 integer-to-natural { return _ | 'valid', message fail | message }" imports "eval ok: 'negative cannot be a natural'"
+  , evalOkWith "negative integer cannot become natural" "bring ground.tung yield try -1 integer-to-natural { yield _ | 'valid', message fail | message }" imports "eval ok: 'negative cannot be a natural'"
   , evalOkWith "complex sine of zero is zero" "bring ground.tung bring numeric/complex.tung yield ((0.0 complex 0.0) sine) real" imports "eval ok: 0.0"
   , evalOkWith "complex cosine of zero is one" "bring ground.tung bring numeric/complex.tung yield ((0.0 complex 0.0) cosine) real" imports "eval ok: 1.0"
   , evalOkWith "complex exponentiation scaleth by the real exponent" "bring ground.tung bring numeric/complex.tung yield ((1.0 complex 0.0) exponent) real" imports "eval ok: 2.718281828459045"
@@ -221,10 +222,10 @@ importedCases imports =
   , evalOkWith "nonempty membership delegateth to list" "bring ground.tung bring data/list.tung bring data/nonempty.tung yield (1 nonempty (2 .* empty)) ∋ 2" imports "eval ok: yea"
   , evalOkWith "table put replaceth a key" "bring ground.tung bring data/table.tung let table = (empty put 'a' 1) put 'a' 2 yield table lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table membership dispatcheth through inhold" "bring ground.tung bring data/table.tung let table = empty put 'a' 1 yield table ∋ 'a'" imports "eval ok: yea"
-  , evalOkWith "table constructor may be qualified" "bring ground.tung bring data/list.tung bring data/product.tung bring data/table.tung yield (('a' ∏ 2) .* data/list@empty) data/table@from-list $ lookup 'a'" imports "eval ok: (2 some)"
+  , evalOkWith "table constructor may be qualified" "bring ground.tung bring data/list.tung bring data/product.tung bring data/table.tung yield (('a' ∏ 2) .* list@empty) table@from-list $ lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table rid droppeth a key" "bring ground.tung bring data/table.tung let table = empty put 'a' 1 yield (table rid 'a') lookup 'a'" imports "eval ok: none"
   , evalOkWith "set put keepeth values unique" "bring ground.tung bring data/set.tung yield ((empty put 1) put 1) to-list" imports "eval ok: (1 empty .*)"
-  , evalOkWith "set constructor may be qualified" "bring ground.tung bring data/list.tung bring data/set.tung yield (1 .* (2 .* data/list@empty)) data/set@from-list $ to-list" imports "eval ok: (1 (2 empty .*) .*)"
+  , evalOkWith "set constructor may be qualified" "bring ground.tung bring data/list.tung bring data/set.tung yield (1 .* (2 .* list@empty)) set@from-list $ to-list" imports "eval ok: (1 (2 empty .*) .*)"
   , evalOkWith "set rid droppeth a value" "bring ground.tung bring data/set.tung let values = (empty put 1) put 2 yield (values rid 1) ∋ 1" imports "eval ok: nay"
   , evalOkWith "set supremum keepeth unique values" "bring ground.tung bring data/set.tung let left = (empty put 1) put 2 let right = (empty put 2) put 3 yield (left ∨ right) to-list" imports "eval ok: (3 (2 (1 empty .*) .*) .*)"
   , evalOkWith "set infimum keepeth shared values" "bring ground.tung bring data/set.tung let left = (empty put 1) put 2 let right = (empty put 2) put 3 yield (left ∧ right) to-list" imports "eval ok: (2 empty .*)"
@@ -241,10 +242,10 @@ importedCases imports =
   , evalOkWith "powerset subtraction is symmetric difference" "bring ground.tung bring data/powerset.tung let values: integer powerset = { value | value ≡ 1 } yield ((values - values) ∋ 1)" imports "eval ok: nay"
   , evalOkWith "powerset zero is empty" "bring ground.tung bring data/powerset.tung let values: integer powerset = zero yield values ∋ 7" imports "eval ok: nay"
   , evalOkWith "powerset one is universal" "bring ground.tung bring data/powerset.tung let values: integer powerset = one yield values ∋ 7" imports "eval ok: yea"
-  , evalOkWith "set becometh a powerset" "bring ground.tung bring data/set.tung bring data/powerset.tung let finite = data/set@empty data/set@put 7 yield (finite to-powerset) ∋ 7" imports "eval ok: yea"
-  , evalOkWith "powerset infimal wrapper useth intersection" "bring ground.tung bring data/list.tung bring data/powerset.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let one: integer powerset = { value | value ≡ 1 } let both: integer powerset = { value | (value ≡ 1) ∨ (value ≡ 2) } let wrapped = (one infimal) .* ((both infimal) .* data/list@empty) yield match wrapped fold { result infimal | result ∋ 2 }" imports "eval ok: nay"
-  , evalOkWith "powerset supremal wrapper useth union" "bring ground.tung bring data/list.tung bring data/powerset.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let one: integer powerset = { value | value ≡ 1 } let two: integer powerset = { value | value ≡ 2 } let wrapped = (one supremal) .* ((two supremal) .* data/list@empty) yield match wrapped fold { result supremal | result ∋ 2 }" imports "eval ok: yea"
-  , evalTypeErrWith "powerset hath no arbitrarily chosen monoid" "bring ground.tung bring data/list.tung bring data/powerset.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (integer powerset) list = data/list@empty yield values fold" imports
+  , evalOkWith "set becometh a powerset" "bring ground.tung bring data/set.tung bring data/powerset.tung let finite = set@empty set@put 7 yield (finite to-powerset) ∋ 7" imports "eval ok: yea"
+  , evalOkWith "powerset infimal wrapper useth intersection" "bring ground.tung bring data/list.tung bring data/powerset.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let one: integer powerset = { value | value ≡ 1 } let both: integer powerset = { value | (value ≡ 1) ∨ (value ≡ 2) } let wrapped = (one infimal) .* ((both infimal) .* list@empty) yield match wrapped fold { result infimal | result ∋ 2 }" imports "eval ok: nay"
+  , evalOkWith "powerset supremal wrapper useth union" "bring ground.tung bring data/list.tung bring data/powerset.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let one: integer powerset = { value | value ≡ 1 } let two: integer powerset = { value | value ≡ 2 } let wrapped = (one supremal) .* ((two supremal) .* list@empty) yield match wrapped fold { result supremal | result ∋ 2 }" imports "eval ok: yea"
+  , evalTypeErrWith "powerset hath no arbitrarily chosen monoid" "bring ground.tung bring data/list.tung bring data/powerset.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (integer powerset) list = list@empty yield values fold" imports
   , evalOkWith "table functor mapeth values" "bring ground.tung bring data/table.tung let table = (empty put 'a' 1) put 'b' 2 yield (table map { x | x + 10 }) lookup 'a'" imports "eval ok: (11 some)"
   , evalOkWith "table filter keepeth matching values" "bring ground.tung bring data/table.tung bring collection/filter.tung let table = (empty put 'a' 1) put 'b' 2 yield (table filter { x | 2 ≤ x }) lookup 'a'" imports "eval ok: none"
   , evalOkWith "table merge preferreth right values" "bring ground.tung bring data/table.tung let left = empty put 'a' 1 let right = empty put 'a' 2 yield (left merge right) lookup 'a'" imports "eval ok: (2 some)"
@@ -263,8 +264,8 @@ importedCases imports =
   , evalOkWith "task result may be awaited repeatedly" "bring ground.tung let _ work = 21 let task = work fork yield (task wait) + (task wait)" imports "eval ok: 42"
   , evalOkWith "task wait may time out" "bring ground.tung let _ work = (let _ = 200 sleep yield 42) let task = work fork yield task wait-for 0" imports "eval ok: none"
   , evalOkWith "task wait-for returneth a finished value" "bring ground.tung let _ work = 42 let task = work fork yield task wait-for 1000" imports "eval ok: (42 some)"
-  , evalOkWith "fordone task faileth through the declared effect" "bring ground.tung let _ work = (let _ = 1000 sleep yield 42) let task = work fork let _ = task fordo yield try task wait { return _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
-  , evalOkWith "cpu-bound task remaineth cancellable" "bring ground.tung let _ loop = null loop let spin = loop let task = spin fork let _ = task fordo yield try task wait { return _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
+  , evalOkWith "fordone task faileth through the declared effect" "bring ground.tung let _ work = (let _ = 1000 sleep yield 42) let task = work fork let _ = task fordo yield try task wait { yield _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
+  , evalOkWith "cpu-bound task remaineth cancellable" "bring ground.tung let _ loop = null loop let spin = loop let task = spin fork let _ = task fordo yield try task wait { yield _ | 'finished', message fail | message }" imports "eval ok: 'task cancelled'"
   , evalTypeErrWith "task constructor is private" "bring ground.tung yield 42 done" imports
   , concurrentForks imports
   , randomRange imports

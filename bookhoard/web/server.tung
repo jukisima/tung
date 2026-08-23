@@ -1,0 +1,26 @@
+bring _foreign.tung
+bring data/one.tung
+bring web/request.tung
+bring web/response.tung
+
+show-ilk request
+show request
+show request-method
+show request-target
+show request-headers
+show request-body
+
+show-ilk response
+show response
+show response-status
+show response-headers
+show response-body
+show respond
+show ok
+show not-found
+show with-header
+
+## serve http/1.1 over ipv4 with one request per connection.
+show deed web {
+  integer serve (request → response ! e): 𝟙 ! e, text fail
+}

@@ -1,183 +1,191 @@
-# agent notes
+= agent notes
 
 this file is meant to be self-contained. read this before changing the repo. it repeateth the language specification on purpose. the repetition is useful: tung hath unusual syntax, and future changes should preserve those unusual rules.
 
-the project backlog lives in `../todo.md`. read it only when planning work or
+the project backlog lives in `../todo.adoc`. read it only when planning work or
 answering a backlog question. do not reconsider the whole backlog during an
 unrelated change.
 
-## work style
+== work style
 
-- never capitalise sentence starts in prose or source comments. preserve case only when syntax or an identifier requireth it.
-- use british spelling in prose and source comments. preserve fixed spellings in syntax, protocols, apis, and identifiers.
-- use `-eth` instead of `-s` for english third-person singular present verbs in prose, source comments, diagnostics, and test descriptions. use `hath` for `has` and `doth` for `does`; preserve syntax, quoted external text, apis, and identifiers.
-- distinguish number and case in second-person pronouns: use `thou` for a singular subject and `thee` for a singular object; use `ye` for a plural subject and `you` for a plural object. never use `you` as a subject.
-- prefer plain words and simple explanations.
-- tung keywords and user-facing bookhoard names belong to the object language and may be anglishised.
-- haskell compiler names and tooling identifiers have no anglish naming rule. use standard technical terms there, or mirror a tung term when that makes the source-to-implementation link clearer.
-- keep source changes tied to the asked-for behaviour.
-- prefer simpler code over broad abstraction.
-- do not reset, remove, or revert unrelated user edits.
-- use `rg` for search.
-- use `apply_patch` for hand edits.
-- run tests after parser, type checker, evaluator, bookhoard, or byspel changes.
-- when syntax changeth, update tests, byspels, bookhoard files, readme, and this file.
+* never capitalise sentence starts in prose or source comments. preserve case only when syntax or an identifier requireth it.
+* use british spelling in prose and source comments. preserve fixed spellings in syntax, protocols, apis, and identifiers.
+* use `-eth` instead of `-s` for english third-person singular present verbs in prose, source comments, diagnostics, and test descriptions. use `hath` for `has` and `doth` for `does`; preserve syntax, quoted external text, apis, and identifiers.
+* distinguish number and case in second-person pronouns: use `thou` for a singular subject and `thee` for a singular object; use `ye` for a plural subject and `you` for a plural object. never use `you` as a subject.
+* prefer plain words and simple explanations.
+* tung keywords and user-facing bookhoard names belong to the object language and may be anglishised.
+* haskell compiler names and tooling identifiers have no anglish naming rule. use standard technical terms there, or mirror a tung term when that makes the source-to-implementation link clearer.
+* keep source changes tied to the asked-for behaviour.
+* prefer simpler code over broad abstraction.
+* do not reset, remove, or revert unrelated user edits.
+* use `rg` for search.
+* use `apply_patch` for hand edits.
+* run tests after parser, type checker, evaluator, bookhoard, or byspel changes.
+* when syntax changeth, update tests, byspels, bookhoard files, readme, and this file.
 
-## current naming
+== current naming
 
-- the language is named `tung`.
-- source files use `.tung`.
-- the cabal package and executable are named `tung`.
-- vscode useth language id `tung`, file extension `.tung`, and setting key `tung.tonguePath`.
-- the public import paths in tung code use `.tung`.
-- the haskell module tree is still `Tung.*`. this is an implementation namespace only. do not rename it during ordinary language work unless the task specifically asketh for an internal haskell namespace migration.
-- do not reintroduce earlier language names, extensions, language ids, or command names.
+* the language is named `tung`.
+* source files use `.tung`.
+* the cabal package and executable are named `tung`.
+* vscode useth language id `tung`, file extension `.tung`, and setting key `tung.tonguePath`.
+* the public import paths in tung code use `.tung`.
+* the haskell module tree is still `Tung.*`. this is an implementation namespace only. do not rename it during ordinary language work unless the task specifically asketh for an internal haskell namespace migration.
+* do not reintroduce earlier language names, extensions, language ids, or command names.
 
-## source of truth
+== source of truth
 
-- the implementation is authoritative when it conflicteth with old discussion.
-- this file is the broad language and maintainer spec.
-- `readme.md` is the shorter user-facing language guide.
-- `vscode/readme.md` is the editor-tooling guide.
-- `vscode/client/`, `vscode/server/`, and `vscode/test/` contain typescript source; `vscode/out/` is generated commonjs and must not be edited.
-- `vscode/generated/language-names.json` is emitted by `tool/language-names.tung`; update the tung tool and run `make language-metadata` instead of hand-editing the json.
-- typescript useth `const` arrow functions by default, including exported helpers; use a function declaration only when its hoisting is required.
-- `../bookhoard/` is a compiler-independent sibling source tree. its files are not byspels and must type check.
-- `byspel/` files are runnable byspels and must pass runnable-file checking.
-- `../benchmark/` holds runnable performance workloads and must pass runnable-file checking.
-- `src/Tung/Project.hs` loadeth filesystem source bundles for the runner and repl.
+* the implementation is authoritative when it conflicteth with old discussion.
+* this file is the broad language and maintainer spec.
+* `readme.adoc` is the shorter user-facing language guide.
+* `vscode/readme.adoc` is the editor-tooling guide.
+* `vscode/client/`, `vscode/server/`, and `vscode/test/` contain typescript source; `vscode/out/` is generated commonjs and must not be edited.
+* `vscode/generated/language-names.json` is emitted by `tool/language-names.tung`; update the tung tool and run `make language-metadata` instead of hand-editing the json.
+* typescript useth `const` arrow functions by default, including exported helpers; use a function declaration only when its hoisting is required.
+* `../bookhoard/` is a compiler-independent sibling source tree. its files are not byspels and must type check.
+* `byspel/` files are runnable byspels and must pass runnable-file checking.
+* `../benchmark/` holds runnable performance workloads and must pass runnable-file checking.
+* `src/Tung/Project.hs` loadeth filesystem source bundles for the runner and repl.
   it keepeth path discovery outside parsing and static import semantics.
-- tests are part of the specification. when behaviour changeth, update tests to describe the intended rule.
-- if a source file and this file disagree, inspect parser, type checker, evaluator, tests, and bookhoard before choosing which side is stale.
+* tests are part of the specification. when behaviour changeth, update tests to describe the intended rule.
+* if a source file and this file disagree, inspect parser, type checker, evaluator, tests, and bookhoard before choosing which side is stale.
 
-## agent workflow
+== agent workflow
 
 when starting a task:
 
-- read this file.
-- inspect the touched area with `rg` before editing.
-- check the current git status and assume unrelated dirty files belong to the user.
-- locate existing tests for the behaviour before adding new ones.
-- prefer changing one stage at a time: token, parse, validate, type, name, evaluate, bookhoard, editor.
-- keep syntax and semantics aligned. a parser-only change is rarely enough.
-- use the smallest change that preserveth the language invariants below.
+* read this file.
+* inspect the touched area with `rg` before editing.
+* check the current git status and assume unrelated dirty files belong to the user.
+* locate existing tests for the behaviour before adding new ones.
+* prefer changing one stage at a time: token, parse, validate, type, name, evaluate, bookhoard, editor.
+* keep syntax and semantics aligned. a parser-only change is rarely enough.
+* use the smallest change that preserveth the language invariants below.
 
 when ending a task:
 
-- run the narrowest useful tests first.
-- run `make compiler-test` after compiler, bookhoard, or byspel changes.
-- run `npm run check` and `npm test` after editor, lsp, syntax-highlight, or formatter changes.
-- run `git diff --check`.
-- run at least one byspel when changing runner behaviour.
-- report any command that could not be run.
+* run the narrowest useful tests first.
+* run `make compiler-test` after compiler, bookhoard, or byspel changes.
+* run `npm run check` and `npm test` after editor, lsp, syntax-highlight, or formatter changes.
+* run `git diff --check`.
+* run at least one byspel when changing runner behaviour.
+* report any command that could not be run.
 
-## core invariants
+== core invariants
 
-- syntax must remain unambiguous.
-- every function is curried.
-- second-is-function application is used consistently for expressions, type application, constructor declarations, function headers, and fill headers.
-- `$` is low-precedence application grouping, not function-position swapping.
-- partial application is pure.
-- only saturated application may perform latent effects.
-- effects are computation labels on function arrows, not stored value types.
-- file evaluation is strict call-by-value.
-- the cli requireth a local `main` with one `𝟙` input, a `𝟙` result, and only runner-supported latent effects.
-- imports use qualify-if-needed lookup. bare imported names are allowed only when unambiguous.
-- `ground.tung` is an ordinary import, not a magic prelude.
-- exports are explicit. declarations are private unless shown.
-- type and term namespaces are separate.
-- data types and effects share the type namespace.
-- match exhaustiveness is checked at compile time where the type is algebraic.
-- match usefulness is checked in source order; the first row covered wholly by
+* syntax must remain unambiguous.
+* every function is curried.
+* second-is-function application is used consistently for expressions, type application, constructor declarations, function headers, and fill headers.
+* `$` is low-precedence application grouping, not function-position swapping.
+* partial application is pure.
+* only saturated application may perform latent effects.
+* effects are computation labels on function arrows, not stored value types.
+* file evaluation is strict call-by-value.
+* the cli requireth a local `main` with one `𝟙` input, a `𝟙` result, and only runner-supported latent effects.
+* imports use qualify-if-needed lookup. bare imported names are allowed only when unambiguous.
+* `ground.tung` is an ordinary import, not a magic prelude.
+* exports are explicit. declarations are private unless shown.
+* type and term namespaces are separate.
+* data types and effects share the type namespace.
+* match exhaustiveness is checked at compile time where the type is algebraic.
+* match usefulness is checked in source order; the first row covered wholly by
   earlier rows is rejected as redundant.
-- integer literals are exact patterns; finite literal rows do not exhaust `integer` without a catch-all.
-- records are closed.
-- handlers are deep and `resume` is multi-shot.
-- `integer` is arbitrary precision and `float` is ieee 754 binary64.
-- accepted programs must not reach defensive internal evaluator errors.
-- bookhoard modules must stay acyclic and bottom-up.
-- bookhoard operations fill an existing lawful shape instead of exporting a
+* integer literals are exact patterns; finite literal rows do not exhaust `integer` without a catch-all.
+* records are closed.
+* handlers are deep and `eftgin` is multi-shot.
+* `integer` is arbitrary precision and `float` is ieee 754 binary64.
+* accepted programs must not reach defensive internal evaluator errors.
+* bookhoard modules must stay acyclic and bottom-up.
+* bookhoard operations fill an existing lawful shape instead of exporting a
   type-specific duplicate; specialised functions remain when no shape fiteth.
-- object-language syntax should stay small even if the implementation useth normal compiler terminology.
-- object-language names omit a family prefix when qualification can provide it: export `empty` from table rather than `table-empty`, and write `data/table@empty` only when ambiguity requireth it.
-- never rename an object-language item merely to avoid a name shared with another module; keep the simplest domain name and let qualification resolve the ambiguity.
-- when an unqualified compound identifier still needeth an adjective, use a postpositive adjective even where that is unnatural english.
+* object-language syntax should stay small even if the implementation useth normal compiler terminology.
+* object-language names omit a family prefix when qualification can provide it: export `empty` from table rather than `table-empty`, and write `table@empty` only when ambiguity requireth it.
+* never rename an object-language item merely to avoid a name shared with another module; keep the simplest domain name and let qualification resolve the ambiguity.
+* when an unqualified compound identifier still needeth an adjective, use a postpositive adjective even where that is unnatural english.
 
-## common traps
+== common traps
 
-- do not treat `ground.tung` as a prelude. users must bring it.
-- do not force qualification for unique imported names or unique operators.
-- do not colour or resolve a `bring` file path as ordinary names in editor tooling.
-- do not make a non-function binding have a type like `integer ! console`. only function arrows carry effects.
-- do not restore the final expression as an implicit program entry point. runnable files enter through `null main`.
-- do not let partial application run native effects. `1 ÷` is pure; `1 ÷ 0` may fail.
-- do not encode `fail` as one fixed division-by-zero error. `fail` is a parameterised effect with an error value and polymorphic answer.
-- do not remove the type parameter from `state`.
-- do not make handler `resume` one-shot unless the language spec changeth. current resume is multi-shot.
-- do not make handlers shallow. current handlers are deep.
-- do not add `perform`; effects are called as ordinary operations and handled by `try`.
-- do not restore scrutinee-less `match`. anonymous functions are bare braces.
-- do not restore a general infix escape. `.*` is an ordinary name.
-- do not restore old `$` function-swapping behaviour. current `$` groups low-precedence application.
-- do not add explicit type-parameter syntax unless the spec changeth.
-- do not change object-language keywords to common compiler terms without checking the desired anglish direction.
-- do not copy old byspels blindly after syntax changeth. update bookhoard, byspels, tests, readme, and this file together.
-- do not trust editor semantic analysis as the compiler. it is intentionally tolerant.
-- do not hide a type-system weakness by changing the bookhoard to fit it. decide against the reference model first.
+* do not treat `ground.tung` as a prelude. users must bring it.
+* do not force qualification for unique imported names or unique operators.
+* do not colour or resolve a `bring` file path as ordinary names in editor tooling.
+* do not make a non-function binding have a type like `integer ! console`. only function arrows carry effects.
+* do not restore the final expression as an implicit program entry point. runnable files enter through `null main`.
+* do not let partial application run native effects. `1 ÷` is pure; `1 ÷ 0` may fail.
+* do not encode `fail` as one fixed division-by-zero error. `fail` is a parameterised effect with an error value and polymorphic answer.
+* do not remove the type parameter from `state`.
+* do not make handler `eftgin` one-shot unless the language spec changeth. current `eftgin` is multi-shot.
+* do not make handlers shallow. current handlers are deep.
+* do not add `perform`; effects are called as ordinary operations and handled by `try`.
+* do not restore scrutinee-less `match`. anonymous functions are bare braces.
+* do not restore a general infix escape. `.*` is an ordinary name.
+* do not restore old `$` function-swapping behaviour. current `$` groups low-precedence application.
+* do not add explicit type-parameter syntax unless the spec changeth.
+* do not change object-language keywords to common compiler terms without checking the desired anglish direction.
+* do not copy old byspels blindly after syntax changeth. update bookhoard, byspels, tests, readme, and this file together.
+* do not trust editor semantic analysis as the compiler. it is intentionally tolerant.
+* do not hide a type-system weakness by changing the bookhoard to fit it. decide against the reference model first.
 
-## commands
+== commands
 
 build everything:
 
-```sh
+[source,sh]
+----
 make build
-```
+----
 
 run the whole test suite:
 
-```sh
+[source,sh]
+----
 make test
-```
+----
 
 run the repeatable compiler and evaluator benchmark suite:
 
-```sh
+[source,sh]
+----
 make benchmark
-```
+----
 
 the fibonacci compiler case deliberately keepeth its naive two-branch recursion. optimise the general compiler and evaluator, never the fibonacci algorithm or this one source shape.
 
 run a tung file:
 
-```sh
+[source,sh]
+----
 cabal run tung -- ../byspel/fizzbuzz.tung
-```
+----
 
 run any tung file:
 
-```sh
+[source,sh]
+----
 cabal run tung -- path/to/file.tung [arguments...]
-```
+----
 
 format one or more tung files in place:
 
-```sh
+[source,sh]
+----
 cabal run tung -- --format path/to/file.tung [more.tung...]
-```
+----
 
 check the vscode extension and lsp server from `../vscode`:
 
-```sh
+[source,sh]
+----
 npm run check
 npm test
-```
+----
 
 install the repository tools and pre-commit hook from the repository root:
 
-```sh
+[source,sh]
+----
 brew bundle
 lefthook install
-```
+----
 
 run `make setup` from the repository root to test all parts, generate documentation,
 and install the standalone runner and vscode extension. use `make install` for
@@ -189,13 +197,14 @@ linteth and formateth staged typescript and html. formatting fixes are re-staged
 
 if cabal faileth only because it cannot write under `~/.cabal/logs`, rerun the same cabal command with the needed permission. do not change source to work around cabal log permissions.
 
-## compiler architecture
+== compiler architecture
 
 the compiler is a small staged implementation.
 
 the main data flow is:
 
-```text
+[source,text]
+----
 source text
   -> lexTokens
   -> parseTokens and optional expression-span decoration
@@ -206,7 +215,7 @@ source text
   -> type-directed elaboration and evidence resolution
   -> CoreProgram validation
   -> evaluation
-```
+----
 
 file commands first use `Tung.Project` to resolve nested local brings relative
 to their owner. roots from platform-separated `TUNG_PATH` entries are searched
@@ -217,15 +226,15 @@ project retaineth each local import's canonical filesystem path for diagnostics.
 
 keep this layering:
 
-- tokenisation must not need parser state.
-- source spans use utf-16 offsets at the editor protocol boundary. editor checking decorateth expressions with spans and preserveth the innermost span through inference; declaration-only failures use the token-based fallback.
-- parsing must not need type information.
-- validation must not need inference.
-- only the type checker may construct `CoreProgram`.
-- evaluation should not repair static errors.
-- the lsp server may approximate, but the haskell compiler is authoritative.
+* tokenisation must not need parser state.
+* source spans use utf-16 offsets at the editor protocol boundary. editor checking decorateth expressions with spans and preserveth the innermost span through inference; declaration-only failures use the token-based fallback.
+* parsing must not need type information.
+* validation must not need inference.
+* only the type checker may construct `CoreProgram`.
+* evaluation should not repair static errors.
+* the lsp server may approximate, but the haskell compiler is authoritative.
 
-## editor architecture
+== editor architecture
 
 the editor hath two deliberately different sources of knowledge.
 
@@ -254,7 +263,7 @@ on the manifest and every embedded source. additions, removals, and content edit
 therefore invalidate the embed. keep the manifest tracked; the pre-commit hook
 refresheth it for bookhoard edits.
 
-host-backed function metadata lives in `src/Tung/Primitive.hs`. it is the data-only catalogue for host names, roles, full types, effects, and arities; the checker and evaluator derive their views from it. source `foreign` declarations are checked against the catalogue before elaboration.
+host-backed function metadata lives in `src/Tung/Primitive.hs`. it is the data-only catalogue for host names, roles, full types, effects, and arities; the checker and evaluator derive their views from it. source `fremmed` declarations are checked against the catalogue before elaboration.
 
 `CoreProgram` owneth the elaborated root and a flat map of every elaborated
 brought module keyed by its written path. the type checker cacheth both the
@@ -277,15 +286,15 @@ in Haskell because its Haskell entry point is already smaller; the documentation
 generator stayeth in TypeScript until tung can express its filesystem and text
 work more simply.
 
-## change discipline
+== change discipline
 
-- follow the compiler stages in order and keep every affected stage consistent.
-- keep static rejection separate from deliberate runtime failure.
-- test both successful and adversarial forms of semantic changes.
-- keep bookhoards type-correct, byspels runnable, and editor analysis compatible with incomplete source.
-- keep module-local invariants in source comments beside their implementation.
+* follow the compiler stages in order and keep every affected stage consistent.
+* keep static rejection separate from deliberate runtime failure.
+* test both successful and adversarial forms of semantic changes.
+* keep bookhoards type-correct, byspels runnable, and editor analysis compatible with incomplete source.
+* keep module-local invariants in source comments beside their implementation.
 
-## language overview
+== language overview
 
 tung is a small expression-oriented programming language.
 
@@ -295,7 +304,7 @@ tung source files use the `.tung` extension.
 
 the implementation is in haskell.
 
-## source files
+== source files
 
 a file is a sequence of declarations followed optionally by `yield` and a final expression.
 
@@ -327,28 +336,45 @@ effectful work must be wrapped in a function. module initialisation is pure.
 
 do not write an effect annotation on a non-function value type. effects belong to computations and function arrows, not stored values.
 
-```tung
+[source,tung]
+----
 bring ground.tung
 bring data/list.tung
 
 let answer: integer = 42
-```
+----
 
 any term may be ascribed a type as `(term: type)`. the ascription constraineth
 the value type and preserveth every immediate effect and graith requirement of
 the term.
 
-`bring path` imports another file.
+`bring path` imports another file. its last path segment becometh a local
+namespace alias by default:
+
+[source,tung]
+----
+bring data/list.tung
+
+let xs = list@empty
+----
 
 the import graph must be acyclic. a direct or indirect bring cycle is a type error.
 
 a shown imported definition is available as `namespace@name`.
 
-the namespace is the full import path before `.tung`.
-
 for `bring ground.tung`, the namespace is `ground`.
 
-for `bring data/list.tung`, the namespace is `data/list`.
+for `bring data/list.tung`, the namespace is `list`; the path-qualified
+`data/list@name` form is invalid.
+
+a third element overrideeth the default alias. for `bring data/list.tung
+sequence`, only `sequence@name` is available. the alias changeth lookup only;
+module paths still preserve imported type, shape, fill, and constructor identity
+internally. aliases are local and are not re-exported.
+
+an explicit alias must be one slash-free, unqualified name. two different
+directly brought paths may not claim the same effective namespace, including
+default namespaces.
 
 an imported name may also be used bare when it is unambiguous.
 
@@ -360,7 +386,7 @@ do not special-case `ground` as magically bare. imports use the same qualify-if-
 
 tung hath two namespaces.
 
-terms include values, functions, data constructors, effect operations, foreign terms, and shape methods.
+terms include values, functions, data constructors, effect operations, `fremmed` terms, and shape methods.
 
 types include primitive types, aliases, data types, and effect constructors.
 
@@ -370,22 +396,23 @@ prefix a declaration with `show` to publish it.
 
 when a declaration starteth with `graith`, put `show` after the requirements and directly before the main declaration keyword.
 
-```tung
+[source,tung]
+----
 show let answer = 42
 graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y
 show let-ilk count = integer
 show kin a option { none, a some }
 show deed ask { integer ask: integer }
-show let add-integer: integer → integer → integer = foreign
+show let plus: integer → integer → integer = 'add-integer' fremmed
 show shape a identity { let a identity: a }
 graith a equal show shape a order-partial { let a ≤ a: 𝟚 }
-```
+----
 
 showing a data declaration publisheth its type and constructors.
 
 showing a deed declaration publisheth its effect type and operations.
 
-a shown foreign let publisheth its term like any other shown let.
+a shown `fremmed` let publisheth its term like any other shown let.
 
 showing a shape also publisheth its methods, including defaults.
 
@@ -397,11 +424,12 @@ fill declarations are instance evidence rather than named api entries. fill evid
 
 term and type names are looked up in separate namespaces. data types and effect constructors share the type namespace. if a bare name is ambiguous within its namespace, the re-export is an error and the source must use a qualified name.
 
-```tung
+[source,tung]
+----
 bring data/option.tung
-show-ilk data/option@option
-show data/option@default
-```
+show-ilk option@option
+show option@default
+----
 
 there is no wildcard re-export. re-export each term or type with `show name` or `show-ilk name`.
 
@@ -409,12 +437,13 @@ an ordinary `bring` never re-exports its imported surface.
 
 private names are unavailable to importers both bare and qualified.
 
-```tung
+[source,tung]
+----
 bring ground.tung
 
 let x = ground@yea
 let y = yea
-```
+----
 
 when a file is run as a program, it must declare `main` locally.
 
@@ -434,7 +463,7 @@ user-defined effects must be handled inside `main`.
 
 an unhandled `fail` is not allowed on `main`.
 
-## comments
+== comments
 
 `#` starteth a line comment.
 
@@ -452,7 +481,7 @@ the lsp exposeth attached docs in hover and completion.
 
 the bookhoard html wiki includeth only shown declarations and attached docs. change the declaration or its doc comment, then regenerate the wiki; do not hand-edit generated html.
 
-## names
+== names
 
 most non-space characters can be part of a name.
 
@@ -464,11 +493,12 @@ the parser treateth delimiters, arrows, and separators as syntax, not as names.
 
 qualified names are ordinary names after parsing.
 
-```tung
-data/list@empty
-data/list@.*
+[source,tung]
+----
+list@empty
+list@.*
 console@write
-```
+----
 
 `.*` is a name.
 
@@ -484,7 +514,7 @@ the language no longer hath an infix escape feature.
 
 `_` is a catch-all pattern.
 
-## sequence application
+== sequence application
 
 application is written as a sequence.
 
@@ -528,7 +558,8 @@ inside `$(`, the first term is the function and later terms are ordinary argumen
 
 `$h` and `$ h` are both accepted.
 
-```tung
+[source,tung]
+----
 1 + 2        # (+ 1 2)
 2 (1 +)      # curried partial application
 1 $ + 2      # same as 1 + 2
@@ -537,7 +568,7 @@ a f $h b g
 
 a f $(g b c) $h d
 # meaneth ((a f) g b c) h d
-```
+----
 
 partial application buildeth a function value.
 
@@ -555,7 +586,7 @@ for byspel, `1 ÷` is pure and returneth a function.
 
 for byspel, `1 ÷ 0` is effectful and may perform `fail`.
 
-## evaluation strategy
+== evaluation strategy
 
 tung is strict call-by-value.
 
@@ -591,17 +622,18 @@ only the chosen case body is evaluated.
 
 effect operation arguments are evaluated before the operation is handled.
 
-`resume` continueth the captured strict computation.
+`eftgin` continueth the captured strict computation.
 
-deep handlers are reinstalled around resumed computation.
+deep handlers are reinstalled around the continued computation.
 
-## declarations
+== declarations
 
 `let` always useth `=`.
 
-```tung
+[source,tung]
+----
 let (x: a) id: a = x
-```
+----
 
 function definition headers use the same sequence rule as expressions.
 
@@ -617,9 +649,10 @@ same structure instead retain relational names such as `left` and `right`.
 
 the second term is the function name.
 
-```tung
+[source,tung]
+----
 let x add-two y = x + y
-```
+----
 
 typed non-infix arguments may also be grouped before the function name.
 
@@ -631,48 +664,54 @@ grouped typed-argument syntax is allowed for ordinary definitions and shape defa
 
 shape requirements for a definition are written with leading `graith`.
 
-```tung
+[source,tung]
+----
 graith a equal let (x: a, y: a) same: 𝟚 = x ≡ y
-```
+----
 
 the grouped typed-argument form maketh this:
 
-```tung
+[source,tung]
+----
 let (x: integer, y: integer) add: integer = x + y
-```
+----
 
 mean a curried function:
 
-```tung
+[source,tung]
+----
 integer → integer → integer
-```
+----
 
 polymorphic typed arguments may include effects.
 
 effect annotations after the result in grouped typed-argument syntax belong to the function being defined, not to a stored non-function value.
 
-```tung
+[source,tung]
+----
 let (f₀: a → b ! e₀, f₁: b → c ! e₁, x: a) compose: c ! e₀, e₁ =
   (x f₀) f₁
-```
+----
 
 second-is-function headers also work with named arguments:
 
-```tung
+[source,tung]
+----
 let value default-option default = match value {
   none | default,
   x some | x
 }
-```
+----
 
-## type aliases
+== type aliases
 
 type aliases use `let-ilk`.
 
-```tung
+[source,tung]
+----
 let-ilk count = integer
 let-ilk a powerset = a func 𝟚
-```
+----
 
 aliases are transparent during unification.
 
@@ -680,7 +719,7 @@ alias parameters follow the same second-is-function header rule as other declara
 
 an alias is not a fresh nominal type.
 
-## algebraic data
+== algebraic data
 
 data declarations use `kin`.
 
@@ -690,14 +729,16 @@ constructors use the same second-is-function sequence rule.
 
 multi-argument type and constructor operators use the same sequence rule as expressions.
 
-```tung
+[source,tung]
+----
 kin a option {
   none,
   a some
 }
-```
+----
 
-```tung
+[source,tung]
+----
 kin a ∏ b {
   a ∏ b
 }
@@ -706,27 +747,28 @@ kin a ∐ b {
   a inject₀,
   b inject₁
 }
-```
+----
 
 these byspels mean:
 
-- `option` hath one type parameter.
-- `none` is a nullary constructor.
-- `some` taketh one value.
-- `∏` is both the product type name and its constructor name.
-- `∐` is the coproduct type name with constructors `inject₀` and `inject₁`.
+* `option` hath one type parameter.
+* `none` is a nullary constructor.
+* `some` taketh one value.
+* `∏` is both the product type name and its constructor name.
+* `∐` is the coproduct type name with constructors `inject₀` and `inject₁`.
 
 type application followeth second-is-function syntax too.
 
-```tung
+[source,tung]
+----
 let pair-value: integer ∏ text = 1 ∏ 'one'
-```
+----
 
 constructor application is curried.
 
 nullary constructors behave like values.
 
-## effects
+== effects
 
 effect declarations use `deed`.
 
@@ -740,39 +782,43 @@ the latent effect is added by the declaration itself.
 
 written latent effects are kept, so operations may mention effects besides their own effect.
 
-```tung
+[source,tung]
+----
 deed console {
   text write: 𝟙,
   𝟙 read: text
 }
-```
+----
 
 parameterised effects are allowed.
 
 `state` is parameterised.
 
-```tung
+[source,tung]
+----
 deed a state {
   𝟙 get: a,
   a set: 𝟙
 }
-```
+----
 
 `fail` is extensible and parameterised by the error type.
 
 `fail` operations carry an error value and have a polymorphic answer type.
 
-```tung
+[source,tung]
+----
 deed e fail {
   e fail: a
 }
-```
+----
 
 `async` is a standard effect.
 
 `async` useth `task`.
 
-```tung
+[source,tung]
+----
 deed async {
   (𝟙 → a ! e) fork: a task ! e,
   (a task) wait: a ! text fail,
@@ -780,7 +826,7 @@ deed async {
   (a task) wait-for integer: a option ! text fail,
   integer sleep: 𝟙
 }
-```
+----
 
 `task` is abstract outside `_foreign.tung`; its constructor is not shown.
 
@@ -800,15 +846,16 @@ the default runner handleth whole-text file operations directly.
 
 file-system errors perform `text fail`.
 
-```tung
+[source,tung]
+----
 deed file {
   text read-file: text ! text fail,
   text write-file text: 𝟙 ! text fail,
   text append-file text: 𝟙 ! text fail
 }
-```
+----
 
-## type classes
+== type classes
 
 the language keyword for type classes is `shape`.
 
@@ -869,36 +916,40 @@ chosen explicitly, do not infer either guarantee from `law`.
 an abstract shape member may carry requirements that are polymorphic in that
 member rather than parents of the whole shape.
 
-```tung
+[source,tung]
+----
 shape f traverse {
   graith m applicative let (a f) traverse (a → b m): (b f) m
 }
-```
+----
 
 the member requirement is instantiated at each use. a fill may use its
 evidence while defining that member, and callers must provide it.
 
 when a default useth grouped typed arguments, the annotation after the member name is the result type.
 
-```tung
+[source,tung]
+----
 shape a equal {
   let a ≡ a: 𝟚
   let a ≢ b = (a ≡ b) ¬
   law (x: a): x ≡ x ~ yea
 }
-```
+----
 
-```tung
+[source,tung]
+----
 graith a equal shape a order-partial {
   let a ≤ a: 𝟚
 }
-```
+----
 
-```tung
+[source,tung]
+----
 graith a add shape a subtract {
   let a - a: a
 }
-```
+----
 
 `fill` implementeth a `shape`.
 
@@ -927,20 +978,22 @@ members inside `fill` use the same `let` syntax as ordinary functions.
 fill members do not take semicolons. a following `let`, `graith`, or `}`
 delimiteth each member.
 
-```tung
+[source,tung]
+----
 fill 𝟚 equal {
   let a ≡ b = match a {
     yea | b,
     nay | b ¬
   }
 }
-```
+----
 
-```tung
+[source,tung]
+----
 graith a equal fill (a box) equal {
   let (x box) ≡ (y box) = x ≡ y
 }
-```
+----
 
 a child `fill` may define inherited parent members. those definitions satisfy the corresponding parent requirement.
 
@@ -958,7 +1011,7 @@ fill selection dependeth on static inferred types, never runtime values or bring
 
 one fill brought through a diamond remaineth one fill, while equally named shapes from distinct qualified modules remain distinct. duplicate, overlapping, or recursively required fills are type errors.
 
-## expressions
+== expressions
 
 integer literals are decimal.
 
@@ -976,14 +1029,15 @@ text literals use single quotes and evaluate to the opaque `text` primitive.
 
 text escapes are `\n`, `\r`, `\t`, `\'`, `\\`, and decimal unicode `\123;`.
 
-```tung
+[source,tung]
+----
 42
 3.14
 `c
 `\n
 `\23383;
 'text \23383;'
-```
+----
 
 anonymous functions use bare braces.
 
@@ -1005,11 +1059,12 @@ the argument order is the pattern order: first `x`, then `y`, then `z`.
 
 each case useth `|`.
 
-```tung
+[source,tung]
+----
 { x | x }
 { x, y | x + y }
 { x, y, z | (x + y) + z }
-```
+----
 
 blocks are parenthesised.
 
@@ -1019,14 +1074,15 @@ local block `let` declarations do not take semicolons.
 
 `yield` is required before the final expression, which hath no trailing semicolon.
 
-```tung
+[source,tung]
+----
 (
   let x = 2 × 3
   yield x + 1
 )
-```
+----
 
-## match
+== match
 
 `match` can consume scrutinees.
 
@@ -1036,12 +1092,13 @@ local block `let` declarations do not take semicolons.
 
 scrutinees are separated by commas.
 
-```tung
+[source,tung]
+----
 let chosen = match yea, nay {
   yea, b | b,
   nay, _ | nay
 }
-```
+----
 
 anonymous functions do not use `match`.
 
@@ -1049,12 +1106,13 @@ bare `{ ... }` is a function.
 
 when a bare brace function case hath multiple patterns, the result is a curried function with one argument per pattern.
 
-```tung
+[source,tung]
+----
 let not: 𝟚 → 𝟚 = {
   yea | nay,
   nay | yea
 }
-```
+----
 
 this bare brace form is recognised as a function over its pattern inputs.
 
@@ -1086,9 +1144,10 @@ the empty anonymous function `{}` is allowed when its annotated input type is un
 
 this is the eliminator for `𝟘`.
 
-```tung
+[source,tung]
+----
 let initial: 𝟘 → a = {}
-```
+----
 
 an unannotated empty anonymous match `{}` is not allowed, because it hath no pattern arity.
 
@@ -1098,7 +1157,7 @@ variable patterns are catch-all patterns.
 
 patterns are linear. one match row may not bind the same variable twice.
 
-## records
+== records
 
 records are closed.
 
@@ -1122,11 +1181,12 @@ if no exact name is found, `record@field` readeth `field` from `record`.
 
 field removal useth `- field`.
 
-```tung
+[source,tung]
+----
 let person = [name = 'naoki', age = 35]
 let older = [= person, age = 36]
 let public = [= person, - age]
-```
+----
 
 closed records mean field sets must match when an annotated record type is checked.
 
@@ -1136,7 +1196,7 @@ removing an unknown field is an error.
 
 updating a non-record is an error.
 
-## handlers
+== handlers
 
 effects are invoked as ordinary calls.
 
@@ -1148,13 +1208,13 @@ handlers use `try body { cases }`.
 
 `try` always requireth the handler braces and cases. it doth not fall back to its body when braces are missing.
 
-handlers may include a `return` case.
+handlers may include a `yield pattern | expression` case.
 
-the `return` case handleth the normal value produced by the body.
+the handler `yield` case handleth the normal value produced by the body.
 
-if no `return` case is written, the default is identity.
+if no handler `yield` case is written, the default is identity.
 
-there may be at most one `return` case.
+there may be at most one handler `yield` case.
 
 handler cases may name an operation.
 
@@ -1162,11 +1222,11 @@ handler cases may name an effect.
 
 handler case arguments use the same header rule used by functions.
 
-inside an operation handler, `resume` is bound implicitly.
+inside an operation handler, `eftgin` is bound implicitly.
 
-the type of `resume` is the operation result type to the handler answer type.
+the type of `eftgin` is the operation result type to the handler answer type.
 
-for an operation `op: a → b`, inside a handler whose answer type is `c`, `resume` hath type `b → c` plus the still-unhandled effects.
+for an operation `op: a → b`, inside a handler whose answer type is `c`, `eftgin` hath type `b → c` plus the still-unhandled effects.
 
 when an effect and one of its operations share a name, patterns prefer the operation form.
 
@@ -1176,51 +1236,54 @@ when an effect and one of its operations share a name, patterns prefer the opera
 
 `_ fail | fallback` handleth the `fail` operation and ignoreth the error value.
 
-do not require explicit `resume` binding in syntax.
+do not require explicit `eftgin` binding in syntax.
 
-`resume` is the captured continuation.
+`eftgin` is the captured continuation.
 
 the continuation is multi-shot.
 
-the handler may call `resume` zero times.
+the handler may call `eftgin` zero times.
 
-the handler may call `resume` one time.
+the handler may call `eftgin` one time.
 
-the handler may call `resume` many times.
+the handler may call `eftgin` many times.
 
-resuming is deep.
+calling `eftgin` is deep.
 
-deep resuming meaneth the same handler remaineth installed around the rest of the resumed computation.
+this meaneth the same handler remaineth installed around the rest of the continued computation.
 
-```tung
+[source,tung]
+----
 deed choice {
   𝟙 pick: integer
 }
 
 let branched: integer =
   try (null pick) + (null pick) {
-    pick | (1 resume) + (2 resume)
+    pick | (1 eftgin) + (2 eftgin)
   }
-```
+----
 
-```tung
+[source,tung]
+----
 deed ask {
   integer ask: integer
 }
 
 let answered: integer =
   try 10 ask {
-    x ask | x resume
+    x ask | x eftgin
   }
-```
+----
 
-```tung
+[source,tung]
+----
 let answered-text: text =
   try 10 ask {
-    return n | n to-text,
-    x ask | x resume
+    yield n | n to-text,
+    x ask | x eftgin
   }
-```
+----
 
 effect-level handlers may not bind operation arguments.
 
@@ -1236,19 +1299,20 @@ handling one operation while leaving a sibling operation uncovered doth not eras
 
 partial operation coverage doth not combine across nested handlers. effect rows track effect labels, not per-operation subsets.
 
-effects used by the return case and handler bodies are added to the surrounding computation.
+effects used by the handler `yield` case and operation cases are added to the surrounding computation.
 
-`resume` must be type checked.
+`eftgin` must be type checked.
 
-the argument passed to `resume` must match the operation result type.
+the argument passed to `eftgin` must match the operation result type.
 
-## async byspel semantics
+== async byspel semantics
 
 `async` is a standard effect.
 
 the default runner runneth forked closures concurrently and giveth each task a snapshot of the import cache and runner arguments.
 
-```tung
+[source,tung]
+----
 let (_: 𝟙) answer: integer ! async =
   (
     let left = ({ _ | (let _ = 200 sleep yield 20) }) fork
@@ -1257,18 +1321,18 @@ let (_: 𝟙) answer: integer ! async =
       _ fail | 0
     }
   )
-```
+----
 
 both sleeps overlap. task construction remaineth unavailable to user code, so only the runner may produce a completed task. the handler covereth cancellation or host-thread failure from either wait.
 
-## types
+== types
 
 primitive types are:
 
-- `integer`
-- `float`
-- `unicode`
-- `text`
+* `integer`
+* `float`
+* `unicode`
+* `text`
 
 `integer` is an arbitrary-precision haskell `Integer`.
 
@@ -1277,17 +1341,19 @@ primitive types are:
 `text` is represented by strict haskell `Data.Text.Text`.
 
 `_foreign.tung` owneth the native text bindings, including `behead-text`,
-`text-to-list`, `list-to-text`, `fold-join-text`, and `join-text`.
-`text/structure.tung` provideth the text-related fills. foreign helpers back
-equality and order for text and unicode, while `join-text` backeth text's
-semigroup and monoid fills.
+`text-to-list`, `list-to-text`, and `join-text`. `text/structure.tung` provideth
+the text-related fills. host helpers back equality and order for text and
+unicode, while the internal `join-text` helper backeth text's semigroup fill.
+ordinary source useth the general `*` operation and `fold` rather than exporting
+type-specific concatenation functions.
 
 native unicode conversion surface:
 
-```tung
+[source,tung]
+----
 unicode-to-integer: unicode → integer
 integer-to-unicode: integer → unicode ! text fail
-```
+----
 
 literal decoding and `integer-to-unicode` share one validity boundary. invalid
 integers perform `text fail`; they must never become malformed runtime unicode
@@ -1321,14 +1387,15 @@ in typed-argument definitions, `name: b ! e` is shorthand for putting `! e` on t
 
 in typed-argument definitions, `name: b ! e` is not a value type.
 
-```tung
+[source,tung]
+----
 a → b
 a → b ! console
 a → b ! console, text fail
 a → b ! integer state
 a → b ! file, text fail
 (a → b ! e) → a list → b list ! e
-```
+----
 
 effect entries use the same type application rule as types.
 
@@ -1366,7 +1433,7 @@ the checker supporteth effect annotations.
 
 the checker supporteth handlers that remove handled effects and add handler-body effects.
 
-## native surface
+== native surface
 
 the checker and runner provide these names natively.
 
@@ -1376,7 +1443,8 @@ arithmetic operations are defined as shape members in the bookhoard, but the run
 
 native numeric surface:
 
-```tung
+[source,tung]
+----
 to-text: float → text
 from-text: text → float ! text fail
 ⌊: float → integer ! text fail
@@ -1391,13 +1459,14 @@ exponent: float → float
 logarithm: float → float
 sine: float → float
 arctan-float: float → float → float
-```
+----
 
 `arctan-float` taketh real part then imaginary part, and returneth an angle in the range `0` to `τ`.
 
 native runner function surface:
 
-```tung
+[source,tung]
+----
 write: text → 𝟙 ! console
 sleep: integer → 𝟙 ! async
 read-file: text → text ! file, text fail
@@ -1406,36 +1475,46 @@ append-file: text → text → 𝟙 ! file, text fail
 environment: text → text option ! system
 exit: integer → a ! system
 run-process: text → text list → process-result ! process, text fail
-```
+serve: integer → (request → response ! e) → 𝟙 ! web, e, text fail
+----
+
+`serve` runneth an ipv4 http/1.1 listener. each connection carrieth one request;
+request bodies must be utf-8 and at most eight mebibytes, transfer encoding is
+unsupported, and the handler may use effects. runnable handlers must handle
+failure and custom effects internally, leaving only runner-supported effects.
+the runtime addeth `Content-Length` and `Connection: close` to each response.
 
 native operations without informative inputs still use ordinary unary function types:
 
-```tung
+[source,tung]
+----
 read: 𝟙 → text ! console
 random: 𝟙 → float ! random
 arguments: 𝟙 → text list ! system
 unix-time: 𝟙 → integer ! clock
-```
+----
 
 standard ground helper:
 
-```tung
+[source,tung]
+----
 write-line: text → 𝟙 ! console
-```
+----
 
-an annotated top-level let may use `foreign` in place of its body.
+an annotated top-level let may use a text key followed by `fremmed` as its body.
 
-```tung
-show let add-integer: integer → integer → integer = foreign
-show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = foreign
-```
+[source,tung]
+----
+show let plus: integer → integer → integer = 'add-integer' fremmed
+show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = 'divide-remainder-integer' fremmed
+----
 
-this declareth a host-provided function with an ordinary tung type.
+this bindeth an ordinary tung name to the host function identified by the text.
 
-the marker must be the direct body of a fully annotated file-level let. its
-name and full type must match the compiler's host registry.
+the text and marker must be the direct body of a fully annotated file-level let.
+the host key must exist, and the declared type must match the registry entry.
 
-foreign lets enter the same term environment as other lets. source bookhoards
+`fremmed` lets enter the same term environment as other lets. source bookhoards
 can use them inside `fill` to provide shape methods.
 
 `from-text` faileth with `text fail`.
@@ -1447,80 +1526,82 @@ followeth ieee 754 behaviour, including infinities and nan.
 
 `unix-time` returneth whole seconds since `1970-01-01 00:00:00 utc`.
 
-## current standard bookhoard shape
+== current standard bookhoard shape
 
 `ground.tung` is an ordinary optional umbrella import that re-exports core data, effects, classes, and helpers.
 
 core data is split across:
 
-- `𝟘`
-- `𝟙`
-- `𝟚`
-- `three`, with `fore`, `mid`, and `aft`
-- product `∏`
-- coproduct `∐`
-- `option`
-- `list`
-- `task`
-- `additive` and `multiplicative` wrappers
-- `infimal` and `supremal` wrappers
+* `𝟘`
+* `𝟙`
+* `𝟚`
+* `three`, with `fore`, `mid`, and `aft`
+* product `∏`
+* coproduct `∐`
+* `option`
+* `list`
+* `task`
+* `additive` and `multiplicative` wrappers
+* `infimal` and `supremal` wrappers
 
 `𝟘` exports `initial: 𝟘 → a`.
 
 core effects re-exported by `ground.tung` include:
 
-- `fail`
-- `console`
-- `random`
-- `state`
-- `async`
-- `file`
-- `system`
-- `clock`
-- `process`
+* `fail`
+* `console`
+* `random`
+* `state`
+* `async`
+* `file`
+* `system`
+* `clock`
+* `process`
+* `web`
 
 practical data and utility modules include:
 
-- `nonempty`
-- `table`
-- `set`
-- `powerset`
-- `path`
-- `time-span`
-- unicode-aware text operations
-- `process-result`
+* `nonempty`
+* `table`
+* `set`
+* `powerset`
+* `path`
+* `time-span`
+* unicode-aware text operations
+* `process-result`
+* http requests, responses, and the server helpers under `web/`
 
 core type classes are split across bookhoard files:
 
-- `equal`
-- `less-equal`
-- `order-partial`
-- `order-total`
-- `semilattice-infimal`
-- `semilattice-supremal`
-- `lattice`
-- `semilattice-infimal-bounded`
-- `semilattice-supremal-bounded`
-- `lattice-bounded`
-- `complement`
-- `magma`
-- `semigroup`
-- `monoid`
-- `group`
-- `semigroupoid`
-- `category`
-- `groupoid`
-- `add`
-- `zero`
-- `subtract`
-- `multiply`
-- `one`
-- `semiring`
-- `ring`
-- `divide`
-- `field`
-- `divide-remainder`
-- `euclidean`
+* `equal`
+* `less-equal`
+* `order-partial`
+* `order-total`
+* `semilattice-infimal`
+* `semilattice-supremal`
+* `lattice`
+* `semilattice-infimal-bounded`
+* `semilattice-supremal-bounded`
+* `lattice-bounded`
+* `complement`
+* `magma`
+* `semigroup`
+* `monoid`
+* `group`
+* `semigroupoid`
+* `category`
+* `groupoid`
+* `add`
+* `zero`
+* `subtract`
+* `multiply`
+* `one`
+* `semiring`
+* `ring`
+* `divide`
+* `field`
+* `divide-remainder`
+* `euclidean`
 
 `less-equal` owneth `≤` and deriveth `<` without claiming order laws.
 `order-partial` requireth `less-equal`; its laws state reflexivity,
@@ -1544,31 +1625,31 @@ equality or subset inclusion. `complement` requireth a bounded lattice, owneth
 `¬`, and lifteth pointwise to powersets. list-backed `set` provideth the finite
 operations.
 
-## theory and reference model
+== theory and reference model
 
 these papers ground the main static and dynamic design choices. tung adapteth
 their ideas; the links do not claim that the implementation is a formalisation
 or proof of the cited calculus.
 
-- luis damas and robin milner, [principal type-schemes for functional programs](https://doi.org/10.1145/582153.582176), 1982: principal typing, let generalisation, instantiation, unification, and the occurs check
-- philip wadler and stephen blott, [how to make ad-hoc polymorphism less ad hoc](https://doi.org/10.1145/75277.75283), 1989: `shape` constraints, `fill` selection, qualified polymorphism, and elaboration to explicit evidence
-- daan leijen, [koka: programming with row-polymorphic effect types](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/koka-effects-2013.pdf), 2013: inferred effect rows, effect variables, effect encapsulation, and safe interaction between effects and let polymorphism
-- gordon plotkin and matija pretnar, [handlers of algebraic effects](https://homepages.inf.ed.ac.uk/gdp/publications/Effect_Handlers.pdf), 2009: operations, handlers, resumptions as captured continuations, and handler return clauses
-- luc maranget, [warnings for pattern matching](https://doi.org/10.1017/S0956796807006223), 2007: constructor-matrix reasoning for usefulness and exhaustive match checking
+* luis damas and robin milner, https://doi.org/10.1145/582153.582176[principal type-schemes for functional programs], 1982: principal typing, let generalisation, instantiation, unification, and the occurs check
+* philip wadler and stephen blott, https://doi.org/10.1145/75277.75283[how to make ad-hoc polymorphism less ad hoc], 1989: `shape` constraints, `fill` selection, qualified polymorphism, and elaboration to explicit evidence
+* daan leijen, https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/koka-effects-2013.pdf[koka: programming with row-polymorphic effect types], 2013: inferred effect rows, effect variables, effect encapsulation, and safe interaction between effects and let polymorphism
+* gordon plotkin and matija pretnar, https://homepages.inf.ed.ac.uk/gdp/publications/Effect_Handlers.pdf[handlers of algebraic effects], 2009: operations, handlers, resumptions as captured continuations, and handler return clauses
+* luc maranget, https://doi.org/10.1017/S0956796807006223[warnings for pattern matching], 2007: constructor-matrix reasoning for usefulness and exhaustive match checking
 
 use these languages and libraries as implementation checks, not as syntax templates:
 
-- haskell 2010 report: <https://www.haskell.org/onlinereport/haskell2010/>
-- purescript book: <https://book.purescript.org/>
-- purescript prelude: <https://pursuit.purescript.org/packages/purescript-prelude/docs/Prelude>
-- purescript monoid api: <https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Monoid>
-- purescript semiring api: <https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Semiring>
-- lean reference: <https://lean-lang.org/doc/reference/latest/>
-- mathlib api: <https://leanprover-community.github.io/mathlib4_docs/>
-- mathlib finite sets: <https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finset/Defs.html>
-- mathlib multisets: <https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Multiset/Defs.html>
-- koka book: <https://koka-lang.github.io/koka/doc/book.html>
-- koka row-polymorphic effects paper: <https://www.microsoft.com/en-us/research/publication/koka-programming-with-row-polymorphic-effect-types-2/>
+* haskell 2010 report: https://www.haskell.org/onlinereport/haskell2010/
+* purescript book: https://book.purescript.org/
+* purescript prelude: https://pursuit.purescript.org/packages/purescript-prelude/docs/Prelude
+* purescript monoid api: https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Monoid
+* purescript semiring api: https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Semiring
+* lean reference: https://lean-lang.org/doc/reference/latest/
+* mathlib api: https://leanprover-community.github.io/mathlib4_docs/
+* mathlib finite sets: https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finset/Defs.html
+* mathlib multisets: https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Multiset/Defs.html
+* koka book: https://koka-lang.github.io/koka/doc/book.html
+* koka row-polymorphic effects paper: https://www.microsoft.com/en-us/research/publication/koka-programming-with-row-polymorphic-effect-types-2/
 
 use haskell as the reference for hindley-milner generalisation, rigid signature checking, algebraic data, exhaustive pattern reasoning, qualified types, and class requirements.
 
@@ -1580,18 +1661,18 @@ follow purescript's module split where it helpeth dependency direction: core cla
 
 use lean and mathlib to check algebraic boundaries and finite-collection
 meanings. do not copy proof-carrying or quotient-based structures until tung
-can enforce their invariants. `bookhoard/reference.md` recordeth the current
+can enforce their invariants. `bookhoard/reference.adoc` recordeth the current
 comparison and deferred gaps.
 
 tung records are closed. do not infer purescript-style open record rows unless the language specification first addeth them.
 
-use koka as the reference for effect rows, effect polymorphism, deep handlers, answer-type-changing return clauses, and multi-shot resume.
+use koka as the reference for effect rows, effect polymorphism, deep handlers, answer-type-changing return clauses, and multi-shot continuations.
 
 partial application is pure because latent effects belong to saturation of the function arrow. this is a core invariant even where tung's curried surface differs from koka's call syntax.
 
 an operation handler followeth algebraic-handler semantics: its body receiveth the operation arguments and an implicit continuation. the continuation result is the handler answer type.
 
-## test expectations
+== test expectations
 
 tests should cover success cases and failure cases.
 
@@ -1607,6 +1688,6 @@ evaluation tests for errors should check error prefixes when exact wording is no
 
 add tests before or with bug fixes when a bug is discovered.
 
-adversarial tests should try false polymorphic claims, duplicated labels, duplicated members, repeated pattern binders, missing match products, unknown classes, incomplete instances, sibling effect operations, bad resume arguments, and disallowed runnable effects.
+adversarial tests should try false polymorphic claims, duplicated labels, duplicated members, repeated pattern binders, missing match products, unknown classes, incomplete instances, sibling effect operations, bad `eftgin` arguments, and disallowed runnable effects.
 
 when a stricter test breaketh a bookhoard, decide whether the checker or the bookhoard violateth the reference model. do not weaken sound checking merely to keep old bookhoard code passing.

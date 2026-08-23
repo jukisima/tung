@@ -130,7 +130,7 @@ sourceImports source = case parse source of
 
 declarationImports :: Decl -> [FilePath]
 declarationImports = \case
-  Import path -> [path]
+  Import path _ -> [path]
   Export declaration -> declarationImports declaration
   _ -> []
 
