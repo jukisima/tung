@@ -45,7 +45,7 @@ graiþ a subtract, a multiply, a divide
 fill (a complex) divide {
   let (a complex b) ∕ (c complex d) =  (
     let e = c × c $ + (d × d)
-    yield (a × c $ + (b × d) $ ∕ e) complex (b × c $ - (a × d) $ ∕ e)
+    yield ((a × c) + (b × d) $ ∕ e) complex ((b × c) - (a × d) $ ∕ e)
   )
 }
 
@@ -59,7 +59,7 @@ fill (float complex) elementary {
     let c = a exponent
     yield (c × (b cosine)) complex (c × (b sine))
   )
-  let (a complex b) logariþm = (a × a $ + (b × b) $ logariþm) complex (a arctan-float b)
+  let (a complex b) logariþm = ((a × a) + (b × b) $ logariþm) complex (a arctan-float b)
   let (a complex b) sine = (
     let positive = ((zero - b) complex a) exponent
     let negative = (b complex (zero - a)) exponent

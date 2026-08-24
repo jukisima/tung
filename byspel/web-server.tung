@@ -11,5 +11,5 @@ let (r: request) route: response ! console = (
 
 let (_: 𝟙) main: 𝟙 ! console, web =
   try 8080 serve route {
-    message fail | ('web server: ' * message) write-line
+    message fail | 'web server: ' * message $ write-line
   }

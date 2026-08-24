@@ -6,19 +6,21 @@ show kin response {
   integer response (text table text) text
 }
 
-show let (status response _ _: response) response-status: integer = status
+show let (status response _ _: response)
+  response-status: integer = status
 
-show let (_ response headers _: response) response-headers: text table text =
-  headers
+show let (_ response headers _: response)
+  response-headers: text table text = headers
 
-show let (_ response _ body: response) response-body: text = body
+show let (_ response _ body: response)
+  response-body: text = body
 
-show let (status: integer, body: text) respond: response =
-  status response empty body
+show let (status: integer, body: text)
+  respond: response = status response empty body
 
 show let (body: text) ok: response = 200 respond body
 
 show let (body: text) not-found: response = 404 respond body
 
-show let (status response headers body: response, name: text, value: text) wiþ-header: response =
-  status response (headers put name value) body
+show let (status response headers body: response, name: text, value: text)
+  wiþ-header: response = status response (headers put name value) body

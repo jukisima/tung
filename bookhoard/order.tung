@@ -6,6 +6,7 @@ bring equal.tung
 graiþ a equal
 show shape a less-equal {
   let a ≤ a: 𝟚
+
   let a < b = (a ≤ b) if (a ≢ b) nay
 }
 
@@ -19,16 +20,16 @@ fill 𝟚 less-equal {
 ## a decidable partial order.
 graiþ a less-equal
 show shape a order-partial {
-  law (x: a): x ≤ x ~ yea
-  law (x: a, y: a): (x ≤ y) ≤ ((y ≤ x) ≤ (x ≡ y)) ~ yea
-  law (x: a, y: a, z: a): >(≤, x ≤ y, y ≤ z, x, z) ~ yea
+  law (a: a): a ≤ a ~ yea
+  law (a: a, b: a): >(≤, a ≤ b, b ≤ a, a ≡ b) ~ yea
+  law (a: a, b: a, c: a): >(≤, a ≤ b, b ≤ c, a, c) ~ yea
 }
 
 ## a partial order in which every pair is comparable.
 graiþ a order-partial
 show shape a order-total {
   let (a: a, b: a) compare: 𝟛 = (a ≤ b) if ((b ≤ a) if mid fore) aft
-  law (x: a, y: a): ((x ≤ y) ≡ nay) ≤ (y ≤ x) ~ yea
+  law (a: a, b: a): ((a ≤ b) ≡ nay) ≤ (b ≤ a) ~ yea
 }
 
 ## keep a value wiþin inclusive bounds of a total order.

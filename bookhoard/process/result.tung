@@ -3,11 +3,11 @@ show kin process-result {
   integer process-result text text
 }
 
-show let (status process-result _ _: process-result) process-status: integer =
-  status
+show let (status process-result _ _: process-result)
+  process-status: integer = status
 
-show let (_ process-result output _: process-result) process-output: text =
-  output
+show let (_ process-result output _: process-result)
+  process-output: text = output
 
-show let (_ process-result _ errors: process-result) process-errors: text =
-  errors
+show let (_ process-result _ errors: process-result)
+  process-errors: text = errors

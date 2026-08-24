@@ -3,18 +3,17 @@ bring data/two.tung
 bring order/lattice.tung
 
 ## run an action when þe condition is true.
-show let (two: 𝟚, f: 𝟙 → 𝟙 ! e) when: 𝟙 ! e =
-  match two {
-    yea | null f,
-    nay | null
-  }
+show let when: 𝟚 → (𝟙 → 𝟙 ! e) → 𝟙 ! e = {
+  yea, f | null f,
+  nay, _ | null
+}
 
 ## run an action when þe condition is false.
-show let (two: 𝟚, f: 𝟙 → 𝟙 ! e) when-not: 𝟙 ! e = (two ¬) when f
+show let (two: 𝟚, f: 𝟙 → 𝟙 ! e)
+  when-not: 𝟙 ! e = (two ¬) when f
 
 ## pick and run one delayed branch.
-show let (two: 𝟚, f: 𝟙 → a ! e0, g: 𝟙 → a ! e1) branch: a ! e0, e1 =
-  match two {
-    yea | null f,
-    nay | null g
-  }
+show let branch: 𝟚 → (𝟙 → a ! e0) → (𝟙 → a ! e1) → a ! e0, e1 = {
+  yea, f, _ | null f,
+  nay, _, g | null g
+}

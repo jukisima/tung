@@ -63,18 +63,16 @@ let (unicode: unicode) is-whitespace: 𝟚 =
 
 ## split text at each separator code point.
 show let (text: text, separator: unicode) split-text: text list =
-  ((text text-to-list) split-unicode separator) map list-to-text
+  text text-to-list $ split-unicode separator $ map list-to-text
 
 ## split text on runs of common ascii whitespace.
 show let (text: text) words-text: text list =
-  (((text text-to-list) split-unicode-by is-whitespace) map list-to-text) filter {
-    word | (word is-empty-text) ¬
-  }
+  text text-to-list $ split-unicode-by is-whitespace $ map list-to-text $ filter (is-empty-text ∘ ¬)
 
 ## join text values wiþ a separator between neighbours.
-show let (list: text list, separator: text) join-wiþ-text: text = match list {
-  empty | '',
-  text .* texts′ | texts′ foldl text {
+show let join-wiþ-text: text list → text → text = {
+  empty, _ | '',
+  text .* texts, separator | texts foldl text {
     joined, next | (joined * separator) * next
   }
 }
