@@ -45,8 +45,6 @@ fill (a ∏) cata {
 fill (a ∏) traverse {
   let (a ∏ b) traverse f =
     (b f) map (a ∏)
-  let (a ∏ b) sequence =
-    b map (a ∏)
 }
 
 graith a semilattice-infimal, b semilattice-infimal

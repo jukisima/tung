@@ -18,10 +18,10 @@ group =
 
 accepted :: [(String, String)]
 accepted =
-  [ ("last let declaration needeth no semicolon", "let answer = 42")
+  [ ("last let declaration", "let answer = 42")
   , ("bring accepteth an optional alias", "bring data/list.tung list yield list@empty")
-  , ("top-level declaration boundary needeth no semicolon", "let x = 1 let y = 2")
-  , ("type alias boundary needeth no semicolon", "let-ilk count = integer let answer: count = 42")
+  , ("adjacent top-level declarations", "let x = 1 let y = 2")
+  , ("type alias declaration boundary", "let-ilk count = integer let answer: count = 42")
   , ("yield introduceth the final file expression", "let answer = 42 yield answer")
   , ("type alias", "let-ilk count = integer")
   , ("parameterised type alias", "let-ilk a powerset = a func 𝟚")
@@ -36,8 +36,8 @@ accepted =
   , ("shape members need no separators", "shape a identity { let a identity: a let (x: a) same: a = x law (x: a): x identity ~ x }")
   , ("shape and fill headers use second-is-function order", "shape a convert b { let a convert: b } fill integer convert text { let x convert = 'x' }")
   , ("fill methods use let", "graith a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y }")
-  , ("fill members need no semicolons", "fill integer linked { let x first = x let x second = x first }")
-  , ("graith fill members need no semicolons", "fill integer linked { graith a equal let x first = x let x second = x }")
+  , ("adjacent fill members", "fill integer linked { let x first = x let x second = x first }")
+  , ("graith fill member boundary", "fill integer linked { graith a equal let x first = x let x second = x }")
   , ("exported value", "show let answer = 42")
   , ("exported graith value", "graith a equal show let (x: a, y: a) same: 𝟚 = x ≡ y")
   , ("exported type alias", "show let-ilk count = integer")
@@ -51,8 +51,8 @@ accepted =
   , ("grouped name re-export", "bring file.tung show file@first, file@second")
   , ("type re-export", "bring file.tung show-ilk file@value")
   , ("grouped type re-export", "bring file.tung show-ilk file@first, file@second")
-  , ("closed record and update", "let person = [name = 'n', age = 1] yield [= person, age = 2, - name]")
-  , ("record removal needeth space", "yield [= person, - age]")
+  , ("closed record and update", "let person = r(name = 'n', age = 1) yield r(= person, age = 2, - name)")
+  , ("record removal needeth space", "yield r(= person, - age)")
   , ("multi-scrutinee match", "yield match 1, 2 { a, b | a }")
   , ("integer patterns in a match", "yield match 1 { 0 | 0, 1 | 1, _ | 2 }")
   , ("integer pattern in a function header", "let 0 zero-only = 0")
@@ -61,7 +61,7 @@ accepted =
   , ("empty consuming match", "yield match x {}")
   , ("handler yield and operation cases", "yield try action { yield x | x, message fail | message }")
   , ("parenthesised local block", "yield (let x = 1 yield x + 2)")
-  , ("multiple local lets need no semicolons", "yield (let x = 1 let y = 2 yield x + y)")
+  , ("adjacent local lets", "yield (let x = 1 let y = 2 yield x + y)")
   , ("term type ascription", "let answer = (1 + 2: integer)")
   , ("func is a binary type constructor", "let (x: integer) id: integer = x")
   ]
@@ -69,43 +69,55 @@ accepted =
 rejected :: [(String, String)]
 rejected =
   [ ("bare final expression requireth yield", "42")
-  , ("top-level semicolon is rejected", "let x = 1;")
   , ("bring requireth a path", "bring")
   , ("bring alias must be unqualified", "bring data/list.tung list@short")
   , ("bring alias must be slash-free", "bring data/list.tung sequence/list")
   , ("qualified namespace must be slash-free", "bring data/list.tung yield data/list@empty")
-  , ("show requireth a name", "show;")
-  , ("show cannot prefix bring", "show bring ground.tung;")
-  , ("show-ilk requireth a name", "show-ilk;")
+  , ("show requireth a name", "show")
+  , ("show cannot prefix bring", "show bring ground.tung")
+  , ("show-ilk requireth a name", "show-ilk")
   , ("show cannot prefix an expression", "show 42")
   , ("local block requireth yield", "yield (let x = 1 x)")
-  , ("local let rejecteth semicolon", "yield (let x = 1; yield x)")
   , ("empty typed argument list", "let () bad: integer = 1")
-  , ("kin requireth a body", "kin option;")
+  , ("kin requireth a body", "kin option")
   , ("deed operation requireth a type", "deed pulse { pulse }")
   , ("fill requireth a target type", "fill equal {}")
   , ("law parameters require types", "shape a bad { law (x): x ~ x }")
   , ("law requireth equivalence separator", "shape a bad { law (x: a): x }")
   , ("shape member requirement needeth a member", "shape f bad { graith m applicative }")
   , ("required shape member needeth let", "shape a bad { a bad: a }")
-  , ("shape member rejecteth semicolon", "shape a bad { let a bad: a; }")
   , ("graith shape member needeth let", "shape f bad { graith m applicative (a f) bad: a }")
   , ("match arm requireth bar", "match 1 { _ 1 }")
   , ("try requireth handler cases", "try action")
   , ("dollar requireth a left expression", "$ + 1 2")
   , ("dollar requireth a function", "a f $")
-  , ("record removal without space is a name", "[= person, -age]")
-  , ("record update requireth a base", "[= , value = 1]")
+  , ("record removal without space is a name", "r(= person, -age)")
+  , ("record update requireth a base", "r(= , value = 1)")
+  , ("record marker must touch its body", "yield r (value = 1)")
+  , ("record type marker must touch its body", "let value: r (field: integer) = r(field = 1)")
+  , ("left association marker must touch its body", "yield < (+, 1, 2)")
+  , ("right association marker must touch its body", "yield > (+, 1, 2)")
+  , ("left association requireth a combining function", "yield <()")
+  , ("right association requireth a combining function", "yield >()")
+  , ("left association requireth values", "yield <(f)")
+  , ("right association requireth values", "yield >(f)")
+  , ("left association requireth at least two values", "yield <(f, a)")
+  , ("right association requireth at least two values", "yield >(f, a)")
   , ("effects require a function type", "let bad: integer ! fail = 1")
-  , ("deed members use commas", "deed e { 𝟙 one: 𝟙; 𝟙 two: 𝟙 }")
+  , ("deed members use commas", "deed e { 𝟙 one: 𝟙 𝟙 two: 𝟙 }")
   , ("fill members reject commas", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
-  , ("fill members reject semicolons", "fill integer bad { let x first = x; let x second = x }")
   , ("handler hath at most one yield clause", "try 1 { yield x | x, yield y | y }")
   ]
 
 expressions :: [(String, String, Expr)]
 expressions =
   [ ("term type ascription", "(1: integer)", EAscribe (EInteger 1) (TypeName "integer"))
+  , ("record expression", "r(left = 1, right = 2)", ERecord [("left", EInteger 1), ("right", EInteger 2)])
+  , ("record update expression", "r(= value, right = 3, - left)", EUpdate (EVar "value") [RecordSet "right" (EInteger 3), RecordRemove "left"])
+  , ("left-associated sequence", "<(+, a, b, c, d)", apply (EVar "+") [apply (EVar "+") [apply (EVar "+") [EVar "a", EVar "b"], EVar "c"], EVar "d"])
+  , ("right-associated sequence", ">(.*, a, b, c, d)", apply (EVar ".*") [EVar "a", apply (EVar ".*") [EVar "b", apply (EVar ".*") [EVar "c", EVar "d"]]])
+  , ("separated left marker remaineth an ordinary name", "1 < (2)", apply (EVar "<") [EInteger 1, EInteger 2])
+  , ("separated right marker remaineth an ordinary name", "1 > (2)", apply (EVar ">") [EInteger 1, EInteger 2])
   , ("integer match pattern", "match 1 { 0 | 2, _ | 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])
   , ("second term is function", "1 + 2", apply (EVar "+") [EInteger 1, EInteger 2])
   , ("unmarked sequence sendeth every argument", "a f b g", apply (EVar "f") [EVar "a", EVar "b", EVar "g"])
@@ -152,13 +164,13 @@ definitionForms =
 
 parserProperties :: [Test]
 parserProperties =
-  [ Harness.propertyTest "property: top-level let boundaries need no semicolons" $
+  [ Harness.propertyTest "property: top-level let boundaries" $
       QuickCheck.forAll boundarySeparator \separator ->
         QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \first ->
           QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \second ->
             let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second
              in QuickCheck.counterexample source (isRight (parse source))
-  , Harness.propertyTest "property: bring needeth no semicolon" $
+  , Harness.propertyTest "property: complete bring declaration" $
       QuickCheck.forAll (QuickCheck.elements ["ground.tung", "data/list.tung", "nested/deep.tung"]) \path ->
         let source = "bring " ++ path
          in QuickCheck.counterexample source (isRight (parse source))

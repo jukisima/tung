@@ -9,6 +9,7 @@ bring collection/monad.tung
 bring collection/filter.tung
 bring collection/catamorphism.tung
 bring collection/traverse.tung
+bring order/lattice.tung
 
 ## optional value.
 show kin a option {
@@ -50,7 +51,6 @@ fill option monad {
     none | none,
     a some | a
   }
-  let option map-flat f = option map f $ flat
 }
 
 fill option filter {
@@ -76,10 +76,6 @@ fill option traverse {
     none, _ | none pure,
     a some, f | (a f) map some
   }
-  let sequence = {
-    none | none pure,
-    a some | a map some
-  }
 }
 
 ## extract an option with a fallback value.
@@ -101,10 +97,7 @@ show let is-some: a option → 𝟚 = {
 }
 
 ## true when an option is empty.
-show let is-none: a option → 𝟚 = {
-  none | yea,
-  _ some | nay
-}
+show let (option: a option) is-none: 𝟚 = option is-some $ ¬
 
 ## extract an option or run a fallback computation.
 show let (option: a option, fallback: 𝟙 → a ! e) or-else: a ! e =

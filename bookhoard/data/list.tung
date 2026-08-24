@@ -70,7 +70,6 @@ fill list monad {
     empty | empty,
     first .* rest | first * (rest flat)
   }
-  let list map-flat f = (list map f) flat
 }
 
 fill list filter {
@@ -153,6 +152,7 @@ fill list traverse {
     empty, _ | empty pure,
     first .* rest, f | (first f) lift₂ (rest traverse f) .*
   }
+
   let list sequence = list traverse identity
 }
 
@@ -187,8 +187,7 @@ show let (a: a, count: integer) replicate: a list =
   }
 
 ## split values accepted and rejected by a predicate.
-show let partition
-  : a list → (a → 𝟚 ! e) → ((a list) ∏ (a list)) ! e
+show let partition: a list → (a → 𝟚 ! e) → (a list) ∏ (a list) ! e
   = {
     empty, _ | empty ∏ empty,
     first .* rest, f | match rest partition f {
@@ -200,7 +199,7 @@ show let partition
   }
 
 ## split a list of products into two lists.
-show let unzip: (a ∏ b) list → ((a list) ∏ (b list)) = {
+show let unzip: (a ∏ b) list → (a list) ∏ (b list) = {
   empty | empty ∏ empty,
   (a ∏ b) .* pairs | match pairs unzip {
     a… ∏ b… | (a .* a…) ∏ (b .* b…)

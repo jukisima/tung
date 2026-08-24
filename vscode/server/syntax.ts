@@ -22,12 +22,13 @@ const fileDeclarationKeywords = new Set([
 ]);
 const closeForOpen = new Map([
   ["(", ")"],
+  ["r(", ")"],
+  ["<(", ")"],
+  [">(", ")"],
   ["{", "}"],
-  ["[", "]"],
 ]);
-const openForClose = new Map(
-  [...closeForOpen].map(([open, close]) => [close, open]),
-);
+const closingDelimiters = new Set(closeForOpen.values());
+const specialOpenPrefixes = new Set(["r", "<", ">"]);
 
 const tokenize = (text) => {
   const tokens = [];
@@ -127,6 +128,12 @@ const tokenize = (text) => {
     }
     push("number", startOffset, startLine, startChar);
   };
+  const consumeSpecialOpen = () => {
+    const [startOffset, startLine, startChar] = position();
+    advance();
+    advance();
+    push("punctuation", startOffset, startLine, startChar);
+  };
   while (!atEnd()) {
     const ch = current();
     if (/\s/.test(ch)) {
@@ -145,6 +152,8 @@ const tokenize = (text) => {
       consumeString();
     } else if (ch === "`") {
       consumeCharacter();
+    } else if (specialOpenPrefixes.has(ch) && next() === "(") {
+      consumeSpecialOpen();
     } else if (ch === "." && next() === "*") {
       consumeName();
     } else if (isNumberStart(text, offset)) {
@@ -169,7 +178,7 @@ const isNameChar = (ch) => {
   return ch !== undefined && !/\s/.test(ch) && !specialNameChars.has(ch);
 };
 const isOpen = (text) => closeForOpen.has(text);
-const isClose = (text) => openForClose.has(text);
+const isClose = (text) => closingDelimiters.has(text);
 const matchingClose = (text) => closeForOpen.get(text);
 
 const tokenDepths = (tokens) => {
@@ -204,6 +213,13 @@ const bracketPairs = (tokens) => {
 
 const findMatching = (tokens, openIndex) => {
   return bracketPairs(tokens).get(openIndex) ?? -1;
+};
+
+const findOpening = (tokens, closeIndex) => {
+  for (const [open, close] of bracketPairs(tokens)) {
+    if (close === closeIndex) return open;
+  }
+  return -1;
 };
 
 const splitTopLevel = (tokens, start, end, separators) => {
@@ -266,7 +282,7 @@ const findFileDeclarationBoundary = (
 ) => {
   for (let index = start; index < tokens.length; index += 1) {
     if (depths[index] !== baseDepth) continue;
-    if (isClose(tokens[index].text) || tokens[index].text === ";") return index;
+    if (isClose(tokens[index].text)) return index;
     if (
       tokens[index].kind === "keyword" &&
       fileDeclarationKeywords.has(tokens[index].text)
@@ -318,10 +334,10 @@ export {
   declarationKeywords,
   findFileDeclarationBoundary,
   findMatching,
+  findOpening,
   isClose,
   isOpen,
   languageNames,
-  openForClose,
   primitiveTypes,
   splitDeclarations,
   splitTopLevel,

@@ -4,6 +4,7 @@ bring collection/applicative.tung
 bring collection/monad.tung
 bring collection/catamorphism.tung
 bring collection/traverse.tung
+bring order/lattice.tung
 
 show kin a ∐ b {
   a inject₀,
@@ -21,10 +22,7 @@ show let is-inject₀: a ∐ b → 𝟚 = {
   _ inject₁ | nay
 }
 
-show let is-inject₁: a ∐ b → 𝟚 = {
-  _ inject₀ | nay,
-  _ inject₁ | yea
-}
+show let (sum: a ∐ b) is-inject₁: 𝟚 = sum is-inject₀ $ ¬
 
 fill (a ∐) functor {
   let sum map f = match sum {
@@ -64,9 +62,5 @@ fill (a ∐) traverse {
   let sum traverse f = match sum {
     a inject₀ | (a inject₀) pure,
     b inject₁ | (b f) map inject₁
-  }
-  let sequence = {
-    a inject₀ | (a inject₀) pure,
-    b inject₁ | b map inject₁
   }
 }

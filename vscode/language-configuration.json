@@ -4,24 +4,24 @@
     "blockComment": ["/*", "*/"]
   },
   "brackets": [
+    ["r(", ")"],
+    ["<(", ")"],
+    [">(", ")"],
     ["(", ")"],
-    ["{", "}"],
-    ["[", "]"]
+    ["{", "}"]
   ],
   "autoClosingPairs": [
     ["(", ")"],
     ["{", "}"],
-    ["[", "]"],
     ["'", "'"]
   ],
   "surroundingPairs": [
     ["(", ")"],
     ["{", "}"],
-    ["[", "]"],
     ["'", "'"]
   ],
   "indentationRules": {
-    "increaseIndentPattern": "(?:\\{|\\(|\\[)\\s*(?:#.*)?$",
-    "decreaseIndentPattern": "^\\s*[)}\\]]"
+    "increaseIndentPattern": "(?:\\{|\\()\\s*(?:#.*)?$",
+    "decreaseIndentPattern": "^\\s*[)}]"
   }
 }

@@ -1,11 +1,14 @@
 bring collection/applicative.tung
 bring collection/catamorphism.tung
 bring collection/functor.tung
+bring algebra/partial/category.tung
 
 graith f functor, f cata
 show shape f traverse {
   graith m applicative
   let (a f) traverse (a → b m): (b f) m
+
   graith m applicative
-  let ((a m) f) sequence: (a f) m
+  let (things: (a m) f) sequence: (a f) m =
+    things traverse identity
 }

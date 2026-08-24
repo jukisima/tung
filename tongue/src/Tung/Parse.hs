@@ -284,7 +284,7 @@ parseTypedLetParams ts = go [] [] ts
     pat <- parseWhole "could not parse typed let argument pattern" parsePattern patternTokens
     case rest of
       TColon : typeTokens -> do
-        (argTy, rest2) <- parseTypeUntilCommaOrParen typeTokens
+        (argTy, rest2) <- parseTypeUntilCommaOrParen "unterminated parameter type" typeTokens
         go (pat : params) (Just argTy : tys) rest2
       TComma : _ -> go (pat : params) (Nothing : tys) rest
       TRParen : _ -> go (pat : params) (Nothing : tys) rest
@@ -652,11 +652,9 @@ exprStop :: Token -> Bool
 exprStop = \case
   TComma -> True
   TDot -> True
-  TSemicolon -> True
   TMapsTo -> True
   TRParen -> True
   TRBrace -> True
-  TRBracket -> True
   TLet -> True
   TGraith -> True
   TBring -> True
@@ -682,12 +680,13 @@ parseExprAtomRaw = \case
   TText key : TForeign : rest -> Right (EForeign key, rest)
   TText s : rest -> Right (EText s, rest)
   TForeign : _ -> Left "fremmed requireth a preceding text key"
+  TParenKeyword marker : rest -> parseParenKeywordExpr marker rest
+  TIdent "r" : TLParen : _ -> Left "record opener must be written 'r(' without whitespace"
   TIdent s : rest -> Right (EVar s, rest)
   TTry : rest -> parseTry rest
   TMatch : rest -> parseMatchExpr rest
   TLBrace : rest -> parseAnonymousMatchExpr rest
   TLParen : rest -> parseParen rest
-  TLBracket : rest -> parseRecordExpr rest
   _ -> Left "expected expression atom"
 
 parseAnonymousMatchExpr :: P Expr
@@ -710,7 +709,6 @@ parseMatchScrutinees acc ts = do
     _ -> Left "expected match scrutinee or '{'"
 
 parseParen :: P Expr
-parseParen (TRParen : rest) = Right (EVar "null", rest)
 parseParen ts@(TLet : _) = parseBlock ts
 parseParen ts@(TGraith : _) = parseBlock ts
 parseParen ts = do
@@ -797,11 +795,11 @@ parseRecordUpdate ts = do
     TComma : rest2 -> do
       (updates, rest3) <- parseRecordUpdates rest2
       pure (EUpdate base updates, rest3)
-    TRBracket : rest2 -> pure (EUpdate base [], rest2)
-    _ -> Left "expected ',' or ']' after record update base"
+    TRParen : rest2 -> pure (EUpdate base [], rest2)
+    _ -> Left "expected ',' or ')' after record update base"
 
 parseRecordUpdates :: P [RecordUpdate]
-parseRecordUpdates = parseCommaListUntil isRightBracket parseRecordUpdateItem
+parseRecordUpdates = parseCommaListUntil isRightParen parseRecordUpdateItem
 
 parseRecordUpdateItem :: P RecordUpdate
 parseRecordUpdateItem (TIdent "-" : TIdent name : rest) = Right (RecordRemove name, rest)
@@ -811,13 +809,31 @@ parseRecordUpdateItem (TIdent name : TEquals : rest) = do
 parseRecordUpdateItem _ = Left "expected record update"
 
 parseRecordExprFields :: P [(String, Expr)]
-parseRecordExprFields = parseCommaListUntil isRightBracket parseRecordExprField
+parseRecordExprFields = parseCommaListUntil isRightParen parseRecordExprField
 
 parseRecordExprField :: P (String, Expr)
 parseRecordExprField (TIdent name : TEquals : rest) = do
   (e, rest2) <- parseExpr rest
   pure ((name, e), rest2)
 parseRecordExprField _ = Left "expected record field"
+
+parseParenKeywordExpr :: String -> P Expr
+parseParenKeywordExpr "r" = parseRecordExpr
+parseParenKeywordExpr marker = parseAssociativeExpr marker
+
+parseAssociativeExpr :: String -> P Expr
+parseAssociativeExpr marker ts = do
+  (expressions, rest) <- parseCommaListUntil isRightParen parseExpr ts
+  case expressions of
+    [] -> Left (marker ++ "(...) requireth a combining function")
+    function : values@(_ : _ : _) -> pure (associate function values, rest)
+    _ -> Left (marker ++ "(...) requireth at least two values")
+ where
+  associate function = direction (applyBinary function)
+  direction = if marker == "<" then foldl1 else foldr1
+
+applyBinary :: Expr -> Expr -> Expr -> Expr
+applyBinary function left right = applyArgs function [left, right]
 
 parseMatchCases :: P [MatchCase]
 parseMatchCases = parseCommaListUntil isRightBrace parseMatchCase
@@ -888,8 +904,8 @@ patternFromTerm (TLParen : rest) = case takeBalanced rest of
   _ -> Nothing
 patternFromTerm term = parseWholeMaybe parsePattern term
 
-parseTypeUntilCommaOrParen :: P TypeExpr
-parseTypeUntilCommaOrParen ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRParen -> True; _ -> False) "unterminated parameter type"
+parseTypeUntilCommaOrParen :: String -> P TypeExpr
+parseTypeUntilCommaOrParen message ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRParen -> True; _ -> False) message
 
 parseTypeAnnUntilEquals :: P TypeAnn
 parseTypeAnnUntilEquals ts = parseTypeAnnUntilTopLevel ts (\case TEquals -> True; _ -> False) "expected '=' after type"
@@ -1027,8 +1043,9 @@ parseTypeParts = go []
 
 parseTypeAtom :: P TypeExpr
 parseTypeAtom = \case
+  TParenKeyword "r" : rest -> parseRecordType rest
+  TIdent "r" : TLParen : _ -> Left "record opener must be written 'r(' without whitespace"
   TIdent s : rest -> Right (TypeName s, rest)
-  TLBracket : rest -> parseRecordType rest
   TLParen : rest -> do
     (inner, rest2) <- takeBalanced rest
     t <- parseWhole "could not parse parenthesised type" parseParenthesizedType inner
@@ -1045,16 +1062,13 @@ parseRecordType ts = do
   pure (TypeRecord fields, rest)
 
 parseRecordTypeFields :: P [(String, TypeExpr)]
-parseRecordTypeFields = parseCommaListUntil isRightBracket parseRecordTypeField
+parseRecordTypeFields = parseCommaListUntil isRightParen parseRecordTypeField
 
 parseRecordTypeField :: P (String, TypeExpr)
 parseRecordTypeField (TIdent name : TColon : rest) = do
-  (t, rest2) <- parseTypeUntilCommaOrBracket rest
+  (t, rest2) <- parseTypeUntilCommaOrParen "unterminated record type" rest
   pure ((name, t), rest2)
 parseRecordTypeField _ = Left "expected record field type"
-
-parseTypeUntilCommaOrBracket :: P TypeExpr
-parseTypeUntilCommaOrBracket ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRBracket -> True; _ -> False) "unterminated record type"
 
 -- @a f b@ is @f<a,b>@; unresolved non-name heads are retained for the checker
 -- to reject with type context rather than by guessing in the parser.
@@ -1161,9 +1175,9 @@ dropComma :: [Token] -> [Token]
 dropComma (TComma : rest) = rest
 dropComma ts = ts
 
-isRightBrace, isRightBracket :: Token -> Bool
+isRightBrace, isRightParen :: Token -> Bool
 isRightBrace = (== TRBrace)
-isRightBracket = (== TRBracket)
+isRightParen = (== TRParen)
 
 splitTopLevelArrow, splitTopLevelBang, splitTopLevelColon, splitTopLevelComma, splitTopLevelEquals :: [Token] -> Maybe ([Token], [Token])
 splitTopLevelArrow ts = splitTopLevel ts (\case TArrow -> True; _ -> False)
@@ -1179,10 +1193,8 @@ splitTopLevel ts stop = go [] (0 :: Int) ts
   go acc depth (x : rest)
     | depth == 0 && stop x = Just (reverse acc, rest)
     | otherwise = case x of
-        TLParen -> go (x : acc) (depth + 1) rest
+        _ | isParenthesisOpen x -> go (x : acc) (depth + 1) rest
         TRParen -> go (x : acc) (depth - 1) rest
-        TLBracket -> go (x : acc) (depth + 1) rest
-        TRBracket -> go (x : acc) (depth - 1) rest
         _ -> go (x : acc) depth rest
 
 -- delimiter-aware slicing keepeth declaration and type parsers small. callers
@@ -1199,10 +1211,8 @@ takeTopLevelUntilOrEnd ts stop = go [] (0 :: Int) ts stop
   go acc depth xs@(x : rest) stop
     | depth == 0 && stop x = Right (reverse acc, xs)
     | otherwise = case x of
-        TLParen -> go (x : acc) (depth + 1) rest stop
+        _ | isParenthesisOpen x -> go (x : acc) (depth + 1) rest stop
         TRParen -> go (x : acc) (depth - 1) rest stop
-        TLBracket -> go (x : acc) (depth + 1) rest stop
-        TRBracket -> go (x : acc) (depth - 1) rest stop
         TLBrace -> go (x : acc) (depth + 1) rest stop
         TRBrace -> go (x : acc) (depth - 1) rest stop
         _ -> go (x : acc) depth rest stop
@@ -1211,10 +1221,17 @@ takeBalanced :: [Token] -> Either String ([Token], [Token])
 takeBalanced = go [] (1 :: Int)
  where
   go _ _ [] = Left "unclosed parenthesised type"
-  go acc depth (TLParen : rest) = go (TLParen : acc) (depth + 1) rest
+  go acc depth (x : rest)
+    | isParenthesisOpen x = go (x : acc) (depth + 1) rest
   go acc 1 (TRParen : rest) = Right (reverse acc, rest)
   go acc depth (TRParen : rest) = go (TRParen : acc) (depth - 1) rest
   go acc depth (x : rest) = go (x : acc) depth rest
+
+isParenthesisOpen :: Token -> Bool
+isParenthesisOpen = \case
+  TLParen -> True
+  TParenKeyword _ -> True
+  _ -> False
 
 takeHeaderTokens :: String -> [Token] -> Either String ([Token], [Token])
 takeHeaderTokens kind ts = takeTopLevelUntil ts (\case TLBrace -> True; _ -> False) ("expected '{' after " ++ kind ++ " header")

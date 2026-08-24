@@ -33,26 +33,6 @@ fill unicode order-partial {}
 
 fill unicode order-total {}
 
-fill text semilattice-infimal {
-  let a ∧ b = (a ≤ b) if a b
-}
-
-fill text semilattice-supremal {
-  let a ∨ b = (a ≤ b) if b a
-}
-
-fill text lattice {}
-
-fill unicode semilattice-infimal {
-  let a ∧ b = (a ≤ b) if a b
-}
-
-fill unicode semilattice-supremal {
-  let a ∨ b = (a ≤ b) if b a
-}
-
-fill unicode lattice {}
-
 fill text semigroup {
   let * = join-text
 }

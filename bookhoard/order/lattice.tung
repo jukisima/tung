@@ -1,5 +1,6 @@
 bring data/two.tung
 bring data/three.tung
+bring order.tung
 
 ## a carrier whose every pair hath an infimum.
 show shape a semilattice-infimal {
@@ -12,6 +13,11 @@ show shape a semilattice-infimal {
 graith b semilattice-infimal
 fill (a func b) semilattice-infimal {
   let f ∧ g a = (a f) ∧ (a g)
+}
+
+graith a order-total
+fill a semilattice-infimal {
+  let a ∧ b = (a ≤ b) if a b
 }
 
 ## a carrier whose every pair hath a supremum.
@@ -27,6 +33,11 @@ fill (a func b) semilattice-supremal {
   let f ∨ g a = (a f) ∨ (a g)
 }
 
+graith a order-total
+fill a semilattice-supremal {
+  let a ∨ b = (a ≤ b) if b a
+}
+
 ## a carrier with compatible infimum and supremum semilattices.
 graith a semilattice-infimal, a semilattice-supremal
 show shape a lattice {
@@ -36,6 +47,9 @@ show shape a lattice {
 
 graith b lattice
 fill (a func b) lattice {}
+
+graith a order-total
+fill a lattice {}
 
 ## an infimum semilattice with a greatest value.
 graith a semilattice-infimal
@@ -76,22 +90,6 @@ show shape a complement {
   law (a: a): a ∨ (a ¬) ~ ⊤
 }
 
-fill 𝟚 semilattice-infimal {
-  let ∧ = {
-    nay, _ | nay,
-    yea, a | a
-  }
-}
-
-fill 𝟚 semilattice-supremal {
-  let ∨ = {
-    yea, _ | yea,
-    nay, a | a
-  }
-}
-
-fill 𝟚 lattice {}
-
 fill 𝟚 semilattice-infimal-bounded {
   let ⊤ = yea
 }
@@ -108,26 +106,6 @@ fill 𝟚 complement {
     nay | yea
   }
 }
-
-fill 𝟛 semilattice-infimal {
-  let ∧ = {
-    fore, _ | fore,
-    mid, fore | fore,
-    mid, _ | mid,
-    aft, a | a
-  }
-}
-
-fill 𝟛 semilattice-supremal {
-  let ∨ = {
-    aft, _ | aft,
-    mid, aft | aft,
-    mid, _ | mid,
-    fore, a | a
-  }
-}
-
-fill 𝟛 lattice {}
 
 fill 𝟛 semilattice-infimal-bounded {
   let ⊤ = aft

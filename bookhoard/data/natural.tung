@@ -29,16 +29,6 @@ fill natural order-partial {}
 
 fill natural order-total {}
 
-fill natural semilattice-infimal {
-  let a ∧ b = (a ≤ b) if a b
-}
-
-fill natural semilattice-supremal {
-  let a ∨ b = (a ≤ b) if b a
-}
-
-fill natural lattice {}
-
 fill natural semilattice-supremal-bounded {
   let ⟂ = zero
 }
@@ -46,17 +36,20 @@ fill natural semilattice-supremal-bounded {
 fill natural semiring {
   let + = {
     a, zero | a,
-    a, (b suc) | (a + b) suc
+    a, b suc | (a + b) suc
   }
+
   let zero = zero
+
   let × = {
     _, zero | zero,
     a, b suc | a + (a × b)
   }
+
   let one = zero suc
 }
 
-show let natural-to-integer: natural → integer = {
+show let to-integer: natural → integer = {
   zero | 0,
-  a suc | 1 + (a natural-to-integer)
+  a suc | 1 + (a to-integer)
 }

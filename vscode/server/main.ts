@@ -770,13 +770,13 @@ const inBringPath = (model, position) => {
   const offset = offsetAt(model.text, position);
   return (
     model.imports.some(({ range }) => positionInRange(position, range)) ||
-    /(?:^|\s)bring\s+[^;\s]*$/.test(model.text.slice(0, offset))
+    /(?:^|\s)bring\s+[^\s]*$/.test(model.text.slice(0, offset))
   );
 };
 const completionPrefix = (model, position) => {
   const offset = offsetAt(model.text, position);
   const before = model.text.slice(0, offset);
-  return before.match(/[^\s#(){}\[\]:,|!=;.$→`']+$/u)?.[0] || "";
+  return before.match(/[^\s#(){}:,|!=.$→`']+$/u)?.[0] || "";
 };
 const fullRange = (document) => {
   return {
@@ -807,7 +807,7 @@ const offsetAt = (text, position) => {
   return offset + position.character;
 };
 const validName = (name) => {
-  return Boolean(name) && !/[\s#(){}\[\]:,|!=;.$→`']/u.test(name);
+  return Boolean(name) && !/[\s#(){}:,|!=.$→`']/u.test(name);
 };
 const findTongueDir = (configured) => {
   const candidates = [

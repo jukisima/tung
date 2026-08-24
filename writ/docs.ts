@@ -185,7 +185,7 @@ const declarationPrefixStart = (model, region) => {
     const previous = model.tokens[start - 1];
     const depth = model.depths[previous.index];
     if (depth < region.depth) break;
-    if ([";", "}"].includes(previous.text)) break;
+    if (previous.text === "}") break;
     start -= 1;
   }
   return start;

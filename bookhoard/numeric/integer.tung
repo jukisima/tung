@@ -4,16 +4,6 @@ bring data/two.tung
 bring order.tung
 bring order/lattice.tung
 
-fill integer semilattice-infimal {
-  let a ∧ b = (a ≤ b) if a b
-}
-
-fill integer semilattice-supremal {
-  let a ∨ b = (a ≤ b) if b a
-}
-
-fill integer lattice {}
-
 ## convert a nonnegative integer to a natural.
 show let (integer: integer) integer-to-natural: natural ! text fail =
   match 0 ≤ integer {

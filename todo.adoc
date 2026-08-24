@@ -46,8 +46,11 @@ moving to the next.
 * add first, last, and reversed monoid carriers without burdening the core
   monoid shape.
 * implement the designed order-insensitive bag as an opaque ordered list of
-  distinct positive-count pairs, with `order-total` smart constructors which
-  preserve its representation invariant.
+  distinct positive-count pairs in ascending value order. keep its constructor
+  private, publish only the type, and require `order-total` smart constructors
+  to preserve strict ordering and omit zero counts. equality and rendering
+  must remain independent of insertion order; quotient types are not a
+  prerequisite.
 * add a packed immutable array when runtime representation work is justified.
 
 == self-hosting

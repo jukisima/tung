@@ -1,4 +1,3 @@
-bring _foreign.tung
 bring algebra/total/semigroup.tung
 bring algebra/total/monoid.tung
 
@@ -7,12 +6,4 @@ show shape a group {
   let a / a: a
 
   law (a: a): a / a ~ ∅
-}
-
-fill (integer additive) group {
-  let (a additive) / (b additive) = a subtract-integer b $ additive
-}
-
-fill (float additive) group {
-  let (a additive) / (b additive) = a subtract-float b $ additive
 }

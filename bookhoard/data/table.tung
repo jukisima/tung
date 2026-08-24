@@ -54,7 +54,7 @@ fill (k table v) inhold k {
 fill (k table) functor {
   let (entries from-list) map f =
     entries map {
-      pair | ((pair project₀) ∏ (pair project₁ $ f))
+      pair | (pair project₀) ∏ (pair project₁ $ f)
     } $ from-list
 }
 

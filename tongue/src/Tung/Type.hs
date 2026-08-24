@@ -761,7 +761,7 @@ showTy = \case
   TyVar v -> v
   TyCon c -> c
   TyApp name args -> name ++ "<" ++ showTyList args ++ ">"
-  TyRecord fields -> "[" ++ showRecordFields fields ++ "]"
+  TyRecord fields -> "r(" ++ showRecordFields fields ++ ")"
   TyFun args effects ret ->
     let effectText = if null effects then "" else "{" ++ showEffects effects ++ "} "
      in "(" ++ showTyList (NE.toList args) ++ " \\" ++ effectText ++ showTy ret ++ ")"
@@ -2770,8 +2770,8 @@ selectFillEvidenceM ctx wanted@(Need actualTypes shapeName)
       [(info, needs, parents)] -> pure (info, needs, parents)
       choices -> failTc ("ambiguous fills for " ++ showNeed wanted ++ ": " ++ intercalate ", " (nub [fillKey info | (info, _, _) <- choices]))
  where
-  -- selection is static: inheritance depth ranks fills, while equal best choices
-  -- are rejected instead of depending on import or runtime argument order.
+  -- selection is static: inheritance depth ranketh fills first, then a
+  -- structured type pattern outranketh a blanket pattern it refines.
   candidates = mapMaybe match (fillsForShape shapeName ctx)
   match info@FillInfo{..}
     | not (shapeNamesMatch fillShape shapeName) = Nothing
@@ -2784,7 +2784,14 @@ selectFillEvidenceM ctx wanted@(Need actualTypes shapeName)
   ranked = case candidates of
     [] -> []
     _ -> let rank = minimum (map candidateRank candidates) in filter ((== rank) . candidateRank) candidates
-  bestCandidates = nubByFillKey ranked
+  uniqueRanked = nubByFillKey ranked
+  bestCandidates = filter (\candidate -> not (any (`fillMoreSpecificThan` candidate) uniqueRanked)) uniqueRanked
+
+  fillMoreSpecificThan (left, _, _) (right, _, _) =
+    let leftTypes = map (`convertTypeExpr` ctx) (fillTypes left)
+        rightTypes = map (`convertTypeExpr` ctx) (fillTypes right)
+     in hasConsistentTypePatternBindings rightTypes leftTypes
+          && not (hasConsistentTypePatternBindings leftTypes rightTypes)
 
 fillSuppliesShape :: TcContext -> FillInfo -> Bool
 fillSuppliesShape _ FillInfo{fillDirect = True} = True
@@ -3059,7 +3066,7 @@ showSourceTy = \case
   TyVar name -> name
   TyCon name -> name
   TyApp name arguments -> unwords (map showSourceTypeArgument arguments ++ [name])
-  TyRecord fields -> "[" ++ intercalate ", " [name ++ ": " ++ showSourceTy ty | (name, ty) <- Map.toList fields] ++ "]"
+  TyRecord fields -> "r(" ++ intercalate ", " [name ++ ": " ++ showSourceTy ty | (name, ty) <- Map.toList fields] ++ ")"
   TyFun arguments effects result ->
     intercalate " → " (map showSourceTypeArgument (NE.toList arguments) ++ [showSourceTy result])
       ++ if null effects then "" else " ! " ++ intercalate ", " (map showSourceTy effects)

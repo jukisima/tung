@@ -10,8 +10,8 @@ test("workspace resolveth only shown names across a bring", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "dep.tung");
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(dep, "show let answer: integer = 42; let hidden = 0;");
-  fs.writeFileSync(main, "bring dep.tung; let value: integer = answer;");
+  fs.writeFileSync(dep, "show let answer: integer = 42 let hidden = 0");
+  fs.writeFileSync(main, "bring dep.tung let value: integer = answer");
   const documents = { get: () => undefined, all: () => [] };
   const workspace = new WorkspaceIndex(documents);
   workspace.configure([root]);
@@ -71,12 +71,12 @@ test("workspace resolveth and completeth a default basename alias", (context) =>
 test("workspace leaveth duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(root, "left.tung"), "show let value = 1;");
-  fs.writeFileSync(path.join(root, "right.tung"), "show let value = 2;");
+  fs.writeFileSync(path.join(root, "left.tung"), "show let value = 1");
+  fs.writeFileSync(path.join(root, "right.tung"), "show let value = 2");
   const main = path.join(root, "main.tung");
   fs.writeFileSync(
     main,
-    "bring left.tung; bring right.tung; let answer = value;",
+    "bring left.tung bring right.tung let answer = value",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -89,11 +89,11 @@ test("workspace re-exports same-spelled terms and types separately", (context) =
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "type-only.tung"),
-    "let-ilk token = integer; let token = 1; show-ilk token;",
+    "let-ilk token = integer let token = 1 show-ilk token",
   );
   fs.writeFileSync(
     path.join(root, "term-only.tung"),
-    "let-ilk token = integer; let token = 1; show token;",
+    "let-ilk token = integer let token = 1 show token",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -115,16 +115,16 @@ test("workspace re-exports deeds through the type namespace", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "ask-base.tung"),
-    "show deed ask { integer ask: integer };",
+    "show deed ask { integer ask: integer }",
   );
   fs.writeFileSync(
     path.join(root, "ask-middle.tung"),
-    "bring ask-base.tung; show-ilk ask-base@ask; show ask-base@ask;",
+    "bring ask-base.tung show-ilk ask-base@ask show ask-base@ask",
   );
   const main = path.join(root, "main.tung");
   fs.writeFileSync(
     main,
-    "bring ask-middle.tung; let run: integer → integer ! ask = { x | x ask };",
+    "bring ask-middle.tung let run: integer → integer ! ask = { x | x ask }",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -155,10 +155,10 @@ test("bookhoard module paths keep their exact file names", (context) => {
   fs.mkdirSync(bookhoard, { recursive: true });
   fs.writeFileSync(
     path.join(bookhoard, "_foreign.tung"),
-    "show let value = 1;",
+    "show let value = 1",
   );
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(main, "bring foreign.tung;");
+  fs.writeFileSync(main, "bring foreign.tung");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root], tongue);
   const model = workspace.model(pathToFileURL(main).href);

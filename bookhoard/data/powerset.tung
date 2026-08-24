@@ -17,7 +17,7 @@ show let empty: a powerset = nay constant
 show let universe: a powerset = yea constant
 
 graith a equal
-show let (a: a) singleton: a powerset = a ≡
+show let singleton: a → a powerset = ≡
 
 fill (a powerset) inhold a {
   let powerset ∋ a = a powerset
@@ -30,12 +30,13 @@ show let (powerset: a powerset, a: a) put: a powerset = {
 
 graith a equal
 show let (powerset: a powerset, a: a) rid: a powerset = {
-  b | (b ≡ a) if nay (b powerset)
+  b | (b ≢ a) ∧ (b powerset)
 }
 
-show let (powerset₀: a powerset, powerset₁: a powerset) ∖: a powerset = {
-  a | (a powerset₀) if (a powerset₁ $ if nay yea) nay
-}
+show let (powerset₀: a powerset, powerset₁: a powerset)
+  ∖: a powerset = {
+    a | (a powerset₀) ∧ (a powerset₁ $ ¬)
+  }
 
 graith (a powerset) semilattice-infimal
 fill ((a powerset) infimal) semigroup {

@@ -66,6 +66,4 @@ fill nonempty cata {
 fill nonempty traverse {
   let (first nonempty rest) traverse f =
     (first f) lift₂ (rest traverse f) nonempty
-  let (first nonempty rest) sequence =
-    first lift₂ (rest sequence) nonempty
 }

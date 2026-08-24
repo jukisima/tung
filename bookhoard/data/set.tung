@@ -45,10 +45,7 @@ show let (list₀ from-list: a set, list₁ from-list: a set) ∖: a set =
 
 show let (values from-list: a set, predicate: a → 𝟚 ! e) keep: a set ! e =
   values foldr list@empty {
-    value, kept | match value predicate {
-      yea | value .* kept,
-      nay | kept
-    }
+    value, kept | value predicate $ if (value .* kept) kept
   } $ from-list
 
 graith (a list) inhold a
@@ -62,9 +59,9 @@ graith (a list) inhold a
 fill (a set) equal {
   let (list₀ from-list) ≡ (list₁ from-list) =
     list₀ foldr yea {
-      value, included | (list₁ ∋ value) if included nay
+      value, included | included ∧ (list₁ ∋ value)
     } $ if (list₁ foldr yea {
-        value, included | (list₀ ∋ value) if included nay
+        value, included | included ∧ (list₀ ∋ value)
     }) nay
 }
 
@@ -72,7 +69,7 @@ graith (a list) inhold a
 fill (a set) less-equal {
   let (list₀ from-list) ≤ (list₁ from-list) =
     list₀ foldr yea {
-      value, included | (list₁ ∋ value) if included nay
+      value, included | included ∧ (list₁ ∋ value)
     }
 }
 

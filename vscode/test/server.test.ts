@@ -353,7 +353,7 @@ test("server implementeth the editor workflow over stdio", async (context) => {
     badResult.diagnostics[0].range.start,
     positionOf(badText, "answer"),
   );
-  const semicolonlessBring = "bring dep.tung";
+  const completeBring = "bring dep.tung";
   const bringDiagnostics = nextDiagnostics(
     connection,
     mainUri,
@@ -361,7 +361,7 @@ test("server implementeth the editor workflow over stdio", async (context) => {
   );
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: mainUri, version: 3 },
-    contentChanges: [{ text: semicolonlessBring }],
+    contentChanges: [{ text: completeBring }],
   });
   assert.deepEqual((await bringDiagnostics).diagnostics, []);
   connection.sendNotification("textDocument/didClose", {
@@ -458,7 +458,7 @@ test("server sendeth semantic fallback notification without refresh capability",
   const changed = semanticChanged.next();
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri, version: 2 },
-    contentChanges: [{ text: "let value: integer = 2;\n" }],
+    contentChanges: [{ text: "let value: integer = 2\n" }],
   });
   await changed;
   connection.sendNotification("textDocument/didClose", {

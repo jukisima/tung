@@ -1,9 +1,8 @@
 bring data/two.tung
-bring order/lattice.tung
 
 show shape a equal {
   let a ≡ a: 𝟚
-  let a ≢ b = (a ≡ b) ¬
+  let a ≢ b = (a ≡ b) if nay yea
 }
 
 fill 𝟚 equal {

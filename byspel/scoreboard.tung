@@ -18,25 +18,25 @@ fill team to-text {
   }
 }
 
-let-ilk game = [away: team, away-score: integer, home: team, home-score: integer]
+let-ilk game = r(away: team, away-score: integer, home: team, home-score: integer)
 
-let-ilk scoreline = [
+let-ilk scoreline = r(
   away: team,
   away-points: integer,
   away-score: integer,
   home: team,
   home-points: integer,
   home-score: integer
-]
+)
 
-let-ilk cancelled-game = [away: team, home: team, reason: text]
+let-ilk cancelled-game = r(away: team, home: team, reason: text)
 
 kin match-result {
   scoreline finished,
   cancelled-game cancelled
 }
 
-let-ilk standing = [played: integer, points: integer, team: team]
+let-ilk standing = r(played: integer, points: integer, team: team)
 
 let (left: team, right: team) same-team: 𝟚 = match left, right {
   north, north | yea,
@@ -56,37 +56,37 @@ let (game: game) scoreline-of: scoreline ! text fail = (
   let home-score = game@home-score checked-score
   let away-score = game@away-score checked-score
   yield match home-score ≤ away-score, away-score ≤ home-score {
-    yea, yea | [
+    yea, yea | r(
       away = game@away,
       away-points = 1,
       away-score = away-score,
       home = game@home,
       home-points = 1,
       home-score = home-score
-    ],
-    nay, yea | [
+    ),
+    nay, yea | r(
       away = game@away,
       away-points = 0,
       away-score = away-score,
       home = game@home,
       home-points = 3,
       home-score = home-score
-    ],
-    yea, nay | [
+    ),
+    yea, nay | r(
       away = game@away,
       away-points = 3,
       away-score = away-score,
       home = game@home,
       home-points = 0,
       home-score = home-score
-    ],
+    ),
     nay, nay | 'scores are not ordered' fail
   }
 )
 
 let (game: game) settle: match-result =
   try game scoreline-of $ finished {
-    reason fail | [away = game@away, home = game@home, reason = reason] cancelled
+    reason fail | r(away = game@away, home = game@home, reason = reason) cancelled
   }
 
 let (game: game) start: match-result task ! random, async = (
@@ -101,16 +101,16 @@ let (standing: standing, outcome: match-result) add-result: standing =
   match outcome {
     _ cancelled | standing,
     scoreline finished | match standing@team same-team scoreline@home, standing@team same-team scoreline@away {
-      yea, _ | [
+      yea, _ | r(
         = standing,
         played = standing@played + 1,
         points = standing@points + scoreline@home-points
-      ],
-      nay, yea | [
+      ),
+      nay, yea | r(
         = standing,
         played = standing@played + 1,
         points = standing@points + scoreline@away-points
-      ],
+      ),
       nay, nay | standing
     }
   }
@@ -151,16 +151,22 @@ let (standing: standing) print-standing: 𝟙 ! console = (
 )
 
 let fixtures: game list =
-  [home = north, home-score = 3, away = south, away-score = 1] .*
-    ([home = east, home-score = 2, away = west, away-score = 2] .*
-      ([home = south, home-score = -1, away = east, away-score = 4] .*
-        ([home = west, home-score = 1, away = north, away-score = 2] .* empty)))
+  >(.*,
+    r(home = north, home-score = 3, away = south, away-score = 1),
+    r(home = east, home-score = 2, away = west, away-score = 2),
+    r(home = south, home-score = -1, away = east, away-score = 4),
+    r(home = west, home-score = 1, away = north, away-score = 2),
+    empty
+  )
 
 let initial-standings: standing list =
-  [team = north, played = 0, points = 0] .*
-    ([team = south, played = 0, points = 0] .*
-      ([team = east, played = 0, points = 0] .*
-        ([team = west, played = 0, points = 0] .* empty)))
+  >(.*,
+    r(team = north, played = 0, points = 0),
+    r(team = south, played = 0, points = 0),
+    r(team = east, played = 0, points = 0),
+    r(team = west, played = 0, points = 0),
+    empty
+  )
 
 let (_: 𝟙) main: 𝟙 ! console, random, async = (
   let _ = 'launching match jobs' write-line

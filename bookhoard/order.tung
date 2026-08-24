@@ -21,7 +21,7 @@ graith a less-equal
 show shape a order-partial {
   law (x: a): x ≤ x ~ yea
   law (x: a, y: a): (x ≤ y) ≤ ((y ≤ x) ≤ (x ≡ y)) ~ yea
-  law (x: a, y: a, z: a): (x ≤ y) ≤ ((y ≤ z) ≤ (x ≤ z)) ~ yea
+  law (x: a, y: a, z: a): >(≤, x ≤ y, y ≤ z, x, z) ~ yea
 }
 
 ## a partial order in which every pair is comparable.

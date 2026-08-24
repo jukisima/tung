@@ -42,6 +42,8 @@ eftginSum (answer : answers) = "(" ++ show answer ++ " eftgin) + (" ++ eftginSum
 deterministic :: [(String, String, String)]
 deterministic =
   [ ("integer arithmetic", "yield (1 + 2) × 3", "eval ok: 9")
+  , ("left-associated sequence", "yield <(-, 10, 3, 2)", "eval ok: 5")
+  , ("right-associated sequence", "yield >(-, 10, 3, 2)", "eval ok: 9")
   , ("term type ascription is erased before evaluation", "yield (1 + 2: integer)", "eval ok: 3")
   , ("ascribed anonymous function remaineth recursive", "let factorial = ({ 0 | 1, n | n × ((n - 1) factorial) }: integer → integer) yield 5 factorial", "eval ok: 120")
   , ("integer arithmetic is arbitrary precision", "yield 999999999999999999999999999999 + 1", "eval ok: 1000000000000000000000000000000")
@@ -69,12 +71,12 @@ deterministic =
   , ("let right side is strict", stopEffect ++ "yield try (let x = 1 stop yield 2 stop) { x stop | x }", "eval ok: 1")
   , ("function expression runneth before arguments", stopEffect ++ "yield try 0 (1 stop) (2 stop) { x stop | x }", "eval ok: 1")
   , ("arguments run left to right", stopEffect ++ "let x choose _ = x yield try (1 stop) choose (2 stop) { yield x | x, x stop | x }", "eval ok: 1")
-  , ("record fields run left to right", stopEffect ++ "yield try [first = 1 stop, second = 2 stop] { yield _ | 0, x stop | x }", "eval ok: 1")
-  , ("record update evaluateth base first", stopEffect ++ "let base = [field = 0] yield try [= (let _ = 1 stop yield base), field = 2 stop] { yield _ | 0, x stop | x }", "eval ok: 1")
+  , ("record fields run left to right", stopEffect ++ "yield try r(first = 1 stop, second = 2 stop) { yield _ | 0, x stop | x }", "eval ok: 1")
+  , ("record update evaluateth base first", stopEffect ++ "let base = r(field = 0) yield try r(= (let _ = 1 stop yield base), field = 2 stop) { yield _ | 0, x stop | x }", "eval ok: 1")
   , ("match scrutinees run left to right", stopEffect ++ "yield try match 1 stop, 2 stop { x, y | x } { x stop | x }", "eval ok: 1")
-  , ("record update", "let person = [name = 'n', age = 1] yield [= person, age = 2]", "eval ok: [age = 2, name = 'n']")
-  , ("record access", "let person = [name = 'n', age = 1] yield person@age", "eval ok: 1")
-  , ("record removal", "let person = [name = 'n', age = 1] yield [= person, - age]", "eval ok: [name = 'n']")
+  , ("record update", "let person = r(name = 'n', age = 1) yield r(= person, age = 2)", "eval ok: r(age = 2, name = 'n')")
+  , ("record access", "let person = r(name = 'n', age = 1) yield person@age", "eval ok: 1")
+  , ("record removal", "let person = r(name = 'n', age = 1) yield r(= person, - age)", "eval ok: r(name = 'n')")
   , ("handled division failure", "let _ ignore = 1 yield try (1 ÷ 0) ignore { fail | 9 }", "eval ok: 9")
   , ("operation payload", "deed e fail { e fail: a } let _ ignore = 'ok' yield try (1 ÷ 0) ignore { yield text | text, message fail | message }", "eval ok: 'division by zero'")
   , ("yield clause mapeth normal answer", "yield try 2 + 3 { yield n | n to-text }", "eval ok: '5'")
@@ -110,9 +112,9 @@ typeErrors =
   [ ("unknown value", "yield missing")
   , ("non-function application", "yield 1 2")
   , ("constructor overapplication", "kin a box { a box } yield 1 box 2")
-  , ("missing record field", "let value = [x = 1] yield value@y")
-  , ("unknown record removal", "let person = [name = 'n'] yield [= person, - age]")
-  , ("update of non-record", "yield [= 1, field = 2]")
+  , ("missing record field", "let value = r(x = 1) yield value@y")
+  , ("unknown record removal", "let person = r(name = 'n') yield r(= person, - age)")
+  , ("update of non-record", "yield r(= 1, field = 2)")
   , ("non-exhaustive match", boolData ++ "yield match nay { yea | 1 }")
   ]
 
@@ -136,6 +138,7 @@ importedCases imports =
   , evalOkWith "qualified shapes from different modules stay distinct" "bring left.tung bring right.tung yield 3 left@identity" distinctShapeImports "eval ok: 4"
   , evalOkWith "value survives a named re-export" "bring middle.tung yield value" reexportImports "eval ok: 7"
   , evalOkWith "shape fill survives an import" "bring identity.tung yield 3 identity" identityImports "eval ok: 3"
+  , evalOkWith "specific fill outranketh a blanket fill" "shape a identity { let a identity: a } fill a identity { let x identity = x } fill integer identity { let x identity = x + 1 } yield 1 identity" imports "eval ok: 2"
   , evalOkWith "data constructor survives a named re-export" "bring data-middle.tung yield 4 box" dataReexportImports "eval ok: (4 box)"
   , evalOkWith "qualified constructor pattern useth import alias" "bring alias.tung yield match 4 alias@box { x alias@box | x }" (Map.insert "alias.tung" "show kin a box { a box }" imports) "eval ok: 4"
   , evalOkWith "effect operation survives a named re-export" "bring ask-middle.tung yield try 3 ask { x ask | x }" effectReexportImports "eval ok: 3"
@@ -204,9 +207,9 @@ importedCases imports =
   , evalOkWith "empty boolean supremal fold yieldeth nay" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (𝟚 supremal) list = list@empty yield match values fold { result supremal | result }" imports "eval ok: nay"
   , evalOkWith "boolean infimal wrapper useth conjunction" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values = (yea infimal) .* ((nay infimal) .* list@empty) yield match values fold { result infimal | result }" imports "eval ok: nay"
   , evalOkWith "empty boolean infimal fold yieldeth yea" "bring ground.tung bring data/list.tung bring algebra/total/semigroup.tung bring collection/catamorphism.tung let values: (𝟚 infimal) list = list@empty yield match values fold { result infimal | result }" imports "eval ok: yea"
-  , evalOkWith "natural semiring computeth with both identities" "bring ground.tung bring data/natural.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two × three) + one) natural-to-integer" imports "eval ok: 7"
-  , evalOkWith "natural semiring supplieth multiplicative monoid evidence" "bring ground.tung bring data/list.tung bring data/natural.tung bring collection/catamorphism.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two .* (three .* list@empty)) …×) natural-to-integer" imports "eval ok: 6"
-  , evalOkWith "nonnegative integer converteth to natural" "bring ground.tung bring data/natural.tung yield 3 integer-to-natural $ natural-to-integer" imports "eval ok: 3"
+  , evalOkWith "natural semiring computeth with both identities" "bring ground.tung bring data/natural.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two × three) + one) to-integer" imports "eval ok: 7"
+  , evalOkWith "natural semiring supplieth multiplicative monoid evidence" "bring ground.tung bring data/list.tung bring data/natural.tung bring collection/catamorphism.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two .* (three .* list@empty)) …×) to-integer" imports "eval ok: 6"
+  , evalOkWith "nonnegative integer converteth to natural" "bring ground.tung bring data/natural.tung yield 3 integer-to-natural $ to-integer" imports "eval ok: 3"
   , evalOkWith "negative integer cannot become natural" "bring ground.tung yield try -1 integer-to-natural { yield _ | 'valid', message fail | message }" imports "eval ok: 'negative cannot be a natural'"
   , evalOkWith "complex sine of zero is zero" "bring ground.tung bring numeric/complex.tung yield ((0.0 complex 0.0) sine) real" imports "eval ok: 0.0"
   , evalOkWith "complex cosine of zero is one" "bring ground.tung bring numeric/complex.tung yield ((0.0 complex 0.0) cosine) real" imports "eval ok: 1.0"
@@ -251,7 +254,7 @@ importedCases imports =
   , evalOkWith "table merge preferreth right values" "bring ground.tung bring data/table.tung let left = empty put 'a' 1 let right = empty put 'a' 2 yield (left merge right) lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table adjust changeth an existing value" "bring ground.tung bring data/table.tung let table = empty put 'a' 1 yield (table adjust 'a' { x | x + 1 }) lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "text operations use unicode code points" "bring ground.tung bring text/operation.tung yield ('aβ字' reverse-text) take-text 2" imports "eval ok: '字β'"
-  , evalOkWith "text size counteth unicode code points" "bring ground.tung bring text/operation.tung bring collection/size.tung bring data/natural.tung yield ('aβ字' size) natural-to-integer" imports "eval ok: 3"
+  , evalOkWith "text size counteth unicode code points" "bring ground.tung bring text/operation.tung bring collection/size.tung bring data/natural.tung yield ('aβ字' size) to-integer" imports "eval ok: 3"
   , evalOkWith "text split and join preserve empty fields" "bring ground.tung bring text/operation.tung yield ('a,b,,c' split-text `,) join-with-text '|'" imports "eval ok: 'a|b||c'"
   , evalOkWith "text words collapse whitespace runs" "bring ground.tung bring text/operation.tung yield ' red\\tblue\\nred ' words-text $ join-with-text '|'" imports "eval ok: 'red|blue|red'"
   , evalOkWith "typed paths join components" "bring ground.tung bring data/path.tung yield (('root' path) join-path ('leaf' path)) to-text" imports "eval ok: 'root/leaf'"

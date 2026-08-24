@@ -6,7 +6,7 @@ import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
-group = Harness.group "diagnostic" [locatedTokens, locatedForeign, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, semicolonlessEvidence, semicolonlessImportedEvidence, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
+group = Harness.group "diagnostic" [locatedTokens, locatedForeign, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, adjacentDeclarationEvidence, adjacentImportedEvidence, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
 
 locatedTokens :: Test
 locatedTokens = case lexLocatedTokens "  answer + 1" of
@@ -48,11 +48,11 @@ parsePosition :: Test
 parsePosition =
   expectDiagnostic "parse position" "\n  'unterminated" ParseDiagnostic (SourceSpan 16 16)
 
-semicolonlessEvidence :: Test
-semicolonlessEvidence =
+adjacentDeclarationEvidence :: Test
+adjacentDeclarationEvidence =
   case checkEditorDiagnosticWithImports source Map.empty of
     Nothing -> pure Nothing
-    Just diagnostic -> pure (Just ("semicolonless located evidence: " ++ show diagnostic))
+    Just diagnostic -> pure (Just ("adjacent declaration evidence: " ++ show diagnostic))
  where
   source =
     unlines
@@ -62,11 +62,11 @@ semicolonlessEvidence =
       , "let (score: integer) checked: integer = match score < 0 { yea | score, nay | score }"
       ]
 
-semicolonlessImportedEvidence :: Test
-semicolonlessImportedEvidence =
+adjacentImportedEvidence :: Test
+adjacentImportedEvidence =
   case checkEditorDiagnosticWithImports source (Map.singleton "dep.tung" dependency) of
     Nothing -> pure Nothing
-    Just diagnostic -> pure (Just ("semicolonless imported evidence: " ++ show diagnostic))
+    Just diagnostic -> pure (Just ("adjacent imported evidence: " ++ show diagnostic))
  where
   source = "bring dep.tung\nlet checked: truth = 1 < 0"
   dependency =

@@ -15,6 +15,12 @@ const grammar = JSON.parse(
 const manifest = JSON.parse(
   fs.readFileSync(path.join(extensionRoot, "package.json"), "utf8"),
 );
+const languageConfiguration = JSON.parse(
+  fs.readFileSync(
+    path.join(extensionRoot, "language-configuration.json"),
+    "utf8",
+  ),
+);
 test("textmate fallback scopeth bring paths as one import string", () => {
   const pattern = grammar.repository["import-path"].patterns[0];
   const match = "bring algebra/foreign.tung".match(
@@ -65,14 +71,14 @@ test("textmate giveth a whole bring path one scope", async () => {
 });
 test("textmate scopeth block comments", async () => {
   const tokens =
-    (await loadGrammar()).tokenizeLine("let x = 1; /* hidden { = */").tokens;
+    (await loadGrammar()).tokenizeLine("let x = 1 /* hidden { = */").tokens;
   const comment = tokens.find(({ scopes }) =>
     scopes.includes("comment.block.tung")
   );
   assert(comment);
 });
 test("textmate scopeth single-quoted unicode text", async () => {
-  const line = "let word: text = 'λ字\\n';";
+  const line = "let word: text = 'λ字\\n'";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   const literal = tokens.filter(({ scopes }) =>
     scopes.includes("string.quoted.single.tung")
@@ -83,7 +89,7 @@ test("textmate scopeth single-quoted unicode text", async () => {
   );
 });
 test("textmate scopeth decimal unicode escapes", async () => {
-  const line = "let letter: unicode = `\\65;; let word: text = '\\23383;';";
+  const line = "let letter: unicode = `\\65; let word: text = '\\23383;'";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   const character = tokens.find(({ scopes }) =>
     scopes.includes("constant.character.tung")
@@ -155,9 +161,9 @@ test("textmate giveth data declarations and annotations the theme type scope", a
     ["show kin 𝟚 {", ["𝟚"]],
     ["show kin a option {", ["option"]],
     ["show let ¬: 𝟚 → 𝟚 = {", ["𝟚", "𝟚"]],
-    ["let value: integer → float = 1;", ["integer", "float"]],
-    ["let value: text = 'word';", ["text"]],
-    ["let value: unicode = `😀;", ["unicode"]],
+    ["let value: integer → float = 1", ["integer", "float"]],
+    ["let value: text = 'word'", ["text"]],
+    ["let value: unicode = `😀", ["unicode"]],
   ];
   for (const [line, names] of cases) {
     const tokens = loaded.tokenizeLine(line).tokens;
@@ -184,12 +190,16 @@ test("textmate recogniseth declaration and member keywords", async () => {
     assert(token.scopes.includes("keyword.declaration.tung"), line);
   }
 });
-test("textmate recogniseth the yield result keyword", async () => {
-  const line = "yield value";
-  const token = (await loadGrammar()).tokenizeLine(line).tokens.find(
-    ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "yield",
-  );
-  assert(token.scopes.includes("keyword.control.tung"));
+test("textmate recogniseth the control keywords", async () => {
+  const loaded = await loadGrammar();
+  for (const keyword of ["yield", "try"]) {
+    const line = `${keyword} value`;
+    const token = loaded.tokenizeLine(line).tokens.find(
+      ({ startIndex, endIndex }) =>
+        line.slice(startIndex, endIndex) === keyword,
+    );
+    assert(token.scopes.includes("keyword.control.tung"), keyword);
+  }
 });
 test("textmate recogniseth the eftgin continuation keyword", async () => {
   const line = "eftgin";
@@ -207,6 +217,54 @@ test("textmate recogniseth the fremmed let-body marker", async () => {
   );
   assert(token.scopes.includes("keyword.other.tung"));
 });
+test("textmate recogniseth the record opening delimiter", async () => {
+  const line = "let record = r(field = r) let applied = r (field)";
+  const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
+  const opener = tokens.find(({ startIndex, endIndex }) =>
+    line.slice(startIndex, endIndex) === "r("
+  );
+  assert(opener.scopes.includes("punctuation.section.parens.begin.tung"));
+  const names = tokens.filter(({ startIndex, endIndex }) =>
+    line.slice(startIndex, endIndex) === "r"
+  );
+  assert(names.every(({ scopes }) => scopes.includes("variable.other.tung")));
+});
+test("textmate recogniseth association opening delimiters", async () => {
+  const loaded = await loadGrammar();
+  for (const marker of ["<", ">"]) {
+    const syntax = `${marker}(+, 1, 2)`;
+    const syntaxToken = loaded.tokenizeLine(syntax).tokens.find(
+      ({ startIndex, endIndex }) =>
+        syntax.slice(startIndex, endIndex) === `${marker}(`,
+    );
+    assert(
+      syntaxToken.scopes.includes("punctuation.section.parens.begin.tung"),
+      syntax,
+    );
+
+    const separated = `${marker} (+, 1, 2)`;
+    const separatedToken = loaded.tokenizeLine(separated).tokens.find(
+      ({ startIndex, endIndex }) =>
+        separated.slice(startIndex, endIndex) === marker,
+    );
+    assert(separatedToken.scopes.includes("variable.other.tung"), separated);
+
+    const name = `1 ${marker} 2`;
+    const nameToken = loaded.tokenizeLine(name).tokens.find(
+      ({ startIndex, endIndex }) => name.slice(startIndex, endIndex) === marker,
+    );
+    assert(nameToken.scopes.includes("variable.other.tung"), name);
+  }
+});
+test("language configuration keepeth every special opener whole", () => {
+  assert.deepEqual(languageConfiguration.brackets, [
+    ["r(", ")"],
+    ["<(", ")"],
+    [">(", ")"],
+    ["(", ")"],
+    ["{", "}"],
+  ]);
+});
 test("textmate recogniseth the law equation marker", async () => {
   const line = "law (x: a): x identity ~ x";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
@@ -216,7 +274,7 @@ test("textmate recogniseth the law equation marker", async () => {
   assert(marker.scopes.includes("keyword.operator.tung"));
 });
 test("textmate recogniseth a term type ascription", async () => {
-  const line = "let answer = (1: integer);";
+  const line = "let answer = (1: integer)";
   const token = (await loadGrammar()).tokenizeLine(line).tokens.find(
     ({ startIndex, endIndex }) =>
       line.slice(startIndex, endIndex) === "integer",
@@ -247,7 +305,7 @@ test("textmate keepeth law expressions distinct from parameter types", async () 
   }
 });
 test("textmate fallback keepeth type and term categories distinct", async () => {
-  const line = "let value: integer = item;";
+  const line = "let value: integer = item";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   const scopesOf = (name) => {
     const start = line.indexOf(name);
@@ -272,6 +330,7 @@ test("manifest mapeth semantic roles to theme scopes", () => {
   assert.equal(semanticTypes.shape, "type");
   assert.equal(semanticTypes.call, "function");
   assert(scopes.type.includes("support.type"));
+  assert(scopes.keyword.includes("keyword.control"));
   assert(scopes.function.includes("entity.name.function"));
   assert(scopes.parameter.includes("variable.parameter"));
   assert.deepEqual(

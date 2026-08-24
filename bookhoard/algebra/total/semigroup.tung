@@ -1,6 +1,4 @@
 bring algebra/total/magma.tung
-bring algebra/total/semigroup/additive.tung
-bring algebra/total/semigroup/multiplicative.tung
 bring algebra/total/semigroup/infimal.tung
 bring algebra/total/semigroup/supremal.tung
 bring data/two.tung
@@ -11,28 +9,12 @@ show shape a semigroup {
   law (a: a, b: a, c: a): a * (b * c) ~ (a * b) * c
 }
 
-show-ilk additive, multiplicative, infimal, supremal
-show additive, multiplicative, infimal, supremal
+show-ilk infimal, supremal
+show infimal, supremal
 
 graith b semigroup
 fill (a func b) semigroup {
   let f * g a = (a f) * (a g)
-}
-
-fill (integer additive) semigroup {
-  let (a additive) * (b additive) = (a + b) additive
-}
-
-fill (integer multiplicative) semigroup {
-  let (a multiplicative) * (b multiplicative) = (a × b) multiplicative
-}
-
-fill (float additive) semigroup {
-  let (a additive) * (b additive) = (a + b) additive
-}
-
-fill (float multiplicative) semigroup {
-  let (a multiplicative) * (b multiplicative) = (a × b) multiplicative
 }
 
 fill (𝟚 infimal) semigroup {

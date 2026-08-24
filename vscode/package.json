@@ -91,6 +91,10 @@
       {
         "language": "tung",
         "scopes": {
+          "keyword": [
+            "keyword.control.tung",
+            "keyword.control"
+          ],
           "type": [
             "support.type.tung",
             "support.type"

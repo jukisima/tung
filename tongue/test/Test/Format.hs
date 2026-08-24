@@ -205,6 +205,50 @@ cases =
       """
     )
   ,
+    ( "multiline record"
+    , """
+      let person: r(
+      name: text,
+      age: integer
+      ) = r(
+      name = 'naoki',
+      age = 35
+      )
+
+      """
+    , """
+      let person: r(
+        name: text,
+        age: integer
+      ) = r(
+        name = 'naoki',
+        age = 35
+      )
+
+      """
+    )
+  ,
+    ( "associative sequence"
+    , """
+      let list = >(
+      .*,
+      a,
+      b,
+      empty
+      )
+
+      """
+    , """
+      let list = >(
+        .*,
+        a,
+        b,
+        empty
+      )
+
+      """
+    )
+  ,
     ( "multiline law header"
     , """
       shape f applicative {

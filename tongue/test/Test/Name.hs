@@ -25,8 +25,8 @@ resolutionCases =
   , typeErrWith "private values stay hidden when qualified" "bring public.tung let bad = public@hidden" publicOnly
   , typeErrWith "private types stay hidden when qualified" "bring private-type.tung let bad: private-type@secret = 1" privateType
   , typeOkWith "shown values stay bare" "bring public.tung let ok: integer = visible" publicOnly
-  , typeOkWith "qualified lookup winneth before field access" "bring public.tung let public = [visible = 'record'] let ok: integer = public@visible" publicOnly
-  , typeOkWith "field access is fallback lookup" "let value = [field = 1] let ok: integer = value@field" Map.empty
+  , typeOkWith "qualified lookup winneth before field access" "bring public.tung let public = r(visible = 'record') let ok: integer = public@visible" publicOnly
+  , typeOkWith "field access is fallback lookup" "let value = r(field = 1) let ok: integer = value@field" Map.empty
   , typeOkWith "a qualified name can be re-exported" "bring middle.tung let ok: integer = value + middle@value" reexported
   , typeErrWith "an ordinary bring doth not re-export" "bring closed.tung let bad = value" notReexported
   , typeErrWith "an unknown re-export is rejected" "show missing" Map.empty

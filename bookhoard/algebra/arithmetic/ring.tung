@@ -28,7 +28,7 @@ fill float subtract {
 fill integer ring {}
 
 fill 𝟚 subtract {
-  let a - b = a + b
+  let - = +
 }
 
 fill 𝟚 ring {}

@@ -9,8 +9,10 @@ show shape f monad {
   let (a: a f, f: a → b f ! e) map-flat: b f ! e =
     a map f $ flat
 
-  law (a: a, f: a → b f ! e): (a pure) map-flat f ~ a f
-  law (a: a f): a map-flat pure ~ a
+  law (a: a, f: a → b f ! e):
+    (a pure) map-flat f ~ a f
+  law (a: a f):
+    a map-flat pure ~ a
 }
 
 graith f monad

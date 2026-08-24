@@ -79,8 +79,8 @@ integerTerms = atoms ++ take 90 firstLevel ++ take 90 secondLevel
 
 languagePrograms :: [(String, String, String)]
 languagePrograms =
-  [ ("checked record access", "let value = [left = 1, right = 2] yield value@right", "eval ok: 2")
-  , ("checked record update", "let value = [left = 1, right = 2] yield [= value, right = 3, - left]", "eval ok: [right = 3]")
+  [ ("checked record access", "let value = r(left = 1, right = 2) yield value@right", "eval ok: 2")
+  , ("checked record update", "let value = r(left = 1, right = 2) yield r(= value, right = 3, - left)", "eval ok: r(right = 3)")
   , ("checked exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1, nay | 2 }", "eval ok: 2")
   , ("checked integer match", "yield match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
   , ("checked class evidence", "shape a identity { let a identity: a } fill integer identity { let x identity = x } yield 7 identity", "eval ok: 7")
@@ -93,7 +93,7 @@ rejectedPrograms :: [(String, String)]
 rejectedPrograms =
   [ ("reject non-function application", "yield 1 2")
   , ("reject constructor overapplication", "kin a box { a box } yield 1 box 2")
-  , ("reject missing record field", "let value = [field = 1] yield value@missing")
+  , ("reject missing record field", "let value = r(field = 1) yield value@missing")
   , ("reject non-exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1 }")
   , ("reject refutable handler yield", "kin 𝟚 { yea, nay } yield try nay { yield yea | 1 }")
   ]

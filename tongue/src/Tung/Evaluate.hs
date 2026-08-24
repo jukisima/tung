@@ -1220,7 +1220,7 @@ showRuntimeValue = \case
   VFloat value -> show value
   VUnicode codePoint -> "`" ++ escapeUnicodeCodePoint codePoint
   VText s -> "'" ++ concatMap escapeTextCharacter (Text.unpack s) ++ "'"
-  VRecord fields -> "[" ++ showRuntimeFields fields ++ "]"
+  VRecord fields -> "r(" ++ showRuntimeFields fields ++ ")"
   VData _ displayName [] -> displayName
   VData _ displayName args -> "(" ++ showRuntimeValues args ++ " " ++ displayName ++ ")"
   VMatcher{} -> "<function>"

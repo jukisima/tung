@@ -3,6 +3,22 @@
 this guide recordeth semantic comparisons and design boundaries. generated api
 pages still come from shown tung declarations and their doc comments.
 
+== current surface
+
+`ground.tung` is the ordinary umbrella import. it re-publisheth the common
+data, effect, equality, ordering, algebraic, numeric, collection, and text
+surface without becoming an implicit prelude.
+
+the total-order hierarchy addeth totality to partial order; generic infimal
+and supremal semilattices stay independent until a lattice requireth both.
+`powerset` is a characteristic function and useth those generic operations,
+whereas `set` and `table` are finite list-backed containers with qualified
+constructors.
+
+lawful numeric fills stop at their honest boundary. integers provide exact
+euclidean division and the corresponding algebraic shapes. floats expose ieee
+operations but do not claim exact field or total-order laws.
+
 == purescript comparison
 
 the https://pursuit.purescript.org/packages/purescript-prelude/6.0.1/docs/Prelude[purescript prelude]
@@ -21,7 +37,7 @@ direct counterparts for its central families:
 
 | `semigroup`, `monoid`
 | `semigroup`, `monoid`
-| alternate additive, multiplicative, infimal, and supremal carriers stay separate
+| alternate infimal and supremal carriers stay separate
 
 | `semiring`, `ring`, `field`
 | arithmetic shapes, `divide-remainder`, `euclidean`
@@ -82,25 +98,12 @@ but direct `set@from-list` use may build a noncanonical value. the shared
 constructor name is deliberate: `set@from-list` and
 `table@from-list` remain distinct through ordinary qualification.
 
-an order-insensitive bag needeth not wait for quotient types. its eventual
-representation will be an opaque list of distinct value and positive-count
-pairs in ascending value order. construction and update operations will require
-`order-total` for the value, keep the data constructor private, and publish only
-the `bag` type with `show-ilk`. smart constructors will preserve strict ordering
-and omit zero counts, making equality and rendering independent of insertion
-order. quotient types remain a later proof-level feature rather than a
-prerequisite for bags.
+the planned order-insensitive bag needeth not wait for quotient types. its
+representation boundary and implementation work are tracked in
+xref:../todo.adoc[`todo.adoc`] rather than described as part of the current api.
 
 mathlib's theorem hierarchy is much richer than tung's checked shape laws.
 shape laws in tung are type-checked statements, not proofs and not evaluator
 rewrite rules. additions from mathlib should therefore first improve data and
 shape boundaries; proof-dependent structures belong after tung gaineth an
 explicit proof story.
-
-== next gaps
-
-* add first, last, and reversed monoid carriers without burdening the core
-  monoid shape
-* add a packed immutable array when runtime representation work is justified
-* add property testing for laws before treating them as more than checked
-  documentation

@@ -4,7 +4,7 @@
 'specialNameChars'; literals and comments are consumed before name parsing.
 -}
 module Tung.Token (
-  Token (TIdent, TInteger, TFloat, TUnicode, TText, TLet, TGraith, TShow, TShowIlk, TBring, TLetIlk, TKin, TDeed, TYield, TForeign, TShape, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TLBracket, TRBracket, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TSemicolon, TDot, TDollar),
+  Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TBring, TLetIlk, TKin, TDeed, TYield, TForeign, TShape, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar),
   SourceSpan (..),
   LocatedToken (..),
   tokenSpan,
@@ -58,19 +58,17 @@ data TokenKind
   | KTLaw
   | KTMatch
   | KTTry
+  | KTParenKeyword String
   | KTLParen
   | KTRParen
   | KTLBrace
   | KTRBrace
-  | KTLBracket
-  | KTRBracket
   | KTColon
   | KTComma
   | KTMapsTo
   | KTArrow
   | KTBang
   | KTEquals
-  | KTSemicolon
   | KTDot
   | KTDollar
   deriving (Eq, Show)
@@ -106,7 +104,12 @@ pattern TText value <- Token _ (KTText value)
  where
   TText value = Token Nothing (KTText value)
 
-pattern TLet, TGraith, TShow, TShowIlk, TBring, TLetIlk, TKin, TDeed, TYield, TForeign, TShape, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TLBracket, TRBracket, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TSemicolon, TDot, TDollar :: Token
+pattern TParenKeyword :: String -> Token
+pattern TParenKeyword name <- Token _ (KTParenKeyword name)
+ where
+  TParenKeyword name = Token Nothing (KTParenKeyword name)
+
+pattern TLet, TGraith, TShow, TShowIlk, TBring, TLetIlk, TKin, TDeed, TYield, TForeign, TShape, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar :: Token
 pattern TLet <- Token _ KTLet where TLet = Token Nothing KTLet
 pattern TGraith <- Token _ KTGraith where TGraith = Token Nothing KTGraith
 pattern TShow <- Token _ KTShow where TShow = Token Nothing KTShow
@@ -126,19 +129,16 @@ pattern TLParen <- Token _ KTLParen where TLParen = Token Nothing KTLParen
 pattern TRParen <- Token _ KTRParen where TRParen = Token Nothing KTRParen
 pattern TLBrace <- Token _ KTLBrace where TLBrace = Token Nothing KTLBrace
 pattern TRBrace <- Token _ KTRBrace where TRBrace = Token Nothing KTRBrace
-pattern TLBracket <- Token _ KTLBracket where TLBracket = Token Nothing KTLBracket
-pattern TRBracket <- Token _ KTRBracket where TRBracket = Token Nothing KTRBracket
 pattern TColon <- Token _ KTColon where TColon = Token Nothing KTColon
 pattern TComma <- Token _ KTComma where TComma = Token Nothing KTComma
 pattern TMapsTo <- Token _ KTMapsTo where TMapsTo = Token Nothing KTMapsTo
 pattern TArrow <- Token _ KTArrow where TArrow = Token Nothing KTArrow
 pattern TBang <- Token _ KTBang where TBang = Token Nothing KTBang
 pattern TEquals <- Token _ KTEquals where TEquals = Token Nothing KTEquals
-pattern TSemicolon <- Token _ KTSemicolon where TSemicolon = Token Nothing KTSemicolon
 pattern TDot <- Token _ KTDot where TDot = Token Nothing KTDot
 pattern TDollar <- Token _ KTDollar where TDollar = Token Nothing KTDollar
 
-{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TLet, TGraith, TShow, TShowIlk, TBring, TLetIlk, TKin, TDeed, TYield, TForeign, TShape, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TLBracket, TRBracket, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TSemicolon, TDot, TDollar #-}
+{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TBring, TLetIlk, TKin, TDeed, TYield, TForeign, TShape, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar #-}
 
 tokenSpan :: Token -> Maybe SourceSpan
 tokenSpan (Token span _) = span
@@ -188,9 +188,16 @@ rawTokenParser =
     , TFloat <$> M.try floatParser
     , unicodeLiteralParser
     , textParser
+    , specialOpenParser
     , nameParser
     , singleTokenParser
     ]
+
+specialOpenParser :: Lexer Token
+specialOpenParser = M.try do
+  marker <- M.choice (map C.string ["r", "<", ">"])
+  _ <- C.char '('
+  pure (TParenKeyword marker)
 
 singleTokenParser :: Lexer Token
 singleTokenParser =
@@ -199,14 +206,11 @@ singleTokenParser =
     , TRParen <$ C.char ')'
     , TLBrace <$ C.char '{'
     , TRBrace <$ C.char '}'
-    , TLBracket <$ C.char '['
-    , TRBracket <$ C.char ']'
     , TColon <$ C.char ':'
     , TComma <$ C.char ','
     , TMapsTo <$ C.char '|'
     , TBang <$ C.char '!'
     , TEquals <$ C.char '='
-    , TSemicolon <$ C.char ';'
     , TDot <$ C.char '.'
     , TDollar <$ C.char '$'
     , TArrow <$ C.char '→'
@@ -325,4 +329,4 @@ isNameChar :: Char -> Bool
 isNameChar c = not (isSpace c) && c `notElem` specialNameChars
 
 specialNameChars :: [Char]
-specialNameChars = "#(){}[]:,|!=;.$→`'"
+specialNameChars = "#(){}:,|!=.$→`'"

@@ -58,16 +58,8 @@ let (list: unicode list, separator: unicode) split-unicode: (unicode list) list 
   }
 
 let (unicode: unicode) is-whitespace: 𝟚 =
-  match unicode ≡ `\32; {
-    yea | yea,
-    nay | match unicode ≡ `\9; {
-      yea | yea,
-      nay | match unicode ≡ `\10; {
-        yea | yea,
-        nay | unicode ≡ `\13;
-      }
-    }
-  }
+  <(∨, unicode ≡ `\32;, unicode ≡ `\9;, unicode ≡ `\10;, unicode ≡ `\13;)
+
 
 ## split text at each separator code point.
 show let (text: text, separator: unicode) split-text: text list =

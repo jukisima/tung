@@ -243,7 +243,7 @@ const findHeaderEnd = (tokens, depths, start, end, baseDepth) => {
   for (let index = start; index < end; index += 1) {
     if (
       depths[index] === baseDepth &&
-      ["=", "{", ";"].includes(tokens[index].text)
+      ["=", "{"].includes(tokens[index].text)
     ) return index;
   }
   return Math.max(start, end - 1);
@@ -397,9 +397,6 @@ const patternArmStart = (tokens, depths, pipeIndex, depth) => {
     if (tokens[index].text === "{" && depths[index] === depth - 1) {
       return index + 1;
     }
-    if (tokens[index].text === ";" && depths[index] === depth) {
-      return index + 1;
-    }
   }
   return 0;
 };
@@ -524,7 +521,6 @@ const findAtDepth = (tokens, depths, start, text, depth) => {
     if (depths[index] === depth && tokens[index].text === text) {
       return index;
     }
-    if (depths[index] === depth && tokens[index].text === ";") return -1;
   }
   return -1;
 };

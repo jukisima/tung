@@ -1,5 +1,7 @@
+bring algebra/partial/semigroupoid.tung
 bring algebra/partial/category.tung
 bring collection/functor.tung
+bring combinator.tung
 
 graith f functor show shape f applicative {
   let a pure: a f
@@ -8,24 +10,27 @@ graith f functor show shape f applicative {
   # identity
   law (a: a f):
     a apply ((identity: a → a) pure) ~ a
+
   # homomorphism
   law (a: a, f: a → b ! e):
     (a pure) apply (f pure) ~ (a f) pure
+
   # composition
   law (a: a f, f: a → b ! e, g: b → c ! e):
-    (a apply (f pure)) apply (g pure) ~ a apply (({ x | x f $ g }) pure)
+    <(apply, a, f pure, g pure) ~ <(apply, a, f ∘ g $ pure)
+
   # interchange
   law (a: a, fs: (a → b ! e) f):
-    (a pure) apply fs ~ fs map { f | a f }
+    (a pure) apply fs ~ fs map (a into)
 }
 
 graith f applicative
 show let (a: a f, b: b f, f: a → b → c ! e) lift₂: c f ! e =
-  b apply (a apply (f pure))
+  >(apply, b, a, f pure)
 
 graith f applicative
 show let (a: a f, b: b f, c: c f, f: a → b → c → d ! e) lift₃: d f ! e =
-  c apply (b apply (a apply (f pure)))
+  >(apply, c, b, a, f pure)
 
 graith f applicative
 show let (a: a f, b: b f) keep-left: a f =

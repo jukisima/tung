@@ -6,16 +6,17 @@ import {
   declarationKeywords,
   findFileDeclarationBoundary,
   findMatching,
+  findOpening,
   isClose,
   isOpen,
   languageNames,
-  openForClose,
   primitiveTypes,
   splitDeclarations,
   splitTopLevel,
   tokenize,
 } from "./syntax.ts";
 const tokenTypes = [
+  "keyword",
   "namespace",
   "type",
   "class",
@@ -37,13 +38,14 @@ const tokenModifiers = [
 ];
 const applicationStartTexts = new Set([
   "(",
+  "r(",
+  "<(",
+  ">(",
   "{",
-  "[",
   ":",
   ",",
   "|",
   "=",
-  ";",
   "~",
 ]);
 const graithEndKeywords = new Set(["let", "shape", "fill", "show", "show-ilk"]);
@@ -75,6 +77,9 @@ const buildSemanticRanges = (
     .sort((a, b) => a.line - b.line || a.char - b.char || a.length - b.length);
 };
 const classifyToken = (token, tokens, info, definition) => {
+  if (token.kind === "keyword") {
+    return { type: "keyword", modifiers: [] };
+  }
   const analyzed = info.semantic.get(token.index);
   const semantic = (analyzed?.modifiers.includes("declaration") && analyzed) ||
     (typeRoles.has(definition?.role) &&
@@ -194,7 +199,7 @@ const collectExportLists = (tokens, info) => {
   for (const token of tokens) {
     if (!["show", "show-ilk"].includes(token.text)) continue;
     const next = tokens[token.index + 1];
-    if (!next || next.kind === "keyword" || next.text === ";") continue;
+    if (!next || next.kind === "keyword") continue;
     const end = findFileDeclarationBoundary(tokens, next.index);
     for (let i = next.index; i < end; i += 1) {
       if (token.text === "show-ilk" && tokens[i].kind === "name") {
@@ -484,8 +489,6 @@ const armStart = (tokens, index) => {
     } else if (depth === 0 && text === "|") {
       const comma = findTopLevelText(tokens, i + 1, index + 1, ",");
       return comma < 0 ? i + 1 : comma + 1;
-    } else if (depth === 0 && text === ";") {
-      return i + 1;
     }
   }
   return 0;
@@ -606,9 +609,6 @@ const findNextText = (tokens, start, text) => {
   for (let i = start; i < tokens.length; i += 1) {
     if (tokens[i].text === text) {
       return i;
-    }
-    if (tokens[i].text === ";") {
-      return -1;
     }
   }
   return -1;
@@ -753,8 +753,7 @@ const markTypeTokens = (tokens, start, end, info, skip = new Set()) => {
   }
 };
 const isAnonymousFunctionValue = (tokens, start, end) => {
-  const semicolon = findTopLevelText(tokens, start, end, ";");
-  let expressionEnd = semicolon < 0 ? end : semicolon;
+  let expressionEnd = end;
   while (
     tokens[start]?.text === "(" &&
     findMatching(tokens, start) === expressionEnd - 1
@@ -795,18 +794,8 @@ const previousAtomStart = (tokens, before) => {
   const end = before - 1;
   const token = tokens[end];
   if (!token) return -1;
-  if (isClose(token.text)) return matchingOpen(tokens, end);
+  if (isClose(token.text)) return findOpening(tokens, end);
   return isSimpleAtom(token) ? end : -1;
-};
-const matchingOpen = (tokens, closeIndex) => {
-  const close = tokens[closeIndex].text;
-  const open = openForClose.get(close);
-  let depth = 0;
-  for (let index = closeIndex; index >= 0; index -= 1) {
-    if (tokens[index].text === close) depth += 1;
-    if (tokens[index].text === open && --depth === 0) return index;
-  }
-  return -1;
 };
 const isSimpleAtom = (token) => {
   return ["name", "number", "string", "character"].includes(token.kind);
