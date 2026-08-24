@@ -3,7 +3,7 @@ bring data/list.tung
 bring data/product.tung
 bring algebra/partial/semigroupoid.tung
 
-graith a divide-remainder, a zero, a equal
+graiþ a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =
   try ((dividend ÷ divisor) project₁) ≡ zero {
     _ fail | nay

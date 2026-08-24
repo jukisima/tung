@@ -25,7 +25,7 @@ show kin a list {
   a .* (a list)
 }
 
-graith a equal
+graiþ a equal
 fill (a list) inhold a {
   let ∋ = {
     empty, _ | nay,
@@ -96,7 +96,7 @@ show let head: a list → a option = {
   first .* _ | first some
 }
 
-## list without its first element, if present.
+## list wiþout its first element, if present.
 show let tail: a list → (a list) option = {
   empty | none,
   _ .* rest | rest some

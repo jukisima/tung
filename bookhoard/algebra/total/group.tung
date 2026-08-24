@@ -1,7 +1,7 @@
 bring algebra/total/semigroup.tung
 bring algebra/total/monoid.tung
 
-graith a monoid
+graiþ a monoid
 show shape a group {
   let a / a: a
 

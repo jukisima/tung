@@ -6,7 +6,7 @@ show shape a divide {
   let a ∕ a: a
 }
 
-graith a ring, a divide
+graiþ a ring, a divide
 show shape a field {
   law (dividend: a, divisor: a):
     (dividend ∕ divisor) × divisor ~ dividend

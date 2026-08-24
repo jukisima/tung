@@ -1,6 +1,6 @@
 bring algebra/partial/semigroupoid.tung
 
-graith ⇨ semigroupoid
+graiþ ⇨ semigroupoid
 show shape ⇨ category {
   let identity: a ⇨ a
 

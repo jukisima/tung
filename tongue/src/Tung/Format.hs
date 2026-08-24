@@ -74,7 +74,7 @@ leadingClosures :: String -> Int
 leadingClosures = length . takeWhile (`elem` ("})" :: String))
 
 declarationHead :: String -> Bool
-declarationHead line = any (`startsWord` line) ["bring", "graith", "yield", "show", "show-ilk", "let", "let-ilk", "kin", "deed", "shape", "fill", "law"]
+declarationHead line = any (`startsWord` line) ["bring", "graiþ", "yield", "show", "show-ilk", "let", "let-ilk", "kin", "deed", "shape", "fill", "law"]
 
 commentHead :: String -> Bool
 commentHead line = "#" `isPrefixOf` line || "/*" `isPrefixOf` line

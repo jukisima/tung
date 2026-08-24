@@ -3,16 +3,16 @@ bring data/list.tung
 bring collection/catamorphism.tung
 
 kin team {
-  north,
-  south,
+  norþ,
+  souþ,
   east,
   west
 }
 
 fill team to-text {
   let to-text = {
-    north | 'north',
-    south | 'south',
+    norþ | 'norþ',
+    souþ | 'souþ',
     east | 'east',
     west | 'west'
   }
@@ -39,8 +39,8 @@ kin match-result {
 let-ilk standing = r(played: integer, points: integer, team: team)
 
 let (left: team, right: team) same-team: 𝟚 = match left, right {
-  north, north | yea,
-  south, south | yea,
+  norþ, norþ | yea,
+  souþ, souþ | yea,
   east, east | yea,
   west, west | yea,
   _, _ | nay
@@ -152,17 +152,17 @@ let (standing: standing) print-standing: 𝟙 ! console = (
 
 let fixtures: game list =
   >(.*,
-    r(home = north, home-score = 3, away = south, away-score = 1),
+    r(home = norþ, home-score = 3, away = souþ, away-score = 1),
     r(home = east, home-score = 2, away = west, away-score = 2),
-    r(home = south, home-score = -1, away = east, away-score = 4),
-    r(home = west, home-score = 1, away = north, away-score = 2),
+    r(home = souþ, home-score = -1, away = east, away-score = 4),
+    r(home = west, home-score = 1, away = norþ, away-score = 2),
     empty
   )
 
 let initial-standings: standing list =
   >(.*,
-    r(team = north, played = 0, points = 0),
-    r(team = south, played = 0, points = 0),
+    r(team = norþ, played = 0, points = 0),
+    r(team = souþ, played = 0, points = 0),
     r(team = east, played = 0, points = 0),
     r(team = west, played = 0, points = 0),
     empty

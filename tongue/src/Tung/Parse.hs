@@ -74,7 +74,7 @@ parseDeclGroup = \case
     pure ([d], rest)
 
 parseExportGroup :: P [Decl]
-parseExportGroup (TGraith : _) = Left "show must follow graith requirements"
+parseExportGroup (TGraith : _) = Left "show must follow graiþ requirements"
 parseExportGroup ts = case parseReExportNames ts of
   Right (names, rest) -> pure (map ReExport names, rest)
   Left _ -> do
@@ -111,7 +111,7 @@ parseDecl = \case
 
 parseGraithDecl :: P Decl
 parseGraithDecl ts = do
-  (needs, rest) <- parseGraithPrefix isGraithEnd "expected 'let', 'shape' or 'fill' after graith" ts
+  (needs, rest) <- parseGraithPrefix isGraithEnd "expected 'let', 'shape' or 'fill' after graiþ" ts
   case rest of
     TLet : rest2 -> parseLetDecl needs rest2
     TShape : rest2 -> parseShape needs rest2
@@ -119,7 +119,7 @@ parseGraithDecl ts = do
     TShow : TLet : rest2 -> exportParsed (parseLetDecl needs rest2)
     TShow : TShape : rest2 -> exportParsed (parseShape needs rest2)
     TShow : TFill : rest2 -> exportParsed (parseFill needs rest2)
-    _ -> Left "expected 'let', 'shape' or 'fill' after graith"
+    _ -> Left "expected 'let', 'shape' or 'fill' after graiþ"
 
 exportParsed :: Either String (Decl, [Token]) -> Either String (Decl, [Token])
 exportParsed = fmap (\(decl, rest) -> (Export decl, rest))
@@ -135,10 +135,10 @@ isGraithEnd = \case
 
 parseGraithLet :: P Decl
 parseGraithLet ts = do
-  (needs, rest) <- parseGraithPrefix (\case TLet -> True; _ -> False) "expected 'let' after graith" ts
+  (needs, rest) <- parseGraithPrefix (\case TLet -> True; _ -> False) "expected 'let' after graiþ" ts
   case rest of
     TLet : rest2 -> parseLetDecl needs rest2
-    _ -> Left "expected 'let' after graith"
+    _ -> Left "expected 'let' after graiþ"
 
 parseGraithPrefix :: (Token -> Bool) -> String -> [Token] -> Either String ([ShapeNeed], [Token])
 parseGraithPrefix stop message ts = do
@@ -147,7 +147,7 @@ parseGraithPrefix stop message ts = do
   pure (needs, rest)
 
 -- let parsing accepteth named and positional headers, typed parameter groups, and
--- graith prefixes, then lowers every parameter list to an anonymous match.
+-- graiþ prefixes, then lowers every parameter list to an anonymous match.
 parseLetDecl :: [ShapeNeed] -> P Decl
 parseLetDecl needs = \case
   TIdent name : rest -> parseLet needs name rest
@@ -401,14 +401,14 @@ parseShapeNeeds = go []
 
 parseShapeNeedsWhole :: [Token] -> Either String [ShapeNeed]
 parseShapeNeedsWhole [] = Right []
-parseShapeNeedsWhole tokens = parseWhole "unexpected tokens after graith" parseShapeNeeds tokens
+parseShapeNeedsWhole tokens = parseWhole "unexpected tokens after graiþ" parseShapeNeeds tokens
 
 parseShapeNeed :: P ShapeNeed
-parseShapeNeed [] = Left "empty graith"
+parseShapeNeed [] = Left "empty graiþ"
 parseShapeNeed ts = case headerFromTokens ts of
-  Nothing -> Left "invalid graith"
+  Nothing -> Left "invalid graiþ"
   Just (argTerms, name) -> case typesFromHeaderTerms argTerms of
-    Nothing -> Left "graith arguments must be types"
+    Nothing -> Left "graiþ arguments must be types"
     Just args -> Right (ShapeNeed args name, [])
 
 parseFill :: [ShapeNeed] -> P Decl
@@ -484,10 +484,10 @@ parseShapeMembers ts = do
 
 parseShapeMember :: P ShapeMember
 parseShapeMember (TGraith : ts) = do
-  (needs, rest) <- parseGraithPrefix (\case TLet -> True; _ -> False) "expected 'let' after shape member graith" ts
+  (needs, rest) <- parseGraithPrefix (\case TLet -> True; _ -> False) "expected 'let' after shape member graiþ" ts
   case rest of
     TLet : _ -> parseShapeLet needs rest
-    _ -> Left "expected 'let' after shape member graith"
+    _ -> Left "expected 'let' after shape member graiþ"
 parseShapeMember ts@(TLet : _) = parseShapeLet [] ts
 parseShapeMember ts@(TLaw : _) = parseShapeLaw ts
 parseShapeMember _ = Left "expected shape member"

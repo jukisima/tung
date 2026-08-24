@@ -776,10 +776,10 @@ evalNative name args = case (name, args) of
   ("exponent-float", [VFloat a]) -> evalFloatUnary exp a
   ("sine-float", [VFloat a]) -> evalFloatUnary sin a
   ("arctan-float", [VFloat a, VFloat b]) -> evalFloatBinary arctanFloat a b
-  ("logarithm-float", [VFloat a]) -> evalFloatUnary log a
+  ("logariþm-float", [VFloat a]) -> evalFloatUnary log a
   ("exponent", [VFloat a]) -> evalFloatUnary exp a
   ("sine", [VFloat a]) -> evalFloatUnary sin a
-  ("logarithm", [VFloat a]) -> evalFloatUnary log a
+  ("logariþm", [VFloat a]) -> evalFloatUnary log a
   ("⌊", [VFloat a]) -> evalFloatFloor a
   ("integer-to-text", [VInteger a]) -> pure (VText (Text.pack (show a)))
   ("float-to-text", [VFloat a]) -> pure (VText (Text.pack (show a)))

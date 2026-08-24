@@ -9,7 +9,7 @@ bring collection/catamorphism.tung
 bring collection/traverse.tung
 bring collection/inhold.tung
 
-## a list with a statically known first element.
+## a list wiþ a statically known first element.
 show kin a nonempty {
   a nonempty (a list)
 }
@@ -22,7 +22,7 @@ show let (a: a) singleton-nonempty: a nonempty =
 show let (head nonempty tail: a nonempty) nonempty-to-list: a list =
   head .* tail
 
-## make a non-empty list when the input hath a first element.
+## make a non-empty list when þe input haþ a first element.
 show let list-to-nonempty: a list → (a nonempty) option = {
   empty | none,
   first .* rest | (first nonempty rest) some
@@ -32,7 +32,7 @@ show let (first nonempty _: a nonempty) nonempty-head: a = first
 
 show let (_ nonempty rest: a nonempty) nonempty-tail: a list = rest
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a nonempty) inhold a {
   let (first nonempty rest) ∋ a = (first .* rest) ∋ a
 }

@@ -22,19 +22,19 @@ show let (key: k, value: v) singleton: k table v =
 show let (entries from-list: k table v) entries: (k ∏ v) list =
   entries
 
-graith k equal
+graiþ k equal
 show let (entries from-list: k table v, key: k) lookup: v option =
   entries foldr none {
     pair, found | (key ≡ (pair project₀)) if (pair project₁ $ some) found
   }
 
-graith k equal
+graiþ k equal
 show let (entries from-list: k table v, key: k, value: v) put: k table v =
   (key ∏ value) .* (entries foldr list@empty {
       pair, rest | (key ≡ (pair project₀)) if rest (pair .* rest)
   }) $ from-list
 
-graith k equal
+graiþ k equal
 show let (entries from-list: k table v, key: k) rid: k table v =
   entries foldr list@empty {
     pair, rest | key ≡ (pair project₀) $ if rest (pair .* rest)
@@ -46,7 +46,7 @@ show let (entries from-list: k table v) keys: k list =
 show let (entries from-list: k table v) values: v list =
   entries map project₁
 
-graith (k list) inhold k
+graiþ (k list) inhold k
 fill (k table v) inhold k {
   let table ∋ key = (table keys) ∋ key
 }
@@ -69,13 +69,13 @@ fill (k table v) size {
   let table size = (table entries) size
 }
 
-graith k equal
+graiþ k equal
 show let (left: k table v, right: k table v) merge: k table v =
   (right entries) foldl left {
     table, pair | table put (pair project₀) (pair project₁)
   }
 
-graith k equal
+graiþ k equal
 show let (entries from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
   entries foldr list@empty {
     pair, changed | match key ≡ (pair project₀) {

@@ -17,7 +17,7 @@ show kin a option {
   a some
 }
 
-graith a semigroup
+graiþ a semigroup
 fill (a option) semigroup {
   let * = {
     none, b | b,
@@ -26,7 +26,7 @@ fill (a option) semigroup {
   }
 }
 
-graith a semigroup
+graiþ a semigroup
 fill (a option) monoid {
   let ∅ = none
 }
@@ -78,19 +78,19 @@ fill option traverse {
   }
 }
 
-## extract an option with a fallback value.
+## extract an option wiþ a fallback value.
 show let default: a option → a → a = {
   none, b | b,
   a some, _ | a
 }
 
-## consume an option with a fallback and a present-value branch.
+## consume an option wiþ a fallback and a present-value branch.
 show let maybe: a option → b → (a → b ! e) → b ! e = {
   none, b, _ | b,
   a some, _, f | a f
 }
 
-## true when an option containeth a value.
+## true when an option containeþ a value.
 show let is-some: a option → 𝟚 = {
   none | nay,
   _ some | yea

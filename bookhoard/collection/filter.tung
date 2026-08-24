@@ -1,7 +1,7 @@
 bring data/two.tung
 bring collection/functor.tung
 
-graith f functor
+graiþ f functor
 show shape f filter {
   let (a f) filter (a → 𝟚 ! e): a f ! e
 }

@@ -6,7 +6,7 @@ kin v lambda {
   (v lambda) app (v lambda)
 }
 
-graith v equal
+graiþ v equal
 let (target: v lambda, x: v, s: v lambda) subst: v lambda = match target {
   y var | (x ≡ y) if s (y var),
   y abs t | (x ≡ y) if (y abs t) (y abs (t subst x s)),

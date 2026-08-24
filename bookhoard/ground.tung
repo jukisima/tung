@@ -65,16 +65,16 @@ show arguments, environment, exit
 show unix-time
 show run-process
 show process-result, process-status, process-output, process-errors
-show request, request-method, request-target, request-headers, request-body
+show request, request-meþod, request-target, request-headers, request-body
 show response, response-status, response-headers, response-body
-show respond, ok, not-found, with-header, serve
+show respond, ok, not-found, wiþ-header, serve
 
 show ≡, ≢
 show ≤, <, compare, clamp, ∧, ∨, ⟂, ⊤
 show ∋
 
 show +, zero, ×, one, -, ∕, ÷
-show sine, cosine, tangent, exponent, logarithm, ⌊
+show sine, cosine, tangent, exponent, logariþm, ⌊
 show integer-to-natural
 
 show to-text
@@ -83,4 +83,4 @@ show unicode-to-integer, integer-to-unicode
 show behead-text, text-to-list, list-to-text
 show map
 show pure, apply, lift₂, lift₃, keep-left, keep-right
-show flat, map-flat, then, void
+show flat, map-flat, þen, void

@@ -1,7 +1,7 @@
 bring data/table.tung
 bring text/structure.tung
 
-## an http response with its status, headers, and utf-8 body.
+## an http response wiþ its status, headers, and utf-8 body.
 show kin response {
   integer response (text table text) text
 }
@@ -20,5 +20,5 @@ show let (body: text) ok: response = 200 respond body
 
 show let (body: text) not-found: response = 404 respond body
 
-show let (status response headers body: response, name: text, value: text) with-header: response =
+show let (status response headers body: response, name: text, value: text) wiþ-header: response =
   status response (headers put name value) body

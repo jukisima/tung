@@ -27,8 +27,8 @@ let (entry: text ∏ integer) write-count: 𝟙 ! console = (
 let (_: 𝟙) main: 𝟙 ! console, file, system =
   match null arguments {
     list@empty | 'usage: tung word-count.tung <file>' write-line,
-    path .* _ | try (
-      let content = path read-file
+    paþ .* _ | try (
+      let content = paþ read-file
       let counts = content count-words
       yield (counts entries) each write-count
     ) {

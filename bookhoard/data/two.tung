@@ -4,6 +4,6 @@ show kin 𝟚 {
 }
 
 show let if: 𝟚 → a → a → a = {
-  yea, then, _ | then,
+  yea, þen, _ | þen,
   nay, _, else | else
 }

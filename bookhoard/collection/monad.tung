@@ -3,7 +3,7 @@ bring combinator.tung
 bring collection/functor.tung
 bring collection/applicative.tung
 
-graith f applicative
+graiþ f applicative
 show shape f monad {
   let ((a f) f) flat: a f
   let (a: a f, f: a → b f ! e) map-flat: b f ! e =
@@ -15,10 +15,10 @@ show shape f monad {
     a map-flat pure ~ a
 }
 
-graith f monad
-show let (a: a f, b: b f) then: b f =
+graiþ f monad
+show let (a: a f, b: b f) þen: b f =
   a map-flat (b constant)
 
-graith f monad
+graiþ f monad
 show let (a: a f) void: 𝟙 f =
   a map (null constant)

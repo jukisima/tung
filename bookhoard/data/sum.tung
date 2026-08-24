@@ -11,7 +11,7 @@ show kin a ∐ b {
   b inject₁
 }
 
-show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) either: c ! e₀, e₁ =
+show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) eiþer: c ! e₀, e₁ =
   match sum {
     a inject₀ | a f₀,
     b inject₁ | b f₁

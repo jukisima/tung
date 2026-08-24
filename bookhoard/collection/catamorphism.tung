@@ -9,26 +9,26 @@ show shape f cata {
   let (a f) foldl b (b → a → b ! e): b ! e
 }
 
-graith a monoid, f cata
+graiþ a monoid, f cata
 show let (l: a f) fold: a = l foldr ∅ *
 
-## map values into a monoid and combine them.
-graith b monoid, f cata
-show let (things: a f, f: a → b ! e) fold-map: b ! e =
-  things foldl ∅ { folded, thing | folded * (thing f) }
+## map values into a monoid and combine þem.
+graiþ b monoid, f cata
+show let (þings: a f, f: a → b ! e) fold-map: b ! e =
+  þings foldl ∅ { folded, þing | folded * (þing f) }
 
-## combine every value with ∧; an empty collection yieldeth ⊤.
-graith f cata, a semilattice-infimal-bounded
-show let (things: a f) …∧: a = things foldl ⊤ ∧
+## combine every value wiþ ∧; an empty collection yieldeþ ⊤.
+graiþ f cata, a semilattice-infimal-bounded
+show let (þings: a f) …∧: a = þings foldl ⊤ ∧
 
-## combine every value with ∨; an empty collection yieldeth ⟂.
-graith f cata, a semilattice-supremal-bounded
-show let (things: a f) …∨: a = things foldl ⟂ ∨
+## combine every value wiþ ∨; an empty collection yieldeþ ⟂.
+graiþ f cata, a semilattice-supremal-bounded
+show let (þings: a f) …∨: a = þings foldl ⟂ ∨
 
 ## add every value in a foldable collection.
-graith f cata, a monoid-additive
-show let (things: a f) …+: a = things foldl zero +
+graiþ f cata, a monoid-additive
+show let (þings: a f) …+: a = þings foldl zero +
 
 ## multiply every value in a foldable collection.
-graith f cata, a monoid-multiplicative
-show let (things: a f) …×: a = things foldl one ×
+graiþ f cata, a monoid-multiplicative
+show let (þings: a f) …×: a = þings foldl one ×

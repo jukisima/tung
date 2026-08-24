@@ -25,13 +25,13 @@ fill (a ∏) functor {
   let (a ∏ b) map f = a ∏ (b f)
 }
 
-graith a monoid
+graiþ a monoid
 fill (a ∏) applicative {
   let b pure = ∅ ∏ b
   let (a0 ∏ b) apply (a1 ∏ f) = (a0 * a1) ∏ (b f)
 }
 
-graith a monoid
+graiþ a monoid
 fill (a ∏) monad {
   let (a ∏ (b ∏ c)) flat =
     (a * b) ∏ c
@@ -47,15 +47,15 @@ fill (a ∏) traverse {
     (b f) map (a ∏)
 }
 
-graith a semilattice-infimal, b semilattice-infimal
+graiþ a semilattice-infimal, b semilattice-infimal
 fill (a ∏ b) semilattice-infimal {
   let (a0 ∏ b0) ∧ (a1 ∏ b1) = (a0 ∧ a1) ∏ (b0 ∧ b1)
 }
 
-graith a semilattice-supremal, b semilattice-supremal
+graiþ a semilattice-supremal, b semilattice-supremal
 fill (a ∏ b) semilattice-supremal {
   let (a0 ∏ b0) ∨ (a1 ∏ b1) = (a0 ∨ a1) ∏ (b0 ∨ b1)
 }
 
-graith a lattice, b lattice
+graiþ a lattice, b lattice
 fill (a ∏ b) lattice {}

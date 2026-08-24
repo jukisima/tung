@@ -309,7 +309,7 @@ keywordOrIdent name = fromMaybe (TIdent name) (lookup name keywordTokens)
 keywordTokens :: [(String, Token)]
 keywordTokens =
   [ ("let", TLet)
-  , ("graith", TGraith)
+  , ("graiþ", TGraith)
   , ("show", TShow)
   , ("show-ilk", TShowIlk)
   , ("bring", TBring)

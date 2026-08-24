@@ -16,7 +16,7 @@ let (list: text list) json-array: text =
 let keywords =
   >(.*,
     'let',
-    'graith',
+    'graiþ',
     'show',
     'show-ilk',
     'bring',

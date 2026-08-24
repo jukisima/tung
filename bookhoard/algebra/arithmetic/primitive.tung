@@ -23,7 +23,7 @@ fill integer monoid-multiplicative {}
 
 fill integer semiring {}
 
-## ieee floats keep their useful operations without claiming exact semiring laws.
+## ieee floats keep þeir useful operations wiþout claiming exact semiring laws.
 fill float add {
   let + = add-float
 }

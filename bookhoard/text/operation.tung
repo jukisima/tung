@@ -13,7 +13,7 @@ bring algebra/total/magma.tung
 bring order/lattice.tung
 bring text/structure.tung
 
-## true when text hath no unicode code points.
+## true when text haþ no unicode code points.
 show let (text: text) is-empty-text: 𝟚 =
   match text behead-text {
     none | yea,
@@ -71,8 +71,8 @@ show let (text: text) words-text: text list =
     word | (word is-empty-text) ¬
   }
 
-## join text values with a separator between neighbours.
-show let (list: text list, separator: text) join-with-text: text = match list {
+## join text values wiþ a separator between neighbours.
+show let (list: text list, separator: text) join-wiþ-text: text = match list {
   empty | '',
   text .* texts′ | texts′ foldl text {
     joined, next | (joined * separator) * next

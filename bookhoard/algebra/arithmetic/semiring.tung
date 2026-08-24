@@ -8,7 +8,7 @@ show shape a zero {
   let zero: a
 }
 
-graith a add, a zero
+graiþ a add, a zero
 show shape a monoid-additive {
   law (a: a, b: a, c: a): a + (b + c) ~ (a + b) + c
   law (a: a): zero + a ~ a
@@ -23,14 +23,14 @@ show shape a one {
   let one: a
 }
 
-graith a multiply, a one
+graiþ a multiply, a one
 show shape a monoid-multiplicative {
   law (a: a, b: a, c: a): a × (b × c) ~ (a × b) × c
   law (a: a): one × a ~ a
   law (a: a): a × one ~ a
 }
 
-graith a monoid-additive, a monoid-multiplicative
+graiþ a monoid-additive, a monoid-multiplicative
 show shape a semiring {
   law (a: a, b: a): a + b ~ b + a
   law (a: a, b: a, c: a): a × (b + c) ~ (a × b) + (a × c)
@@ -39,7 +39,7 @@ show shape a semiring {
   law (a: a, b: a): a × zero ~ zero
 }
 
-graith b semiring
+graiþ b semiring
 fill (a func b) semiring {
   let f + g a = (a f) + (a g)
   let _ zero = zero

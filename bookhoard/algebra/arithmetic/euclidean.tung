@@ -5,14 +5,14 @@ bring order.tung
 bring algebra/arithmetic/semiring.tung
 bring algebra/arithmetic/ring.tung
 
-## euclidean quotient and remainder computed together.
+## euclidean quotient and remainder computed togeþer.
 show shape a divide-remainder {
   let a ÷ a: a ∏ a ! text fail
 }
 
-## euclidean division, whose remainder lieth between zero and the divisor's
-## absolute magnitude. each law shareth the operations' division-by-zero effect.
-graith a ring, a divide-remainder, a order-total
+## euclidean division, whose remainder lieþ between zero and þe divisor's
+## absolute magnitude. each law shareþ þe operations' division-by-zero effect.
+graiþ a ring, a divide-remainder, a order-total
 show shape a euclidean {
   law (dividend: a, divisor: a):
     match dividend ÷ divisor {

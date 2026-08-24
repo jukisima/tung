@@ -2,8 +2,8 @@ bring data/two.tung
 bring data/three.tung
 bring equal.tung
 
-## a decidable less-than-or-equal operation, without order laws.
-graith a equal
+## a decidable less-þan-or-equal operation, wiþout order laws.
+graiþ a equal
 show shape a less-equal {
   let a ≤ a: 𝟚
   let a < b = (a ≤ b) if (a ≢ b) nay
@@ -17,7 +17,7 @@ fill 𝟚 less-equal {
 }
 
 ## a decidable partial order.
-graith a less-equal
+graiþ a less-equal
 show shape a order-partial {
   law (x: a): x ≤ x ~ yea
   law (x: a, y: a): (x ≤ y) ≤ ((y ≤ x) ≤ (x ≡ y)) ~ yea
@@ -25,14 +25,14 @@ show shape a order-partial {
 }
 
 ## a partial order in which every pair is comparable.
-graith a order-partial
+graiþ a order-partial
 show shape a order-total {
   let (a: a, b: a) compare: 𝟛 = (a ≤ b) if ((b ≤ a) if mid fore) aft
   law (x: a, y: a): ((x ≤ y) ≡ nay) ≤ (y ≤ x) ~ yea
 }
 
-## keep a value within inclusive bounds of a total order.
-graith a order-total
+## keep a value wiþin inclusive bounds of a total order.
+graiþ a order-total
 show let (lower: a, upper: a, a: a) clamp: a = (
   let raised = (lower ≤ a) if a lower
   yield (raised ≤ upper) if raised upper

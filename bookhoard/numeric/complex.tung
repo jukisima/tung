@@ -13,35 +13,35 @@ show let (a complex _: a complex) real: a = a
 
 show let (_ complex b: a complex) imaginary: a = b
 
-graith a zero, a one
+graiþ a zero, a one
 show let unit: a complex = zero complex one
 
-graith a add
+graiþ a add
 fill (a complex) add {
   let (a complex b) + (c complex d) = (a + c) complex (b + d)
 }
 
-graith a zero
+graiþ a zero
 fill (a complex) zero {
   let zero = zero complex zero
 }
 
-graith a subtract
+graiþ a subtract
 fill (a complex) subtract {
   let (a complex b) - (c complex d) = (a - c) complex (b - d)
 }
 
-graith a subtract, a multiply
+graiþ a subtract, a multiply
 fill (a complex) multiply {
   let (a complex b) × (c complex d) = ((a × c) - (b × d)) complex ((a × d) + (b × c))
 }
 
-graith a one, a zero
+graiþ a one, a zero
 fill (a complex) one {
   let one = one complex zero
 }
 
-graith a subtract, a multiply, a divide
+graiþ a subtract, a multiply, a divide
 fill (a complex) divide {
   let (a complex b) ∕ (c complex d) =  (
     let e = c × c $ + (d × d)
@@ -49,7 +49,7 @@ fill (a complex) divide {
   )
 }
 
-graith a add, a multiply
+graiþ a add, a multiply
 fill (a complex) absolute a {
   let (a complex b) absolute = (a × a) + (b × b)
 }
@@ -59,7 +59,7 @@ fill (float complex) elementary {
     let c = a exponent
     yield (c × (b cosine)) complex (c × (b sine))
   )
-  let (a complex b) logarithm = (a × a $ + (b × b) $ logarithm) complex (a arctan-float b)
+  let (a complex b) logariþm = (a × a $ + (b × b) $ logariþm) complex (a arctan-float b)
   let (a complex b) sine = (
     let positive = ((zero - b) complex a) exponent
     let negative = (b complex (zero - a)) exponent

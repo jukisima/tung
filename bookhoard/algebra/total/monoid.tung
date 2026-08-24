@@ -3,7 +3,7 @@ bring algebra/total/semigroup.tung
 bring data/two.tung
 bring order/lattice.tung
 
-graith a semigroup
+graiþ a semigroup
 show shape a monoid {
   let ∅: a
 
@@ -11,7 +11,7 @@ show shape a monoid {
   law (a: a): a * ∅ ~ a
 }
 
-graith b monoid
+graiþ b monoid
 fill (a func b) monoid {
   let _ ∅ = ∅
 }
@@ -20,7 +20,7 @@ fill (𝟚 infimal) monoid {
   let ∅ = yea infimal
 }
 
-graith a semilattice-supremal-bounded
+graiþ a semilattice-supremal-bounded
 fill (a supremal) monoid {
   let ∅ = ⟂ supremal
 }

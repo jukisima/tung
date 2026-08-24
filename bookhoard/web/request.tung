@@ -1,11 +1,11 @@
 bring data/table.tung
 
-## an incoming http request with its method, target, headers, and utf-8 body.
+## an incoming http request wiþ its meþod, target, headers, and utf-8 body.
 show kin request {
   text request text (text table text) text
 }
 
-show let (method request _ _ _: request) request-method: text = method
+show let (meþod request _ _ _: request) request-meþod: text = meþod
 
 show let (_ request target _ _: request) request-target: text = target
 

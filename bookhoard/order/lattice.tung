@@ -2,7 +2,7 @@ bring data/two.tung
 bring data/three.tung
 bring order.tung
 
-## a carrier whose every pair hath an infimum.
+## a carrier whose every pair haþ an infimum.
 show shape a semilattice-infimal {
   let a ∧ a: a
   law (x: a): x ∧ x ~ x
@@ -10,17 +10,17 @@ show shape a semilattice-infimal {
   law (x: a, y: a, z: a): (x ∧ y) ∧ z ~ x ∧ (y ∧ z)
 }
 
-graith b semilattice-infimal
+graiþ b semilattice-infimal
 fill (a func b) semilattice-infimal {
   let f ∧ g a = (a f) ∧ (a g)
 }
 
-graith a order-total
+graiþ a order-total
 fill a semilattice-infimal {
   let a ∧ b = (a ≤ b) if a b
 }
 
-## a carrier whose every pair hath a supremum.
+## a carrier whose every pair haþ a supremum.
 show shape a semilattice-supremal {
   let a ∨ a: a
   law (x: a): x ∨ x ~ x
@@ -28,62 +28,62 @@ show shape a semilattice-supremal {
   law (x: a, y: a, z: a): (x ∨ y) ∨ z ~ x ∨ (y ∨ z)
 }
 
-graith b semilattice-supremal
+graiþ b semilattice-supremal
 fill (a func b) semilattice-supremal {
   let f ∨ g a = (a f) ∨ (a g)
 }
 
-graith a order-total
+graiþ a order-total
 fill a semilattice-supremal {
   let a ∨ b = (a ≤ b) if b a
 }
 
-## a carrier with compatible infimum and supremum semilattices.
-graith a semilattice-infimal, a semilattice-supremal
+## a carrier wiþ compatible infimum and supremum semilattices.
+graiþ a semilattice-infimal, a semilattice-supremal
 show shape a lattice {
   law (x: a, y: a): x ∧ (x ∨ y) ~ x
   law (x: a, y: a): x ∨ (x ∧ y) ~ x
 }
 
-graith b lattice
+graiþ b lattice
 fill (a func b) lattice {}
 
-graith a order-total
+graiþ a order-total
 fill a lattice {}
 
-## an infimum semilattice with a greatest value.
-graith a semilattice-infimal
+## an infimum semilattice wiþ a greatest value.
+graiþ a semilattice-infimal
 show shape a semilattice-infimal-bounded {
   let ⊤: a
   law (a: a): ⊤ ∧ a ~ a
 }
 
-graith b semilattice-infimal-bounded
+graiþ b semilattice-infimal-bounded
 fill (a func b) semilattice-infimal-bounded {
   let _ ⊤ = ⊤
 }
 
-## a supremum semilattice with a least value.
-graith a semilattice-supremal
+## a supremum semilattice wiþ a least value.
+graiþ a semilattice-supremal
 show shape a semilattice-supremal-bounded {
   let ⟂: a
   law (a: a): ⟂ ∨ a ~ a
 }
 
-graith b semilattice-supremal-bounded
+graiþ b semilattice-supremal-bounded
 fill (a func b) semilattice-supremal-bounded {
   let _ ⟂ = ⟂
 }
 
-## a lattice with greatest and least values.
-graith a lattice, a semilattice-infimal-bounded, a semilattice-supremal-bounded
+## a lattice wiþ greatest and least values.
+graiþ a lattice, a semilattice-infimal-bounded, a semilattice-supremal-bounded
 show shape a lattice-bounded {}
 
-graith b lattice-bounded
+graiþ b lattice-bounded
 fill (a func b) lattice-bounded {}
 
-## a bounded lattice with a chosen complement for every value.
-graith a lattice-bounded
+## a bounded lattice wiþ a chosen complement for every value.
+graiþ a lattice-bounded
 show shape a complement {
   let a ¬: a
   law (a: a): a ∧ (a ¬) ~ ⟂

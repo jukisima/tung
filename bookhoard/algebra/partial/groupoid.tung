@@ -1,7 +1,7 @@
 bring algebra/partial/category.tung
 bring algebra/partial/semigroupoid.tung
 
-graith ⇨ category
+graiþ ⇨ category
 show shape ⇨ groupoid {
   let (a ⇨ b) invert: b ⇨ a
 

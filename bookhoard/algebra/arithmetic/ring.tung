@@ -2,17 +2,17 @@ bring algebra/arithmetic/semiring.tung
 bring data/two.tung
 bring _foreign.tung
 
-graith a add
+graiþ a add
 show shape a subtract {
   let a - a: a
 }
 
-graith a semiring, a subtract
+graiþ a semiring, a subtract
 show shape a ring {
   law (a: a): a - a ~ zero
 }
 
-graith b ring
+graiþ b ring
 fill (a func b) ring {
   let f - g a = (a f) - (a g)
 }

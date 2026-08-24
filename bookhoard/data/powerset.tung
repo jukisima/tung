@@ -16,19 +16,19 @@ show let empty: a powerset = nay constant
 
 show let universe: a powerset = yea constant
 
-graith a equal
+graiþ a equal
 show let singleton: a → a powerset = ≡
 
 fill (a powerset) inhold a {
   let powerset ∋ a = a powerset
 }
 
-graith a equal
+graiþ a equal
 show let (powerset: a powerset, a: a) put: a powerset = {
   b | (b ≡ a) ∨ (b powerset)
 }
 
-graith a equal
+graiþ a equal
 show let (powerset: a powerset, a: a) rid: a powerset = {
   b | (b ≢ a) ∧ (b powerset)
 }
@@ -38,7 +38,7 @@ show let (powerset₀: a powerset, powerset₁: a powerset)
     a | (a powerset₀) ∧ (a powerset₁ $ ¬)
   }
 
-graith (a powerset) semilattice-infimal
+graiþ (a powerset) semilattice-infimal
 fill ((a powerset) infimal) semigroup {
   let (a infimal) * (b infimal) = (a ∧ b) infimal
 }

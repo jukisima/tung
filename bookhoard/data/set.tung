@@ -22,22 +22,22 @@ show let (a: a) singleton: a set =
 
 show let (list from-list: a set) to-list: a list = list
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) inhold a {
   let (list from-list) ∋ a = list ∋ a
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 show let (list from-list: a set, a: a) put: a set =
   (list ∋ a) if (list from-list) ((a .* list) from-list)
 
-graith a equal
+graiþ a equal
 show let (list from-list: a set, a: a) rid: a set =
   list foldr list@empty {
     b, list′ | (a ≡ b) if list′ (b .* list′)
   } $ from-list
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 show let (list₀ from-list: a set, list₁ from-list: a set) ∖: a set =
   list₀ foldr list@empty {
     value, kept | (list₁ ∋ value) if kept (value .* kept)
@@ -48,14 +48,14 @@ show let (values from-list: a set, predicate: a → 𝟚 ! e) keep: a set ! e =
     value, kept | value predicate $ if (value .* kept) kept
   } $ from-list
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 show let (values from-list: a set) to-powerset: a powerset = values ∋
 
 fill (a set) size {
   let (list from-list) size = list size
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) equal {
   let (list₀ from-list) ≡ (list₁ from-list) =
     list₀ foldr yea {
@@ -65,7 +65,7 @@ fill (a set) equal {
     }) nay
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) less-equal {
   let (list₀ from-list) ≤ (list₁ from-list) =
     list₀ foldr yea {
@@ -73,20 +73,20 @@ fill (a set) less-equal {
     }
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) order-partial {}
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) semigroup {
   let * = ∨
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) monoid {
   let ∅ = empty
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) semilattice-infimal {
   let (list₀ from-list) ∧ (list₁ from-list) =
     list₀ foldr list@empty {
@@ -94,16 +94,16 @@ fill (a set) semilattice-infimal {
     } $ from-list
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) semilattice-supremal {
   let (list₀ from-list) ∨ (list₁ from-list) =
     list₁ foldl (list₀ from-list) put
 }
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) lattice {}
 
-graith (a list) inhold a
+graiþ (a list) inhold a
 fill (a set) semilattice-supremal-bounded {
   let ⟂ = empty
 }

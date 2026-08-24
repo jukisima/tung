@@ -5,7 +5,7 @@ bring web/response.tung
 
 show-ilk request
 show request
-show request-method
+show request-meþod
 show request-target
 show request-headers
 show request-body
@@ -18,9 +18,9 @@ show response-body
 show respond
 show ok
 show not-found
-show with-header
+show wiþ-header
 
-## serve http/1.1 over ipv4 with one request per connection.
+## serve http/1.1 over ipv4 wiþ one request per connection.
 show deed web {
   integer serve (request → response ! e): 𝟙 ! e, text fail
 }
