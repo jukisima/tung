@@ -142,7 +142,7 @@ class WorkspaceIndex {
     return model;
   }
   // public definitions follow shown declarations, shown imports, and explicit
-  // re-exports while the seen set preventeth import cycles.
+  // re-exports while the seen set preventeþ import cycles.
   publicDefinitions(model, seen = new Set()) {
     if (!model || seen.has(model.uri)) return [];
     if (seen.size === 0 && this.publicDefinitionsCache.has(model.uri)) {

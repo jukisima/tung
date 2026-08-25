@@ -25,7 +25,7 @@ test("generated bookhoard wiki lists shown declarations and doc comments", (cont
   assert.match(docs, /type="search"/);
   assert.match(docs, /href="\.\.\/\.\.\/bookhoard\/item\.tung"/);
 });
-test("generated bookhoard wiki escapeth source content", (context) => {
+test("generated bookhoard wiki escapeþ source content", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-docs-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const bookhoard = path.join(root, "bookhoard");
@@ -38,7 +38,7 @@ test("generated bookhoard wiki escapeth source content", (context) => {
   assert.doesNotMatch(docs, /<script>alert/);
   assert.match(docs, /&lt;script&gt;alert\(&#39;no&#39;\)&lt;\/script&gt;/);
 });
-test("generated bookhoard wiki cross-linketh declarations, fills, and modules", (context) => {
+test("generated bookhoard wiki cross-linkeþ declarations, fills, and modules", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-docs-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const bookhoard = path.join(root, "bookhoard");

@@ -206,7 +206,7 @@ repl = do
   bookhoard <- readBookhoardImports
   base <- getCurrentDirectory
   interactive <- hIsTerminalDevice stdin
-  when interactive (putStrLn "tung repl; :help listeth commands")
+  when interactive (putStrLn "tung repl; :help listeþ commands")
   replLoop interactive bookhoard (Repl base "")
 
 replLoop :: Bool -> Map.Map String String -> Repl -> IO ()

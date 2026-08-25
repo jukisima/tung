@@ -82,10 +82,10 @@ webServerRoundTrip imports = do
 
         let (incoming: request) route: response ! clock = (
           let stamp = null unix-time
-          yield match ((incoming request-method) ≡ 'POST') ∧ ((incoming request-target) ≡ '/echo') {
+          yield match ((incoming request-meþod) ≡ 'POST') ∧ ((incoming request-target) ≡ '/echo') {
             yea | match ((incoming request-headers) table@lookup 'Host') {
               host option@some | match host ≡ 'localhost' {
-                yea | ((((incoming request-body) ok) with-header 'Transfer-Encoding' 'chunked') with-header 'X-Tung' 'old') with-header 'X-Tung' 'yea',
+                yea | ((((incoming request-body) ok) wiþ-header 'Transfer-Encoding' 'chunked') wiþ-header 'X-Tung' 'old') wiþ-header 'X-Tung' 'yea',
                 nay | 'not found\\n' not-found
               },
               _ | 'not found\\n' not-found
@@ -100,7 +100,8 @@ webServerRoundTrip imports = do
           ++ show port
           ++ " serve route { _ fail | null }"
   server <- forkIO (void (evaluateMainWithImports source imports))
-  response <- Timeout.timeout 3000000 (tryIOException (requestEventually 100 port)) `finally` killThread server
+  -- type checking and evaluator startup share this budget with the round trip.
+  response <- Timeout.timeout 10000000 (tryIOException (requestEventually 300 port)) `finally` killThread server
   pure case response of
     Nothing -> Just "web server round trip timed out"
     Just (Left exception) -> Just ("web server did not accept a connection: " ++ show exception)

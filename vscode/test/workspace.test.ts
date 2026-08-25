@@ -5,7 +5,7 @@ import * as path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { WorkspaceIndex } from "../server/workspace.ts";
-test("workspace resolveth only shown names across a bring", (context) => {
+test("workspace resolveþ only shown names across a bring", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-workspace-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "dep.tung");
@@ -24,7 +24,7 @@ test("workspace resolveth only shown names across a bring", (context) => {
     pathToFileURL(dep).href,
   );
 });
-test("workspace explicit bring alias replaceeth the default namespace", (context) => {
+test("workspace explicit bring alias replaceeþ the default namespace", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-bring-alias-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "data", "dep.tung");
@@ -45,7 +45,7 @@ test("workspace explicit bring alias replaceeth the default namespace", (context
   assert(labels.has("d@answer"));
   assert(!labels.has("dep@answer"));
 });
-test("workspace resolveth and completeth a default basename alias", (context) => {
+test("workspace resolveþ and completeþ a default basename alias", (context) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "tung-default-bring-alias-"),
   );
@@ -68,7 +68,7 @@ test("workspace resolveth and completeth a default basename alias", (context) =>
   assert(labels.has("dep@answer"));
   assert(!labels.has("data/dep@answer"));
 });
-test("workspace leaveth duplicate imported bare names ambiguous", (context) => {
+test("workspace leaveþ duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, "left.tung"), "show let value = 1");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formatRangeEdit } from "../server/format.ts";
 
-test("range formatting returneth requested full lines from formatted source", () => {
+test("range formatting returneþ requested full lines from formatted source", () => {
   const source = [
     "show kin a box {",
     "a box",
@@ -36,7 +36,7 @@ test("range formatting returneth requested full lines from formatted source", ()
   );
 });
 
-test("range formatting returneth null when the source is unchanged", () => {
+test("range formatting returneþ null when the source is unchanged", () => {
   const source = "show kin a box {\n  a box\n}\n";
   assert.equal(
     formatRangeEdit(source, source, {

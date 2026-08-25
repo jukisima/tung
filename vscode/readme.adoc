@@ -25,7 +25,7 @@ from the repository root, prepare or update the compiler, server, and vscode cli
 make setup
 ----
 
-`make setup` buildeth and testeth the haskell compiler, vscode support, and documentation generator. it generateth the bookhoard wiki, buildeth `dist/tung-vscode.vsix`, installeth or updateth the extension in vscode, and installeth the standalone runner under `${HOME}/.local/bin`. reload vscode after it finisheth.
+`make setup` buildeþ and testeþ the haskell compiler, vscode support, and documentation generator. it generateþ the bookhoard wiki, buildeþ `dist/tung-vscode.vsix`, installeþ or updateþ the extension in vscode, and installeþ the standalone runner under `${HOME}/.local/bin`. reload vscode after it finisheþ.
 
 when `tongue/` is elsewhere, pass its path:
 
@@ -47,7 +47,7 @@ TUNG_TONGUE=/path/to/tung/tongue node vscode/out/server/main.js --stdio
 
 == language work
 
-the server provideth:
+the server provideþ:
 
 * incremental document sync and file watching
 * compiler-backed parse, name, type, effect, and coverage diagnostics
@@ -65,18 +65,18 @@ the server provideth:
 * quick fixes for supported parse errors
 * a `Run Tung File` command and editor play button using an integrated terminal
 
-the workspace index followeth local and bundled imports, honoureth `show`, understandeth qualify-if-needed lookup, default last-segment import aliases, and explicit `bring path alias` overrides, and sendeth unsaved imported sources to the haskell checker. the checker bridge asketh cabal for `exe:tung` and falleth back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. it keepeth one versioned session alive for checking, inferred types, and formatting, and cancelleth obsolete work after edits. an error-tolerant source model keepeth navigation and highlighting available while code is incomplete; the haskell implementation remaineth authoritative for diagnostics, inferred types, and formatting.
+the workspace index followeþ local and bundled imports, honoureþ `show`, understandeþ qualify-if-needed lookup, default last-segment import aliases, and explicit `bring path alias` overrides, and sendeþ unsaved imported sources to the haskell checker. the checker bridge askeþ cabal for `exe:tung` and falleþ back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. it keepeþ one versioned session alive for checking, inferred types, and formatting, and cancelleþ obsolete work after edits. an error-tolerant source model keepeþ navigation and highlighting available while code is incomplete; the haskell implementation remaineþ authoritative for diagnostics, inferred types, and formatting.
 
 open a saved `.tung` file and select the play button in the editor title, or run
-`Tung: Run Tung File` from the command palette. the command saveth the file and
-runneth it in a dedicated terminal. set `tung.executablePath` when the runner is
+`Tung: Run Tung File` from the command palette. the command saveþ the file and
+runneþ it in a dedicated terminal. set `tung.executablePath` when the runner is
 not the compiler found by the language server and is not available as `tung` on
 `PATH`.
 
 term type ascriptions use `(term: type)`; semantic highlighting and formatting
 recognise the type tail while compiler diagnostics remain authoritative.
 
-`make language-metadata` runneth `tongue/tool/language-names.tung` and refresheth the generated keyword and primitive-type table used by semantic highlighting.
+`make language-metadata` runneþ `tongue/tool/language-names.tung` and refresheþ the generated keyword and primitive-type table used by semantic highlighting.
 
 == checks
 

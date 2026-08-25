@@ -1,17 +1,17 @@
 = tung language reference
 
-this document describeth the source language. start with
+this document describeþ the source language. start with
 xref:../readme.adoc[`readme.adoc`] for installation and a short tour. compiler
 and repository details belong in xref:development.adoc[`development.adoc`].
 
 == files and modules
 
-a `.tung` file containeth declarations. a runnable file declareth `main`
-locally; `main` taketh `𝟙`, returneth `𝟙`, and may use only runner-supported
-effects. the runner calleth `null main` after pure module initialisation.
+a `.tung` file containeþ declarations. a runnable file declareþ `main`
+locally; `main` takeþ `𝟙`, returneþ `𝟙`, and may use only runner-supported
+effects. the runner calleþ `null main` after pure module initialisation.
 
-`bring path` importeth a module. the final path segment is its default
-namespace, and an optional final name replaceth that namespace.
+`bring path` importeþ a module. the final path segment is its default
+namespace, and an optional final name replaceþ that namespace.
 
 [source,tung]
 ----
@@ -27,24 +27,24 @@ imports may not claim the same namespace, and the import graph must be acyclic.
 local files are searched before `TUNG_PATH` entries and the embedded
 bookhoard. `ground.tung` is an ordinary optional import, not a prelude.
 
-declarations are private by default. `show` publisheth a declaration or an
-already visible term; `show-ilk` publisheth an already visible type, effect, or
+declarations are private by default. `show` publisheþ a declaration or an
+already visible term; `show-ilk` publisheþ an already visible type, effect, or
 shape. term and type namespaces are separate. an ordinary `bring` doth not
 re-export anything.
 
 == names, comments, and literals
 
 most non-space characters not reserved by syntax may occur in a name. `@`
-qualifieth an imported name or, when no exact name existeth, selecteth a record
+qualifieþ an imported name or, when no exact name existeþ, selecteþ a record
 field. `.*` is one ordinary name; there is no general infix escape. `_`
-discardeth a binding or match value.
+discardeþ a binding or match value.
 
-`#` starteth a line comment, and `/* ... */` formeth a non-nested block
+`#` starteþ a line comment, and `/* ... */` formeþ a non-nested block
 comment. `##` and `/** ... */` are doc comments attached to the following
 declaration. editor help and generated bookhoard pages use attached docs.
 
 integer literals are arbitrary-precision decimal values. float literals
-contain a decimal point. a backtick introduceth one unicode scalar, and single
+contain a decimal point. a backtick introduceþ one unicode scalar, and single
 quotes delimit text. both literal forms accept `\n`, `\r`, `\t`, `\'`, `\\`,
 and decimal escapes such as `\23383;`.
 
@@ -60,11 +60,11 @@ a f b c       # f a b c
 a f $ g b     # g (f a) b
 ----
 
-`$` groupeth the completed expression on its left, then useth the next atom as
-the function. `$(` starteth a function-first segment.
+`$` groupeþ the completed expression on its left, then useþ the next atom as
+the function. `$(` starteþ a function-first segment.
 
-`<(f, a, b, c)` lowereth to `(a f b) f c`, while `>(f, a, b, c)` lowereth to
-`a f (b f c)`. each form requireth one combining function followed by at least
+`<(f, a, b, c)` lowereþ to `(a f b) f c`, while `>(f, a, b, c)` lowereþ to
+`a f (b f c)`. each form requireþ one combining function followed by at least
 two values. `r(`, `<(`, and `>(` are single opening delimiters; the parenthesis
 must touch the marker.
 
@@ -74,7 +74,7 @@ from left to right.
 
 == declarations and types
 
-`let` bindeth a value. function headers use the same second-is-function rule,
+`let` bindeþ a value. function headers use the same second-is-function rule,
 or group typed arguments before the function name.
 
 [source,tung]
@@ -93,9 +93,9 @@ local blocks are parenthesised and end with `yield`.
 )
 ----
 
-type variables are implicit. type application followeth second-is-function
-syntax: `integer list` applieth `list` to `integer`, and `a ∏ b` applieth the
-binary product type. `let-ilk` defineth a transparent type alias.
+type variables are implicit. type application followeþ second-is-function
+syntax: `integer list` applieþ `list` to `integer`, and `a ∏ b` applieþ the
+binary product type. `let-ilk` defineþ a transparent type alias.
 
 functions use `→`. immediate effect rows follow `!` on a function arrow; a
 stored non-function value cannot carry an effect row. `func` is the binary
@@ -113,7 +113,7 @@ remain monomorphic; creating a function with latent effects is still pure.
 
 == algebraic data and patterns
 
-`kin` declareth an algebraic data type. type parameters and constructor
+`kin` declareþ an algebraic data type. type parameters and constructor
 arguments use the ordinary sequence rule.
 
 [source,tung]
@@ -128,7 +128,7 @@ constructor application is curried. patterns may bind variables, use `_`,
 match exact integers, or destructure constructors. binders in one pattern row
 must be linear.
 
-`match` consumeth one or more comma-separated scrutinees. bare braces form an
+`match` consumeþ one or more comma-separated scrutinees. bare braces form an
 anonymous function, with one curried input per pattern. cases use `|`.
 
 [source,tung]
@@ -144,14 +144,14 @@ let not: 𝟚 → 𝟚 = {
 }
 ----
 
-the checker rejecteth non-exhaustive and redundant rows over algebraic data.
+the checker rejecteþ non-exhaustive and redundant rows over algebraic data.
 finite integer rows need a variable or `_` because `integer` is infinite. an
-empty function `{}` eliminateth an annotated uninhabited input such as `𝟘`.
+empty function `{}` eliminateþ an annotated uninhabited input such as `𝟘`.
 
 == records
 
-records are closed. `r(field: type)` formeth a record type and
-`r(field = value)` formeth a value. an update starteth with its base after `=`;
+records are closed. `r(field: type)` formeþ a record type and
+`r(field = value)` formeþ a value. an update starteþ with its base after `=`;
 later entries set or remove fields.
 
 [source,tung]
@@ -168,8 +168,8 @@ an unknown field, and update of a non-record are errors.
 
 == shapes, fills, and laws
 
-`shape` declareth a statically selected interface. `fill` provideth its
-evidence and member implementations. leading `graith` clauses state required
+`shape` declareþ a statically selected interface. `fill` provideþ its
+evidence and member implementations. leading `graiþ` clauses state required
 evidence for a declaration, shape, fill, or individual shape member.
 
 [source,tung]
@@ -190,21 +190,21 @@ fill 𝟚 equal {
 ----
 
 a fill must supply every required member not supplied by a default or parent.
-a child fill also witnesseth its required parent shapes and may define inherited
+a child fill also witnesseþ its required parent shapes and may define inherited
 members. duplicate fills are incoherent. when more than one fill match, a
-structured type pattern outranketh a blanket pattern that it refines;
-incomparable matching fills are ambiguous. selection dependeth only on static
+structured type pattern outrankeþ a blanket pattern that it refines;
+incomparable matching fills are ambiguous. selection dependeþ only on static
 types, never values or import order.
 
-`law` recordeth a type-checked equation. both sides must have the same value
+`law` recordeþ a type-checked equation. both sides must have the same value
 type and immediate effect row and may use only the enclosing requirements.
-laws are documentation: the compiler neither proveth, executeth, nor rewriteth
+laws are documentation: the compiler neither proveþ, executeþ, nor rewriteþ
 with them.
 
 == effects and handlers
 
-`deed` declareth an algebraic effect. every operation is a function; an
-operation without informative input taketh `𝟙`. declaration application addeth
+`deed` declareþ an algebraic effect. every operation is a function; an
+operation without informative input takeþ `𝟙`. declaration application addeþ
 the effect itself to the written latent row.
 
 [source,tung]
@@ -220,7 +220,7 @@ deed a state {
 ----
 
 operations are called like ordinary functions and handled by `try`. a
-`yield` case transformeth the normal result; without one, the normal result is
+`yield` case transformeþ the normal result; without one, the normal result is
 unchanged. operation cases may call the implicit `eftgin` continuation zero,
 one, or many times.
 
@@ -236,14 +236,14 @@ let answer: text = try 10 ask {
 }
 ----
 
-handlers are deep, so the same handler surroundeth continued work. a case for
-an entire effect removeth it. operation-specific cases remove the effect only
+handlers are deep, so the same handler surroundeþ continued work. a case for
+an entire effect removeþ it. operation-specific cases remove the effect only
 when every sibling operation is covered. effects performed by case bodies
 remain in the surrounding row.
 
 == runtime boundary
 
-the standard runner supporteth `console`, `random`, `async`, `file`, `system`,
+the standard runner supporteþ `console`, `random`, `async`, `file`, `system`,
 `clock`, `process`, and `web`. user-defined effects and `fail` must be handled
 inside `main`.
 
@@ -251,6 +251,6 @@ an annotated file-level `let` may bind a host operation by placing a text key
 before `fremmed`. this is chiefly the boundary used by `_foreign.tung`; the
 host key and full declared type must match the compiler catalogue.
 
-the generated api at `writ/bookhoard/index.html` listeth the public standard
-surface. xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineth
+the generated api at `writ/bookhoard/index.html` listeþ the public standard
+surface. xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ
 its design boundaries, and runnable examples live under link:../byspel/[`byspel/`].

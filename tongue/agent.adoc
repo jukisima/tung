@@ -3,7 +3,7 @@
 this file is the short operating contract for changes to this repository. it
 must not duplicate the language or architecture references.
 
-read the document which owneth the work:
+read the document which owneþ the work:
 
 * xref:../readme.adoc[`readme.adoc`] for installation and the user tour
 * xref:language.adoc[`language.adoc`] for source-language behaviour
@@ -12,15 +12,15 @@ read the document which owneth the work:
 * xref:../vscode/readme.adoc[`vscode/readme.adoc`] for editor setup and features
 * xref:../todo.adoc[`todo.adoc`] only for planning or backlog questions
 
-the implementation and tests are authoritative when prose conflicteth with
+the implementation and tests are authoritative when prose conflicteþ with
 current behaviour. module-local invariants belong in source comments beside
 the code rather than here.
 
 == writing style
 
-* never capitalise sentence starts in prose or source comments unless syntax or a fixed identifier requireth it.
+* never capitalise sentence starts in prose or source comments unless syntax or a fixed identifier requireþ it.
 * use british spelling in prose and source comments.
-* use `-eth` instead of `-s` for english third-person singular present verbs; use `hath` for `has` and `doth` for `does`.
+* use `-eþ` instead of `-s` for english third-person singular present verbs; use `hath` for `has` and `doth` for `does`.
 * use `thou` for a singular subject and `thee` for a singular object; use `ye` for a plural subject and `you` for a plural object. never use `you` as a subject.
 * prefer plain words and short explanations.
 * object-language names may follow tung's anglish direction. haskell and tooling identifiers use normal technical terms.
@@ -41,10 +41,10 @@ the code rather than here.
 == language invariants
 
 before a language change, read xref:language.adoc[`language.adoc`] and preserve
-these high-risk boundaries unless the request explicitly changeth them:
+these high-risk boundaries unless the request explicitly changeþ them:
 
 * every function is curried, and unmarked sequences use second-is-function application.
-* `$` groupeth low-precedence application; it doth not swap function position.
+* `$` groupeþ low-precedence application; it doth not swap function position.
 * `r(`, `<(`, and `>(` are touching opening delimiters.
 * partial application is pure; latent effects run only at saturation.
 * effects belong to function arrows, not stored value types.
@@ -54,11 +54,11 @@ these high-risk boundaries unless the request explicitly changeth them:
 * matches are exhaustive and non-redundant where their algebraic types permit checking.
 * records are closed.
 * handlers are deep and `eftgin` is multi-shot.
-* fill selection dependeth on static types, not values or import order.
+* fill selection dependeþ on static types, not values or import order.
 * laws are checked documentation, not proofs, property tests, or rewrites.
 * accepted programs must not reach defensive internal evaluator errors.
 
-never restore retired syntax or features merely because an older example useth
+never restore retired syntax or features merely because an older example useþ
 them. inspect the lexer, parser, checker, evaluator, tests, and current docs to
 decide which artefact is stale.
 
@@ -67,8 +67,8 @@ decide which artefact is stale.
 * public source files use `.tung`; the executable and language id are `tung`.
 * `Tung.*` is an implementation namespace and is not renamed during ordinary language work.
 * `vscode/out/` and generated bookhoard html are build outputs and must not be edited.
-* `vscode/generated/language-names.json` cometh from `tool/language-names.tung`; run `make language-metadata`.
-* `.bookhoard-membership` cometh from the sibling bookhoard tree; run `make bookhoard-membership` or a compiler make target.
+* `vscode/generated/language-names.json` comeþ from `tool/language-names.tung`; run `make language-metadata`.
+* `.bookhoard-membership` comeþ from the sibling bookhoard tree; run `make bookhoard-membership` or a compiler make target.
 * host-backed function metadata live in `src/Tung/Primitive.hs` and must agree with `_foreign.tung`.
 * tests are part of the specification and should describe the intended rule.
 
@@ -91,7 +91,7 @@ when ending:
 * run a representative byspel after runner changes.
 * report every verification command which could not run.
 
-if cabal faileth only because it cannot write under `~/.cabal/logs`, rerun the
+if cabal faileþ only because it cannot write under `~/.cabal/logs`, rerun the
 same command with the needed permission. do not alter source to work around a
 log permission.
 

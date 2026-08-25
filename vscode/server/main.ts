@@ -1,5 +1,5 @@
 // lsp transport and request orchestration. tolerant workspace models serve
-// editor features; the compiler bridge alone supplieth authoritative diagnostics.
+// editor features; the compiler bridge alone supplieþ authoritative diagnostics.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -478,7 +478,7 @@ const cancelCheck = (uri) => {
 const checkAllOpenDocuments = () => {
   for (const document of documents.all()) scheduleCheck(document, 0);
 };
-// diagnostics are debounced and versioned; cancellation stopeth obsolete work
+// diagnostics are debounced and versioned; cancellation stopeþ obsolete work
 // in the persistent compiler session before a newer request is sent.
 const runCheck = (document) => {
   timers.delete(document.uri);

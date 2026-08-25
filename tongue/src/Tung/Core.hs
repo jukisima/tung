@@ -12,8 +12,8 @@ import Data.Map.Strict qualified as Map
 import Tung.Primitive (findForeignBinding)
 import Tung.Syntax
 
--- a CoreProgram hath passed type checking and containeth only resolved evidence.
--- keeping its constructor private preventeth evaluation of unchecked surface syntax.
+-- a CoreProgram hath passed type checking and containeþ only resolved evidence.
+-- keeping its constructor private preventeþ evaluation of unchecked surface syntax.
 data CoreProgram = CoreProgram Program (Map.Map FilePath Program) deriving (Eq, Show)
 
 makeCoreProgram :: Program -> Either String CoreProgram

@@ -1,17 +1,17 @@
 = bookhoard reference guide
 
-this guide recordeth semantic comparisons and design boundaries. generated api
+this guide recordeþ semantic comparisons and design boundaries. generated api
 pages still come from shown tung declarations and their doc comments.
 
 == current surface
 
-`ground.tung` is the ordinary umbrella import. it re-publisheth the common
+`ground.tung` is the ordinary umbrella import. it re-publisheþ the common
 data, effect, equality, ordering, algebraic, numeric, collection, and text
 surface without becoming an implicit prelude.
 
-the total-order hierarchy addeth totality to partial order; generic infimal
-and supremal semilattices stay independent until a lattice requireth both.
-`powerset` is a characteristic function and useth those generic operations,
+the total-order hierarchy addeþ totality to partial order; generic infimal
+and supremal semilattices stay independent until a lattice requireþ both.
+`powerset` is a characteristic function and useþ those generic operations,
 whereas `set` and `table` are finite list-backed containers with qualified
 constructors.
 
@@ -33,7 +33,7 @@ direct counterparts for its central families:
 
 | `eq`, `ord`, `ordering`, lattice
 | `equal`, `less-equal`, `order-partial`, `order-total`, `semilattice-infimal`, `semilattice-supremal`, `lattice`, bounded variants, `complement`, `𝟛`
-| the raw comparison operation standeth apart from partial- and total-order laws; each semilattice standeth alone, lattice addeth absorption, complement owneth `¬`
+| the raw comparison operation standeþ apart from partial- and total-order laws; each semilattice standeþ alone, lattice addeþ absorption, complement owneþ `¬`
 
 | `semigroup`, `monoid`
 | `semigroup`, `monoid`
@@ -41,7 +41,7 @@ direct counterparts for its central families:
 
 | `semiring`, `ring`, `field`
 | arithmetic shapes, `divide-remainder`, `euclidean`
-| integer `÷` returneth quotient and remainder under explicit euclidean laws; ieee float `∕` retaineth operation without claiming exact algebra or order laws
+| integer `÷` returneþ quotient and remainder under explicit euclidean laws; ieee float `∕` retaineþ operation without claiming exact algebra or order laws
 
 | `functor`, `applicative`, `monad`
 | collection shapes
@@ -53,9 +53,9 @@ direct counterparts for its central families:
 
 | `traversable`
 | `traverse`
-| applicative evidence belongeth to each polymorphic method; list, option, nonempty, `a ∐`, and `a ∏` provide fills
+| applicative evidence belongeþ to each polymorphic method; list, option, nonempty, `a ∐`, and `a ∏` provide fills
 
-| `maybe`, `either`, `tuple`
+| `maybe`, `eiþer`, `tuple`
 | `option`, `∐`, `∏`
 | the core sums and products are present
 
@@ -64,8 +64,8 @@ direct counterparts for its central families:
 | powersets and persistent list-backed finite collections exist; a packed random-access array is still absent
 |===
 
-boolean disjunction useth `𝟚 supremal`, and boolean conjunction useth
-`𝟚 infimal`; no boolean-only wrapper duplicateth these generic carriers.
+boolean disjunction useþ `𝟚 supremal`, and boolean conjunction useþ
+`𝟚 infimal`; no boolean-only wrapper duplicateþ these generic carriers.
 
 the https://pursuit.purescript.org/packages/purescript-foldable-traversable/docs/Data.Traversable[purescript traversable api]
 guides the `functor` plus `cata` parent shapes and the method-local
@@ -77,19 +77,19 @@ lazy assumptions, or effect encoding.
 lean and mathlib are references for algebraic boundaries, lawful naming, and
 the separation of finite collection meanings. they are not syntax templates.
 
-mathlib defineth a
+mathlib defineþ a
 https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Multiset/Defs.html[multiset]
 as a list quotiented by permutation, so repetitions remain but order doth not.
-it defineth a
+it defineþ a
 https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finset/Defs.html[finite set]
-as a multiset paired with a proof of no duplicates, and useth finite sets as a
+as a multiset paired with a proof of no duplicates, and useþ finite sets as a
 base for finite sums and products.
 
 tung currently hath neither quotient types nor dependent proof fields. `powerset` is
 therefore the characteristic-function alias `a func 𝟚`, matching lean's
 predicate view and avoiding an unenforced representation invariant.
 its intersection and union are selected through the overloaded infimum and
-supremum operations. no bare powerset monoid chooseth between them: wrap a
+supremum operations. no bare powerset monoid chooseþ between them: wrap a
 powerset in `infimal` for the intersection monoid or `supremal` for the union
 monoid.
 `set` and `table` expose list-backed `from-list` constructors; operations
@@ -98,12 +98,12 @@ but direct `set@from-list` use may build a noncanonical value. the shared
 constructor name is deliberate: `set@from-list` and
 `table@from-list` remain distinct through ordinary qualification.
 
-the planned order-insensitive bag needeth not wait for quotient types. its
+the planned order-insensitive bag needeþ not wait for quotient types. its
 representation boundary and implementation work are tracked in
 xref:../todo.adoc[`todo.adoc`] rather than described as part of the current api.
 
 mathlib's theorem hierarchy is much richer than tung's checked shape laws.
 shape laws in tung are type-checked statements, not proofs and not evaluator
 rewrite rules. additions from mathlib should therefore first improve data and
-shape boundaries; proof-dependent structures belong after tung gaineth an
+shape boundaries; proof-dependent structures belong after tung gaineþ an
 explicit proof story.

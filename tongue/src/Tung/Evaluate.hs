@@ -103,8 +103,8 @@ data RuntimeEnv = RuntimeEnv
 
 newtype RuntimeError = RuntimeError String
 
--- an operation carrieth its explicit continuation. the 'Eval' monad composeth
--- through that continuation, which giveth handlers deep, reusable resumption.
+-- an operation carrieþ its explicit continuation. the 'Eval' monad composeþ
+-- through that continuation, which giveþ handlers deep, reusable resumption.
 data RuntimeResult a = RuntimeOk a | RuntimeErr RuntimeError | RuntimeOp String String [RuntimeValue] (RuntimeValue -> Eval a)
 
 data Eval a
@@ -195,7 +195,7 @@ evaluateMainWithImports = evaluateMainWithArgsAndImports []
 evaluateMainWithArgsAndImports :: [String] -> String -> Map.Map String String -> IO String
 evaluateMainWithArgsAndImports args source imports = evaluateParsedWith True args source imports runMain
 
--- evaluation never accepteth surface syntax directly: this function first asketh
+-- evaluation never accepteþ surface syntax directly: this function first askeþ
 -- the type checker for a mode-appropriate 'CoreProgram'.
 evaluateParsedWith :: Bool -> [String] -> String -> Map.Map String String -> (CoreProgram -> Eval RuntimeValue) -> IO String
 evaluateParsedWith runnable arguments source imports action = case parse source of
@@ -204,8 +204,8 @@ evaluateParsedWith runnable arguments source imports action = case parse source 
     Left msg -> pure ((if runnable then "type error: " else "eval error: type error: ") ++ msg)
     Right program -> runCoreProgram arguments program action
  where
-  -- interactive evaluation alloweth top-level computation, but still checketh and
-  -- elaborateth it. runnable evaluation additionally checketh the main boundary.
+  -- interactive evaluation alloweþ top-level computation, but still checkeþ and
+  -- elaborateþ it. runnable evaluation additionally checkeþ the main boundary.
   elaborate program
     | runnable = elaborateProgramWithImports program imports True
     | otherwise = elaborateInteractiveProgramWithImports program imports
@@ -410,7 +410,7 @@ compileExpr :: Expr -> RuntimeExpr
 compileExpr = compileExprWith Nothing
 
 -- recurring match bodies are compiled once. closed dictionary selection is
--- specialised at closure creation, but local evidence remaineth dynamic.
+-- specialised at closure creation, but local evidence remaineþ dynamic.
 compileExprWith :: Maybe RuntimeEnv -> Expr -> RuntimeExpr
 compileExprWith staticEnv = \case
   ELocated _ inner -> compileExprWith staticEnv inner
@@ -896,19 +896,19 @@ runtimeWebResponse = \case
 runtimeWebHeaderTableValues :: RuntimeValue -> Either String [(Text.Text, Text.Text)]
 runtimeWebHeaderTableValues = \case
   VData _ "from-list" [entries] -> runtimeWebHeaderList entries
-  _ -> Left "web response containeth an invalid header table"
+  _ -> Left "web response containeþ an invalid header table"
 
 runtimeWebHeaderList :: RuntimeValue -> Either String [(Text.Text, Text.Text)]
 runtimeWebHeaderList value = case runtimeListValues value of
-  Nothing -> Left "web response containeth an invalid header list"
+  Nothing -> Left "web response containeþ an invalid header list"
   Just headers -> traverse runtimeWebHeader headers
 
 runtimeWebHeader :: RuntimeValue -> Either String (Text.Text, Text.Text)
 runtimeWebHeader = \case
   VData _ "∏" [VText name, VText value]
     | Web.validHeaderName name && Web.validHeaderValue value -> Right (name, value)
-    | otherwise -> Left "web response containeth an invalid header"
-  _ -> Left "web response containeth a non-text header"
+    | otherwise -> Left "web response containeþ an invalid header"
+  _ -> Left "web response containeþ a non-text header"
 
 runtimeWebHeaderTable :: [(Text.Text, Text.Text)] -> RuntimeValue
 runtimeWebHeaderTable headers =

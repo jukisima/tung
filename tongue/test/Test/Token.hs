@@ -15,7 +15,7 @@ group = do
 languageMetadataCase :: IO Test
 languageMetadataCase = do
   actual <- readFile (".." </> "vscode" </> "generated" </> "language-names.json")
-  pure $ expectEq "self-hosted language metadata agreeth with the compiler" expected actual
+  pure $ expectEq "self-hosted language metadata agreeþ with the compiler" expected actual
  where
   expected =
     "{\"keywords\":"
@@ -38,23 +38,23 @@ jsonString value = "\"" ++ concatMap escape value ++ "\""
 
 lexCases :: [(String, String, [Token])]
 lexCases =
-  [ ("field access stayeth one name", "person@age", [TIdent "person@age"])
-  , ("qualified operator stayeth one name", "list@.*", [TIdent "list@.*"])
+  [ ("field access stayeþ one name", "person@age", [TIdent "person@age"])
+  , ("qualified operator stayeþ one name", "list@.*", [TIdent "list@.*"])
   , ("unicode operator is a name", "≡", [TIdent "≡"])
   , ("minus signs an integer", "-1", [TInteger (-1)])
   , ("integer literals are arbitrary precision", "123456789012345678901234567890", [TInteger 123456789012345678901234567890])
   , ("minus signs a float", "-1.25", [TFloat (-1.25)])
-  , ("plus remaineth a name", "+1", [TIdent "+1"])
-  , ("double minus remaineth a name", "--1", [TIdent "--1"])
+  , ("plus remaineþ a name", "+1", [TIdent "+1"])
+  , ("double minus remaineþ a name", "--1", [TIdent "--1"])
   , ("dot prepend is one name", ".*", [TIdent ".*"])
   , ("standalone dot is syntax", ".", [TDot])
   , ("backslash is an ordinary name", "\\\\", [TIdent "\\\\"])
-  , ("record opener stayeth one token", "r(", [TParenKeyword "r"])
-  , ("left association opener stayeth one token", "<(", [TParenKeyword "<"])
-  , ("right association opener stayeth one token", ">(", [TParenKeyword ">"])
+  , ("record opener stayeþ one token", "r(", [TParenKeyword "r"])
+  , ("left association opener stayeþ one token", "<(", [TParenKeyword "<"])
+  , ("right association opener stayeþ one token", ">(", [TParenKeyword ">"])
   , ("separated special openers remain names", "r ( < ( > (", [TIdent "r", TLParen, TIdent "<", TLParen, TIdent ">", TLParen])
   , ("freed characters are ordinary names", "[ ] ;", [TIdent "[", TIdent "]", TIdent ";"])
-  , ("comment endeth at newline", "1 # hidden\n2", [TInteger 1, TInteger 2])
+  , ("comment endeþ at newline", "1 # hidden\n2", [TInteger 1, TInteger 2])
   , ("block comment is skipped", "1 /* hidden { = */ 2", [TInteger 1, TInteger 2])
   , ("unicode escapes", "`\\n `\\r `\\t `\\' `\\\\", map TUnicode ['\n', '\r', '\t', '\'', '\\'])
   , ("unicode decimal code points", "`\\65; `\\23383; `\\128512;", [TUnicode 'A', TUnicode '字', TUnicode '😀'])
@@ -92,7 +92,7 @@ lexError (name, source) = case lexTokens source of
 keywordToken :: String -> Token
 keywordToken = \case
   "let" -> TLet
-  "graith" -> TGraith
+  "graiþ" -> TGraith
   "show" -> TShow
   "show-ilk" -> TShowIlk
   "bring" -> TBring

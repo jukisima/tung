@@ -1,6 +1,6 @@
 -- bookhoard registry, dependency, ownership, export, and type-checking invariants.
 -- the graph must be acyclic, dependencies may not bring ground, and each source
--- owneth at most one algebraic data declaration.
+-- owneþ at most one algebraic data declaration.
 module Test.Bookhoard (group) where
 
 import Data.Foldable (traverse_)
@@ -137,7 +137,7 @@ primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) 
               then Just "host catalogue and source effect declarations differ"
               else
                 if any (null . hostArguments . hostSignature) hostBindings
-                  then Just "host catalogue containeth an empty function"
+                  then Just "host catalogue containeþ an empty function"
                   else Nothing
  where
   foreignNames = \case
@@ -158,7 +158,7 @@ oneDataTypeCase path = do
     Left message -> Just ("parse " ++ path ++ ": " ++ message)
     Right (Program declarations) ->
       let count = length [() | declaration <- declarations, isDataDecl declaration]
-       in if count <= 1 then Nothing else Just (path ++ " owneth " ++ show count ++ " data types")
+       in if count <= 1 then Nothing else Just (path ++ " owneþ " ++ show count ++ " data types")
 
 importedPaths :: Decl -> [String]
 importedPaths (Import path _) = [path]

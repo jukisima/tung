@@ -330,7 +330,7 @@ cases =
     )
   , ("windows newlines", "kin box {\r\nbox\r\n}\r\n", "kin box {\n  box\n}\n")
   ,
-    ( "blank line endeth continuation"
+    ( "blank line endeþ continuation"
     , """
       show let value =
       1
@@ -349,7 +349,7 @@ cases =
       """
     )
   ,
-    ( "comment useth structural indentation"
+    ( "comment useþ structural indentation"
     , """
       shape a identity {
       law (x: a):

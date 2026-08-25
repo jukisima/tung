@@ -8,6 +8,7 @@ bring collection/catamorphism.tung
 bring collection/functor.tung
 bring collection/filter.tung
 bring equal.tung
+bring algebra/partial/semigroupoid.tung
 bring algebra/total/semigroup.tung
 bring algebra/total/magma.tung
 bring order/lattice.tung

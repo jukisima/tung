@@ -1,4 +1,4 @@
-// vscode entry point: starteth the lsp client and refresheth semantic tokens.
+// vscode entry point: starteþ the lsp client and refresheþ semantic tokens.
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";

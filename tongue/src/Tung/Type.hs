@@ -58,7 +58,7 @@ import Tung.Syntax
 import Tung.Token (SourceSpan)
 import Tung.Validate (validateProgram)
 
--- function effects are latent on 'TyFun'; 'Inferred' carrieth only effects caused
+-- function effects are latent on 'TyFun'; 'Inferred' carrieþ only effects caused
 -- while evaluating the current expression, plus unresolved shape requirements.
 data Ty
   = TyMeta Int
@@ -117,7 +117,7 @@ data TcState = TcState
   }
   deriving (Eq, Show)
 
--- primitive entries exist only when a module explicitly showeth a built-in type;
+-- primitive entries exist only when a module explicitly showeþ a built-in type;
 -- unlike aliases, they remain opaque during unification.
 data TypeInfo
   = Primitive String
@@ -357,7 +357,7 @@ showEffect (TyApp name []) = name
 showEffect (TyApp name args) = showTyList args ++ " " ++ name
 showEffect other = showTy other
 
--- ordinary unification also handleth higher-kinded type heads, closed records,
+-- ordinary unification also handleþ higher-kinded type heads, closed records,
 -- non-empty function domains, and latent effect rows.
 unifyM :: Ty -> Ty -> Tc ()
 unifyM a b = do
@@ -441,7 +441,7 @@ unifyTypeHeadWithFunM varName varArgs funArgs effects ret
           Nothing -> case varArgs of
             [onlyResult] -> bindTypeHeadM varName (TyHead "func" [arg]) >> unifyM onlyResult result
             [fromArg, toArg] -> bindTypeHeadM varName (TyHead "func" []) >> unifyM fromArg arg >> unifyM toArg result
-            _ -> failTc "func expecteth one or two type arguments in function unification"
+            _ -> failTc "func expecteþ one or two type arguments in function unification"
 
 lookupTypeHead :: String -> TcState -> Maybe TyHead
 lookupTypeHead name TcState{tcTypeHeads} = Map.lookup name tcTypeHeads
@@ -781,7 +781,7 @@ runnerEffectNames = ["console", "random", "async", "file", "system", "clock", "p
 primitiveTypeNames = ["integer", "float", "unicode", "text", "func"]
 
 -- this base contract must agree with evaluator arities and primitive dictionary
--- support; the bookhoard supplieth the public declarations around these names.
+-- support; the bookhoard supplieþ the public declarations around these names.
 baseContext :: TcContext
 baseContext =
   TcContext
@@ -816,7 +816,7 @@ runtimeEffectOpSpecs :: [(String, String, Int)]
 runtimeEffectOpSpecs =
   [(effectName, hostName binding, hostArity binding) | binding@HostBinding{hostRole = BaseEffect effectName} <- baseEffectBindings]
 
--- an imported context contributeth shown names only. each visible name receiveth
+-- an imported context contributeþ shown names only. each visible name receiveþ
 -- a qualified binding and a lower-priority bare alias for ambiguity checking.
 namespaceImportContext :: String -> TcContext -> TcContext
 namespaceImportContext ns TcContext{..} =
@@ -1071,7 +1071,7 @@ isTypeVarName :: String -> Bool
 isTypeVarName (c : rest) = isAscii c && isLower c && all isTypeVariableIndex rest
 isTypeVarName [] = False
 
--- declaration collection buildeth the namespace used by later checking; export
+-- declaration collection buildeþ the namespace used by later checking; export
 -- ranks preserve local shadowing and qualify-if-needed lookup.
 collectProgramContext :: [Decl] -> TcContext -> TcContext
 collectProgramContext ds ctx = foldl' (flip collectDeclContext) ctx ds
@@ -1422,7 +1422,7 @@ bindPatternLinearM :: Pattern -> Ty -> TcContext -> [String] -> Tc (TcContext, [
 bindPatternLinearM (PVar "_") _ ctx bound = pure (ctx, bound)
 bindPatternLinearM (PVar name) expected ctx bound = case knownConstructorArity name ctx of
   Just 0 -> inferVarM name ctx >>= \(Inferred actual _ _ _) -> unifyM actual expected >> pure (ctx, bound)
-  Just _ -> failTc ("constructor pattern '" ++ name ++ "' needeth arguments")
+  Just _ -> failTc ("constructor pattern '" ++ name ++ "' needeþ arguments")
   Nothing -> bindPatternVariableM name expected ctx bound
 bindPatternLinearM (PInteger _) expected ctx bound = unifyM (TyCon "integer") expected >> pure (ctx, bound)
 bindPatternLinearM (PCon name args) expected ctx bound = do
@@ -1445,7 +1445,7 @@ bindPatternListM patterns tys ctx bound
 
 bindPatternVariableM :: String -> Ty -> TcContext -> [String] -> Tc (TcContext, [String])
 bindPatternVariableM name expected ctx bound
-  | name `elem` bound = failTc ("pattern bindeth '" ++ name ++ "' more than once")
+  | name `elem` bound = failTc ("pattern bindeþ '" ++ name ++ "' more than once")
   | otherwise = pure (addEnv name (Forall [] [] expected) ctx, name : bound)
 
 knownConstructorArity :: String -> TcContext -> Maybe Int
@@ -1462,7 +1462,7 @@ knownConstructorArity name ctx@TcContext{tcTypes} = case nub arities of
     , constructorNamesMatch canonical constructorName
     ]
 
--- coverage followeth the constructor-specialisation matrix algorithm and returneth
+-- coverage followeþ the constructor-specialisation matrix algorithm and returneþ
 -- one missing witness, including products from multi-scrutinee matches.
 checkExhaustiveM :: [Ty] -> [MatchCase] -> TcContext -> Tc ()
 checkExhaustiveM scrutTys cases ctx = do
@@ -1526,7 +1526,7 @@ replaceTyVarsForCoverage repls ty = case ty of
   TyVar name -> Map.findWithDefault ty name repls
   _ -> mapTyChildren (replaceTyVarsForCoverage repls) (skipEffectVar (replaceTyVarsForCoverage repls)) ty
 
--- expression inference produceth an elaborated expression skeleton alongside
+-- expression inference produceþ an elaborated expression skeleton alongside
 -- its value type, immediate effects, and dictionary requirements.
 inferExprM :: Expr -> TcContext -> Tc Inferred
 inferExprM expr ctx = case expr of
@@ -1542,12 +1542,12 @@ inferExprM expr ctx = case expr of
   EAscribe expression annotation -> inferAscribedM expression annotation ctx
   EApply f args -> inferApplyM f (NE.toList args) ctx
   ERecord fields -> inferRecordFieldsM fields ctx
-  EField{} -> failTc "internal field access appeareth before elaboration"
+  EField{} -> failTc "internal field access appeareþ before elaboration"
   EUpdate base updates -> inferRecordUpdateM base updates ctx
   ETry body returnCase cases -> inferTryHandleM body returnCase cases ctx
   EMatch scrutinees cases -> inferMatchM scrutinees cases ctx
   EBlock ds body -> inferBlockM ds body ctx
-  EWithEvidence{} -> failTc "internal evidence appeareth before elaboration"
+  EWithEvidence{} -> failTc "internal evidence appeareþ before elaboration"
 
 inferAscribedM :: Expr -> TypeExpr -> TcContext -> Tc Inferred
 inferAscribedM expression annotation ctx = do
@@ -1897,7 +1897,7 @@ checkDeclsM ds ctx = void (checkDeclsContextM ds ctx)
 checkInteractiveDeclsM :: [Decl] -> TcContext -> Tc ()
 checkInteractiveDeclsM ds ctx = void (checkDeclsContextWithM True ds ctx)
 
--- checking establisheth schemes and rejecteth bad source; elaboration then walketh
+-- checking establisheþ schemes and rejecteþ bad source; elaboration then walkeþ
 -- declarations sequentially to insert dictionaries and selected fills.
 elaborateDeclsM :: [Decl] -> TcContext -> Tc [Decl]
 elaborateDeclsM declarations ctx = fst <$> elaborateDeclsContextM declarations ctx
@@ -2039,7 +2039,7 @@ checkDeclsContextWithM allowImmediate ds ctx = foldM step ctx ds
     pure (exportDeclContext declaration checkedCtx)
   step currentCtx (ReExport name) = either failTc pure (reExportName name currentCtx)
   step currentCtx (ReExportType name) = either failTc pure (reExportTypeName name currentCtx)
-  step _ (Let name Nothing EForeign{}) = failTc ("fremmed let '" ++ name ++ "' requireth a type annotation")
+  step _ (Let name Nothing EForeign{}) = failTc ("fremmed let '" ++ name ++ "' requireþ a type annotation")
   step currentCtx (Let name (Just ann) (EForeign hostKey)) = do
     checkForeignLetM name hostKey ann currentCtx
     pure (addEnv name (typeAnnScheme ann currentCtx) currentCtx)
@@ -2228,14 +2228,14 @@ checkAliasArityM owner name actual ctx = case unshownTypeInfo <$> findTypeInfoFo
   Just (Alias canonical params _) -> do
     let expected = length params
     unless (actual == expected) $
-      failTc (owner ++ " useth type alias '" ++ canonical ++ "' with " ++ show actual ++ " arguments, but it hath " ++ show expected ++ " parameters")
+      failTc (owner ++ " useþ type alias '" ++ canonical ++ "' with " ++ show actual ++ " arguments, but it hath " ++ show expected ++ " parameters")
   _ -> pure ()
 
 checkTypeNameM :: String -> String -> TcContext -> Tc ()
 checkTypeNameM owner name TcContext{tcTypeAmbiguities}
   | isQualifiedName name = pure ()
   | Just choices <- Map.lookup name tcTypeAmbiguities =
-      failTc (owner ++ " useth ambiguous type '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " choices)
+      failTc (owner ++ " useþ ambiguous type '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " choices)
   | otherwise = pure ()
 
 checkShapeDefaultsM :: [ShapeMember] -> Tc ()
@@ -2275,7 +2275,7 @@ checkShapeLawsM shapeParams shapeName shapeNeeds members ctx = zipWithM_ checkLa
 -- unannotated lets obey the value restriction through immediate-effect purity;
 -- annotations are checked with rigid variables before their scheme is trusted.
 checkLetM :: String -> Maybe TypeAnn -> Expr -> TcContext -> Tc Decl
-checkLetM name Nothing EForeign{} _ = failTc ("fremmed let '" ++ name ++ "' requireth a type annotation")
+checkLetM name Nothing EForeign{} _ = failTc ("fremmed let '" ++ name ++ "' requireþ a type annotation")
 checkLetM name (Just ann) expression@(EForeign hostKey) ctx = checkForeignLetM name hostKey ann ctx >> pure (Let name (Just ann) expression)
 checkLetM name Nothing expr ctx = do
   Inferred _ effects needs _ <- inferNamedM name expr ctx
@@ -2292,7 +2292,7 @@ checkForeignLetM name hostKey ann ctx = do
   checkTypeAnnNeedsM ("fremmed let '" ++ name ++ "'") ann ctx
   let actual = typeAnnScheme ann ctx
   case findForeignBinding hostKey of
-    Nothing -> failTc ("fremmed let '" ++ name ++ "' referreth to unknown host binding '" ++ hostKey ++ "'")
+    Nothing -> failTc ("fremmed let '" ++ name ++ "' referreþ to unknown host binding '" ++ hostKey ++ "'")
     Just binding ->
       let expected = hostScheme (hostSignature binding)
        in unless (actual == expected) $
@@ -2380,7 +2380,7 @@ findFillSpec :: String -> [FillSpec] -> Maybe FillSpec
 findFillSpec name = find ((== name) . fillSpecName)
 
 requireFillSpecM :: String -> [FillSpec] -> Tc FillSpec
-requireFillSpecM name = maybe (failTc ("fill defineth unknown member '" ++ name ++ "'")) pure . findFillSpec name
+requireFillSpecM name = maybe (failTc ("fill defineþ unknown member '" ++ name ++ "'")) pure . findFillSpec name
 
 checkFillMembersM :: String -> [TypeExpr] -> [ShapeNeed] -> [Decl] -> [FillSpec] -> TcContext -> Decl -> Tc Decl
 checkFillMembersM shapeName tyArgs needs members specs ctx whole = do
@@ -2403,7 +2403,7 @@ checkRedundantFillNeedsM :: String -> [TypeExpr] -> [ShapeNeed] -> [Decl] -> [Fi
 checkRedundantFillNeedsM shapeName tyArgs needs members specs ctx = do
   redundant <- findRedundant (zip [(0 :: Int) ..] needs)
   case redundant of
-    Just need -> failTc (owner ++ " hath redundant graith " ++ showSourceNeed (convertShapeNeed need ctx))
+    Just need -> failTc (owner ++ " hath redundant graiþ " ++ showSourceNeed (convertShapeNeed need ctx))
     Nothing -> pure ()
  where
   owner = "fill '" ++ showShapeHeader tyArgs shapeName ++ "'"
@@ -2770,8 +2770,8 @@ selectFillEvidenceM ctx wanted@(Need actualTypes shapeName)
       [(info, needs, parents)] -> pure (info, needs, parents)
       choices -> failTc ("ambiguous fills for " ++ showNeed wanted ++ ": " ++ intercalate ", " (nub [fillKey info | (info, _, _) <- choices]))
  where
-  -- selection is static: inheritance depth ranketh fills first, then a
-  -- structured type pattern outranketh a blanket pattern it refines.
+  -- selection is static: inheritance depth rankeþ fills first, then a
+  -- structured type pattern outrankeþ a blanket pattern it refines.
   candidates = mapMaybe match (fillsForShape shapeName ctx)
   match info@FillInfo{..}
     | not (shapeNamesMatch fillShape shapeName) = Nothing
@@ -3005,7 +3005,7 @@ addSelfEnv name qualifiedName scheme ctx
   | otherwise = addEnvWith qualifiedName scheme localEnvRank qualifiedName (addEnvWith name scheme selfAliasEnvRank qualifiedName ctx)
 
 -- public entry points differ only in their top-level mode; every successful path
--- parseth, validateth, checketh, elaborateth, and crosseth the 'CoreProgram' boundary.
+-- parseþ, validateþ, checkeþ, elaborateþ, and crosseþ the 'CoreProgram' boundary.
 check :: String -> String
 check source = checkWithImports source Map.empty
 

@@ -16,7 +16,7 @@ group = Harness.group "project" [nestedImports, localImportPaths, moduleRootImpo
 
 nestedImports :: Test
 nestedImports = withProject files "main.tung" \result ->
-  expectEq "loadeth nested relative brings" (Right expected) (projectContents <$> result)
+  expectEq "loadeþ nested relative brings" (Right expected) (projectContents <$> result)
  where
   files =
     [ ("main.tung", "bring lib/a.tung let _ main = null")
@@ -42,7 +42,7 @@ localImportPaths = withDirectory \root -> do
   canonicalDep <- canonicalizePath depPath
   result <- loadProjectFile Map.empty mainPath
   expectEq
-    "retaineth owning filesystem paths"
+    "retaineþ owning filesystem paths"
     (Just (canonicalMain, canonicalDep))
     ( either
         (const Nothing)
@@ -69,7 +69,7 @@ moduleRootImport = withDirectory \root -> do
       source = "show let shared = 7"
   writeProject root [("project/main.tung", "bring shared.tung"), ("modules/shared.tung", source)]
   result <- loadProjectFileWithRoots Map.empty [modules] (project </> "main.tung")
-  expectEq "loadeth a bring from a module root" (Just source) (either (const Nothing) (Map.lookup "shared.tung" . projectImports) result)
+  expectEq "loadeþ a bring from a module root" (Just source) (either (const Nothing) (Map.lookup "shared.tung" . projectImports) result)
 
 ambiguousModuleRoots :: Test
 ambiguousModuleRoots = withDirectory \root -> do
@@ -83,22 +83,22 @@ ambiguousModuleRoots = withDirectory \root -> do
     , ("right/shared.tung", "show let right = 2")
     ]
   result <- loadProjectFileWithRoots Map.empty [left, right] (project </> "main.tung")
-  expect "rejecteth duplicate module-root matches" (either (isInfixOf "ambiguous bring 'shared.tung'") (const False) result)
+  expect "rejecteþ duplicate module-root matches" (either (isInfixOf "ambiguous bring 'shared.tung'") (const False) result)
 
 embeddedFallback :: Test
 embeddedFallback = withProjectUsing builtins [("main.tung", "bring ground.tung")] "main.tung" \result ->
-  expectEq "useth an embedded module when no local file exists" (Just source) (either (const Nothing) (Map.lookup "ground.tung" . projectImports) result)
+  expectEq "useþ an embedded module when no local file exists" (Just source) (either (const Nothing) (Map.lookup "ground.tung" . projectImports) result)
  where
   source = "show let value = 1"
   builtins = Map.singleton "ground.tung" source
 
 missingImport :: Test
 missingImport = withProject [("main.tung", "bring absent.tung")] "main.tung" \result ->
-  expect "reporteth the owner of a missing bring" (either (isInfixOf "from '") (const False) result)
+  expect "reporteþ the owner of a missing bring" (either (isInfixOf "from '") (const False) result)
 
 ambiguousRelativeImport :: Test
 ambiguousRelativeImport = withProject files "main.tung" \result ->
-  expect "rejecteth one bring spelling for two files" (either (isInfixOf "ambiguous bring 'shared.tung'") (const False) result)
+  expect "rejecteþ one bring spelling for two files" (either (isInfixOf "ambiguous bring 'shared.tung'") (const False) result)
  where
   files =
     [ ("main.tung", "bring left/a.tung bring right/b.tung")

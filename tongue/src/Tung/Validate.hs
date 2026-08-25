@@ -19,7 +19,7 @@ validateBringNamespaces declarations = do
   foldM_ register Map.empty [(importAlias path alias, path) | Import path alias <- declarations]
  where
   register owners (namespace, path) = case Map.lookup namespace owners of
-    Just other | other /= path -> Left ("bring namespace '" ++ namespace ++ "' referreth to both '" ++ other ++ "' and '" ++ path ++ "'")
+    Just other | other /= path -> Left ("bring namespace '" ++ namespace ++ "' referreþ to both '" ++ other ++ "' and '" ++ path ++ "'")
     _ -> pure (Map.insert namespace path owners)
 
 validateDecl :: Decl -> Either String ()
@@ -30,7 +30,7 @@ validateDecl = \case
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
   ReExportType _ -> pure ()
-  Let _ Nothing EForeign{} -> Left "fremmed let requireth a type annotation"
+  Let _ Nothing EForeign{} -> Left "fremmed let requireþ a type annotation"
   Let _ (Just annotation) EForeign{} -> validateTypeAnn annotation
   Let _ annotation body -> traverse_ validateTypeAnn annotation >> validateExpr body
   TypeAlias params name target -> distinct ("type alias '" ++ name ++ "' parameter") params >> validateType target
@@ -122,7 +122,7 @@ validateMatch (MatchCase _ body) = validateExpr body
 
 distinct :: String -> [String] -> Either String ()
 distinct owner names = case repeated of
-  duplicate : _ -> Left (owner ++ " repeateth '" ++ duplicate ++ "'")
+  duplicate : _ -> Left (owner ++ " repeateþ '" ++ duplicate ++ "'")
   [] -> pure ()
  where
   repeated = [name | name : _ : _ <- group (sort names)]

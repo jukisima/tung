@@ -11,7 +11,7 @@ import Data.Maybe (mapMaybe)
 import Tung.Name (constructorNamesMatch, lastQualifiedSegment)
 import Tung.Syntax (Pattern (..))
 
--- the caller supplieth constructors for each scrutinee type, keeping this
+-- the caller supplieþ constructors for each scrutinee type, keeping this
 -- algorithm independent of inference state and type representation.
 uncoveredPatterns :: (ty -> Maybe [(String, [ty])]) -> [ty] -> [[Pattern]] -> Maybe [Pattern]
 uncoveredPatterns constructors = go
@@ -35,7 +35,7 @@ uncoveredPatterns constructors = go
           let (args, rest) = splitAt (length fieldTys) witness
            in Just (PCon (lastQualifiedSegment name) args : rest)
 
--- a row is useful when it matcheth at least one value not matched by an earlier
+-- a row is useful when it matcheþ at least one value not matched by an earlier
 -- row. row numbers are one-based for source diagnostics.
 firstRedundantRow :: (ty -> Maybe [(String, [ty])]) -> [ty] -> [[Pattern]] -> Maybe Int
 firstRedundantRow constructors tys = go 1 []

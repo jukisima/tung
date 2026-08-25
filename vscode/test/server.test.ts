@@ -11,7 +11,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
-test("server implementeth the editor workflow over stdio", async (context) => {
+test("server implementeþ the editor workflow over stdio", async (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-lsp-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const depPath = path.join(root, "dep.tung");
@@ -423,7 +423,7 @@ test("server semantic tokens colour real shape methods", async (context) => {
   await once(server, "exit");
   connection.dispose();
 });
-test("server sendeth semantic fallback notification without refresh capability", async (context) => {
+test("server sendeþ semantic fallback notification without refresh capability", async (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-lsp-fallback-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, "main.tung");

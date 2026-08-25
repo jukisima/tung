@@ -1,12 +1,12 @@
 = tung development guide
 
-this document covereth repository structure and implementation boundaries.
+this document covereþ repository structure and implementation boundaries.
 source-language rules belong in xref:language.adoc[`language.adoc`], while
-component-specific setup remaineth in each component readme.
+component-specific setup remaineþ in each component readme.
 
 == setup and commands
 
-compiler development requireth ghc 9.12 or newer; ci currently useth 9.12.4.
+compiler development requireþ ghc 9.12 or newer; ci currently useþ 9.12.4.
 from the repository root:
 
 [source,sh]
@@ -22,30 +22,30 @@ make setup
 | purpose
 
 | `make build`
-| buildeth the compiler, editor support, and documentation generator
+| buildeþ the compiler, editor support, and documentation generator
 
 | `make test`
-| runneth every test suite
+| runneþ every test suite
 
 | `make compiler-test`
-| testeth parsing, typing, evaluation, bookhoard modules, and integration
+| testeþ parsing, typing, evaluation, bookhoard modules, and integration
 
 | `make vscode-test`
-| checketh and testeth the vscode client and language server
+| checkeþ and testeþ the vscode client and language server
 
 | `make writ-test`
-| checketh and testeth the documentation generator
+| checkeþ and testeþ the documentation generator
 
 | `make benchmark`
-| runneth repeatable compiler and evaluator workloads
+| runneþ repeatable compiler and evaluator workloads
 
 | `make docs`
-| regenerateth the searchable bookhoard api
+| regenerateþ the searchable bookhoard api
 |===
 
-the pre-commit hook formateth staged tung, haskell, typescript, and html files,
-then refresheth bookhoard membership. generated outputs must not be edited by
-hand.
+the pre-commit hook formateþ staged tung, haskell, typescript, and html files,
+refresheþ bookhoard membership, then runneþ every test suite. generated
+outputs must not be edited by hand.
 
 == repository layout
 
@@ -98,30 +98,30 @@ keep these boundaries:
 * editor analysis may approximate incomplete source, but compiler results remain authoritative.
 
 module-local invariants belong in the module comments beside their
-implementation. this guide explaineth only relationships between modules.
+implementation. this guide explaineþ only relationships between modules.
 
 == projects and imports
 
-`Tung.Project` discovereth local source bundles before checking. it resolveth
+`Tung.Project` discovereþ local source bundles before checking. it resolveþ
 relative brings from their owner, then platform-separated `TUNG_PATH` roots;
 the embedded bookhoard is the final fallback. one written bring path resolving
 to different canonical files is rejected.
 
-the checker cacheth each imported static context and elaborated core while it
-walketh one acyclic graph. a `CoreProgram` carrieth the elaborated root and its
-flat imported-core map. evaluation resolveth imports only from that checked map
-and initialiseth each shared module once.
+the checker cacheþ each imported static context and elaborated core while it
+walkeþ one acyclic graph. a `CoreProgram` carrieþ the elaborated root and its
+flat imported-core map. evaluation resolveþ imports only from that checked map
+and initialiseþ each shared module once.
 
 == types, evidence, and evaluation
 
-`Tung.Type` owneth hindley-milner inference, effect rows, coverage integration,
+`Tung.Type` owneþ hindley-milner inference, effect rows, coverage integration,
 shape requirements, fill selection, and dictionary elaboration. fill selection
 is static: inheritance depth is considered first, then a type pattern may
 outrank a broader pattern it strictly refines. equivalent imported candidates
 are deduplicated before this comparison.
 
-`Tung.Core` keepeth its constructor private and rejecteth unresolved evidence
-or unelaborated fills. `Tung.Evaluate` runneth checked core strictly. callable
+`Tung.Core` keepeþ its constructor private and rejecteþ unresolved evidence
+or unelaborated fills. `Tung.Evaluate` runneþ checked core strictly. callable
 values retain supplied arguments, so native work and effect operations run only
 at saturation. handlers are deep and continuations remain reusable.
 
@@ -132,29 +132,29 @@ the source binding in `_foreign.tung`.
 == formatting and editor support
 
 `Tung.Format` is the authoritative two-space source formatter for both cli and
-editor. it is deliberately structural: it preserveth comments and incomplete
-source, remaineth idempotent, and invoke neither parsing nor type checking.
-typescript code under `vscode/server/format.ts` only converteth lsp ranges.
+editor. it is deliberately structural: it preserveþ comments and incomplete
+source, remaineþ idempotent, and invoke neither parsing nor type checking.
+typescript code under `vscode/server/format.ts` only converteþ lsp ranges.
 
-the language server combine two paths. tolerant typescript analysis keepeth
+the language server combine two paths. tolerant typescript analysis keepeþ
 highlighting, navigation, completion, symbols, and folding available for
-unfinished buffers. one versioned `tung --editor-session` process provideth
+unfinished buffers. one versioned `tung --editor-session` process provideþ
 authoritative diagnostics, inferred hover types, and formatting. cancelled or
 stale responses must not enter editor state.
 
-xref:../vscode/readme.adoc[`vscode/readme.adoc`] documenteth editor setup,
+xref:../vscode/readme.adoc[`vscode/readme.adoc`] documenteþ editor setup,
 features, and component checks.
 
 == embedded library and generated metadata
 
-`Tung.Embed` discovereth the sibling `bookhoard/` tree at compile time. the
-tracked `.bookhoard-membership` file containeth paths and content fingerprints;
-`make compiler-build` refresheth it before cabal buildeth. when cabal appeareth
+`Tung.Embed` discovereþ the sibling `bookhoard/` tree at compile time. the
+tracked `.bookhoard-membership` file containeþ paths and content fingerprints;
+`make compiler-build` refresheþ it before cabal buildeþ. when cabal appeareþ
 to reuse stale embedded sources, verify with a fresh `--builddir`.
 
-`tool/language-names.tung` emiteth the tracked editor keyword and primitive
+`tool/language-names.tung` emiteþ the tracked editor keyword and primitive
 table. run `make language-metadata`; do not edit the generated json. `writ/`
-buildeth ignored api html from shown declarations and attached doc comments.
+buildeþ ignored api html from shown declarations and attached doc comments.
 
 == change and test boundaries
 
@@ -186,12 +186,12 @@ compiler or bookhoard work, `make vscode-test` for editor or formatter work,
 `make writ-test` for documentation generation, and `git diff --check`.
 
 tests are part of the specification. keep successful and adversarial cases at
-the stage which owneth a rule, use exact evaluation results when deterministic,
+the stage which owneþ a rule, use exact evaluation results when deterministic,
 and do not weaken static checking to preserve stale library code.
 
 == reference model
 
-tung adapteth established work without copying its syntax:
+tung adapteþ established work without copying its syntax:
 
 * damas and milner ground let generalisation, instantiation, and unification.
 * wadler and blott ground qualified polymorphism and explicit evidence.
@@ -199,7 +199,7 @@ tung adapteth established work without copying its syntax:
 * plotkin and pretnar ground algebraic handlers and resumptions.
 * maranget ground usefulness and exhaustive pattern checking.
 
-purescript informeth strict functional module and class boundaries; lean and
+purescript informeþ strict functional module and class boundaries; lean and
 mathlib inform lawful algebra and finite-collection distinctions. detailed
 bookhoard comparisons live in
 xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`].

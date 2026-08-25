@@ -10,7 +10,7 @@ import {
   sessionRequest,
   sourceBundle,
 } from "../server/checker.ts";
-test("checker bundle preserveth unicode, quotes, slashes, and control characters", () => {
+test("checker bundle preserveþ unicode, quotes, slashes, and control characters", () => {
   assert.equal(haskellString('𝟙\n"\\\t'), '"𝟙\\n\\"\\\\\\t"');
   assert.equal(
     sourceBundle("main", [["dep.tung", "source"]]),
@@ -21,7 +21,7 @@ test("checker bundle preserveth unicode, quotes, slashes, and control characters
     '(7,4,"check","",("main",[("dep.tung","source")]))\n',
   );
 });
-test("checker protocol carrieth an exact source range", () => {
+test("checker protocol carrieþ an exact source range", () => {
   assert.deepEqual(
     parseCompilerDiagnostic(
       "tung-diagnostic\ttype\tdep.tung\t4\t9\ntype error: in 'value'",
@@ -36,7 +36,7 @@ test("checker protocol carrieth an exact source range", () => {
   );
   assert.equal(parseCompilerDiagnostic("tung-ok\n"), undefined);
 });
-test("checker findeth a built executable without cabal list-bin", (context) => {
+test("checker findeþ a built executable without cabal list-bin", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-checker-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const executable = path.join(
@@ -59,7 +59,7 @@ test("checker findeth a built executable without cabal list-bin", (context) => {
   bridge.findCabalExecutable = () => undefined;
   assert.equal(bridge.findExecutable(), executable);
 });
-test("checker reuseth one versioned session and cancellable requests", async (context) => {
+test("checker reuseþ one versioned session and cancellable requests", async (context) => {
   const root = path.resolve(__dirname, "..", "..", "..");
   const bridge = new CompilerBridge();
   bridge.configure(path.join(root, "tongue"));

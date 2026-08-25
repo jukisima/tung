@@ -1,4 +1,4 @@
-{- | compile-time embedding joineth every discovered sibling bookhoard source to
+{- | compile-time embedding joineþ every discovered sibling bookhoard source to
 the installed runner without making the bookhoard part of the compiler package.
 -}
 module Tung.Embed (embedBookhoard) where

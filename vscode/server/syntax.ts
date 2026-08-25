@@ -14,7 +14,7 @@ const declarationKeywords = new Set([
 ]);
 const fileDeclarationKeywords = new Set([
   "bring",
-  "graith",
+  "graiþ",
   "yield",
   "show",
   "show-ilk",
@@ -241,12 +241,12 @@ const splitTopLevel = (tokens, start, end, separators) => {
   return segments;
 };
 
-// a leading graith and its following let form one member declaration.
+// a leading graiþ and its following let form one member declaration.
 const splitDeclarations = (
   tokens,
   start,
   end,
-  heads = new Set(["let", "graith"]),
+  heads = new Set(["let", "graiþ"]),
 ) => {
   const depths = tokenDepths(tokens);
   const baseDepth = depths[start] ?? 0;
@@ -259,7 +259,7 @@ const splitDeclarations = (
       depths[index] !== baseDepth || token.kind !== "keyword" ||
       !heads.has(token.text)
     ) continue;
-    if (token.text === "graith") {
+    if (token.text === "graiþ") {
       if (segmentStart >= 0) segments.push({ start: segmentStart, end: index });
       segmentStart = index;
       awaitingGraithLet = true;

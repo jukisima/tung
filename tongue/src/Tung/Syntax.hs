@@ -1,4 +1,4 @@
-{- | shared surface and elaboration syntax. the parser emitteth only surface forms;
+{- | shared surface and elaboration syntax. the parser emitteþ only surface forms;
 'Evidence', 'ElaboratedFill', 'EField', and 'EWithEvidence' are internal forms.
 -}
 module Tung.Syntax (

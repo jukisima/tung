@@ -1,4 +1,4 @@
-// tolerant structural model for incomplete buffers. it joineth semantic roles,
+// tolerant structural model for incomplete buffers. it joineþ semantic roles,
 // declaration regions, docs, imports, and scopes without attempting type checks.
 import { analyzeTokens, semanticRole } from "./semantic.ts";
 import {
@@ -15,10 +15,10 @@ const ownedKinds = new Set(["kin", "deed", "shape"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
   bring:
-    "bring a tung file into scope; its last path segment is the default namespace, and a third element overrideeth it.",
+    "bring a tung file into scope; its last path segment is the default namespace, and a third element overrideeþ it.",
   show: "publish a declaration or re-export a visible term.",
   "show-ilk": "re-export a visible type.",
-  graith: "state the shapes required by a declaration.",
+  graiþ: "state the shapes required by a declaration.",
   yield:
     "introduce a block result or handle the normal result of a `try` expression.",
   shape: "declare a shape and its members.",

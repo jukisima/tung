@@ -121,13 +121,13 @@
     "export-list": {
       "patterns": [
         {
-          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graith\\b|kin\\b|deed\\b|shape\\b|fill\\b))",
+          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graiþ\\b|kin\\b|deed\\b|shape\\b|fill\\b))",
           "beginCaptures": {
             "1": {
               "name": "keyword.declaration.tung"
             }
           },
-          "end": "(?=\\b(?:bring|graith|yield|show|show-ilk|let|let-ilk|kin|deed|shape|fill)\\b)|$",
+          "end": "(?=\\b(?:bring|graiþ|yield|show|show-ilk|let|let-ilk|kin|deed|shape|fill)\\b)|$",
           "name": "meta.export.tung"
         }
       ]
@@ -141,7 +141,7 @@
               "name": "keyword.declaration.tung"
             }
           },
-          "end": "(?=\\b(?:bring|graith|yield|show|show-ilk|let|let-ilk|kin|deed|shape|fill)\\b)|$",
+          "end": "(?=\\b(?:bring|graiþ|yield|show|show-ilk|let|let-ilk|kin|deed|shape|fill)\\b)|$",
           "name": "meta.export.type.tung",
           "patterns": [
             {
@@ -199,7 +199,7 @@
     "declaration-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:let-ilk|let|graith|bring|kin|deed|shape|fill|law|show-ilk|show)\\b",
+          "match": "\\b(?:let-ilk|let|graiþ|bring|kin|deed|shape|fill|law|show-ilk|show)\\b",
           "name": "keyword.declaration.tung"
         }
       ]

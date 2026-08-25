@@ -309,10 +309,10 @@ const collectShape = (tokens, index, info) => {
   const { open, close } = body;
   const header = defaultHeader(headerTerms(tokens, index + 1, open));
   markOwnerHeader(info, header, info.shapes, "shape");
-  const heads = new Set(["let", "graith", "law"]);
+  const heads = new Set(["let", "graiþ", "law"]);
   for (const segment of splitDeclarations(tokens, open + 1, close, heads)) {
     let member = segment.start;
-    if (tokens[member]?.text === "graith") {
+    if (tokens[member]?.text === "graiþ") {
       member = findTopLevelText(tokens, member + 1, segment.end, "let");
       if (member < 0) continue;
     }
@@ -361,7 +361,7 @@ const collectFill = (tokens, index, info) => {
   for (const segment of splitDeclarations(tokens, open + 1, close)) {
     if (tokens[segment.start] && tokens[segment.start].text === "let") {
       collectMemberLet(tokens, segment, info);
-    } else if (tokens[segment.start]?.text === "graith") {
+    } else if (tokens[segment.start]?.text === "graiþ") {
       const member = findTopLevelText(
         tokens,
         segment.start + 1,
@@ -456,7 +456,7 @@ const markValueParameters = (terms, header, info) => {
 };
 const declarationCollectors = {
   bring: collectImport,
-  graith: collectGraith,
+  graiþ: collectGraith,
   "let-ilk": collectTypeAlias,
   kin: collectData,
   deed: collectEffect,

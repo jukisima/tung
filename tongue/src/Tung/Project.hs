@@ -1,6 +1,6 @@
 {- | filesystem project loading is kept outside parsing and import semantics.
-the loader resolveth relative brings into the flat source bundle consumed by the
-checker, and rejecteth path collisions instead of silently choosing one file.
+the loader resolveþ relative brings into the flat source bundle consumed by the
+checker, and rejecteþ path collisions instead of silently choosing one file.
 -}
 module Tung.Project (
   Project (..),
@@ -95,7 +95,7 @@ loadImport builtins roots owner base importPath = do
             failLoader
               ( "ambiguous bring '"
                   ++ importPath
-                  ++ "' resolveth to both '"
+                  ++ "' resolveþ to both '"
                   ++ other
                   ++ "' and '"
                   ++ absolute

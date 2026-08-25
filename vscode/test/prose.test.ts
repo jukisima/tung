@@ -37,7 +37,7 @@ test("prose and source comments use british spelling", () => {
   );
   assert.deepEqual(failures, []);
 });
-test("prose and source comments use third-person -eth forms", () => {
+test("prose and source comments use third-person -eþ forms", () => {
   const failures = proseFiles(root).flatMap((file) =>
     proseFragments(file).flatMap((fragment) => {
       const prose = fragment.text.replace(/`[^`]*`/g, "");
@@ -49,7 +49,7 @@ test("prose and source comments use third-person -eth forms", () => {
   );
   assert.deepEqual(failures, []);
 });
-test("prose distinguisheth second-person number and case", () => {
+test("prose distinguisheþ second-person number and case", () => {
   const failures = proseFiles(root).flatMap((file) =>
     proseFragments(file).flatMap((fragment) => {
       const prose = fragment.text.replace(/`[^`]*`/g, "");
@@ -63,7 +63,7 @@ test("prose distinguisheth second-person number and case", () => {
   );
   assert.deepEqual(failures, []);
 });
-test("project documentation useth asciidoc", () => {
+test("project documentation useþ asciidoc", () => {
   assert.deepEqual(
     repositoryFiles(root).filter((file) => file.endsWith(".md")),
     [],

@@ -158,7 +158,7 @@
         "tung.executablePath": {
           "type": "string",
           "default": "",
-          "description": "path or command name for the tung runner; blank useth the compiler found by the language server, then tung on PATH"
+          "description": "path or command name for the tung runner; blank useþ the compiler found by the language server, then tung on PATH"
         },
         "tung.tonguePath": {
           "type": "string",

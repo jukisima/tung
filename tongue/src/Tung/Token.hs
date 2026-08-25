@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-{- | source lexer. a name containeth any non-space character not reserved by
+{- | source lexer. a name containeþ any non-space character not reserved by
 'specialNameChars'; literals and comments are consumed before name parsing.
 -}
 module Tung.Token (
@@ -299,7 +299,7 @@ keywordNames :: [String]
 keywordNames = map fst keywordTokens
 
 -- eftgin is contextual rather than a lexer token, but editor metadata still
--- presenteth it as a language keyword.
+-- presenteþ it as a language keyword.
 languageKeywordNames :: [String]
 languageKeywordNames = keywordNames ++ ["eftgin"]
 

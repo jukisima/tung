@@ -21,3 +21,6 @@ pre-commit:
         deno lint {staged_files}
         deno fmt {staged_files}
       stage_fixed: true
+
+    - name: test
+      run: make test

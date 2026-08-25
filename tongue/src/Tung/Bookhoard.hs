@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 {- | bundled bookhoard paths and loading. paths are source-relative public import
-names; this module intentionally provideth no historical aliases. ghc tracketh
+names; this module intentionally provideþ no historical aliases. ghc trackeþ
 each discovered file and a build-refreshed directory-membership manifest.
 -}
 module Tung.Bookhoard (

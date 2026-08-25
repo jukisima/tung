@@ -1,4 +1,4 @@
-// buildeth a self-contained standard-bookhoard wiki from public declarations.
+// buildeþ a self-contained standard-bookhoard wiki from public declarations.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { toFilePath, WorkspaceIndex } from "../vscode/server/workspace.ts";

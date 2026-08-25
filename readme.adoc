@@ -29,25 +29,25 @@ set `PREFIX` or `BIN_DIR` to choose another destination.
 | purpose
 
 | `tung program.tung [arguments...]`
-| runneth `main` with the remaining arguments
+| runneþ `main` with the remaining arguments
 
 | `tung --check program.tung`
-| checketh a program with `main`
+| checkeþ a program with `main`
 
 | `tung --check-module module.tung`
-| checketh a program without `main`
+| checkeþ a program without `main`
 
 | `tung --type-of name program.tung`
-| printeth the inferred type of a name
+| printeþ the inferred type of a name
 
 | `tung --format file.tung [more.tung...]`
-| formateth files in stead
+| formateþ files in stead
 
 | `tung --repl`
-| starteth the interactive checker and evaluator
+| starteþ the interactive checker and evaluator
 |===
 
-`main` taketh `𝟙`, yieldeth `𝟙`, and may use the standard runtime effects.
+`main` takeþ `𝟙`, yieldeþ `𝟙`, and may use the standard runtime effects.
 
 [source,tung]
 ----
@@ -61,8 +61,8 @@ examples are in link:byspel/[`byspel/`].
 
 == syntax
 
-tung useth function-second syntax for application.
-`$` groupeth the expression on its left before passing it to the function on its right.
+tung useþ function-second syntax for application.
+`$` groupeþ the expression on its left before passing it to the function on its right.
 
 [source,tung]
 ----
@@ -74,14 +74,14 @@ a f $ g b     # g (f a) b in haskell
 ----
 
 the opening parenthesis must touch `r`, `<`, or `>` in these special forms.
-an associative form requireth its combining function and at least two values.
+an associative form requireþ its combining function and at least two values.
 
 functions are curried.
 effects follow `!` on a function arrow, and
-`(term: type)` constraineth any term.
+`(term: type)` constraineþ any term.
 
 closed record types use `r(field: type)`, and values use `r(field = value)`;
-`r(= record, field = value)` updateth a record, and `r(= record, - field)` removeth a field.
+`r(= record, field = value)` updateþ a record, and `r(= record, - field)` removeþ a field.
 
 == keywords
 
@@ -91,55 +91,55 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | use
 
 | `let`
-| bindeth a value to a name
+| bindeþ a value to a name
 
-| `graith`
-| requireth shape evidence from the caller
+| `graiþ`
+| requireþ shape evidence from the caller
 
 | `show`
-| publisheth a declaration or re-publisheth a visible term
+| publisheþ a declaration or re-publisheþ a visible term
 
 | `show-ilk`
-| publisheth a type, effect, or shape name
+| publisheþ a type, effect, or shape name
 
 | `bring`
-| importeth a module
+| importeþ a module
 
 | `let-ilk`
-| defineth a type alias
+| defineþ a type alias
 
 | `kin`
-| declareth an algebraic data type and its constructors
+| declareþ an algebraic data type and its constructors
 
 | `deed`
-| declareth an algebraic effect and its operations
+| declareþ an algebraic effect and its operations
 
 | `yield`
-| return a block result or handleth a normal `try` result
+| return a block result or handleþ a normal `try` result
 
 | `fremmed`
-| bindeth an annotated file-level `let` to the host function named by a text key
+| bindeþ an annotated file-level `let` to the host function named by a text key
 
 | `shape`
-| declareth a statically selected interface, defaults, and laws
+| declareþ a statically selected interface, defaults, and laws
 
 | `fill`
-| provideth evidence and implementations for a shape
+| provideþ evidence and implementations for a shape
 
 | `law`
-| recordeth a type-checked equation without proving it
+| recordeþ a type-checked equation without proving it
 
 | `match`
-| selecteth an exhaustive, non-redundant pattern case
+| selecteþ an exhaustive, non-redundant pattern case
 
 | `try`
-| handleth effects performed by an expression
+| handleþ effects performed by an expression
 
 | `eftgin`
-| continueth the captured computation inside an operation case
+| continueþ the captured computation inside an operation case
 |===
 
-`bring` introduceth a module with the file name or an optional name given.
+`bring` introduceþ a module with the file name or an optional name given.
 
 [source,tung]
 ----
@@ -151,11 +151,11 @@ let my-empty-table = hashmap@empty
 ----
 
 imported names may stay bare when unambiguous.
-declarations remain private unless published with `show` or `show-ilk`. module lookup searcheth local files,
+declarations remain private unless published with `show` or `show-ilk`. module lookup searcheþ local files,
 `TUNG_PATH`, then the embedded standard bookhoard.
 
 handlers are deep, and thou mayst call `eftgin` more than once.
-partial application is pure; an effect operation runneth only when fully applied.
+partial application is pure; an effect operation runneþ only when fully applied.
 
 [source,tung]
 ----
@@ -172,15 +172,15 @@ let answer: text = try 10 ask {
 ----
 
 evaluation is strict and call-by-value.
-checking precedeth evaluation, and file-level initialisation must stay pure.
+checking precedeþ evaluation, and file-level initialisation must stay pure.
 
 == further reading
 
 * xref:tongue/language.adoc[`tongue/language.adoc`] is the detailed language reference.
-* xref:vscode/readme.adoc[`vscode/readme.adoc`] covereth editor commands, settings, and features.
-* xref:bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineth standard-library design boundaries.
-* xref:tongue/development.adoc[`tongue/development.adoc`] covereth repository architecture, commands, and testing.
+* xref:vscode/readme.adoc[`vscode/readme.adoc`] covereþ editor commands, settings, and features.
+* xref:bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ standard-library design boundaries.
+* xref:tongue/development.adoc[`tongue/development.adoc`] covereþ repository architecture, commands, and testing.
 * xref:tongue/agent.adoc[`tongue/agent.adoc`] is the short operating contract for repository changes.
 
-`make docs` writeth the generated standard-library reference to
+`make docs` writeþ the generated standard-library reference to
 `writ/bookhoard/index.html`.

@@ -146,7 +146,7 @@ parseGraithPrefix stop message ts = do
   needs <- parseShapeNeedsWhole graithTokens
   pure (needs, rest)
 
--- let parsing accepteth named and positional headers, typed parameter groups, and
+-- let parsing accepteþ named and positional headers, typed parameter groups, and
 -- graiþ prefixes, then lowers every parameter list to an anonymous match.
 parseLetDecl :: [ShapeNeed] -> P Decl
 parseLetDecl needs = \case
@@ -295,7 +295,7 @@ parseTypedParamPatternTokens ts = takeTopLevelUntil ts (\case TColon -> True; TC
 
 functionLetAnn :: [ShapeNeed] -> [Maybe TypeExpr] -> FunctionResult -> Either String TypeAnn
 functionLetAnn needs [] FunctionResult{functionResultType = result, functionResultEffects = [], functionResultNeeds} = Right (TypeAnn result (needs ++ functionResultNeeds))
-functionLetAnn _ [] _ = Left "effect annotation requireth function arguments"
+functionLetAnn _ [] _ = Left "effect annotation requireþ function arguments"
 functionLetAnn needs argTypes FunctionResult{..} =
   TypeAnn <$> makeArrowType (fillMissingTypes argTypes) functionResultEffects functionResultType <*> pure (needs ++ functionResultNeeds)
 
@@ -360,7 +360,7 @@ parseHeaderBody kind ts = do
 
 parseParamHeader :: String -> [Token] -> Either String ([String], String)
 parseParamHeader kind header = do
-  (paramTerms, name) <- maybeToEither (kind ++ " declaration requireth a name") (headerFromTokens header)
+  (paramTerms, name) <- maybeToEither (kind ++ " declaration requireþ a name") (headerFromTokens header)
   params <- maybeToEither (kind ++ " parameters must be names") (namesFromHeaderTerms paramTerms)
   pure (params, name)
 
@@ -382,7 +382,7 @@ parseEffectOp ts =
 parseShape :: [ShapeNeed] -> P Decl
 parseShape needs ts = do
   (header, body) <- parseHeaderBody "shape" ts
-  (paramTerms, name) <- maybeToEither "shape declaration requireth a name" (headerFromTokens header)
+  (paramTerms, name) <- maybeToEither "shape declaration requireþ a name" (headerFromTokens header)
   params <- maybeToEither "shape parameters must be names" (namesFromHeaderTerms paramTerms)
   (members, rest) <- parseShapeMembers body
   case rest of
@@ -414,10 +414,10 @@ parseShapeNeed ts = case headerFromTokens ts of
 parseFill :: [ShapeNeed] -> P Decl
 parseFill needs ts = do
   (header, body) <- parseHeaderBody "fill" ts
-  (tyTerms, shapeName) <- maybeToEither "fill declaration requireth a shape name" (headerFromTokens header)
+  (tyTerms, shapeName) <- maybeToEither "fill declaration requireþ a shape name" (headerFromTokens header)
   tyArgs <- maybeToEither "fill type arguments must be types" (typesFromHeaderTerms tyTerms)
   case tyArgs of
-    [] -> Left "fill declaration requireth at least one type argument"
+    [] -> Left "fill declaration requireþ at least one type argument"
     _ -> pure ()
   (ds, rest) <- parseLocalDecls body
   case rest of
@@ -679,7 +679,7 @@ parseExprAtomRaw = \case
   TUnicode codePoint : rest -> Right (EUnicode codePoint, rest)
   TText key : TForeign : rest -> Right (EForeign key, rest)
   TText s : rest -> Right (EText s, rest)
-  TForeign : _ -> Left "fremmed requireth a preceding text key"
+  TForeign : _ -> Left "fremmed requireþ a preceding text key"
   TParenKeyword marker : rest -> parseParenKeywordExpr marker rest
   TIdent "r" : TLParen : _ -> Left "record opener must be written 'r(' without whitespace"
   TIdent s : rest -> Right (EVar s, rest)
@@ -695,7 +695,7 @@ parseAnonymousMatchExpr ts = do
   pure (EMatch [] cs, rest)
 
 parseMatchExpr :: P Expr
-parseMatchExpr (TLBrace : _) = Left "match requireth a scrutinee; use '{ ... }' for a function"
+parseMatchExpr (TLBrace : _) = Left "match requireþ a scrutinee; use '{ ... }' for a function"
 parseMatchExpr ts = parseMatchScrutinees [] ts
 
 parseMatchScrutinees :: [Expr] -> P Expr
@@ -825,9 +825,9 @@ parseAssociativeExpr :: String -> P Expr
 parseAssociativeExpr marker ts = do
   (expressions, rest) <- parseCommaListUntil isRightParen parseExpr ts
   case expressions of
-    [] -> Left (marker ++ "(...) requireth a combining function")
+    [] -> Left (marker ++ "(...) requireþ a combining function")
     function : values@(_ : _ : _) -> pure (associate function values, rest)
-    _ -> Left (marker ++ "(...) requireth at least two values")
+    _ -> Left (marker ++ "(...) requireþ at least two values")
  where
   associate function = direction (applyBinary function)
   direction = if marker == "<" then foldl1 else foldr1
@@ -891,7 +891,7 @@ patternFromParts [term] rest = case patternFromTerm term of
   Just p -> Right (p, rest)
   Nothing -> Left "expected pattern"
 patternFromParts parts rest = case defaultHeader parts of
-  Nothing -> Left "constructor pattern requireth a name"
+  Nothing -> Left "constructor pattern requireþ a name"
   Just (argTerms, name) -> case patternsFromHeaderTerms argTerms of
     Nothing -> Left "invalid constructor pattern"
     Just args -> Right (PCon name args, rest)
@@ -977,7 +977,7 @@ finishFunctionResult tokens rest =
         Right (FunctionResult ret effects [], rest)
 
 -- arrows are special syntax with non-empty domains. type application otherwise
--- followeth the same second-is-function rule as term application.
+-- followeþ the same second-is-function rule as term application.
 parseTypeTokens :: P TypeExpr
 parseTypeTokens = parseArrowType
 
@@ -1011,7 +1011,7 @@ parseArrowResultLeaf ts = case splitTopLevelBang ts of
 
 makeArrowType :: [TypeExpr] -> [TypeExpr] -> TypeExpr -> Either String TypeExpr
 makeArrowType args effects ret = do
-  domain <- maybe (Left "function type requireth at least one argument") Right (NE.nonEmpty args)
+  domain <- maybe (Left "function type requireþ at least one argument") Right (NE.nonEmpty args)
   pure $ case (effects, ret) of
     ([], TypeArrow more moreEffects finalRet) -> TypeArrow (domain <> more) moreEffects finalRet
     _ -> TypeArrow domain effects ret
@@ -1197,7 +1197,7 @@ splitTopLevel ts stop = go [] (0 :: Int) ts
         TRParen -> go (x : acc) (depth - 1) rest
         _ -> go (x : acc) depth rest
 
--- delimiter-aware slicing keepeth declaration and type parsers small. callers
+-- delimiter-aware slicing keepeþ declaration and type parsers small. callers
 -- decide whether reaching the end is valid for their enclosing construct.
 takeTopLevelUntil :: [Token] -> (Token -> Bool) -> String -> Either String ([Token], [Token])
 takeTopLevelUntil ts stop message = case takeTopLevelUntilOrEnd ts stop of
