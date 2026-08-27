@@ -1,6 +1,7 @@
 // buildeþ a self-contained standard-bookhoard wiki from public declarations.
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { smallestRegion } from "../vscode/server/analysis.ts";
 import { toFilePath, WorkspaceIndex } from "../vscode/server/workspace.ts";
 const generateBookhoardHtml = (
   repository = path.resolve(__dirname, "..", "..", ".."),
@@ -88,7 +89,11 @@ const makeEntry = (entry) => ({
 });
 const fillEntries = (module) => {
   return module.model.fills.map((fill, index) => {
-    const region = containingRegion(module.model, fill.token.offset, "fill");
+    const region = smallestRegion(
+      module.model.regions,
+      fill.token.offset,
+      "fill",
+    );
     const detail = declarationHeader(module.model, region) ||
       `fill ${fill.shapeName}`;
     return makeEntry({
@@ -174,7 +179,7 @@ const addRelation = (entry, relation, target) => {
   }
 };
 const headerTokens = (model, offset) => {
-  const region = containingRegion(model, offset);
+  const region = smallestRegion(model.regions, offset);
   if (!region) return [];
   const start = declarationPrefixStart(model, region);
   return model.tokens.slice(start, region.headerEnd + 1);
@@ -189,17 +194,6 @@ const declarationPrefixStart = (model, region) => {
     start -= 1;
   }
   return start;
-};
-const containingRegion = (model, offset, kind = undefined) => {
-  return model.regions
-    .filter(
-      (region) =>
-        (!kind || region.kind === kind) &&
-        region.startOffset <= offset && offset <= region.endOffset,
-    )
-    .sort(
-      (a, b) => a.endOffset - a.startOffset - (b.endOffset - b.startOffset),
-    )[0];
 };
 const declarationHeader = (model, region) => {
   if (!region) return "";

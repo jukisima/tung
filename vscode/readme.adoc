@@ -9,9 +9,10 @@ this vscode extension and lsp server support `.tung` files.
 * `server/analysis.ts`: error-tolerant document model and symbol analysis
 * `server/checker.ts`: bridge to the haskell compiler and formatter
 * `server/format.ts`: lsp edit-range conversion
-* `server/semantic.ts`: lexer-aware semantic highlighting
-* `server/workspace.ts`: file index, imports, and name resolution
-* `generated/language-names.json`: lexical names emitted by a tung tool during the build
+* `server/syntax.ts`: shared tolerant tokenisation and structural recovery
+* `server/semantic.ts`: structural role inference and semantic highlighting
+* `server/workspace.ts`: file/import index and approximate visible-name resolution
+* `generated/language-names.json`: lexical names emitted by the tung compiler during the build
 * `out/`: generated commonjs used by vscode, node, and the test runner
 * `syntaxes/`: textmate fallback highlighting
 * `test/`: client-independent server and tooling tests
@@ -65,7 +66,16 @@ the server provideþ:
 * quick fixes for supported parse errors
 * a `Run Tung File` command and editor play button using an integrated terminal
 
-the workspace index followeþ local and bundled imports, honoureþ `show`, understandeþ qualify-if-needed lookup, default last-segment import aliases, and explicit `bring path alias` overrides, and sendeþ unsaved imported sources to the haskell checker. the checker bridge askeþ cabal for `exe:tung` and falleþ back to a built executable under `tongue/dist-newstyle` when cabal lookup is unavailable. it keepeþ one versioned session alive for checking, inferred types, and formatting, and cancelleþ obsolete work after edits. an error-tolerant source model keepeþ navigation and highlighting available while code is incomplete; the haskell implementation remaineþ authoritative for diagnostics, inferred types, and formatting.
+the tolerant workspace index followeþ local and bundled imports, honoureþ
+`show`, approximateþ qualify-if-needed lookup, default last-segment import
+aliases, and explicit `bring path alias` overrides, and sendeþ unsaved imported
+sources to the haskell checker. the checker bridge askeþ cabal for `exe:tung` and
+falleþ back to a built executable under `tongue/dist-newstyle` when cabal lookup
+is unavailable. it keepeþ one versioned session alive for checking, inferred
+types, and formatting, and cancelleþ obsolete work after edits. an
+error-tolerant source model keepeþ navigation and highlighting available while
+code is incomplete; the haskell implementation remaineþ authoritative for
+diagnostics, inferred types, and formatting.
 
 open a saved `.tung` file and select the play button in the editor title, or run
 `Tung: Run Tung File` from the command palette. the command saveþ the file and
@@ -76,7 +86,9 @@ not the compiler found by the language server and is not available as `tung` on
 term type ascriptions use `(term: type)`; semantic highlighting and formatting
 recognise the type tail while compiler diagnostics remain authoritative.
 
-`make language-metadata` runneþ `tongue/tool/language-names.tung` and refresheþ the generated keyword and primitive-type table used by semantic highlighting.
+`make language-metadata` runneþ `tung --language-metadata` and refresheþ þe
+compiler-owned keywords, primitive types, and special-name characters used by
+tolerant analysis and semantic highlighting.
 
 == checks
 

@@ -17,10 +17,6 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "activationEvents": [
-    "onLanguage:tung",
-    "onCommand:tung.runFile"
-  ],
   "categories": [
     "Programming Languages"
   ],

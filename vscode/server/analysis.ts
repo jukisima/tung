@@ -7,7 +7,8 @@ import {
   bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
-  languageNames,
+  lastQualifiedSegment,
+  patternArmRegions,
   tokenDepths,
   tokenize,
 } from "./syntax.ts";
@@ -46,19 +47,15 @@ const analyzeDocument = (text, uri = "") => {
   );
   const depths = tokenDepths(tokens);
   const pairs = bracketPairs(tokens);
-  const regions = declarationRegions(text, tokens, depths, pairs);
+  const regions = declarationRegions(tokens, depths, pairs);
   const docs = collectDocComments(text);
   attachDocs(regions, docs, tokens);
   const imports = collectImports(tokens, depths);
   const reexports = collectReexports(tokens, depths);
-  const definitions = semanticDefinitions(
-    text,
-    tokens,
-    semantic,
-    depths,
-    regions,
-  );
-  definitions.push(...patternDefinitions(tokens, semantic, depths));
+  const definitions = uniqueDefinitions([
+    ...patternDefinitions(tokens, semantic),
+    ...semanticDefinitions(text, tokens, semantic, depths, regions),
+  ]);
   definitions.forEach((definition, id) => {
     definition.id = `${uri}:${definition.token.offset}:${id}`;
     definition.uri = uri;
@@ -74,7 +71,6 @@ const analyzeDocument = (text, uri = "") => {
     regions,
     imports,
     reexports,
-    docs,
     fills: collectFills(tokens, semantic, regions),
     definitions,
     occurrences: tokens.filter((token) => token.kind === "name"),
@@ -196,7 +192,7 @@ const hasDeclarationBetween = (tokens, startOffset, endOffset) => {
 };
 // regions supply ownership and source extents for symbols, folding, docs, and
 // local scope. unmatched delimiters fall back to the document end.
-const declarationRegions = (text, tokens, depths, pairs) => {
+const declarationRegions = (tokens, depths, pairs) => {
   const regions = [];
   for (const token of tokens) {
     if (token.kind !== "keyword" || !declarationKeywords.has(token.text)) {
@@ -226,7 +222,6 @@ const declarationRegions = (text, tokens, depths, pairs) => {
     const shown = tokens[token.index - 1]?.text === "show";
     regions.push({
       kind: token.text,
-      token,
       startOffset: token.offset,
       endOffset: endToken.endOffset,
       startIndex: token.index,
@@ -234,7 +229,7 @@ const declarationRegions = (text, tokens, depths, pairs) => {
       headerEnd,
       depth: baseDepth,
       shown,
-      range: offsetsRange(text, token.offset, endToken.endOffset),
+      range: tokenRange(token, endToken),
     });
   }
   return regions;
@@ -262,8 +257,6 @@ const collectImports = (tokens, depths) => {
       alias: aliasToken?.text,
       exported: tokens[token.index - 1]?.text === "show",
       range: tokenRange(pathTokens[0], pathTokens.at(-1)),
-      aliasRange: aliasToken && tokenRange(aliasToken),
-      depth: depths[token.index],
     });
   }
   return imports;
@@ -344,18 +337,14 @@ const semanticDefinitions = (text, tokens, semantic, depths, regions) => {
       containerName: ownerName(tokens, semantic, owner),
     });
   }
-  return uniqueDefinitions(definitions);
+  return definitions;
 };
-const patternDefinitions = (tokens, semantic, depths) => {
+const patternDefinitions = (tokens, semantic) => {
   const definitions = [];
-  for (const pipe of tokens) {
-    if (pipe.text !== "|") continue;
-    const depth = depths[pipe.index];
-    const start = patternArmStart(tokens, depths, pipe.index, depth);
-    const endBoundary = patternArmEnd(tokens, depths, pipe.index, depth);
-    const endOffset = tokens[endBoundary]?.offset ??
+  for (const { patternStart, pipe, bodyEnd } of patternArmRegions(tokens)) {
+    const endOffset = tokens[bodyEnd]?.offset ??
       tokens.at(-1)?.endOffset ?? pipe.endOffset;
-    for (const token of tokens.slice(start, pipe.index)) {
+    for (const token of tokens.slice(patternStart, pipe.index)) {
       const role = semantic.semantic.get(token.index);
       if (
         token.kind !== "name" ||
@@ -382,30 +371,7 @@ const patternDefinitions = (tokens, semantic, depths) => {
       });
     }
   }
-  return uniqueDefinitions(definitions);
-};
-const patternArmStart = (tokens, depths, pipeIndex, depth) => {
-  for (let index = pipeIndex - 1; index >= 0; index -= 1) {
-    if (tokens[index].text === "|" && depths[index] === depth) {
-      for (let body = index + 1; body < pipeIndex; body += 1) {
-        if (tokens[body].text === "," && depths[body] === depth) {
-          return body + 1;
-        }
-      }
-      return index + 1;
-    }
-    if (tokens[index].text === "{" && depths[index] === depth - 1) {
-      return index + 1;
-    }
-  }
-  return 0;
-};
-const patternArmEnd = (tokens, depths, pipeIndex, depth) => {
-  for (let index = pipeIndex + 1; index < tokens.length; index += 1) {
-    if (tokens[index].text === "," && depths[index] === depth) return index;
-    if (tokens[index].text === "}" && depths[index] === depth) return index;
-  }
-  return tokens.length;
+  return definitions;
 };
 const definitionScope = (tokens, region, local) => {
   const documentEnd = tokens.at(-1)?.endOffset || 0;
@@ -429,9 +395,10 @@ const declarationDetail = (text, tokens, token, region, role) => {
     .trim();
   return header || `${role} ${lastQualifiedSegment(token.text)}`;
 };
-const smallestRegion = (regions, offset) => {
+const smallestRegion = (regions, offset, kind = undefined) => {
   return regions
     .filter((region) =>
+      (!kind || region.kind === kind) &&
       region.startOffset <= offset && offset <= region.endOffset
     )
     .sort((a, b) =>
@@ -508,14 +475,6 @@ const nameRange = (token) => {
     end: { line: token.endLine, character: token.endChar },
   };
 };
-const offsetsRange = (text, start, end) => {
-  return { start: positionAt(text, start), end: positionAt(text, end) };
-};
-const positionAt = (text, offset) => {
-  const before = text.slice(0, offset);
-  const lines = before.split(/\r\n|\r|\n/);
-  return { line: lines.length - 1, character: lines.at(-1).length };
-};
 const findAtDepth = (tokens, depths, start, text, depth) => {
   for (let index = start; index < tokens.length; index += 1) {
     if (depths[index] === depth && tokens[index].text === text) {
@@ -539,16 +498,12 @@ const uniqueDefinitions = (definitions) => {
     return true;
   });
 };
-const lastQualifiedSegment = (name) => {
-  return name.slice(name.lastIndexOf("@") + 1);
-};
 export {
   analyzeDocument,
   findDefinition,
   keywordHelp,
-  languageNames,
-  lastQualifiedSegment,
   nameRange,
+  smallestRegion,
   tokenAtPosition,
   tokenRange,
 };

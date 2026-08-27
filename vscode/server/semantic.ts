@@ -9,7 +9,8 @@ import {
   findOpening,
   isClose,
   isOpen,
-  languageNames,
+  lastQualifiedSegment,
+  patternArmRegions,
   primitiveTypes,
   splitDeclarations,
   splitTopLevel,
@@ -19,7 +20,6 @@ const tokenTypes = [
   "keyword",
   "namespace",
   "type",
-  "class",
   "shape",
   "function",
   "method",
@@ -32,7 +32,6 @@ const tokenTypes = [
 ];
 const tokenModifiers = [
   "declaration",
-  "definition",
   "defaultLibrary",
   "effect",
 ];
@@ -60,6 +59,13 @@ const buildSemanticRanges = (
 ) => {
   const tokens = tokenize(text);
   const info = analyze(tokens);
+  return buildAnalyzedSemanticRanges(tokens, info, resolveDefinition);
+};
+const buildAnalyzedSemanticRanges = (
+  tokens,
+  info,
+  resolveDefinition = (_token) => undefined,
+) => {
   const emitted = [];
   for (const token of tokens) {
     if (
@@ -148,7 +154,7 @@ const semanticFromDefinition = (definition) => {
   return {
     type,
     modifiers: (definition.modifiers || []).filter(
-      (modifier) => !["declaration", "definition"].includes(modifier),
+      (modifier) => modifier !== "declaration",
     ),
   };
 };
@@ -300,7 +306,7 @@ const collectEffect = (tokens, index, info) => {
     collectTypedMember(tokens, segment, info, "method", [
       "declaration",
       "effect",
-    ], true);
+    ]);
   }
 };
 const collectShape = (tokens, index, info) => {
@@ -400,20 +406,18 @@ const collectTypedMember = (
   info,
   role,
   modifiers,
-  effectOperation = false,
-  markInputs = true,
 ) => {
   const colon = findTopLevelText(tokens, segment.start, segment.end, ":");
   if (colon < 0) return;
   const terms = headerTerms(tokens, segment.start, colon);
   const member = defaultHeader(terms);
-  if (member.name && markInputs) {
+  if (member.name) {
     markTypeTerms(terms, info, new Set([member.name.index]));
   }
   markTypeTokens(tokens, colon + 1, segment.end, info);
   if (!member.name) return;
   info.functions.add(member.name.text);
-  if (effectOperation) info.effectOps.add(member.name.text);
+  if (modifiers.includes("effect")) info.effectOps.add(member.name.text);
   mark(info, member.name.index, role, modifiers, 100);
 };
 const collectMemberLet = (tokens, segment, info) => {
@@ -465,33 +469,18 @@ const declarationCollectors = {
   let: collectLet,
 };
 const collectPatternBindings = (tokens, info) => {
-  for (let i = 0; i < tokens.length; i += 1) {
-    if (tokens[i].text !== "|") {
-      continue;
-    }
-    const start = armStart(tokens, i - 1);
-    for (const segment of splitTopLevel(tokens, start, i, separators.comma)) {
+  for (const { patternStart, pipe } of patternArmRegions(tokens)) {
+    for (
+      const segment of splitTopLevel(
+        tokens,
+        patternStart,
+        pipe.index,
+        separators.comma,
+      )
+    ) {
       markPatternSegment(tokens, segment, info);
     }
   }
-};
-const armStart = (tokens, index) => {
-  let depth = 0;
-  for (let i = index; i >= 0; i -= 1) {
-    const text = tokens[i].text;
-    if (isClose(text)) {
-      depth += 1;
-    } else if (isOpen(text)) {
-      if (depth === 0) {
-        return i + 1;
-      }
-      depth -= 1;
-    } else if (depth === 0 && text === "|") {
-      const comma = findTopLevelText(tokens, i + 1, index + 1, ",");
-      return comma < 0 ? i + 1 : comma + 1;
-    }
-  }
-  return 0;
 };
 const markPatternSegment = (tokens, segment, info) => {
   for (let i = segment.start; i < segment.end; i += 1) {
@@ -804,16 +793,11 @@ const isTypePosition = (tokens, index) => {
   const prev = tokens[index - 1];
   return prev && [":", "!", "→"].includes(prev.text);
 };
-const lastQualifiedSegment = (name) => {
-  const at = name.lastIndexOf("@");
-  return at >= 0 ? name.slice(at + 1) : name;
-};
 export {
   analyze as analyzeTokens,
+  buildAnalyzedSemanticRanges,
   buildSemanticRanges,
-  languageNames,
   semanticRole,
-  tokenize,
   tokenModifiers,
   tokenTypes,
 };

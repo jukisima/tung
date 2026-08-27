@@ -1,4 +1,4 @@
-// vscode entry point: starteþ the lsp client and refresheþ semantic tokens.
+// vscode entry point: starteþ the lsp client and run-file command.
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";
@@ -8,15 +8,10 @@ export const activate = (context) => {
   const server = context.asAbsolutePath(
     path.join("out", "server", "main.js"),
   );
-  const watcher = vscode.workspace.createFileSystemWatcher("**/*.tung");
-  context.subscriptions.push(watcher);
   client = new LanguageClient(
     "tung",
     "tung language server",
-    {
-      run: { module: server, transport: TransportKind.ipc },
-      debug: { module: server, transport: TransportKind.ipc },
-    },
+    { module: server, transport: TransportKind.ipc },
     {
       documentSelector,
       initializationOptions: {
@@ -24,21 +19,13 @@ export const activate = (context) => {
           "tonguePath",
         ),
       },
-      synchronize: { fileEvents: watcher },
     },
   );
   context.subscriptions.push(
     client,
     vscode.commands.registerCommand("tung.runFile", runFile),
   );
-  return client.start().then(() => {
-    context.subscriptions.push(
-      client.onNotification(
-        "tung/semanticTokensChanged",
-        refreshOpenSemanticTokens,
-      ),
-    );
-  });
+  return client.start();
 };
 const runFile = async (resource?: vscode.Uri) => {
   const document = await runnableDocument(resource);
@@ -92,21 +79,4 @@ const runnableDocument = async (resource?: vscode.Uri) => {
 };
 export const deactivate = () => {
   return client?.stop();
-};
-export const refreshOpenSemanticTokens = (
-  params: {
-    uri?: string;
-  } = {},
-) => {
-  const wanted = params.uri && vscode.Uri.parse(params.uri).toString();
-  for (const document of vscode.workspace.textDocuments) {
-    if (document.languageId !== "tung" || document.isClosed) continue;
-    if (wanted && document.uri.toString() !== wanted) continue;
-    vscode.commands
-      .executeCommand(
-        "vscode.provideDocumentSemanticTokens",
-        document.uri,
-      )
-      .then(undefined, () => {});
-  }
 };

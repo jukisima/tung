@@ -7,7 +7,7 @@ import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
-group = Harness.group "name" (resolutionCases ++ [lookupCase, canonicalTypeCase])
+group = Harness.group "name" (resolutionCases ++ [lookupCase, canonicalTypeCase, dottedFileCanonicalTypeCase, dottedDirectoryCanonicalTypeCase])
 
 resolutionCases :: [Test]
 resolutionCases =
@@ -41,12 +41,15 @@ resolutionCases =
   , typeOkWith "show exports the term namespace" "bring term-only.tung let ok: integer = token" selectiveReexports
   , typeErrWith "show doth not export a same-spelled type" "bring term-only.tung let bad: token = 1" selectiveReexports
   , typeOkWith "a shape export carrieþ methods and fill evidence" "bring identity.tung let ok: integer = 1 identity" identityExport
+  , typeOkWith "show-ilk explicitly re-exporteþ a shape" "bring identity-middle.tung let ok: integer = 1 identity" shapeReexport
   , typeOkWith "an effect export carrieþ its operations" "bring ask.tung let (x: integer) run: integer = try x ask { y ask | y }" effectExport
   , typeOkWith "an effect export carrieþ its type-level name" "bring ask.tung let (x: integer) run: integer ! ask = x ask" effectExport
   , typeOkWith "show-ilk re-exports an effect" "bring ask-middle.tung let (x: integer) run: integer ! ask = x ask" effectReexport
   , typeErrWith "effects and data types share the type namespace" "bring data.tung bring effect.tung let (x: integer) run: integer ! signal = x effect@signal" typeKindCollision
   , typeOkWith "qualification resolveþ an effect and data type collision" "bring data.tung bring effect.tung let (x: integer) run: integer ! effect@signal = x effect@signal" typeKindCollision
   , typeOkWith "constructor pattern is exhaustive after re-export" "bring data-middle.tung let unbox: integer box → integer = { x box | x }" dataWholeReexport
+  , typeOkWith "dotted filename preserveþ its short default alias" "bring a.extra.tung let ok: integer = a@foo" dottedFileImport
+  , typeOkWith "a dotted directory doth not alter the default basename alias" "bring pkg.one/query.tung let ok: integer = query@foo" dottedDirectoryImport
   ]
  where
   leftOnly = Map.fromList [("left.tung", moduleSource 1)]
@@ -82,6 +85,11 @@ resolutionCases =
     Map.fromList
       [ ("identity.tung", "show shape a identity { let a identity: a } fill integer identity { let x identity = x }")
       ]
+  shapeReexport =
+    Map.fromList
+      [ ("identity-base.tung", "show shape a identity { let a identity: a } fill integer identity { let x identity = x }")
+      , ("identity-middle.tung", "bring identity-base.tung show-ilk identity-base@identity show identity-base@identity")
+      ]
   effectExport = Map.fromList [("ask.tung", "show deed ask { integer ask: integer }")]
   effectReexport =
     Map.fromList
@@ -98,6 +106,8 @@ resolutionCases =
       [ ("integer-type.tung", "show let-ilk token = integer")
       , ("text-type.tung", "show let-ilk token = text")
       ]
+  dottedFileImport = Map.singleton "a.extra.tung" (moduleSource 1)
+  dottedDirectoryImport = Map.singleton "pkg.one/query.tung" (moduleSource 1)
 moduleSource :: Int -> String
 moduleSource value = "show kin box { box } show let foo: integer = " ++ show value
 
@@ -116,6 +126,20 @@ canonicalTypeCase = case contextOf "bring left.tung" imports of
   Right ctx -> expect "canonical imported type" (canonicalTypeName "box" ctx == Just "left@box")
  where
   imports = Map.fromList [("left.tung", moduleSource 1)]
+
+dottedFileCanonicalTypeCase :: Test
+dottedFileCanonicalTypeCase = case contextOf "bring a.extra.tung" imports of
+  Left message -> pure (Just ("dotted filename canonical type: " ++ message))
+  Right ctx -> expect "dotted filename canonical type" (canonicalTypeName "a@box" ctx == Just "a.extra@box")
+ where
+  imports = Map.singleton "a.extra.tung" (moduleSource 1)
+
+dottedDirectoryCanonicalTypeCase :: Test
+dottedDirectoryCanonicalTypeCase = case contextOf "bring pkg.one/item.tung item-one" imports of
+  Left message -> pure (Just ("dotted directory canonical type: " ++ message))
+  Right ctx -> expect "dotted directory canonical type" (canonicalTypeName "item-one@box" ctx == Just "pkg.one/item@box")
+ where
+  imports = Map.singleton "pkg.one/item.tung" (moduleSource 1)
 
 contextOf :: String -> Map.Map String String -> Either String TcContext
 contextOf source imports = do

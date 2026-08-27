@@ -12,6 +12,7 @@ group =
   Harness.group "parse" $
     map (uncurry parseOk) accepted
       ++ map (uncurry parseErr) rejected
+      ++ importCases
       ++ map expressionCase expressions
       ++ generatedDefinitionForms
       ++ parserProperties
@@ -20,6 +21,8 @@ accepted :: [(String, String)]
 accepted =
   [ ("last let declaration", "let answer = 42")
   , ("bring accepteþ an optional alias", "bring data/list.tung list yield list@empty")
+  , ("bring accepteþ a dotted filename", "bring a.extra.tung extra")
+  , ("bring accepteþ a dotted directory", "bring pkg.one/query.tung query")
   , ("adjacent top-level declarations", "let x = 1 let y = 2")
   , ("type alias declaration boundary", "let-ilk count = integer let answer: count = 42")
   , ("yield introduceþ the final file expression", "let answer = 42 yield answer")
@@ -107,6 +110,18 @@ rejected =
   , ("deed members use commas", "deed e { 𝟙 one: 𝟙 𝟙 two: 𝟙 }")
   , ("fill members reject commas", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
   , ("handler hath at most one yield clause", "try 1 { yield x | x, yield y | y }")
+  ]
+
+importCases :: [Test]
+importCases =
+  [ expectEq
+      "dotted filename remaineþ whole in the bring ast"
+      (Right (Program [Import "a.extra.tung" (Just "extra")]))
+      (parse "bring a.extra.tung extra")
+  , expectEq
+      "dotted directory remaineþ whole in the bring ast"
+      (Right (Program [Import "pkg.one/query.tung" (Just "query")]))
+      (parse "bring pkg.one/query.tung query")
   ]
 
 expressions :: [(String, String, Expr)]

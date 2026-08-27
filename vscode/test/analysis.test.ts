@@ -75,6 +75,13 @@ test("analysis defaulteþ a bring namespace to its last path segment", () => {
     ],
   );
 });
+test("analysis ignoreþ dots in directories when defaulting a namespace", () => {
+  const model = analyzeDocument(
+    "bring pkg.one/query.tung yield query@answer",
+    "file:///imports.tung",
+  );
+  assert.equal(model.imports[0].namespace, "query");
+});
 test("analysis keepeþ term and type re-exports distinct", () => {
   const model = analyzeDocument(
     "show value show-ilk value",
@@ -116,6 +123,31 @@ test("local resolution preferreþ the narrowest binder scope", () => {
   assert.equal(
     definition.token.offset,
     model.tokens.filter(({ text }) => text === "x").at(-2).offset,
+  );
+});
+test("malformed pattern scope recovereþ through the end of the buffer", () => {
+  const source = "let choose = { (left, right | right";
+  const model = analyzeDocument(source, "file:///incomplete-pattern.tung");
+  const occurrences = model.tokens.filter(({ text }) => text === "right");
+  const use = occurrences.at(-1);
+  const definition = findDefinition(model, use, use.offset);
+  assert.equal(definition.token.offset, occurrences[0].offset);
+  assert.equal(definition.scopeEnd, source.length);
+});
+test("an unmatched inner delimiter doth not leak a pattern scope", () => {
+  const source = "let choose = { (left, right | right } let outside = right";
+  const model = analyzeDocument(source, "file:///recovered-pattern.tung");
+  const occurrences = model.tokens.filter(({ text }) => text === "right");
+  const innerDefinition = findDefinition(
+    model,
+    occurrences[1],
+    occurrences[1].offset,
+  );
+  assert.equal(innerDefinition.token.offset, occurrences[0].offset);
+  assert.equal(innerDefinition.scopeEnd, source.indexOf("}"));
+  assert.equal(
+    findDefinition(model, occurrences[2], occurrences[2].offset),
+    undefined,
   );
 });
 test("token lookup excludeþ the character after a token", () => {

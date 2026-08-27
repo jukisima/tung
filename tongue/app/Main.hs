@@ -31,10 +31,11 @@ main = do
     ["--type-of-stdin", name, path] -> typeOfStdin name (Just path)
     ["--type-of-bundle-stdin", name] -> typeOfBundleStdin name
     ["--editor-session"] -> editorSession
+    ["--language-metadata"] -> putStr languageMetadata
     ["--check", path] -> checkFile True path
     ["--check-module", path] -> checkFile False path
     ["--type-of", name, path] -> typeOfFile name path
-    ["--format-stdin"] -> formatSource <$> getContents >>= putStr
+    ["--format-stdin"] -> getContents >>= putStr . formatSource
     "--format" : paths | not (null paths) -> mapM_ formatFile paths
     ["--run-quiet", path] -> runFile True path []
     ["--repl"] -> repl
@@ -329,6 +330,7 @@ usage =
     , "       tung --type-of <name> <file.tung>"
     , "       tung --format <file.tung>..."
     , "       tung --format-stdin"
+    , "       tung --language-metadata"
     , "       tung --repl"
     ]
 

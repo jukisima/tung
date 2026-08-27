@@ -28,6 +28,8 @@ library
     , Tung.Format
     , Tung.Embed
     , Tung.Import
+    , Tung.Identity
+    , Tung.Metadata
     , Tung.Bookhoard
     , Tung.Name
     , Tung.Parse

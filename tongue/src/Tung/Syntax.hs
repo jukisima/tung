@@ -1,5 +1,6 @@
-{- | shared surface and elaboration syntax. the parser emitteþ only surface forms;
-'Evidence', 'ElaboratedFill', 'EField', and 'EWithEvidence' are internal forms.
+{- | shared surface and elaboration syntax. the parser emitteþ only surface
+forms; elaborated declarations and resolved expression/pattern constructors are
+internal forms.
 -}
 module Tung.Syntax (
   Program (..),
@@ -12,8 +13,9 @@ module Tung.Syntax (
   ShapeNeed (..),
   TypeAnn (..),
   TypeExpr (..),
-  Evidence (..),
   Expr (..),
+  isAnonymousMatchExpr,
+  HandlerTarget (..),
   HandlerCase (..),
   ReturnCase (..),
   RecordUpdate (..),
@@ -27,6 +29,7 @@ where
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
+import Tung.Identity (FillId, HandlerTarget (..), SymbolId, TermExport)
 import Tung.Token (SourceSpan)
 
 newtype Program = Program [Decl] deriving (Eq, Show)
@@ -40,9 +43,11 @@ data Decl
   | TypeAlias [String] String TypeExpr
   | DataDecl [String] String [Ctor]
   | EffectDecl [String] String [EffectOp]
+  | ElaboratedEffect SymbolId [(TermExport, EffectOp)]
   | ShapeDecl [String] String [ShapeNeed] [ShapeMember]
+  | ElaboratedShape SymbolId [SymbolId] [(TermExport, ShapeMember)]
   | FillDecl [TypeExpr] String [ShapeNeed] [Decl]
-  | ElaboratedFill String [TypeExpr] String [ShapeNeed] [Decl]
+  | ElaboratedFill FillId SymbolId [TypeExpr] String [ShapeNeed] [Decl]
   deriving (Eq, Show)
 
 data EffectOp = EffectOp String TypeExpr deriving (Eq, Show)
@@ -66,20 +71,16 @@ shapeMemberSignature = \case
   ShapeLaw{} -> Nothing
 
 shapeMemberNames :: [ShapeMember] -> [String]
-shapeMemberNames = mapMaybe (fmap fst . shapeMemberSignature)
+shapeMemberNames = mapMaybe \case
+  ShapeSpec name _ -> Just name
+  ShapeDefault name _ _ -> Just name
+  ShapeLaw{} -> Nothing
 
 data TypeExpr
   = TypeName String
   | TypeApply String [TypeExpr]
   | TypeRecord [(String, TypeExpr)]
   | TypeArrow (NonEmpty TypeExpr) [TypeExpr] TypeExpr
-  deriving (Eq, Show)
-
--- evidence holes exist only during inference and must be resolved before CoreProgram.
-data Evidence
-  = EvidenceHole Int
-  | EvidenceLocal String
-  | EvidenceFill String [Evidence] [Evidence]
   deriving (Eq, Show)
 
 data Expr
@@ -90,6 +91,9 @@ data Expr
   | EText String
   | EForeign String
   | EVar String
+  | EGlobal TermExport
+  | EEvidence Int
+  | EEvidenceLambda (NonEmpty Int) Expr
   | EAscribe Expr TypeExpr
   | EApply Expr (NonEmpty Expr)
   | ERecord [(String, Expr)]
@@ -98,16 +102,35 @@ data Expr
   | ETry Expr (Maybe ReturnCase) [HandlerCase]
   | EMatch [Expr] [MatchCase]
   | EBlock [Decl] Expr
-  | EWithEvidence Expr [Evidence]
+  | EWithEvidence Expr [Int]
+  | EDictionary FillId SymbolId [Expr] [Expr]
   deriving (Eq, Show)
 
-data HandlerCase = HandlerCase String [Pattern] Expr deriving (Eq, Show)
+-- transparent wrappers do not change whether a let body is a recursive
+-- anonymous match.
+isAnonymousMatchExpr :: Expr -> Bool
+isAnonymousMatchExpr = \case
+  ELocated _ expression -> isAnonymousMatchExpr expression
+  EAscribe expression _ -> isAnonymousMatchExpr expression
+  EEvidenceLambda _ expression -> isAnonymousMatchExpr expression
+  EMatch [] _ -> True
+  _ -> False
+
+data HandlerCase
+  = HandlerCase String [Pattern] Expr
+  | ResolvedHandlerCase HandlerTarget [Pattern] Expr
+  deriving (Eq, Show)
 
 data ReturnCase = ReturnCase Pattern Expr deriving (Eq, Show)
 
 data RecordUpdate = RecordSet String Expr | RecordRemove String deriving (Eq, Show)
 
-data Pattern = PVar String | PInteger Integer | PCon String [Pattern] deriving (Eq, Show)
+data Pattern
+  = PVar String
+  | PInteger Integer
+  | PCon String [Pattern]
+  | PConstructor SymbolId [Pattern]
+  deriving (Eq, Show)
 
 data MatchCase = MatchCase (NonEmpty Pattern) Expr deriving (Eq, Show)
 

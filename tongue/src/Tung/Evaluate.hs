@@ -18,14 +18,16 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (MVar, ThreadId, forkIO, getNumCapabilities, killThread, newEmptyMVar, putMVar, readMVar, threadDelay)
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO, readTVar, readTVarIO, writeTVar)
 import Control.Exception (AsyncException (ThreadKilled), IOException, SomeException, displayException, finally, fromException, mask, try)
-import Control.Monad (ap, foldM, guard, unless, when, (>=>))
+import Control.Monad (ap, foldM, unless, when, (>=>))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isControl, ord)
+import Data.Foldable (asum)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
-import Data.List (find, intercalate, isPrefixOf, stripPrefix)
+import Data.List (find, intercalate)
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe, isJust, listToMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TextIO
 import Data.Time.Clock.POSIX (getPOSIXTime)
@@ -35,18 +37,58 @@ import System.IO (hFlush, stdout)
 import System.Process qualified as Process
 import System.Timeout qualified as Timeout
 import Text.Read (readMaybe)
-import Tung.Core (CoreProgram, coreDeclarations, coreImportDeclarations)
+import Tung.Core (
+  CoreDecl (..),
+  CoreExpr (..),
+  CoreHandlerCase (..),
+  CoreLocalDecl (..),
+  CoreMatchCase (..),
+  CoreName (..),
+  CorePattern (..),
+  CoreProgram,
+  CoreRecordUpdate (..),
+  CoreReturnCase (..),
+  CoreShapeMember (..),
+  LocalId (..),
+  ModuleInterface (..),
+  coreDeclarations,
+  coreImportDeclarations,
+  coreImportInterface,
+  coreInterface,
+  localIdText,
+ )
+import Tung.Identity (FillId (..), HandlerTarget (..), ModuleId (RuntimeModule), SymbolId (..), TermExport (..), TermKind (..), renderFillId)
 import Tung.Import (ImportStack, enterImport)
-import Tung.Name (importAlias, importNamespace, isQualifiedName, lastQualifiedSegment, replaceNamespace, splitFieldAccessName)
+import Tung.Name (lastQualifiedSegment)
 import Tung.Parse (parse)
-import Tung.Primitive (findForeignBinding, hostArity)
-import Tung.Syntax
+import Tung.Primitive (
+  HostBinding (..),
+  HostRole (..),
+  PrimitiveFillSpec (..),
+  baseNativeBindings,
+  consConstructorId,
+  emptyConstructorId,
+  hostArity,
+  hostBindings,
+  nayConstructorId,
+  noneConstructorId,
+  nullConstructorId,
+  primitiveFillSpecs,
+  processResultConstructorId,
+  productConstructorId,
+  renderEffectId,
+  requestConstructorId,
+  responseConstructorId,
+  someConstructorId,
+  tableConstructorId,
+  yeaConstructorId,
+ )
 import Tung.Token (unicodeScalar)
-import Tung.Type
+import Tung.Type (elaborateInteractiveProgramWithImports, elaborateProgramWithImports)
 import Tung.Web qualified as Web
 
 -- callable values retain supplied arguments, making partial application a pure
--- value. natives and effect operations run only when 'applyArity' is saturated.
+-- value. natives and effect operations run only when a callable is saturated.
 data RuntimeValue
   = VUnit
   | VInteger Integer
@@ -54,31 +96,30 @@ data RuntimeValue
   | VUnicode Char
   | VText Text.Text
   | VRecord (Map.Map String RuntimeValue)
-  | VMatcher Int [RuntimeMatchCase] RuntimeEnv [RuntimeValue]
-  | VConstructor String String Int [RuntimeValue]
-  | VData String String [RuntimeValue]
-  | VNative String Int [RuntimeValue]
-  | VEffectOp String String Int [RuntimeValue]
+  | VData SymbolId [RuntimeValue]
+  | VCallable String ([RuntimeValue] -> Eval RuntimeValue) Int [RuntimeValue]
   | VTask RuntimeTask
-  | VContinuation (RuntimeValue -> Eval RuntimeValue)
-  | VShapeMember String
   | VDictionary RuntimeDictionary
 
 type RuntimeExpr = RuntimeEnv -> Eval RuntimeValue
 
-data RuntimeMatchCase = RuntimeMatchCase (NE.NonEmpty Pattern) RuntimeExpr
+data RuntimeMatchCase = RuntimeMatchCase (NE.NonEmpty CorePattern) RuntimeExpr
 
 -- primitive dictionaries retain the declaration environment so native fills
 -- can use ordinary bookhoard defaults and inherited members.
 data RuntimeDictionary
   = FillDictionary RuntimeFill [RuntimeValue] [RuntimeDictionary]
-  | PrimitiveDictionary String String RuntimeEnv [RuntimeDictionary]
+  | PrimitiveDictionary SymbolId String RuntimeEnv [RuntimeDictionary]
 
 data RuntimeFill = RuntimeFill
-  { runtimeFillShape :: String
-  , runtimeFillNeeds :: [ShapeNeed]
-  , runtimeFillMembers :: Map.Map String Expr
+  { runtimeFillShape :: SymbolId
+  , runtimeFillMembers :: Map.Map String CoreExpr
   , runtimeFillEnv :: RuntimeEnv
+  }
+
+data RuntimeShapeInfo = RuntimeShapeInfo
+  { runtimeShapeNeeds :: [SymbolId]
+  , runtimeShapeMembers :: [CoreShapeMember]
   }
 
 instance Eq RuntimeValue where
@@ -88,24 +129,21 @@ instance Eq RuntimeValue where
   VUnicode a == VUnicode b = a == b
   VText a == VText b = a == b
   VRecord xs == VRecord ys = xs == ys
-  VData xName _ xArgs == VData yName _ yArgs = xName == yName && xArgs == yArgs
+  VData xName xArgs == VData yName yArgs = xName == yName && xArgs == yArgs
   _ == _ = False
 
-type RuntimeBinding = (String, RuntimeValue, Int, String)
-
 data RuntimeEnv = RuntimeEnv
-  { runtimeValues :: [RuntimeBinding]
-  , runtimeLocals :: [(String, RuntimeValue)]
-  , runtimeLookup :: Map.Map String RuntimeValue
-  , runtimeShapes :: Map.Map String ShapeInfo
-  , runtimeFills :: Map.Map String RuntimeFill
+  { runtimeGlobals :: Map.Map TermExport RuntimeValue
+  , runtimeLocals :: Map.Map LocalId RuntimeValue
+  , runtimeShapes :: Map.Map SymbolId RuntimeShapeInfo
+  , runtimeFills :: Map.Map FillId RuntimeFill
   }
 
 newtype RuntimeError = RuntimeError String
 
 -- an operation carrieþ its explicit continuation. the 'Eval' monad composeþ
 -- through that continuation, which giveþ handlers deep, reusable resumption.
-data RuntimeResult a = RuntimeOk a | RuntimeErr RuntimeError | RuntimeOp String String [RuntimeValue] (RuntimeValue -> Eval a)
+data RuntimeResult a = RuntimeOk a | RuntimeErr RuntimeError | RuntimeOp SymbolId SymbolId [RuntimeValue] (RuntimeValue -> Eval a)
 
 data Eval a
   = EvalPure (RuntimeResult a)
@@ -168,8 +206,8 @@ raiseRuntime = EvalPure . RuntimeErr
 runtimeError :: String -> Eval a
 runtimeError = raiseRuntime . RuntimeError
 
-performRuntime :: String -> String -> [RuntimeValue] -> Eval RuntimeValue
-performRuntime effectName opName args = EvalPure (RuntimeOp effectName opName args pure)
+performRuntime :: SymbolId -> SymbolId -> [RuntimeValue] -> Eval RuntimeValue
+performRuntime effect operation args = EvalPure (RuntimeOp effect operation args pure)
 
 evaluate :: String -> IO String
 evaluate source = evaluateWithImports source Map.empty
@@ -216,8 +254,8 @@ runCoreProgram arguments program action = do
   result <- runEval (action program) host `finally` cancelActiveTasks host
   pure $ case result of
     RuntimeOk value -> "eval ok: " ++ showRuntimeValue value
-    RuntimeErr err -> "eval error: " ++ showRuntimeError err
-    RuntimeOp effectName opName _ _ -> "eval error: " ++ showUnhandledOperation effectName opName
+    RuntimeErr (RuntimeError message) -> "eval error: " ++ message
+    RuntimeOp effect operation _ _ -> "eval error: " ++ showUnhandledOperation effect operation
 
 newRuntimeHost :: [String] -> IO RuntimeHost
 newRuntimeHost arguments = do
@@ -239,31 +277,38 @@ cancelActiveTasks host@RuntimeHost{hostActiveTasks} = do
 runMain :: CoreProgram -> Eval RuntimeValue
 runMain program = do
   (env, _) <- evalProgramEnv [] program (coreDeclarations program)
-  mainValue <- maybe (runtimeError "runnable file must declare main") pure (lookupValue "main" env)
+  let mainSymbol = SymbolId (interfaceModule (coreInterface program)) "main"
+      mainTerm = TermExport mainSymbol OrdinaryTerm
+  mainValue <- maybe (runtimeError "runnable file must declare main") pure (lookupGlobalValue mainTerm env)
   applyOne mainValue runtimeNull
 
 evalProgram :: CoreProgram -> Eval RuntimeValue
 evalProgram program = snd <$> evalProgramEnv [] program (coreDeclarations program)
 
-evalImportedProgram :: ImportStack -> CoreProgram -> [Decl] -> Eval RuntimeEnv
-evalImportedProgram importStack program declarations = fst <$> evalProgramEnv importStack program declarations
-
-evalProgramEnv :: ImportStack -> CoreProgram -> [Decl] -> Eval (RuntimeEnv, RuntimeValue)
+evalProgramEnv :: ImportStack -> CoreProgram -> [CoreDecl] -> Eval (RuntimeEnv, RuntimeValue)
 evalProgramEnv importStack program declarations = evalDeclsWithImports importStack program declarations baseRuntimeEnv VUnit
 
-evalDeclsWithImports :: ImportStack -> CoreProgram -> [Decl] -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
-evalDeclsWithImports importStack program ds env lastValue = foldM step (env, lastValue) ds
+evalDeclsWithImports :: ImportStack -> CoreProgram -> [CoreDecl] -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
+evalDeclsWithImports importStack program declarations env lastValue = do
+  importedEnv <- foldM bring env declarations
+  let declarationEnv = closeRuntimeFills declarations (foldl' hoistRuntimeDecl importedEnv declarations)
+  foldM execute (declarationEnv, lastValue) declarations
  where
-  step (currentEnv, currentLast) = \case
-    Import path alias -> do
+  bring currentEnv = \case
+    CoreImport path -> do
       importedEnv <- evalImport importStack path program
-      let canonical = importNamespace path
-          namespaced = namespaceRuntimeImportEnv canonical importedEnv
-          env2 = mergeRuntimeEnv (aliasRuntimeImportEnv canonical (importAlias path alias) namespaced) currentEnv
-      pure (env2, currentLast)
-    d -> do
-      (env2, value) <- evalDecl d currentEnv
-      pure (env2, fromMaybe currentLast value)
+      pure (mergeRuntimeEnv importedEnv currentEnv)
+    _ -> pure currentEnv
+
+  -- executable declarations remain strict and left-to-right. reclosing local
+  -- fills after each binding preserveþ their access to preceding private values.
+  execute (currentEnv, currentLast) = \case
+    CoreLet term expr -> do
+      value <- evalGlobalBoundValue term expr currentEnv
+      let nextEnv = closeRuntimeFills declarations (addGlobalValue term value currentEnv)
+          nextLast = if symbolName (termExportTarget term) == "_" then value else currentLast
+      pure (nextEnv, nextLast)
+    _ -> pure (currentEnv, currentLast)
 
 -- runtime import caching mirrors static imports, but stores evaluated exported
 -- environments so repeated brings do not repeat module initialisation.
@@ -273,12 +318,12 @@ evalImport importStack path program = case enterImport importStack path of
   Right nextStack ->
     lookupRuntimeImport path >>= \case
       Just env -> pure env
-      Nothing -> case coreImportDeclarations path program of
-        Nothing -> runtimeError ("internal missing checked bring '" ++ path ++ "'")
-        Just declarations -> do
-          env <- evalImportedProgram nextStack program declarations
+      Nothing -> case (coreImportInterface path program, coreImportDeclarations path program) of
+        (Just interface, Just declarations) -> do
+          env <- projectRuntimeInterface interface . fst <$> evalProgramEnv nextStack program declarations
           cacheRuntimeImport path env
           pure env
+        _ -> runtimeError ("internal missing checked bring '" ++ path ++ "'")
 
 lookupRuntimeImport :: String -> Eval (Maybe RuntimeEnv)
 lookupRuntimeImport path = Eval $ \RuntimeHost{hostImportCache} -> RuntimeOk . Map.lookup path <$> readIORef hostImportCache
@@ -288,208 +333,104 @@ cacheRuntimeImport path env = Eval $ \RuntimeHost{hostImportCache} -> do
   atomicModifyIORef' hostImportCache (\cache -> (Map.insert path env cache, ()))
   pure (RuntimeOk ())
 
-namespaceRuntimeImportEnv :: String -> RuntimeEnv -> RuntimeEnv
-namespaceRuntimeImportEnv ns RuntimeEnv{..} =
-  let values = namespaceRuntimeImportValues ns runtimeValues
-   in RuntimeEnv
-        { runtimeValues = values
-        , runtimeLocals = []
-        , runtimeLookup = indexRuntimeValues values
-        , runtimeShapes = namespaceImportShapes ns runtimeShapes
-        , runtimeFills = Map.mapKeys (\key -> ns ++ "@" ++ key) runtimeFills
-        }
-
-aliasRuntimeImportEnv :: String -> String -> RuntimeEnv -> RuntimeEnv
-aliasRuntimeImportEnv canonical alias env@RuntimeEnv{..}
-  | alias == canonical = env
-  | otherwise =
-      let aliases = mapMaybe aliasBinding runtimeValues
-          values = aliases ++ runtimeValues
-       in env
-            { runtimeValues = values
-            , runtimeLookup = indexRuntimeValues values
-            , runtimeShapes = Map.union (Map.mapKeys (replaceNamespace canonical alias) (Map.filterWithKey (\name _ -> canonicalPrefix name) runtimeShapes)) runtimeShapes
-            }
+projectRuntimeInterface :: ModuleInterface -> RuntimeEnv -> RuntimeEnv
+projectRuntimeInterface ModuleInterface{interfaceTerms} RuntimeEnv{runtimeGlobals, runtimeShapes, runtimeFills} =
+  RuntimeEnv
+    { runtimeGlobals = Map.restrictKeys runtimeGlobals targets
+    , runtimeLocals = Map.empty
+    , runtimeShapes
+    , runtimeFills
+    }
  where
-  aliasBinding (name, value, rank, origin) =
-    (\rest -> (alias ++ "@" ++ rest, value, rank, origin)) <$> stripPrefix (canonical ++ "@") name
-  canonicalPrefix = isJust . stripPrefix (canonical ++ "@")
-
-namespaceRuntimeImportValues :: String -> [RuntimeBinding] -> [RuntimeBinding]
-namespaceRuntimeImportValues ns = concatMap one
- where
-  one (name, value, rank, origin)
-    | isBaseRuntimeImportBinding name origin = []
-    | rank == exportRuntimeRank && isShownRuntimeOrigin origin =
-        let value2 = namespaceRuntimeValue ns value
-            origin2 = ns ++ "@" ++ origin
-            exact = (ns ++ "@" ++ name, value2, importRuntimeRank, origin2)
-         in (lastQualifiedSegment name, value2, aliasRuntimeRank, origin2) : [exact]
-    | otherwise = []
-
-isShownRuntimeOrigin :: String -> Bool
-isShownRuntimeOrigin origin = "show@" `isPrefixOf` origin
-
-namespaceRuntimeValue :: String -> RuntimeValue -> RuntimeValue
-namespaceRuntimeValue ns = \case
-  VData qualifiedName displayName args -> VData (ns ++ "@" ++ qualifiedName) displayName args
-  VConstructor qualifiedName displayName arity args -> VConstructor (ns ++ "@" ++ qualifiedName) displayName arity args
-  value@(VEffectOp effectName _ _ _) | isBaseRuntimeEffectName effectName -> value
-  VEffectOp effectName opName arity args -> VEffectOp (ns ++ "@" ++ effectName) opName arity args
-  value -> value
+  targets = Set.fromList (Map.elems interfaceTerms)
 
 mergeRuntimeEnv :: RuntimeEnv -> RuntimeEnv -> RuntimeEnv
 mergeRuntimeEnv left right =
   RuntimeEnv
-    { runtimeValues = runtimeValues left ++ runtimeValues right
-    , runtimeLocals = runtimeLocals left ++ runtimeLocals right
-    , runtimeLookup = Map.union (runtimeLookup left) (runtimeLookup right)
+    { runtimeGlobals = Map.union (runtimeGlobals left) (runtimeGlobals right)
+    , runtimeLocals = Map.union (runtimeLocals left) (runtimeLocals right)
     , runtimeShapes = Map.union (runtimeShapes left) (runtimeShapes right)
     , runtimeFills = Map.union (runtimeFills left) (runtimeFills right)
     }
 
-localRuntimeRank, aliasRuntimeRank, importRuntimeRank, baseRuntimeRank, exportRuntimeRank :: Int
-localRuntimeRank = 0
-aliasRuntimeRank = 1
-importRuntimeRank = 1
-baseRuntimeRank = 2
-exportRuntimeRank = 3
+-- imports and inert declarations form the module environment before any
+-- top-level computation. fills are closed separately so all local fills share
+-- that environment without replacing imported modules' private closures.
+hoistRuntimeDecl :: RuntimeEnv -> CoreDecl -> RuntimeEnv
+hoistRuntimeDecl env = \case
+  CoreData constructors -> addConstructors constructors env
+  CoreEffect operations -> addEffectOps operations env
+  CoreShape shapeName needs members -> addShapeSelectors members (addRuntimeShapeInfo shapeName needs members env)
+  CoreForeignLet term hostKey arity -> addGlobalValue term (nativeValue hostKey arity) env
+  _ -> env
 
--- declarations extend the environment strictly in source order. recursive
--- anonymous matches capture their own binding without evaluating a body.
-evalDecl :: Decl -> RuntimeEnv -> Eval (RuntimeEnv, Maybe RuntimeValue)
-evalDecl decl env = case decl of
-  Import path _ -> runtimeError ("evaluation doth not support bring '" ++ path ++ "'")
-  Export declaration -> do
-    (env2, value) <- evalDecl declaration env
-    pure (markRuntimeDeclExport declaration env2, value)
-  ReExport name -> pure (addShownValue name env, Nothing)
-  ReExportType _ -> pure (env, Nothing)
-  TypeAlias{} -> pure (env, Nothing)
-  DataDecl _ name ctors -> pure (addConstructors name ctors env, Nothing)
-  EffectDecl _ name ops -> pure (addEffectOps name ops env, Nothing)
-  ShapeDecl params shapeName needs members -> pure (addShapeSelectors shapeName members (addRuntimeShapeInfo shapeName params needs members env), Nothing)
-  FillDecl{} -> runtimeError "internal unelaborated fill"
-  ElaboratedFill key _ shapeName needs members -> pure (addSelectedRuntimeFill key shapeName needs members env, Nothing)
-  Let name (Just _) (EForeign hostKey) -> case findForeignBinding hostKey of
-    Just binding -> pure (addValue name (VNative hostKey (hostArity binding) []) env, Nothing)
-    Nothing -> runtimeError ("internal unknown fremmed host binding '" ++ hostKey ++ "'")
-  Let name _ expr -> do
-    value <- evalBoundValue name expr env
-    let lastValue = if name == "_" then Just value else Nothing
-    pure (addValue name value env, lastValue)
+closeRuntimeFills :: [CoreDecl] -> RuntimeEnv -> RuntimeEnv
+closeRuntimeFills declarations env = closedEnv
+ where
+  closedEnv = foldl' add env declarations
+  add current = \case
+    CoreFill key shapeName members ->
+      current
+        { runtimeFills =
+            Map.insert key (RuntimeFill shapeName (Map.fromList members) closedEnv) (runtimeFills current)
+        }
+    _ -> current
 
-evalBoundValue :: String -> Expr -> RuntimeEnv -> Eval RuntimeValue
-evalBoundValue name expr env = case unlocatedMatch expr of
+evalGlobalBoundValue :: TermExport -> CoreExpr -> RuntimeEnv -> Eval RuntimeValue
+evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
   Just cases ->
-    let value = newMatcher (compileMatchCases (Just env) cases) (addLocalValue name value env)
+    let value = newMatcher (compileMatchCases cases) (addGlobalValue term value env)
      in pure value
   Nothing -> compileExpr expr env
 
-addShapeSelectors :: String -> [ShapeMember] -> RuntimeEnv -> RuntimeEnv
-addShapeSelectors shapeName members env = foldl' add env (shapeMemberNames members)
+addShapeSelectors :: [CoreShapeMember] -> RuntimeEnv -> RuntimeEnv
+addShapeSelectors members env = foldl' add env members
  where
-  add current name = addValue name selector (addValue (shapeName ++ "@" ++ name) selector current)
-   where
-    selector = VShapeMember name
+  add current (CoreShapeMember term _) = addGlobalValue term (shapeMemberValue (shapeMemberName term)) current
 
-addSelectedRuntimeFill :: String -> String -> [ShapeNeed] -> [Decl] -> RuntimeEnv -> RuntimeEnv
-addSelectedRuntimeFill key shapeName needs members env@RuntimeEnv{runtimeFills} =
-  fillEnv
- where
-  -- a member may select this dictionary while calling another member.
-  fillEnv = env{runtimeFills = Map.insert key template runtimeFills}
-  template = RuntimeFill shapeName needs (Map.fromList [(name, expr) | Let name _ expr <- members]) fillEnv
+shapeMemberName :: TermExport -> String
+shapeMemberName = lastQualifiedSegment . symbolName . termExportTarget
 
--- core expressions contain selected evidence and field accesses, but no raw
--- fills or unresolved evidence holes.
-evalExpr :: Expr -> RuntimeEnv -> Eval RuntimeValue
-evalExpr = compileExpr
-
-compileExpr :: Expr -> RuntimeExpr
-compileExpr = compileExprWith Nothing
-
--- recurring match bodies are compiled once. closed dictionary selection is
--- specialised at closure creation, but local evidence remaineþ dynamic.
-compileExprWith :: Maybe RuntimeEnv -> Expr -> RuntimeExpr
-compileExprWith staticEnv = \case
-  ELocated _ inner -> compileExprWith staticEnv inner
-  EInteger i -> const (pure (VInteger i))
-  EFloat s -> const (pure (VFloat s))
-  EUnicode codePoint -> const (pure (VUnicode codePoint))
-  EText s -> const (pure (VText (Text.pack s)))
-  EForeign{} -> const (runtimeError "internal misplaced fremmed marker")
-  EVar name -> evalVar name
-  EAscribe expression _ -> compileExprWith staticEnv expression
-  EApply function arguments ->
-    let compiledArguments = map (compileExprWith staticEnv) (NE.toList arguments)
-     in case staticEnv >>= \env -> resolveClosedShapeMemberCall env function (length compiledArguments) of
-          Just native -> \env -> traverse ($ env) compiledArguments >>= native
-          Nothing ->
-            let compiledFunction = compileExprWith staticEnv function
-             in \env -> compiledFunction env >>= \value -> evalCompiledArguments value compiledArguments env
-  ERecord fields ->
-    let compiledFields = map (fmap (compileExprWith staticEnv)) fields
+compileExpr :: CoreExpr -> RuntimeExpr
+compileExpr = \case
+  CoreInteger i -> const (pure (VInteger i))
+  CoreFloat s -> const (pure (VFloat s))
+  CoreUnicode codePoint -> const (pure (VUnicode codePoint))
+  CoreText s -> const (pure (VText (Text.pack s)))
+  CoreVar name -> evalCoreName name
+  CoreApply function arguments ->
+    let compiledFunction = compileExpr function
+        compiledArguments = map compileExpr (NE.toList arguments)
+     in \env -> compiledFunction env >>= \value -> evalCompiledArguments value compiledArguments env
+  CoreRecord fields ->
+    let compiledFields = map (fmap compileExpr) fields
      in \env -> evalCompiledRecord compiledFields env Map.empty
-  EField base field ->
-    let compiledBase = compileExprWith staticEnv base
+  CoreField base field ->
+    let compiledBase = compileExpr base
      in compiledBase >=> evalRecordField field
-  EUpdate base updates ->
-    let compiledBase = compileExprWith staticEnv base
-        compiledUpdates = map (compileRecordUpdate staticEnv) updates
+  CoreUpdate base updates ->
+    let compiledBase = compileExpr base
+        compiledUpdates = map compileRecordUpdate updates
      in \env -> compiledBase env >>= \value -> evalCompiledRecordUpdate value compiledUpdates env
-  ETry body returnCase cases -> evalTry body returnCase cases
-  EMatch scrutinees cases ->
-    let compiledScrutinees = map (compileExprWith staticEnv) scrutinees
-        compiledCases = compileMatchCases staticEnv cases
+  CoreTry body returnCase cases -> evalTry body returnCase cases
+  CoreMatch scrutinees cases ->
+    let compiledScrutinees = map compileExpr scrutinees
+        compiledCases = compileMatchCases cases
      in \env ->
           if null compiledScrutinees
             then pure (newMatcher compiledCases env)
             else traverse ($ env) compiledScrutinees >>= \values -> evalMatchCases compiledCases values env
-  EBlock declarations body ->
-    let compiledDeclarations = map (compileLocalDecl staticEnv) declarations
-        compiledBody = compileExprWith staticEnv body
+  CoreBlock declarations body ->
+    let compiledDeclarations = map compileLocalDecl declarations
+        compiledBody = compileExpr body
      in evalCompiledLocalDecls compiledDeclarations >=> compiledBody
-  EWithEvidence function evidence -> case staticEnv >>= \env -> resolveClosedShapeMember env function evidence of
-    Just value -> const (pure value)
-    Nothing ->
-      let compiledFunction = compileExprWith staticEnv function
-       in \env -> compiledFunction env >>= \value -> applyEvidence value evidence env
-
-resolveClosedShapeMember :: RuntimeEnv -> Expr -> [Evidence] -> Maybe RuntimeValue
-resolveClosedShapeMember env function evidence = do
-  name <- variableName function
-  guard (all evidenceClosed evidence)
-  value@(VShapeMember _) <- lookupValue name env
-  pureEval (applyEvidence value evidence env)
- where
-  variableName = \case
-    ELocated _ inner -> variableName inner
-    EAscribe inner _ -> variableName inner
-    EVar name -> Just name
-    _ -> Nothing
-  pureEval = \case
-    EvalPure (RuntimeOk value) -> Just value
-    _ -> Nothing
-
-resolveClosedShapeMemberCall :: RuntimeEnv -> Expr -> Int -> Maybe ([RuntimeValue] -> Eval RuntimeValue)
-resolveClosedShapeMemberCall env expression argumentCount = do
-  (function, evidence) <- evidenceApplication expression
-  VNative name remaining [] <- resolveClosedShapeMember env function evidence
-  guard (remaining == argumentCount)
-  pure (evalNative name)
- where
-  evidenceApplication = \case
-    ELocated _ inner -> evidenceApplication inner
-    EAscribe inner _ -> evidenceApplication inner
-    EWithEvidence function evidence -> Just (function, evidence)
-    _ -> Nothing
-
-evidenceClosed :: Evidence -> Bool
-evidenceClosed = \case
-  EvidenceFill _ nested parents -> all evidenceClosed nested && all evidenceClosed parents
-  EvidenceHole{} -> False
-  EvidenceLocal{} -> False
+  CoreDictionary key shape required parents ->
+    let compiledRequired = map compileExpr required
+        compiledParents = map compileExpr parents
+     in \env -> do
+          arguments <- traverse ($ env) compiledRequired
+          parentValues <- traverse ($ env) compiledParents
+          makeDictionary key shape arguments parentValues env
 
 evalCompiledArguments :: RuntimeValue -> [RuntimeExpr] -> RuntimeEnv -> Eval RuntimeValue
 evalCompiledArguments value arguments env = foldM step value arguments
@@ -498,10 +439,10 @@ evalCompiledArguments value arguments env = foldM step value arguments
 
 type RuntimeRecordUpdate = Either String (String, RuntimeExpr)
 
-compileRecordUpdate :: Maybe RuntimeEnv -> RecordUpdate -> RuntimeRecordUpdate
-compileRecordUpdate staticEnv = \case
-  RecordRemove name -> Left name
-  RecordSet name expr -> Right (name, compileExprWith staticEnv expr)
+compileRecordUpdate :: CoreRecordUpdate -> RuntimeRecordUpdate
+compileRecordUpdate = \case
+  CoreRecordRemove name -> Left name
+  CoreRecordSet name expr -> Right (name, compileExpr expr)
 
 evalCompiledRecord :: [(String, RuntimeExpr)] -> RuntimeEnv -> Map.Map String RuntimeValue -> Eval RuntimeValue
 evalCompiledRecord fields env record = VRecord <$> foldM step record fields
@@ -521,21 +462,17 @@ evalCompiledRecordUpdate value updates env = case value of
     Right (name, expr) -> Map.insert name <$> expr env <*> pure record
 
 data RuntimeLocalDecl
-  = RuntimeLocalLet String RuntimeExpr
-  | RuntimeLocalMatcher String [RuntimeMatchCase]
-  | RuntimeLocalOther
+  = RuntimeLocalLet LocalId RuntimeExpr
+  | RuntimeLocalMatcher LocalId [RuntimeMatchCase]
 
-compileLocalDecl :: Maybe RuntimeEnv -> Decl -> RuntimeLocalDecl
-compileLocalDecl staticEnv (Let name _ expr) = case unlocatedMatch expr of
-  Just cases -> RuntimeLocalMatcher name (compileMatchCases staticEnv cases)
-  Nothing -> RuntimeLocalLet name (compileExprWith staticEnv expr)
-compileLocalDecl _ _ = RuntimeLocalOther
+compileLocalDecl :: CoreLocalDecl -> RuntimeLocalDecl
+compileLocalDecl (CoreLocalLet name expr) = case anonymousCoreMatchCases expr of
+  Just cases -> RuntimeLocalMatcher name (compileMatchCases cases)
+  Nothing -> RuntimeLocalLet name (compileExpr expr)
 
-unlocatedMatch :: Expr -> Maybe [MatchCase]
-unlocatedMatch = \case
-  ELocated _ inner -> unlocatedMatch inner
-  EAscribe inner _ -> unlocatedMatch inner
-  EMatch [] cases -> Just cases
+anonymousCoreMatchCases :: CoreExpr -> Maybe [CoreMatchCase]
+anonymousCoreMatchCases = \case
+  CoreMatch [] cases -> Just cases
   _ -> Nothing
 
 evalCompiledLocalDecls :: [RuntimeLocalDecl] -> RuntimeEnv -> Eval RuntimeEnv
@@ -545,174 +482,153 @@ evalCompiledLocalDecls declarations env = foldM step env declarations
   step env (RuntimeLocalMatcher name cases) =
     let value = newMatcher cases (addLocalValue name value env)
      in pure (addLocalValue name value env)
-  step env RuntimeLocalOther = pure env
 
-compileMatchCases :: Maybe RuntimeEnv -> [MatchCase] -> [RuntimeMatchCase]
-compileMatchCases staticEnv = map (\(MatchCase patterns body) -> RuntimeMatchCase patterns (compileExprWith staticEnv body))
+compileMatchCases :: [CoreMatchCase] -> [RuntimeMatchCase]
+compileMatchCases = map (\(CoreMatchCase patterns body) -> RuntimeMatchCase patterns (compileExpr body))
 
 newMatcher :: [RuntimeMatchCase] -> RuntimeEnv -> RuntimeValue
-newMatcher cases env = VMatcher arity cases env []
+newMatcher cases env = callableValue "<function>" arity (\values -> evalMatchCases cases values env)
  where
   arity = case cases of
     RuntimeMatchCase patterns _ : _ -> NE.length patterns
     [] -> 0
-
-applyEvidence :: RuntimeValue -> [Evidence] -> RuntimeEnv -> Eval RuntimeValue
-applyEvidence value evidence env = traverse (evalEvidence env) evidence >>= foldM applyOne value
 
 evalRecordField :: String -> RuntimeValue -> Eval RuntimeValue
 evalRecordField field = \case
   VRecord fields -> maybe (runtimeError ("unknown record field '" ++ field ++ "'")) pure (Map.lookup field fields)
   value -> runtimeError ("record field access expected record, found " ++ showRuntimeValue value)
 
-evalEvidence :: RuntimeEnv -> Evidence -> Eval RuntimeValue
-evalEvidence env = \case
-  EvidenceHole _ -> runtimeError "unresolved type-class evidence"
-  EvidenceLocal name -> maybe (runtimeError ("missing type-class evidence '" ++ name ++ "'")) pure (lookupValue name env)
-  EvidenceFill key nested parents -> do
-    arguments <- traverse (evalEvidence env) nested
-    parentValues <- traverse (evalEvidence env) parents
-    parentDictionaries <- traverse expectDictionary parentValues
-    case Map.lookup key (runtimeFills env) of
-      Just fill
-        | length arguments == length (runtimeFillNeeds fill) -> pure (VDictionary (FillDictionary fill arguments parentDictionaries))
-        | otherwise -> runtimeError "type-class evidence arity mismatch"
-      Nothing -> case primitiveDictionary key env parentDictionaries of
-        Just dictionary | null arguments -> pure (VDictionary dictionary)
-        _ -> runtimeError ("missing selected fill '" ++ key ++ "'")
+makeDictionary :: FillId -> SymbolId -> [RuntimeValue] -> [RuntimeValue] -> RuntimeEnv -> Eval RuntimeValue
+makeDictionary key shape arguments parentValues env = do
+  parentDictionaries <- traverse expectDictionary parentValues
+  case Map.lookup key (runtimeFills env) of
+    Just fill -> pure (VDictionary (FillDictionary fill arguments parentDictionaries))
+    Nothing -> case key of
+      PrimitiveFillId{fillIdPrimitiveType}
+        | null arguments -> pure (VDictionary (PrimitiveDictionary shape fillIdPrimitiveType env parentDictionaries))
+      _ -> runtimeError ("internal missing selected fill '" ++ renderFillId key ++ "'")
  where
   expectDictionary (VDictionary dictionary) = pure dictionary
-  expectDictionary _ = runtimeError "parent fill evidence is not a dictionary"
+  expectDictionary _ = runtimeError "internal parent fill value is not a dictionary"
 
-evalVar :: String -> RuntimeEnv -> Eval RuntimeValue
-evalVar name env = case lookupValue name env of
+evalCoreName :: CoreName -> RuntimeEnv -> Eval RuntimeValue
+evalCoreName (CoreLocalName local) env = case Map.lookup local (runtimeLocals env) of
   Just value -> pure value
-  Nothing -> evalFieldAccessName name env
+  Nothing -> runtimeError ("internal missing local '" ++ localIdText local ++ "'")
+evalCoreName (CoreGlobalName term) env = case lookupGlobalValue term env of
+  Just value -> pure value
+  Nothing -> runtimeError ("internal missing global '" ++ symbolName (termExportTarget term) ++ "'")
 
-evalFieldAccessName :: String -> RuntimeEnv -> Eval RuntimeValue
-evalFieldAccessName name env = case splitFieldAccessName name of
-  Just (baseName, fieldName) -> evalVar baseName env >>= evalRecordField fieldName
-  Nothing -> runtimeError ("unknown name '" ++ name ++ "'")
-
--- function and arguments are evaluated left to right. 'applyOne' is the sole
+-- 'applyOne' is the sole application boundary. supplied arguments are retained
+-- in reverse order until the callable is saturated.
 applyOne :: RuntimeValue -> RuntimeValue -> Eval RuntimeValue
 applyOne fn arg = case fn of
-  VMatcher remaining cases matchEnv supplied -> applyMatcher remaining cases matchEnv supplied arg
-  VConstructor qualifiedName displayName remaining supplied ->
-    applyArity remaining supplied arg (VConstructor qualifiedName displayName) (pure . VData qualifiedName displayName)
-  VNative name remaining supplied ->
-    applyArity remaining supplied arg (VNative name) (evalNative name)
-  VEffectOp effectName opName remaining supplied ->
-    applyArity remaining supplied arg (VEffectOp effectName opName) (evalEffectOp effectName opName)
-  VContinuation resume -> resume arg
-  VShapeMember member -> case arg of
-    VDictionary dictionary -> evalDictionaryMember member dictionary
-    _ -> runtimeError ("shape member '" ++ member ++ "' received non-dictionary evidence")
+  VCallable display finish remaining supplied
+    | remaining > 1 -> pure (VCallable display finish (remaining - 1) (arg : supplied))
+    | remaining == 1 -> finish (reverse (arg : supplied))
+    | otherwise -> runtimeError "too many arguments"
   _ -> runtimeError ("cannot apply " ++ showRuntimeValue fn)
 
+callableValue :: String -> Int -> ([RuntimeValue] -> Eval RuntimeValue) -> RuntimeValue
+callableValue display arity finish = VCallable display finish arity []
+
+unaryValue :: String -> (RuntimeValue -> Eval RuntimeValue) -> RuntimeValue
+unaryValue display action = callableValue display 1 $ \case
+  [value] -> action value
+  _ -> runtimeError "internal unary callable arity mismatch"
+
+nativeValue :: String -> Int -> RuntimeValue
+nativeValue name arity = callableValue ("<native " ++ name ++ ">") arity (evalNative name)
+
+shapeMemberValue :: String -> RuntimeValue
+shapeMemberValue member = unaryValue ("<shape member " ++ member ++ ">") $ \case
+  VDictionary dictionary -> evalDictionaryMember member dictionary
+  _ -> runtimeError ("shape member '" ++ member ++ "' received non-dictionary evidence")
+
 evalDictionaryMember :: String -> RuntimeDictionary -> Eval RuntimeValue
-evalDictionaryMember member = \case
-  dictionary@(PrimitiveDictionary shapeName typeName env parents)
-    | Just value <- primitiveDictionaryValue shapeName typeName member -> pure value
-    | Just expr <- shapeDefaultExpr member shapeName env ->
-        evalBoundValue ("$primitive-member@" ++ member) expr (addLocalValue "$evidence0" (VDictionary dictionary) env)
-    | Just parent <- find (dictionaryHasMember member) parents -> evalDictionaryMember member parent
-    | otherwise -> runtimeError ("primitive fill '" ++ shapeName ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
-  dictionary@(FillDictionary fill requirements parents) -> case fillMemberExpr member fill of
-    Just expr -> do
-      let evidence = VDictionary dictionary : requirements
-          memberEnv = foldl' addEvidence (runtimeFillEnv fill) (zip [(0 :: Int) ..] evidence)
-      evalBoundValue ("$fill-member@" ++ member) expr memberEnv
-    Nothing -> case find (dictionaryHasMember member) parents of
-      Just parent -> evalDictionaryMember member parent
-      Nothing -> runtimeError ("selected fill hath no member '" ++ member ++ "'")
+evalDictionaryMember member dictionary =
+  fromMaybe missing (dictionaryMember dictionary)
  where
-  addEvidence env (index, value) = addLocalValue ("$evidence" ++ show index) value env
+  missing = case dictionary of
+    PrimitiveDictionary shape typeName _ _ -> runtimeError ("primitive fill '" ++ symbolName shape ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
+    FillDictionary{} -> runtimeError ("selected fill hath no member '" ++ member ++ "'")
 
-dictionaryHasMember :: String -> RuntimeDictionary -> Bool
-dictionaryHasMember member = \case
-  PrimitiveDictionary shapeName typeName env parents ->
-    isJust (primitiveDictionaryValue shapeName typeName member)
-      || isJust (shapeDefaultExpr member shapeName env)
-      || any (dictionaryHasMember member) parents
-  FillDictionary fill _ parents -> isJust (fillMemberExpr member fill) || any (dictionaryHasMember member) parents
+  dictionaryMember current@(PrimitiveDictionary shape typeName env parents) =
+    (pure <$> primitiveDictionaryValue shape typeName member)
+      <|> ((\expr -> compileExpr expr (addLocalValue (EvidenceLocal 0) (VDictionary current) env)) <$> shapeDefaultExpr member shape env)
+      <|> asum (map dictionaryMember parents)
+  dictionaryMember current@(FillDictionary fill requirements parents) =
+    case fillMemberExpr member fill of
+      Just expr -> Just do
+        let evidence = VDictionary current : requirements
+            memberEnv = foldl' addEvidence (runtimeFillEnv fill) (zip [(0 :: Int) ..] evidence)
+        compileExpr expr memberEnv
+      Nothing -> asum (map dictionaryMember parents)
 
-fillMemberExpr :: String -> RuntimeFill -> Maybe Expr
+  addEvidence env (index, value) = addLocalValue (EvidenceLocal index) value env
+
+fillMemberExpr :: String -> RuntimeFill -> Maybe CoreExpr
 fillMemberExpr member RuntimeFill{runtimeFillShape, runtimeFillMembers, runtimeFillEnv} =
   Map.lookup member runtimeFillMembers <|> shapeDefaultExpr member runtimeFillShape runtimeFillEnv
 
-shapeDefaultExpr :: String -> String -> RuntimeEnv -> Maybe Expr
+shapeDefaultExpr :: String -> SymbolId -> RuntimeEnv -> Maybe CoreExpr
 shapeDefaultExpr member rootShape env = findDefault rootShape []
  where
   findDefault shapeName seen
     | shapeName `elem` seen = Nothing
-    | otherwise = case findRuntimeShapeEntry shapeName env of
+    | otherwise = case Map.lookup shapeName (runtimeShapes env) of
         Nothing -> Nothing
-        Just (_, ShapeInfo{shapeNeeds, shapeMembers}) ->
-          listToMaybe [expr | ShapeDefault name _ expr <- shapeMembers, name == member]
-            <|> foldr (<|>) Nothing [findDefault neededName (shapeName : seen) | ShapeNeed _ neededName <- shapeNeeds]
+        Just RuntimeShapeInfo{runtimeShapeNeeds, runtimeShapeMembers} ->
+          listToMaybe [expr | CoreShapeMember term (Just expr) <- runtimeShapeMembers, shapeMemberName term == member]
+            <|> foldr (<|>) Nothing [findDefault neededName (shapeName : seen) | neededName <- runtimeShapeNeeds]
 
-primitiveDictionary :: String -> RuntimeEnv -> [RuntimeDictionary] -> Maybe RuntimeDictionary
-primitiveDictionary key env parents = case stripPrefix "$primitive@" key of
-  Nothing -> Nothing
-  Just rest -> case break (== '@') rest of
-    (shapeName, '@' : typeName) -> Just (PrimitiveDictionary shapeName typeName env parents)
-    _ -> Nothing
-
-primitiveDictionaryValue :: String -> String -> String -> Maybe RuntimeValue
-primitiveDictionaryValue shapeName typeName member = case (shapeName, typeName, member) of
-  ("zero", "integer", "zero") -> Just (VInteger 0)
-  ("zero", "float", "zero") -> Just (VFloat 0)
-  ("one", "integer", "one") -> Just (VInteger 1)
-  ("one", "float", "one") -> Just (VFloat 1)
-  _ -> (\arity -> VNative member arity []) <$> lookup member runtimeNativeSpecs
-
-applyArity :: Int -> [RuntimeValue] -> RuntimeValue -> (Int -> [RuntimeValue] -> RuntimeValue) -> ([RuntimeValue] -> Eval RuntimeValue) -> Eval RuntimeValue
-applyArity remaining supplied arg partial full
-  | remaining > 1 = pure (partial (remaining - 1) (arg : supplied))
-  | remaining == 1 = full (reverse (arg : supplied))
-  | otherwise = runtimeError "too many arguments"
-
-applyMatcher :: Int -> [RuntimeMatchCase] -> RuntimeEnv -> [RuntimeValue] -> RuntimeValue -> Eval RuntimeValue
-applyMatcher remaining cases matchEnv supplied arg
-  | remaining > 1 = pure (VMatcher (remaining - 1) cases matchEnv (arg : supplied))
-  | remaining == 1 = evalMatchCases cases (reverse (arg : supplied)) matchEnv
-  | otherwise = runtimeError "too many arguments for match"
+primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
+primitiveDictionaryValue shape typeName member = do
+  _ <- find matches primitiveFillSpecs
+  case (typeName, member) of
+    ("integer", "zero") -> pure (VInteger 0)
+    ("float", "zero") -> pure (VFloat 0)
+    ("integer", "one") -> pure (VInteger 1)
+    ("float", "one") -> pure (VFloat 1)
+    _ -> nativeValue member . hostArity <$> find ((== member) . hostName) baseNativeBindings
+ where
+  matches PrimitiveFillSpec{primitiveFillShapeTarget, primitiveFillType, primitiveFillMember} =
+    primitiveFillShapeTarget == shape && primitiveFillType == typeName && primitiveFillMember == member
 
 -- handlers are deep because an escaping operation is rewrapped with 'handleEval'.
 -- the captured continuation is an ordinary reusable runtime value.
-evalTry :: Expr -> Maybe ReturnCase -> [HandlerCase] -> RuntimeEnv -> Eval RuntimeValue
-evalTry body returnCase cases env = handleEval (evalExpr body env)
+evalTry :: CoreExpr -> Maybe CoreReturnCase -> [CoreHandlerCase] -> RuntimeEnv -> Eval RuntimeValue
+evalTry body returnCase cases env = handleEval (compileExpr body env)
  where
   handleEval action = Eval $ \host -> runEval action host >>= \result -> runEval (handleRuntimeResult result) host
   handleRuntimeResult result = case result of
     RuntimeOk value -> evalReturnCase returnCase value env
     RuntimeErr err -> raiseRuntime err
-    RuntimeOp effectName opName args resume -> case findHandler effectName opName cases of
-      Nothing -> Eval (const (pure (RuntimeOp effectName opName args (handleEval . resume))))
+    RuntimeOp effect operation args resume -> case findHandler effect operation cases of
+      Nothing -> Eval (const (pure (RuntimeOp effect operation args (handleEval . resume))))
       Just handlerCase -> evalHandlerCase handlerCase args (handleEval . resume) env
 
-evalReturnCase :: Maybe ReturnCase -> RuntimeValue -> RuntimeEnv -> Eval RuntimeValue
+evalReturnCase :: Maybe CoreReturnCase -> RuntimeValue -> RuntimeEnv -> Eval RuntimeValue
 evalReturnCase Nothing value _ = pure value
-evalReturnCase (Just (ReturnCase pat body)) value env =
+evalReturnCase (Just (CoreReturnCase pat body)) value env =
   case bindRuntimePattern pat value env of
     Nothing -> runtimeError "handler yield value did not match pattern"
-    Just handlerEnv -> evalExpr body handlerEnv
+    Just handlerEnv -> compileExpr body handlerEnv
 
-findHandler :: String -> String -> [HandlerCase] -> Maybe HandlerCase
-findHandler effectName opName = find (\(HandlerCase name _ _) -> handlerMatches name effectName opName)
+findHandler :: SymbolId -> SymbolId -> [CoreHandlerCase] -> Maybe CoreHandlerCase
+findHandler effect operation = find (\(CoreHandlerCase target _ _ _) -> handlerMatches target effect operation)
 
-handlerMatches :: String -> String -> String -> Bool
-handlerMatches name effectName opName =
-  name `elem` [opName, effectName, lastQualifiedSegment effectName, effectName ++ "@" ++ opName]
+handlerMatches :: HandlerTarget -> SymbolId -> SymbolId -> Bool
+handlerMatches (EffectTarget expected) effect _ = expected == effect
+handlerMatches (OperationTarget expected) _ operation = expected == operation
 
-evalHandlerCase :: HandlerCase -> [RuntimeValue] -> (RuntimeValue -> Eval RuntimeValue) -> RuntimeEnv -> Eval RuntimeValue
-evalHandlerCase (HandlerCase _ patterns body) args resume env =
+evalHandlerCase :: CoreHandlerCase -> [RuntimeValue] -> (RuntimeValue -> Eval RuntimeValue) -> RuntimeEnv -> Eval RuntimeValue
+evalHandlerCase (CoreHandlerCase _ continuation patterns body) args resume env =
   case bindHandlerRuntimePatterns patterns args env of
     Nothing -> runtimeError "handler operation arguments did not match pattern"
-    Just handlerEnv -> evalExpr body (addLocalValue "eftgin" (VContinuation resume) handlerEnv)
+    Just handlerEnv -> compileExpr body (addLocalValue continuation (unaryValue "<continuation>" resume) handlerEnv)
 
-bindHandlerRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
+bindHandlerRuntimePatterns :: [CorePattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
 bindHandlerRuntimePatterns [] _ env = Just env
 bindHandlerRuntimePatterns patterns values env = bindRuntimePatterns patterns values env
 
@@ -724,45 +640,23 @@ evalMatchCases cases values env = foldr step noMatch cases
   runtimeMatchPatterns (RuntimeMatchCase patterns _) = patterns
   step (RuntimeMatchCase patterns body) fallback = maybe fallback body (bindRuntimePatterns (NE.toList patterns) values env)
 
-bindRuntimePatterns :: [Pattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
+bindRuntimePatterns :: [CorePattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
 bindRuntimePatterns patterns values env
   | length patterns /= length values = Nothing
   | otherwise = foldM (\current (pat, value) -> bindRuntimePattern pat value current) env (zip patterns values)
 
-bindRuntimePattern :: Pattern -> RuntimeValue -> RuntimeEnv -> Maybe RuntimeEnv
-bindRuntimePattern (PVar "_") _ env = Just env
-bindRuntimePattern (PVar name) value env =
-  if isNullaryConstructorPattern name env
-    then if runtimeConstructorMatches env name value then Just env else Nothing
-    else Just (addLocalValue name value env)
-bindRuntimePattern (PInteger expected) value env = case value of
+bindRuntimePattern :: CorePattern -> RuntimeValue -> RuntimeEnv -> Maybe RuntimeEnv
+bindRuntimePattern CoreWildcard _ env = Just env
+bindRuntimePattern (CoreBind local) value env = Just (addLocalValue local value env)
+bindRuntimePattern (CoreIntegerPattern expected) value env = case value of
   VInteger actual | actual == expected -> Just env
   _ -> Nothing
-bindRuntimePattern (PCon name args) value env = case value of
-  VData _ _ fields | runtimeConstructorMatches env name value -> bindRuntimePatterns args fields env
-  _ -> Nothing
-
-isNullaryConstructorPattern :: String -> RuntimeEnv -> Bool
-isNullaryConstructorPattern name env = case lookupValue name env of
-  Just value@(VData _ _ []) -> runtimeConstructorMatches env name value
-  _ -> False
-
-runtimeConstructorMatches :: RuntimeEnv -> String -> RuntimeValue -> Bool
-runtimeConstructorMatches env patternName value = case value of
-  VData qualifiedName displayName _ ->
-    if isQualifiedName patternName
-      then maybe (patternName == qualifiedName) (== qualifiedName) (runtimeConstructorName =<< lookupValue patternName env)
-      else patternName == displayName
-  _ -> False
-
-runtimeConstructorName :: RuntimeValue -> Maybe String
-runtimeConstructorName = \case
-  VData qualifiedName _ _ -> Just qualifiedName
-  VConstructor qualifiedName _ _ _ -> Just qualifiedName
+bindRuntimePattern (CoreConstructorPattern constructor args) value env = case value of
+  VData identity fields | constructor == identity -> bindRuntimePatterns args fields env
   _ -> Nothing
 
 -- fremmed lets reach this boundary only after their keys and full signatures
--- pass the host registry; base natives and deeds use their runtime spec tables.
+-- pass the host registry; base natives and deeds use the same host catalogue.
 evalNative :: String -> [RuntimeValue] -> Eval RuntimeValue
 evalNative name args = case (name, args) of
   ("add-integer", [VInteger a, VInteger b]) -> pure (VInteger (a + b))
@@ -809,32 +703,32 @@ evalNative name args = case (name, args) of
   ("to-text", [value]) -> pure (VText (Text.pack (showRuntimeValue value)))
   _ -> runtimeError ("native '" ++ name ++ "' doth not support these arguments")
 
-evalEffectOp :: String -> String -> [RuntimeValue] -> Eval RuntimeValue
-evalEffectOp effectName opName args = case (effectName, opName, args) of
-  ("console", "write", [VText text]) -> writeConsole text
-  ("console", "read", [VData _ "null" []]) -> VText <$> liftIO readConsoleLine
-  ("random", "random", [VData _ "null" []]) -> VFloat <$> liftIO nextRandomFloat
-  ("async", "sleep", [VInteger ms]) -> sleepMilliseconds ms
-  ("async", "fork", [work]) -> forkConcurrent work
-  ("async", "wait", [VTask task]) -> waitTask task
-  ("async", "fordo", [VTask task]) -> cancelTask task
-  ("async", "wait-for", [VTask task, VInteger milliseconds]) -> waitForTask task milliseconds
-  ("file", "read-file", [VText path]) -> ioRuntime (VText <$> TextIO.readFile (Text.unpack path))
-  ("file", "write-file", [VText path, VText text]) -> ioRuntime (TextIO.writeFile (Text.unpack path) text >> pure runtimeNull)
-  ("file", "append-file", [VText path, VText text]) -> ioRuntime (TextIO.appendFile (Text.unpack path) text >> pure runtimeNull)
-  ("system", "arguments", [VData _ "null" []]) -> runtimeList . map (VText . Text.pack) <$> readHostArguments
-  ("system", "environment", [VText name]) -> runtimeOption . fmap (VText . Text.pack) <$> liftIO (Environment.lookupEnv (Text.unpack name))
-  ("system", "exit", [VInteger status]) -> liftIO (exitWith (if status == 0 then ExitSuccess else ExitFailure (boundedInt status)))
-  ("clock", "unix-time", [VData _ "null" []]) -> VInteger . floor <$> liftIO getPOSIXTime
-  ("process", "run-process", [VText command, arguments]) -> runProcessRuntime command arguments
-  ("web", "serve", [VInteger port, handler]) -> serveWeb port handler
-  _ -> performRuntime effectName opName args
+evalEffectOp :: SymbolId -> SymbolId -> [RuntimeValue] -> Eval RuntimeValue
+evalEffectOp effect operation args = case (effect, operation, args) of
+  (SymbolId RuntimeModule "console", SymbolId RuntimeModule "write", [VText text]) -> writeConsole text
+  (SymbolId RuntimeModule "console", SymbolId RuntimeModule "read", [VData identity []]) | identity == nullConstructorId -> VText <$> liftIO readConsoleLine
+  (SymbolId RuntimeModule "random", SymbolId RuntimeModule "random", [VData identity []]) | identity == nullConstructorId -> VFloat <$> liftIO nextRandomFloat
+  (SymbolId RuntimeModule "async", SymbolId RuntimeModule "sleep", [VInteger ms]) -> sleepMilliseconds ms
+  (SymbolId RuntimeModule "async", SymbolId RuntimeModule "fork", [work]) -> forkConcurrent work
+  (SymbolId RuntimeModule "async", SymbolId RuntimeModule "wait", [VTask task]) -> waitTask task
+  (SymbolId RuntimeModule "async", SymbolId RuntimeModule "fordo", [VTask task]) -> cancelTask task
+  (SymbolId RuntimeModule "async", SymbolId RuntimeModule "wait-for", [VTask task, VInteger milliseconds]) -> waitForTask task milliseconds
+  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "read-file", [VText path]) -> ioRuntime (VText <$> TextIO.readFile (Text.unpack path))
+  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "write-file", [VText path, VText text]) -> ioRuntime (TextIO.writeFile (Text.unpack path) text >> pure runtimeNull)
+  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "append-file", [VText path, VText text]) -> ioRuntime (TextIO.appendFile (Text.unpack path) text >> pure runtimeNull)
+  (SymbolId RuntimeModule "system", SymbolId RuntimeModule "arguments", [VData identity []]) | identity == nullConstructorId -> runtimeList . map (VText . Text.pack) <$> readHostArguments
+  (SymbolId RuntimeModule "system", SymbolId RuntimeModule "environment", [VText name]) -> runtimeOption . fmap (VText . Text.pack) <$> liftIO (Environment.lookupEnv (Text.unpack name))
+  (SymbolId RuntimeModule "system", SymbolId RuntimeModule "exit", [VInteger status]) -> liftIO (exitWith (if status == 0 then ExitSuccess else ExitFailure (boundedInt status)))
+  (SymbolId RuntimeModule "clock", SymbolId RuntimeModule "unix-time", [VData identity []]) | identity == nullConstructorId -> VInteger . floor <$> liftIO getPOSIXTime
+  (SymbolId RuntimeModule "process", SymbolId RuntimeModule "run-process", [VText command, arguments]) -> runProcessRuntime command arguments
+  (SymbolId RuntimeModule "web", SymbolId RuntimeModule "serve", [VInteger port, handler]) -> serveWeb port handler
+  _ -> performRuntime effect operation args
 
 readHostArguments :: Eval [String]
 readHostArguments = Eval (pure . RuntimeOk . hostArguments)
 
 failRuntime :: String -> Eval RuntimeValue
-failRuntime message = performRuntime "fail" "fail" [VText (Text.pack message)]
+failRuntime message = performRuntime (runtimeSymbol "fail") (runtimeSymbol "fail") [VText (Text.pack message)]
 
 integerToUnicode :: Integer -> Eval RuntimeValue
 integerToUnicode value = maybe (failRuntime "invalid unicode scalar value") (pure . VUnicode) (unicodeScalar value)
@@ -853,8 +747,7 @@ runProcessRuntime command arguments = do
     (status, output, errors) <- Process.readProcessWithExitCode (Text.unpack command) (map Text.unpack texts) ""
     pure
       ( VData
-          "process/result@process-result@process-result"
-          "process-result"
+          processResultConstructorId
           [VInteger (exitStatus status), VText (Text.pack output), VText (Text.pack errors)]
       )
 
@@ -878,8 +771,7 @@ handleWebRequest host handler request =
 runtimeWebRequest :: Web.Request -> RuntimeValue
 runtimeWebRequest request =
   VData
-    "web/request@request@request"
-    "request"
+    requestConstructorId
     [ VText (Web.requestMethod request)
     , VText (Web.requestTarget request)
     , runtimeWebHeaderTable (Web.requestHeaders request)
@@ -888,14 +780,16 @@ runtimeWebRequest request =
 
 runtimeWebResponse :: RuntimeValue -> Either String Web.Response
 runtimeWebResponse = \case
-  VData _ "response" [VInteger status, headers, VText body]
+  VData identity [VInteger status, headers, VText body]
+    | identity /= responseConstructorId -> Left "web handler returned an invalid response"
     | status < 100 || status > 599 -> Left "web response status must be between 100 and 599"
     | otherwise -> Web.Response status <$> runtimeWebHeaderTableValues headers <*> pure body
   _ -> Left "web handler returned an invalid response"
 
 runtimeWebHeaderTableValues :: RuntimeValue -> Either String [(Text.Text, Text.Text)]
 runtimeWebHeaderTableValues = \case
-  VData _ "from-list" [entries] -> runtimeWebHeaderList entries
+  VData identity [entries]
+    | identity == tableConstructorId -> runtimeWebHeaderList entries
   _ -> Left "web response containeþ an invalid header table"
 
 runtimeWebHeaderList :: RuntimeValue -> Either String [(Text.Text, Text.Text)]
@@ -905,7 +799,8 @@ runtimeWebHeaderList value = case runtimeListValues value of
 
 runtimeWebHeader :: RuntimeValue -> Either String (Text.Text, Text.Text)
 runtimeWebHeader = \case
-  VData _ "∏" [VText name, VText value]
+  VData identity [VText name, VText value]
+    | identity /= productConstructorId -> Left "web response containeþ a non-text header"
     | Web.validHeaderName name && Web.validHeaderValue value -> Right (name, value)
     | otherwise -> Left "web response containeþ an invalid header"
   _ -> Left "web response containeþ a non-text header"
@@ -913,8 +808,7 @@ runtimeWebHeader = \case
 runtimeWebHeaderTable :: [(Text.Text, Text.Text)] -> RuntimeValue
 runtimeWebHeaderTable headers =
   VData
-    "data/table@table@from-list"
-    "from-list"
+    tableConstructorId
     [runtimeList [runtimeProduct (VText name) (VText value) | (name, value) <- headers]]
 
 tryIOException :: IO a -> IO (Either IOException a)
@@ -1014,16 +908,16 @@ boundedMicroseconds :: Integer -> Int
 boundedMicroseconds milliseconds = fromInteger (min (toInteger (maxBound :: Int)) (max 0 milliseconds * 1000))
 
 runtimeNull :: RuntimeValue
-runtimeNull = VData "𝟙@null" "null" []
+runtimeNull = VData nullConstructorId []
 
 runtimeList :: [RuntimeValue] -> RuntimeValue
-runtimeList = foldr (\value rest -> VData "data/list@list@.*" ".*" [value, rest]) (VData "data/list@list@empty" "empty" [])
+runtimeList = foldr (\value rest -> VData consConstructorId [value, rest]) (VData emptyConstructorId [])
 
 runtimeOption :: Maybe RuntimeValue -> RuntimeValue
-runtimeOption = maybe (VData "data/option@option@none" "none" []) (\value -> VData "data/option@option@some" "some" [value])
+runtimeOption = maybe (VData noneConstructorId []) (\value -> VData someConstructorId [value])
 
 runtimeProduct :: RuntimeValue -> RuntimeValue -> RuntimeValue
-runtimeProduct left right = VData "data/product@∏@∏" "∏" [left, right]
+runtimeProduct left right = VData productConstructorId [left, right]
 
 runtimeTextBehead :: Text.Text -> RuntimeValue
 runtimeTextBehead value = runtimeOption do
@@ -1039,8 +933,8 @@ runtimeListOf native element project value =
 
 runtimeListValues :: RuntimeValue -> Maybe [RuntimeValue]
 runtimeListValues = \case
-  VData _ "empty" [] -> Just []
-  VData _ ".*" [value, rest] -> (value :) <$> runtimeListValues rest
+  VData identity [] | identity == emptyConstructorId -> Just []
+  VData identity [value, rest] | identity == consConstructorId -> (value :) <$> runtimeListValues rest
   _ -> Nothing
 
 runtimeUnicode :: RuntimeValue -> Maybe Char
@@ -1094,124 +988,62 @@ floatFromText text = case (readMaybe (Text.unpack text) :: Maybe Double) of
   Nothing -> failRuntime "could not parse float"
 
 runtimeBool :: Bool -> RuntimeValue
-runtimeBool True = VData "𝟚@yea" "yea" []
-runtimeBool False = VData "𝟚@nay" "nay" []
+runtimeBool True = VData yeaConstructorId []
+runtimeBool False = VData nayConstructorId []
 
-addConstructors :: String -> [Ctor] -> RuntimeEnv -> RuntimeEnv
-addConstructors dataName ctors env = foldl' step env ctors
+addConstructors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
+addConstructors constructors env = foldl' step env constructors
  where
-  step current (Ctor name fields) =
-    let arity = length fields
-        qualifiedName = dataName ++ "@" ++ name
-        value = if arity == 0 then VData qualifiedName name [] else VConstructor qualifiedName name arity []
-     in addValue name value (addValue qualifiedName value current)
+  step current term@TermExport{termExportTarget = identity, termExportKind = ConstructorTerm arity} =
+    let name = lastQualifiedSegment (symbolName identity)
+        value = if arity == 0 then VData identity [] else callableValue ("<constructor " ++ name ++ ">") arity (pure . VData identity)
+     in addGlobalValue term value current
+  step current _ = current
 
-addEffectOps :: String -> [EffectOp] -> RuntimeEnv -> RuntimeEnv
-addEffectOps effectName ops env = foldl' step env ops
+addEffectOps :: [TermExport] -> RuntimeEnv -> RuntimeEnv
+addEffectOps ops env = foldl' step env ops
  where
-  step current (EffectOp name t) =
-    let value = VEffectOp effectName name (typeArity t) []
-        qualifiedName = effectName ++ "@" ++ name
-     in addValue name value (addValue qualifiedName value current)
+  step current term@TermExport{termExportTarget = operation, termExportKind = EffectOperationTerm effect arity} =
+    let name = lastQualifiedSegment (symbolName operation)
+        value = callableValue ("<effect " ++ name ++ ">") arity (evalEffectOp effect operation)
+     in addGlobalValue term value current
+  step current _ = current
 
-typeArity :: TypeExpr -> Int
-typeArity (TypeArrow args _ _) = NE.length args
-typeArity _ = 0
-
--- base bindings are implementation capabilities, not implicit source imports;
--- ordinary bookhoard files still decide which names are shown to users.
 baseRuntimeEnv :: RuntimeEnv
-baseRuntimeEnv = addBaseEffectOps (addBaseNatives RuntimeEnv{runtimeValues = [], runtimeLocals = [], runtimeLookup = Map.empty, runtimeShapes = Map.empty, runtimeFills = Map.empty})
+baseRuntimeEnv = foldl' add base hostBindings
+ where
+  base = RuntimeEnv{runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeShapes = Map.empty, runtimeFills = Map.empty}
+  add current binding = case hostRole binding of
+    BaseNative -> addGlobalValue (TermExport (runtimeSymbol name) OrdinaryTerm) (nativeValue name arity) current
+    BaseEffect effectName ->
+      let effect = runtimeSymbol effectName
+          operation = runtimeSymbol name
+          term = TermExport operation (EffectOperationTerm effect arity)
+       in addGlobalValue term (callableValue ("<effect " ++ name ++ ">") arity (evalEffectOp effect operation)) current
+    _ -> current
+   where
+    name = hostName binding
+    arity = hostArity binding
 
-isBaseRuntimeName :: String -> Bool
-isBaseRuntimeName name = name `elem` baseRuntimeNames
+addGlobalValue :: TermExport -> RuntimeValue -> RuntimeEnv -> RuntimeEnv
+addGlobalValue term value env@RuntimeEnv{runtimeGlobals} = env{runtimeGlobals = Map.insert term value runtimeGlobals}
 
-isBaseRuntimeImportName :: String -> Bool
-isBaseRuntimeImportName name = isBaseRuntimeName name || isBaseRuntimeName (lastQualifiedSegment name)
+addLocalValue :: LocalId -> RuntimeValue -> RuntimeEnv -> RuntimeEnv
+addLocalValue local value env@RuntimeEnv{runtimeLocals} = env{runtimeLocals = Map.insert local value runtimeLocals}
 
-isBaseRuntimeImportBinding :: String -> String -> Bool
-isBaseRuntimeImportBinding name origin = isBaseRuntimeImportName name && origin == "base@" ++ name
+lookupGlobalValue :: TermExport -> RuntimeEnv -> Maybe RuntimeValue
+lookupGlobalValue term RuntimeEnv{runtimeGlobals} = Map.lookup term runtimeGlobals
 
-isBaseRuntimeEffectName :: String -> Bool
-isBaseRuntimeEffectName name = name `elem` baseEffectNames
+runtimeSymbol :: String -> SymbolId
+runtimeSymbol = SymbolId RuntimeModule
 
-addBaseNatives :: RuntimeEnv -> RuntimeEnv
-addBaseNatives env = foldl' (\current (name, arity) -> addNative name arity current) env runtimeNativeSpecs
+addRuntimeShapeInfo :: SymbolId -> [SymbolId] -> [CoreShapeMember] -> RuntimeEnv -> RuntimeEnv
+addRuntimeShapeInfo shapeName needs members env@RuntimeEnv{runtimeShapes} =
+  env{runtimeShapes = Map.insert shapeName (RuntimeShapeInfo needs members) runtimeShapes}
 
-addBaseEffectOps :: RuntimeEnv -> RuntimeEnv
-addBaseEffectOps env = foldl' (\current (effectName, opName, arity) -> addBaseEffectOp effectName opName arity current) env runtimeEffectOpSpecs
-
-addNative :: String -> Int -> RuntimeEnv -> RuntimeEnv
-addNative name arity = addValueWith name (VNative name arity []) baseRuntimeRank ("base@" ++ name)
-
-addBaseEffectOp :: String -> String -> Int -> RuntimeEnv -> RuntimeEnv
-addBaseEffectOp effectName opName arity = addValueWith opName (VEffectOp effectName opName arity []) baseRuntimeRank ("base@" ++ opName)
-
-addValue :: String -> RuntimeValue -> RuntimeEnv -> RuntimeEnv
-addValue name value = addValueWith name value localRuntimeRank name
-
-addLocalValue :: String -> RuntimeValue -> RuntimeEnv -> RuntimeEnv
-addLocalValue name value env@RuntimeEnv{runtimeLocals} = env{runtimeLocals = (name, value) : runtimeLocals}
-
-addValueWith :: String -> RuntimeValue -> Int -> String -> RuntimeEnv -> RuntimeEnv
-addValueWith name value rank origin env@RuntimeEnv{runtimeValues, runtimeLookup} =
-  env
-    { runtimeValues = (name, value, rank, origin) : runtimeValues
-    , runtimeLookup = Map.insert name value runtimeLookup
-    }
-
-addShownValue :: String -> RuntimeEnv -> RuntimeEnv
-addShownValue name env =
-  let exportName = lastQualifiedSegment name
-   in maybe env (\value -> addValueWith exportName value exportRuntimeRank ("show@" ++ exportName) env) (lookupValue name env)
-
-lookupValue :: String -> RuntimeEnv -> Maybe RuntimeValue
-lookupValue name RuntimeEnv{runtimeLocals, runtimeLookup} = lookup name runtimeLocals <|> Map.lookup name runtimeLookup
-
-indexRuntimeValues :: [RuntimeBinding] -> Map.Map String RuntimeValue
-indexRuntimeValues = foldr (\(name, value, _, _) -> Map.insert name value) Map.empty
-
-markRuntimeDeclExport :: Decl -> RuntimeEnv -> RuntimeEnv
-markRuntimeDeclExport declaration env = case declaration of
-  Import _ _ -> env
-  Export nested -> markRuntimeDeclExport nested env
-  ReExport name -> addShownValue name env
-  ReExportType _ -> env
-  Let name _ _ -> addShownValue name env
-  TypeAlias{} -> env
-  DataDecl _ _ constructors -> foldl' (flip addShownValue) env [name | Ctor name _ <- constructors]
-  EffectDecl _ _ operations -> foldl' (flip addShownValue) env [name | EffectOp name _ <- operations]
-  ShapeDecl _ shapeName _ members ->
-    foldl' (flip addShownValue) (markRuntimeShapeExported shapeName env) (shapeMemberNames members)
-  FillDecl{} -> env
-  ElaboratedFill{} -> env
-
-findRuntimeShapeEntry :: String -> RuntimeEnv -> Maybe (String, ShapeInfo)
-findRuntimeShapeEntry name RuntimeEnv{runtimeShapes} = case Map.lookup name runtimeShapes of
-  Just info -> Just (name, info)
-  Nothing -> listToMaybe [(key, info) | (key, info) <- Map.toList runtimeShapes, lastQualifiedSegment key == lastQualifiedSegment name]
-
-markRuntimeShapeExported :: String -> RuntimeEnv -> RuntimeEnv
-markRuntimeShapeExported name env@RuntimeEnv{runtimeShapes} = case findRuntimeShapeEntry name env of
-  Nothing -> env
-  Just (key, info) ->
-    let marked = env{runtimeShapes = Map.insert (lastQualifiedSegment name) info{shapeExported = True} runtimeShapes}
-     in foldl' (\current member -> addShownValue (runtimeOwnedBinding key member) current) marked (shapeMemberNames (shapeMembers info))
-
-runtimeOwnedBinding :: String -> String -> String
-runtimeOwnedBinding owner member = case splitFieldAccessName owner of
-  Just (qualifier, _) -> qualifier ++ "@" ++ member
-  Nothing -> owner ++ "@" ++ member
-
-addRuntimeShapeInfo :: String -> [String] -> [ShapeNeed] -> [ShapeMember] -> RuntimeEnv -> RuntimeEnv
-addRuntimeShapeInfo shapeName params needs members env@RuntimeEnv{runtimeShapes} =
-  env{runtimeShapes = Map.insert shapeName (ShapeInfo params needs members False) runtimeShapes}
-
-showRuntimeError :: RuntimeError -> String
-showRuntimeError (RuntimeError msg) = msg
-
-showUnhandledOperation :: String -> String -> String
-showUnhandledOperation effectName opName = "unhandled effect '" ++ effectName ++ "' operation '" ++ opName ++ "'"
+showUnhandledOperation :: SymbolId -> SymbolId -> String
+showUnhandledOperation effect operation =
+  "unhandled effect '" ++ renderEffectId effect ++ "' operation '" ++ lastQualifiedSegment (symbolName operation) ++ "'"
 
 showRuntimeValue :: RuntimeValue -> String
 showRuntimeValue = \case
@@ -1221,15 +1053,10 @@ showRuntimeValue = \case
   VUnicode codePoint -> "`" ++ escapeUnicodeCodePoint codePoint
   VText s -> "'" ++ concatMap escapeTextCharacter (Text.unpack s) ++ "'"
   VRecord fields -> "r(" ++ showRuntimeFields fields ++ ")"
-  VData _ displayName [] -> displayName
-  VData _ displayName args -> "(" ++ showRuntimeValues args ++ " " ++ displayName ++ ")"
-  VMatcher{} -> "<function>"
-  VConstructor _ displayName _ _ -> "<constructor " ++ displayName ++ ">"
-  VNative name _ _ -> "<native " ++ name ++ ">"
-  VEffectOp _ opName _ _ -> "<effect " ++ opName ++ ">"
+  VData identity [] -> lastQualifiedSegment (symbolName identity)
+  VData identity args -> "(" ++ showRuntimeValues args ++ " " ++ lastQualifiedSegment (symbolName identity) ++ ")"
+  VCallable display _ _ _ -> display
   VTask{} -> "<task>"
-  VContinuation _ -> "<continuation>"
-  VShapeMember name -> "<shape member " ++ name ++ ">"
   VDictionary{} -> "<dictionary>"
 
 showRuntimeValues :: [RuntimeValue] -> String

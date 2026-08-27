@@ -54,13 +54,23 @@ deterministic =
   , ("float division useþ the division slash", "yield 6.0 ∕ 4.0", "eval ok: 1.5")
   , ("float division by zero followeþ ieee", "yield 1.0 ∕ 0.0", "eval ok: Infinity")
   , ("float equality ignoreþ literal spelling", "kin 𝟚 { yea, nay } yield 1.0 ≡ 1.00", "eval ok: yea")
+  , ("standard boolean ABI ignoreþ constructor declaration order", "kin 𝟚 { nay, yea } yield 1 ≡ 1", "eval ok: yea")
+  , ("native booleans match exact standard local constructors", "kin 𝟚 { yea, nay } yield match 1.0 ≡ 1.00 { yea | 1, nay | 0 }", "eval ok: 1")
+  , ("native unit matcheþ the exact standard local constructor", "kin 𝟙 { null } yield match 0 sleep { null | 1 }", "eval ok: 1")
+  , ("alpha-renamed standard list receiveþ a host list", "kin x list { empty, x .* (x list) } let convert: text → unicode list = 'text-to-list' fremmed yield 'a' convert", "eval ok: (`a empty .*)")
+  , ("alpha-renamed standard product receiveþ a host product", "kin x ∏ y { x ∏ y } let divide: integer → integer → integer ∏ integer ! text fail = 'divide-remainder-integer' fremmed yield 5 divide 2", "eval ok: (2 1 ∏)")
+  , ("nonstandard lookalike data remain nominally usable", "kin 𝟚 { yes, no } yield match yes { yes | 1, no | 0 }", "eval ok: 1")
+  , ("a constructor and an ordinary term retain distinct runtime identities", "kin token { box } let token@box = 7 yield box", "eval ok: box")
   , ("float ordering is numeric", "kin 𝟚 { yea, nay } yield 2.0 ≤ 10.0", "eval ok: yea")
   , ("curried partial application", "let a add b = a + b let add-one = 1 add yield 2 add-one", "eval ok: 3")
   , ("three curried arguments", "let a add b c = (a + b) + c yield 1 add 2 3", "eval ok: 6")
   , ("local recursive function", "kin natural { zero, natural suc } let count = (let loop = { zero | 0, n suc | 1 + (n loop) } yield loop) yield ((zero suc) suc) count", "eval ok: 2")
+  , ("evidence abstraction preserveþ local recursive capture", "shape a ident { let a ident: a } yield (let loop = { x | (x loop) ident } yield 1)", "eval ok: 1")
   , ("second-position function header", "let a add b = a + b yield 1 add 2", "eval ok: 3")
   , ("dollar function segment", "let x f = x + 1 let x h y z = (x + y) × z yield 1 f $h 2 3", "eval ok: 12")
   , ("lexical closure", "let x = 1 let _ f = x yield (let x = 2 yield 0 f)", "eval ok: 1")
+  , ("sequential shadowing preserveþ each preceding local", "yield (let value = 1 let value = value + 1 let value = value + 1 yield value)", "eval ok: 3")
+  , ("nested same-text pattern binders remain distinct", "yield match 1 { value | (match 2 { value | value }) + value }", "eval ok: 3")
   , ("multi-scrutinee match", boolData ++ "yield match yea, nay { yea, yea | 1, yea, nay | 2, nay, yea | 3, nay, nay | 4 }", "eval ok: 2")
   , ("nested constructor match", boolData ++ optionData ++ "yield match nay some { yea some | 1, nay some | 2, none | 0 }", "eval ok: 2")
   , ("first matching arm winneþ", boolData ++ "yield match yea { yea | 1, _ | 2 }", "eval ok: 1")
@@ -77,8 +87,11 @@ deterministic =
   , ("record update", "let person = r(name = 'n', age = 1) yield r(= person, age = 2)", "eval ok: r(age = 2, name = 'n')")
   , ("record access", "let person = r(name = 'n', age = 1) yield person@age", "eval ok: 1")
   , ("record removal", "let person = r(name = 'n', age = 1) yield r(= person, - age)", "eval ok: r(name = 'n')")
+  , ("fremmed arity followeþ a transparent alias", "let-ilk binary = integer → integer → integer let plus: binary = 'add-integer' fremmed yield 1 plus 2", "eval ok: 3")
+  , ("effect arity followeþ a transparent result alias", "let-ilk unary = integer → integer deed addition { integer add: unary } yield try 1 add 2 { x add y | x + y }", "eval ok: 3")
   , ("handled division failure", "let _ ignore = 1 yield try (1 ÷ 0) ignore { fail | 9 }", "eval ok: 9")
   , ("operation payload", "deed e fail { e fail: a } let _ ignore = 'ok' yield try (1 ÷ 0) ignore { yield text | text, message fail | message }", "eval ok: 'division by zero'")
+  , ("a concrete-result fail lookalike remaineþ nominal", "kin payload { payload } deed e fail { e fail: payload } yield try 'message' fail { _ fail | payload }", "eval ok: payload")
   , ("yield clause mapeþ normal answer", "yield try 2 + 3 { yield n | n to-text }", "eval ok: '5'")
   , ("partial call performeþ only when saturated", "let _ ignore = 0 yield try (0 (1 ÷)) ignore { fail | 7 }", "eval ok: 7")
   , ("eftgin once", "deed ask { integer ask: integer } yield try 10 ask { x ask | (x + 1) eftgin }", "eval ok: 11")
@@ -90,12 +103,18 @@ deterministic =
   , ("effect-level clause catches either operation", duoEffect ++ "yield try null second { duo | null }", "eval ok: null")
   , ("nested handlers split operation coverage", duoEffect ++ "yield try (try null second { first | null }) { second | null }", "eval ok: null")
   , ("native sleep", unitData ++ "yield 0 sleep", "eval ok: null")
+  , ("a custom system operation is not host-dispatched", unitData ++ "deed system { 𝟙 arguments: integer } yield try null arguments { arguments | 42 }", "eval ok: 42")
+  , ("an effect operation and an ordinary term retain distinct runtime identities", "deed s { integer op: integer } let s@op = 7 yield try 1 op { x op | x }", "eval ok: 1")
   , ("shape laws are erased", "shape a identity { let a identity: a law (x: a): x identity ~ x } fill integer identity { let x identity = x } yield 2 identity", "eval ok: 2")
+  , ("a shape selector and a constructor retain distinct runtime identities", "shape a s { let a op: a } fill integer s { let x op = x } kin s { op } yield 1 op", "eval ok: 1")
   , ("result-only member useþ expected type", "shape a origin { let origin: a } fill integer origin { let origin = 7 } let value: integer = origin yield value", "eval ok: 7")
   , ("different fills dispatch by inferred type", "shape a label { let a label: text } fill integer label { let _ label = 'integer' } fill text label { let _ label = 'text' } yield 'x' label", "eval ok: 'text'")
   , ("graiþ function receiveþ its caller dictionary", "shape a label { let a label: text } fill integer label { let _ label = 'integer' } fill text label { let _ label = 'text' } graiþ a label let (x: a) labelled: text = x label yield 1 labelled", "eval ok: 'integer'")
   , ("child dictionary useþ a direct parent fill", "shape a parent { let a parent: a } graiþ a parent shape a child { let a child: a } fill integer parent { let x parent = x } fill integer child { let x child = x parent } yield 4 child", "eval ok: 4")
   , ("shape default useþ its child dictionary", "shape a source { let source: a } graiþ a source shape a derived { let derived: a = source } fill integer source { let source = 7 } fill integer derived {} let result: integer = derived yield result", "eval ok: 7")
+  , ("fill may precede its resolved shape declaration", "fill integer identity { let x identity = x } shape a identity { let a identity: a } yield 3 identity", "eval ok: 3")
+  , ("forward fill may use a later inherited default", "fill integer derived {} shape a source { let source: a } graiþ a source shape a derived { let derived: a = source } fill integer source { let source = 7 } let result: integer = derived yield result", "eval ok: 7")
+  , ("an exact primitive shape schema receiveþ its host fill", "shape a add { let a + a: a } yield 1 + 2", "eval ok: 3")
   , ("fill graiþ remaineþ an external dictionary", "shape a combine { let a combine a: a } fill integer combine { let x combine y = x + y } kin a box { a box } graiþ a combine fill (a box) combine { let (x box) combine (y box) = (x combine y) box } yield (1 box) combine (2 box)", "eval ok: (3 box)")
   ]
 
@@ -116,13 +135,32 @@ typeErrors =
   , ("unknown record removal", "let person = r(name = 'n') yield r(= person, - age)")
   , ("update of non-record", "yield r(= 1, field = 2)")
   , ("non-exhaustive match", boolData ++ "yield match nay { yea | 1 }")
+  , ("nonstandard local boolean cannot receive a native boolean", "kin 𝟚 { yes, no } yield match 1 ≡ 1 { yes | 1, no | 0 }")
+  , ("nonstandard local unit cannot receive native unit", "kin 𝟙 { done } yield match 0 sleep { done | 1 }")
+  , ("a primitive namesake wiþ an incompatible schema hath no host fill", "shape a add { let a magic: a } graiþ a add let (x: a) use: a = x magic yield 1 use")
+  , ("owned declaration components cannot collapse through qualification", "deed left { integer right@op: integer } deed left@right { integer op: integer } let x choose y = y yield try (try (2 op) choose (1 right@op) { x right@op | 7 }) { x op | 9 }")
   ]
 
 importedCases :: Map.Map String String -> [Test]
 importedCases imports =
   [ evalOkWith "imported call" "bring file.tung yield 2 inc" (Map.insert "file.tung" "show let x inc = x + 1" imports) "eval ok: 3"
+  , evalOkWith "a bring is initialised before a preceding dependent let" "let answer = dep@value bring dep.tung yield answer" (Map.insert "dep.tung" "show let value = 7" imports) "eval ok: 7"
+  , evalOkWith "a local and its imported predecessor retain distinct identities" "bring source.tung let value = value + 1 yield value + source@value" (Map.insert "source.tung" "show let value = 2" imports) "eval ok: 5"
+  , evalOkWith "a local value doth not hide an imported constructor pattern" "bring data/two.tung let yea: 𝟚 = two@yea yield match yea { yea | 1, nay | 0 }" imports "eval ok: 1"
+  , evalOkWith "an incompatible local value doth not hide an imported constructor pattern" "bring data/two.tung let yea = 0 yield match two@yea { yea | 1, nay | 0 }" imports "eval ok: 1"
+  , evalOkWith "an exact standard ABI is stable when imported" "bring truth.tung yield truth@truth" (Map.insert "truth.tung" "show kin 𝟚 { yea, nay } show let truth: 𝟚 = 1 ≡ 1" imports) "eval ok: yea"
   , evalOkWith "default bring alias workeþ for values, shapes, and constructor patterns" "bring data/item.tung let value: item@item = item@empty yield match (value item@identity) { item@item | 1 }" (Map.insert "data/item.tung" "show kin item { item } show shape a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item" imports) "eval ok: 1"
   , evalOkWith "bring alias workeþ for effect operations and handlers" "bring effect/ask.tung a yield try 3 a@ask { x a@ask | x }" (Map.insert "effect/ask.tung" "show deed ask { integer ask: integer }" imports) "eval ok: 3"
+  , evalOkWith "qualified handler target distinguishþ effect and operation names" "bring effect/query.tung q yield try 3 q@ask { x q@ask | x }" (Map.insert "effect/query.tung" "show deed query { integer ask: integer }" imports) "eval ok: 3"
+  , evalOkWith "an imported module handleþ its own operation identity" "bring query.tung yield value" (Map.insert "query.tung" "show deed query { integer ask: integer } show let value: integer = try 3 ask { x ask | x }" imports) "eval ok: 3"
+  , evalOkWith "an imported module handleþ its whole effect identity" "bring query.tung yield value" (Map.insert "query.tung" "show deed query { integer ask: integer } show let value: integer = try 3 ask { query | 7 }" imports) "eval ok: 7"
+  , evalOkWith
+      "an incompatible primitive-shape lookalike retaineþ its declared selector"
+      "bring algebra/arithmetic/semiring.tung yield 1 magic"
+      (Map.insert "algebra/arithmetic/semiring.tung" "show shape a add { let a magic: a } fill integer add { let x magic = x }" imports)
+      "eval ok: 1"
+  , evalTypeErrWith "same-spelled effects in extension-sharing paths stay distinct" "bring a.tung one bring a.extra.tung two yield try 3 two@ask { x one@ask | x }" samePrefixEffectImports
+  , evalTypeErrWith "same-spelled effects beneath dotted directories stay distinct" "bring pkg.one/query.tung one bring pkg.two/query.tung two yield try 3 two@ask { x one@ask | x }" dottedDirectoryEffectImports
   , evalOkWith "primitive shape defaults" "bring ground.tung yield (1 < 2) ∧ (1 ≢ 2)" imports "eval ok: yea"
   , evalOkWith "false implieþ false" "bring ground.tung yield nay ≤ nay" imports "eval ok: yea"
   , evalOkWith "true doth not imply false" "bring ground.tung yield yea ≤ nay" imports "eval ok: nay"
@@ -136,11 +174,23 @@ importedCases imports =
   , evalOkWith "shared diamond import" "bring left.tung bring right.tung yield left@left + right@right" diamondImports "eval ok: 5"
   , evalOkWith "diamond import keepeþ one fill identity" "bring left.tung bring right.tung yield 3 left@identity" fillDiamondImports "eval ok: 3"
   , evalOkWith "qualified shapes from different modules stay distinct" "bring left.tung bring right.tung yield 3 left@identity" distinctShapeImports "eval ok: 4"
+  , evalOkWith "fills in extension-sharing paths stay distinct" "bring a.tung one bring a.extra.tung two yield (1 one@identity) + (1 two@identity)" samePrefixFillImports "eval ok: 13"
+  , evalOkWith "fills beneath dotted directories stay distinct" "bring pkg.one/identity.tung one bring pkg.two/identity.tung two yield (1 one@identity) + (1 two@identity)" dottedDirectoryFillImports "eval ok: 13"
+  , evalOkWith "same-spelled imported data types dispatch through distinct fills" "bring common.tung bring left.tung bring right.tung yield (left@value common@label) + (right@value common@label)" nominalTypeFillImports "eval ok: 11"
+  , evalOkWith "an imported transparent alias useþ its underlying fill" "bring base.tung bring alias.tung yield alias@value base@label" transparentAliasFillImports "eval ok: 7"
+  , evalOkWith "an exported alias retaineth its private nominal fill" "bring opaque.tung opaque yield opaque@value opaque@label" privateAliasFillImports "eval ok: 7"
+  , evalOkWith "a local shape and fill shadow an imported namesake" "bring left.tung shape a identity { let a identity: a } fill integer identity { let x identity = x + 2 } yield (1 identity) + (1 left@identity)" distinctShapeImports "eval ok: 5"
+  , evalTypeErrWith "local evidence cannot satisfy an imported namesake shape" "bring left.tung shape a identity { let a identity: a } fill integer identity { let x identity = x } graiþ a left@identity let (x: a) imported-use: a = x left@identity graiþ a identity let (x: a) local-use: a = x imported-use yield 1 local-use" distinctShapeImports
+  , evalTypeErrWith "an incompatible declaration at a primitive path cannot claim its host fill" "bring algebra/arithmetic/semiring.tung yield 1 magic" (Map.insert "algebra/arithmetic/semiring.tung" "show shape a add { let a magic: a }" imports)
   , evalOkWith "value survives a named re-export" "bring middle.tung yield value" reexportImports "eval ok: 7"
+  , evalOkWith "qualified re-export outrankeþ a shadowing local" "bring middle.tung let value = 3 yield middle@value + value" reexportImports "eval ok: 10"
   , evalOkWith "shape fill survives an import" "bring identity.tung yield 3 identity" identityImports "eval ok: 3"
   , evalOkWith "specific fill outrankeþ a blanket fill" "shape a identity { let a identity: a } fill a identity { let x identity = x } fill integer identity { let x identity = x + 1 } yield 1 identity" imports "eval ok: 2"
   , evalOkWith "data constructor survives a named re-export" "bring data-middle.tung yield 4 box" dataReexportImports "eval ok: (4 box)"
+  , evalOkWith "constructor identity survives a different re-export path" "bring data-base.tung bring data-middle.tung yield match 4 data-middle@box { x data-base@box | x }" dataReexportImports "eval ok: 4"
+  , evalOkWith "constructor pattern surviveþ a middle-module re-export" "bring middle.tung yield match middle@off { middle@off | 1 }" constructorReexportImports "eval ok: 1"
   , evalOkWith "qualified constructor pattern useþ import alias" "bring alias.tung yield match 4 alias@box { x alias@box | x }" (Map.insert "alias.tung" "show kin a box { a box }" imports) "eval ok: 4"
+  , evalOkWith "qualified global outrankeþ record field fallback" "bring public.tung let public = r(visible = 9) yield public@visible" (Map.insert "public.tung" "show let visible = 7" imports) "eval ok: 7"
   , evalOkWith "effect operation survives a named re-export" "bring ask-middle.tung yield try 3 ask { x ask | x }" effectReexportImports "eval ok: 3"
   , evalTypeErrWith "private qualified value is rejected before runtime" "bring private.tung yield private@hidden" (Map.fromList [("private.tung", "let hidden = 1")])
   , evalOkWith "text and unicode-list round trip" "bring ground.tung yield 'λ😀' text-to-list $ list-to-text" imports "eval ok: 'λ😀'"
@@ -295,6 +345,25 @@ importedCases imports =
       [ ("left.tung", "show shape a identity { let a identity: a } fill integer identity { let x identity = x + 1 }")
       , ("right.tung", "show shape a identity { let a identity: a } fill integer identity { let x identity = x + 2 }")
       ]
+  samePrefixFillImports = Map.fromList [("a.tung", identityFill 1), ("a.extra.tung", identityFill 10)]
+  dottedDirectoryFillImports = Map.fromList [("pkg.one/identity.tung", identityFill 1), ("pkg.two/identity.tung", identityFill 10)]
+  identityFill :: Int -> String
+  identityFill increment = "show shape a identity { let a identity: a } fill integer identity { let x identity = x + " ++ show increment ++ " }"
+  nominalTypeFillImports =
+    Map.fromList
+      [ ("common.tung", "show shape a label { let a label: integer }")
+      , ("left.tung", "bring common.tung show kin token { token } fill token common@label { let _ label = 1 } show let value: token = token")
+      , ("right.tung", "bring common.tung show kin token { token } fill token common@label { let _ label = 10 } show let value: token = token")
+      ]
+  transparentAliasFillImports =
+    Map.fromList
+      [ ("base.tung", "show kin token { token } show shape a label { let a label: integer } fill token label { let _ label = 7 }")
+      , ("alias.tung", "bring base.tung show let-ilk alias = base@token show let value: alias = base@token")
+      ]
+  privateAliasFillImports =
+    Map.singleton
+      "opaque.tung"
+      "kin secret { secret } show let-ilk public = secret show shape a label { let a label: integer } fill secret label { let _ label = 7 } show let value: public = secret"
   reexportImports = Map.fromList [("base.tung", "show let value = 7"), ("middle.tung", "bring base.tung show base@value")]
   identityImports = Map.fromList [("identity.tung", "show shape a identity { let a identity: a } fill integer identity { let x identity = x }")]
   dataReexportImports =
@@ -302,11 +371,19 @@ importedCases imports =
       [ ("data-base.tung", "show kin a box { a box }")
       , ("data-middle.tung", "bring data-base.tung show-ilk data-base@box show data-base@box")
       ]
+  constructorReexportImports =
+    Map.fromList
+      [ ("base.tung", "show kin bit { off }")
+      , ("middle.tung", "bring base.tung show-ilk base@bit show base@off")
+      ]
   effectReexportImports =
     Map.fromList
       [ ("ask-base.tung", "show deed ask { integer ask: integer }")
       , ("ask-middle.tung", "bring ask-base.tung show ask-base@ask")
       ]
+  samePrefixEffectImports = Map.fromList [("a.tung", queryEffect), ("a.extra.tung", queryEffect)]
+  dottedDirectoryEffectImports = Map.fromList [("pkg.one/query.tung", queryEffect), ("pkg.two/query.tung", queryEffect)]
+  queryEffect = "show deed query { integer ask: integer }"
   cyclicImports = Map.fromList [("left.tung", "bring right.tung"), ("right.tung", "bring left.tung")]
 
 randomRange :: Map.Map String String -> Test

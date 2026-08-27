@@ -40,7 +40,7 @@ data/time-span.tung	c8e07a624d5a8b3516d91a7d3369c925
 data/two.tung	48f118500814b944044c95e0e7960b72
 data/zero.tung	d0193862224da422e147c0b31320f706
 equal.tung	78b5ffc18a4fba11f79897b4f28c8e7e
-ground.tung	e0979e3d08077ca8b2c16f4c3d4e4416
+ground.tung	2186f72b1efa607833f66e08c78801af
 numeric/absolute.tung	dd946133840daf12149fcf6c88649366
 numeric/complex.tung	0f9f6a633b9916b4dacf951c00dd2e23
 numeric/constant.tung	7cc4039defef8008284bc6aea597f56a

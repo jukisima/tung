@@ -70,20 +70,10 @@ test("project documentation useþ asciidoc", () => {
   );
 });
 const proseFiles = (directory) => {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const generatedWiki = directory === path.join(root, "writ") &&
-      entry.name === "bookhoard";
-    if (
-      ignored.has(entry.name) || entry.name === "package-lock.json" ||
-      generatedWiki
-    ) return [];
-    const file = path.join(directory, entry.name);
-    if (entry.isDirectory()) return proseFiles(file);
-    return documentationExtensions.has(path.extname(entry.name)) ||
-        sourceExtensions.has(path.extname(entry.name))
-      ? [file]
-      : [];
-  });
+  return repositoryFiles(directory).filter((file) =>
+    documentationExtensions.has(path.extname(file)) ||
+    sourceExtensions.has(path.extname(file))
+  );
 };
 const repositoryFiles = (directory) => {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

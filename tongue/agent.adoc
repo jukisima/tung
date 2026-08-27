@@ -67,7 +67,7 @@ decide which artefact is stale.
 * public source files use `.tung`; the executable and language id are `tung`.
 * `Tung.*` is an implementation namespace and is not renamed during ordinary language work.
 * `vscode/out/` and generated bookhoard html are build outputs and must not be edited.
-* `vscode/generated/language-names.json` comeþ from `tool/language-names.tung`; run `make language-metadata`.
+* `vscode/generated/language-names.json` comeþ from `tung --language-metadata`; run `make language-metadata`.
 * `.bookhoard-membership` comeþ from the sibling bookhoard tree; run `make bookhoard-membership` or a compiler make target.
 * host-backed function metadata live in `src/Tung/Primitive.hs` and must agree with `_foreign.tung`.
 * tests are part of the specification and should describe the intended rule.

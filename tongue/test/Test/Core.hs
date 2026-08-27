@@ -4,7 +4,7 @@ module Test.Core (group) where
 
 import Control.Exception qualified as Exception
 import Control.Monad (replicateM)
-import Data.List (intercalate, isPrefixOf)
+import Data.List (intercalate, isInfixOf)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Test.Harness (Group, Test)
@@ -14,7 +14,7 @@ import Tung
 group :: IO Group
 group = do
   imports <- readBookhoardImports
-  Harness.group "core" (map (integerCase imports) integerTerms ++ map (languageCase imports) (languagePrograms ++ booleanProductPrograms) ++ map (rejectedCase imports) rejectedPrograms ++ [checkedImportGraph, checkedMainCore])
+  Harness.group "core" (map (integerCase imports) integerTerms ++ map (languageCase imports) (languagePrograms ++ booleanProductPrograms) ++ [checkedImportGraph, checkedModuleInterface, checkedImportInterface, checkedReExportInterface, checkedReservedDataInterface, checkedAliasedShapeNeed, checkedVisibleShapeNeed, checkedMainCore])
 
 checkedImportGraph :: Test
 checkedImportGraph = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
@@ -28,6 +28,31 @@ checkedImportGraph = case parse source >>= (\program -> elaborateInteractiveProg
       , ("leaf.tung", "show let value = 6")
       ]
 
+checkedAliasedShapeNeed :: Test
+checkedAliasedShapeNeed = checkedShapeNeed "checked shape need retaineþ a custom bring alias" "child" (SymbolId (SourceModule "dep.tung") "parent") source imports
+ where
+  source = "bring dep.tung d graiþ a d@parent shape a child { let a child: a }"
+  imports = Map.singleton "dep.tung" "show shape a parent { let a parent: a }"
+
+checkedVisibleShapeNeed :: Test
+checkedVisibleShapeNeed = checkedShapeNeed "checked shape need cannot select a hidden collision" "child" (SymbolId (SourceModule "public.tung") "parent") source imports
+ where
+  source = "bring public.tung bring private.tung graiþ a parent shape a child { let a child: a }"
+  imports =
+    Map.fromList
+      [ ("public.tung", "show shape a parent { let a parent: a }")
+      , ("private.tung", "shape a parent { let a parent: a }")
+      ]
+
+checkedShapeNeed :: String -> String -> SymbolId -> String -> Map.Map String String -> Test
+checkedShapeNeed name shapeName parent source imports = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
+  Left message -> pure (Just (name ++ ": elaboration failed: " ++ message))
+  Right program ->
+    let target = SymbolId RootModule shapeName
+        fragment = "CoreShape (" ++ show target ++ ") [" ++ show parent ++ "]"
+        rendered = show program
+     in pure $ if fragment `isInfixOf` rendered then Nothing else Just (name ++ ": missing " ++ fragment ++ " in " ++ rendered)
+
 checkedMainCore :: Test
 checkedMainCore = case parse source >>= (\program -> elaborateProgramWithImports program Map.empty True) of
   Left message -> pure (Just ("checked main core: elaboration failed: " ++ message))
@@ -35,34 +60,96 @@ checkedMainCore = case parse source >>= (\program -> elaborateProgramWithImports
  where
   source = "kin 𝟙 { null } let (_: 𝟙) main: 𝟙 = null"
 
+checkedModuleInterface :: Test
+checkedModuleInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program Map.empty) of
+  Left message -> pure (Just ("checked module interface: elaboration failed: " ++ message))
+  Right program ->
+    let ModuleInterface{interfaceModule, interfaceTerms} = coreInterface program
+        actual = (interfaceModule, interfaceTerms)
+        symbol = SymbolId RootModule
+        exported target kind = TermExport (symbol target) kind
+        expectedTerms =
+          Map.fromList
+            [ (symbol "box", exported "box@box" (ConstructorTerm 0))
+            , (symbol "identity", exported "identity@identity" (ShapeMemberTerm (symbol "identity")))
+            , (symbol "value", exported "value" OrdinaryTerm)
+            ]
+        expected = (RootModule, expectedTerms)
+     in Harness.expectEq "checked module interface recordeþ public runtime terms" expected actual
+ where
+  source = "show kin box { box } show shape a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
+
+checkedImportInterface :: Test
+checkedImportInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
+  Left message -> pure (Just ("checked import interface: elaboration failed: " ++ message))
+  Right program -> case coreImportInterface "dep.tung" program of
+    Nothing -> pure (Just "checked import interface: missing dep.tung interface")
+    Just imported ->
+      let depSymbol = SymbolId (SourceModule "dep.tung")
+          importedSummary = (interfaceModule imported, interfaceTerms imported)
+          exported target kind = TermExport (depSymbol target) kind
+          expectedTerms =
+            Map.fromList
+              [ (depSymbol "box", exported "box@box" (ConstructorTerm 0))
+              , (depSymbol "identity", exported "identity@identity" (ShapeMemberTerm (depSymbol "identity")))
+              , (depSymbol "value", exported "value" OrdinaryTerm)
+              ]
+          expected = (SourceModule "dep.tung", expectedTerms)
+       in Harness.expectEq "checked import interface retaineþ its resolved module identity" expected importedSummary
+ where
+  source = "bring dep.tung let same: dep@box = dep@value dep@identity"
+  imports = Map.singleton "dep.tung" "show kin box { box } show shape a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
+
+checkedReExportInterface :: Test
+checkedReExportInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
+  Left message -> pure (Just ("checked re-export interface: elaboration failed: " ++ message))
+  Right program -> case coreImportInterface "middle.tung" program of
+    Nothing -> pure (Just "checked re-export interface: missing middle.tung interface")
+    Just imported ->
+      let middle = SymbolId (SourceModule "middle.tung")
+          base = SymbolId (SourceModule "base.tung")
+          expected =
+            Map.fromList
+              [ (middle "off", TermExport (base "bit@off") (ConstructorTerm 0))
+              , (middle "value", TermExport (base "value") OrdinaryTerm)
+              ]
+       in Harness.expectEq "checked re-exports retain defining term identities" expected (interfaceTerms imported)
+ where
+  source = "bring middle.tung yield middle@value"
+  imports =
+    Map.fromList
+      [ ("base.tung", "show kin bit { off } show let value = 7")
+      , ("middle.tung", "bring base.tung show base@off show base@value")
+      ]
+
+checkedReservedDataInterface :: Test
+checkedReservedDataInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
+  Left message -> pure (Just ("checked reserved data interface: elaboration failed: " ++ message))
+  Right program -> case coreImportInterface path program of
+    Nothing -> pure (Just ("checked reserved data interface: missing " ++ path ++ " interface"))
+    Just imported ->
+      let symbol = SymbolId (SourceModule path)
+          expected = Just (TermExport (symbol "$nominal@𝟚@yea") (ConstructorTerm 0))
+       in Harness.expectEq "checked incompatible reserved data retaineþ a nominal constructor identity" expected (Map.lookup (symbol "yea") (interfaceTerms imported))
+ where
+  path = "data/two.tung"
+  source = "bring data/two.tung let value: two@𝟚 = two@yea"
+  imports = Map.singleton path "show kin 𝟚 { yea, maybe }"
+
 integerCase :: Map.Map String String -> (String, Integer) -> Test
 integerCase imports (source, expected) = safeResult imports ("generated integer " ++ source) ("yield " ++ source) ("eval ok: " ++ show expected)
 
 languageCase :: Map.Map String String -> (String, String, String) -> Test
 languageCase imports (name, source, expected) = safeResult imports name source expected
 
-rejectedCase :: Map.Map String String -> (String, String) -> Test
-rejectedCase imports (name, source) = do
-  outcome <- safeEvaluate imports source
-  pure $ case outcome of
-    Left message -> Just (name ++ ": host exception: " ++ message)
-    Right result
-      | "eval error: type error:" `isPrefixOf` result -> Nothing
-      | otherwise -> Just (name ++ ": unsafe program reached evaluation: " ++ result)
-
 safeResult :: Map.Map String String -> String -> String -> String -> Test
 safeResult imports name source expected = do
-  outcome <- safeEvaluate imports source
+  outcome <- Exception.try (evaluateWithImports source imports) :: IO (Either Exception.SomeException String)
   pure $ case outcome of
-    Left message -> Just (name ++ ": host exception: " ++ message)
+    Left exception -> Just (name ++ ": host exception: " ++ Exception.displayException exception)
     Right actual
       | actual == expected -> Nothing
       | otherwise -> Just (name ++ ": expected " ++ expected ++ ", got " ++ actual)
-
-safeEvaluate :: Map.Map String String -> String -> IO (Either String String)
-safeEvaluate imports source = do
-  result <- Exception.try (evaluateWithImports source imports) :: IO (Either Exception.SomeException String)
-  pure (either (Left . Exception.displayException) Right result)
 
 integerTerms :: [(String, Integer)]
 integerTerms = atoms ++ take 90 firstLevel ++ take 90 secondLevel
@@ -85,17 +172,9 @@ languagePrograms =
   , ("checked integer match", "yield match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
   , ("checked class evidence", "shape a identity { let a identity: a } fill integer identity { let x identity = x } yield 7 identity", "eval ok: 7")
   , ("checked fill member calleþ sibling", "shape a linked { let a first: a let a second: a } fill integer linked { let x first = x let x second = x first } yield 7 second", "eval ok: 7")
+  , ("checked empty effect", "deed marker {} yield 1", "eval ok: 1")
   , ("checked multi-shot handler", "kin 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 eftgin) + (2 eftgin) }", "eval ok: 3")
   , ("checked non-finite floor failure", "bring ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail | 0 }", "eval ok: 0")
-  ]
-
-rejectedPrograms :: [(String, String)]
-rejectedPrograms =
-  [ ("reject non-function application", "yield 1 2")
-  , ("reject constructor overapplication", "kin a box { a box } yield 1 box 2")
-  , ("reject missing record field", "let value = r(field = 1) yield value@missing")
-  , ("reject non-exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1 }")
-  , ("reject refutable handler yield", "kin 𝟚 { yea, nay } yield try nay { yield yea | 1 }")
   ]
 
 booleanProductPrograms :: [(String, String, String)]

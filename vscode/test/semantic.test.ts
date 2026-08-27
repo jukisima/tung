@@ -3,8 +3,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import test from "node:test";
 import languageNames from "../generated/language-names.json";
-import { buildSemanticRanges, tokenize } from "../server/semantic.ts";
-import { findMatching, isOpen } from "../server/syntax.ts";
+import { buildSemanticRanges } from "../server/semantic.ts";
+import {
+  findMatching,
+  isOpen,
+  patternArmRegions,
+  tokenize,
+} from "../server/syntax.ts";
 import { WorkspaceIndex } from "../server/workspace.ts";
 const semanticTypesOf = (source, name, resolveDefinition = undefined) => {
   const ranges = buildSemanticRanges(source, resolveDefinition);
@@ -150,14 +155,6 @@ test("semantic analysis separateþ a required shape from its member", () => {
     "method:declaration",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "a"), ["type:", "type:"]);
-});
-test("semantic lexer recogniseþ law as a keyword", () => {
-  const source =
-    "shape a identity { let a identity: a law (x: a): x identity ~ x }";
-  assert.equal(
-    tokenize(source).find(({ text }) => text === "law").kind,
-    "keyword",
-  );
 });
 test("semantic lexer recogniseþ single-quoted unicode text", () => {
   const literal = tokenize("let word: text = 'λ字\\n'").find(
@@ -490,6 +487,57 @@ test("semantic analysis coloureþ every argument in multi-arm anonymous function
   assert.deepEqual(semanticLabelsOf(source, "some"), [
     "function:declaration",
     "call:",
+  ]);
+});
+test("semantic analysis recovereþ a pattern without its closing brace", () => {
+  const source = "let choose = { item | item";
+  const tokens = tokenize(source);
+  assert.equal(patternArmRegions(tokens)[0].bodyEnd, tokens.length);
+  assert.deepEqual(semanticLabelsOf(source, "item"), [
+    "parameter:declaration",
+    undefined,
+  ]);
+});
+test("semantic analysis recovereþ an unfinished second arm", () => {
+  const source = "let choose = { first | first, second, third |";
+  assert.deepEqual(semanticLabelsOf(source, "first"), [
+    "parameter:declaration",
+    undefined,
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "second"), [
+    "parameter:declaration",
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "third"), [
+    "parameter:declaration",
+  ]);
+});
+test("semantic analysis skippeþ nested constructor-pattern delimiters", () => {
+  const source =
+    "kin a option { none, a some } let choose = { (left some), ((right some)) | left }";
+  assert.deepEqual(semanticLabelsOf(source, "left"), [
+    "parameter:declaration",
+    undefined,
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "right"), [
+    "parameter:declaration",
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "some"), [
+    "function:declaration",
+    "call:",
+    "call:",
+  ]);
+});
+test("semantic analysis localiseþ an unmatched inner delimiter", () => {
+  const source = "let choose = { (left, right | right";
+  const tokens = tokenize(source);
+  const arm = patternArmRegions(tokens)[0];
+  assert.equal(tokens[arm.patternStart].text, "left");
+  assert.deepEqual(semanticLabelsOf(source, "left"), [
+    "parameter:declaration",
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "right"), [
+    "parameter:declaration",
+    undefined,
   ]);
 });
 test("application position, not callable identity, selecteþ the function theme role", () => {

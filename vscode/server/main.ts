@@ -2,7 +2,6 @@
 // editor features; the compiler bridge alone supplieþ authoritative diagnostics.
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   CompletionItemKind,
   createConnection,
@@ -20,22 +19,26 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
   keywordHelp,
-  languageNames,
   nameRange,
+  smallestRegion,
   tokenAtPosition,
   tokenRange,
 } from "./analysis.ts";
 import { CompilerBridge, parseCompilerDiagnostic } from "./checker.ts";
 import { formatRangeEdit } from "./format.ts";
-import { toFilePath, WorkspaceIndex } from "./workspace.ts";
-import { buildSemanticRanges, tokenModifiers, tokenTypes } from "./semantic.ts";
+import { languageNames } from "./syntax.ts";
+import { toFilePath, uniqueByKey, WorkspaceIndex } from "./workspace.ts";
+import {
+  buildAnalyzedSemanticRanges,
+  tokenModifiers,
+  tokenTypes,
+} from "./semantic.ts";
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const workspace = new WorkspaceIndex(documents);
 const compiler = new CompilerBridge();
 const timers = new Map();
 const checks = new Map();
-const diagnostics = new Map();
 const diagnosticReports = new Map();
 const typeCache = new Map<
   string,
@@ -59,10 +62,10 @@ connection.onInitialize((params) => {
   canRefreshSemanticTokens = Boolean(
     params.capabilities?.workspace?.semanticTokens?.refreshSupport,
   );
-  workspaceRoots = unique(
+  workspaceRoots = uniqueByKey(
     [
-      ...(params.workspaceFolders || []).map(({ uri }) => filePath(uri)),
-      filePath(params.rootUri),
+      ...(params.workspaceFolders || []).map(({ uri }) => toFilePath(uri)),
+      toFilePath(params.rootUri),
     ].filter(Boolean),
   );
   tongueDir = findTongueDir(configuredTongue);
@@ -126,11 +129,11 @@ connection.onNotification(
   ({ event }) => {
     const { added = [], removed = [] } = event || {};
     const removedPaths = new Set(
-      removed.map(({ uri }) => filePath(uri)).filter(Boolean),
+      removed.map(({ uri }) => toFilePath(uri)).filter(Boolean),
     );
-    workspaceRoots = unique([
+    workspaceRoots = uniqueByKey([
       ...workspaceRoots.filter((root) => !removedPaths.has(root)),
-      ...added.map(({ uri }) => filePath(uri)).filter(Boolean),
+      ...added.map(({ uri }) => toFilePath(uri)).filter(Boolean),
     ]);
     tongueDir = findTongueDir(configuredTongue);
     compiler.configure(tongueDir);
@@ -180,7 +183,10 @@ connection.onCompletion(({ textDocument, position }) => {
       kind: CompletionItemKind.Keyword,
       detail: keywordHelp[label] || "tung keyword",
     }));
-  return unique([...definitionItems, ...keywordItems], ({ label }) => label);
+  return uniqueByKey(
+    [...definitionItems, ...keywordItems],
+    ({ label }) => label,
+  );
 });
 connection.onHover(async ({ textDocument, position }, cancellation) => {
   const resolved = workspace.resolveAt(textDocument.uri, position);
@@ -260,7 +266,8 @@ connection.onDocumentSymbol(({ textDocument }) => {
     name: definition.bareName,
     detail: definition.detail,
     kind: symbolKind(definition.role),
-    range: declarationRange(model, definition),
+    range: smallestRegion(model.regions, definition.token.offset)?.range ||
+      definition.range,
     selectionRange: definition.selectionRange,
   }));
 });
@@ -404,7 +411,7 @@ documents.onDidChangeContent(({ document }) => {
       scheduleCheck(dependent, dependentCheckDelay);
     }
   }
-  scheduleSemanticRefresh(semanticRefreshDelay, document.uri);
+  scheduleSemanticRefresh();
 });
 documents.onDidSave(({ document }) => {
   workspace.invalidate(document.uri);
@@ -423,10 +430,17 @@ documents.onDidClose(({ document }) => {
 const semanticTokens = (uri, requestedRange = undefined) => {
   const model = workspace.model(uri);
   const builder = new SemanticTokensBuilder();
+  if (!model) return builder.build();
   const resolve = (token) =>
     workspace.resolveAt(uri, { line: token.line, character: token.char })
       .definition;
-  for (const token of buildSemanticRanges(model?.text || "", resolve)) {
+  for (
+    const token of buildAnalyzedSemanticRanges(
+      model.tokens,
+      model.semantic,
+      resolve,
+    )
+  ) {
     if (requestedRange && !rangeContainsLine(requestedRange, token.line)) {
       continue;
     }
@@ -445,17 +459,10 @@ const semanticTokens = (uri, requestedRange = undefined) => {
   }
   return builder.build();
 };
-const scheduleSemanticRefresh = (
-  delay = semanticRefreshDelay,
-  uri = undefined,
-) => {
+const scheduleSemanticRefresh = (delay = semanticRefreshDelay) => {
   clearTimeout(semanticRefreshTimer);
   semanticRefreshTimer = setTimeout(() => {
     semanticRefreshTimer = undefined;
-    connection.sendNotification(
-      "tung/semanticTokensChanged",
-      uri ? { uri } : {},
-    );
     if (canRefreshSemanticTokens) {
       Promise.resolve(connection.languages.semanticTokens.refresh())
         .catch(() => {});
@@ -557,7 +564,7 @@ const publish = (document, diagnostic) => {
   const items = message
     ? [
       {
-        range: errorRange(owner.document, diagnostic),
+        range: errorRange(owner, diagnostic),
         severity: DiagnosticSeverity.Error,
         source: "tung",
         message,
@@ -566,7 +573,7 @@ const publish = (document, diagnostic) => {
     : [];
   if (items.length) {
     diagnosticReports.set(document.uri, {
-      targetUri: owner.document.uri,
+      targetUri: owner.uri,
       items,
     });
   } else {
@@ -574,7 +581,7 @@ const publish = (document, diagnostic) => {
   }
   refreshDiagnostics(previous?.targetUri);
   refreshDiagnostics(document.uri);
-  refreshDiagnostics(owner.document.uri);
+  refreshDiagnostics(owner.uri);
 };
 const diagnosticOwner = (document, diagnostic) => {
   if (typeof diagnostic !== "string" && diagnostic?.path) {
@@ -582,37 +589,26 @@ const diagnosticOwner = (document, diagnostic) => {
     const imported = workspace.importModel(root, diagnostic.path);
     if (imported) {
       const open = documents.get(imported.uri);
-      return {
-        document: open ||
-          TextDocument.create(imported.uri, "tung", 0, imported.text),
-      };
+      return open ||
+        TextDocument.create(imported.uri, "tung", 0, imported.text);
     }
   }
-  return { document };
+  return document;
 };
 const refreshDiagnostics = (uri) => {
   if (!uri) return;
-  const items = uniqueDiagnostics(
+  const items = uniqueByKey(
     [...diagnosticReports.values()]
       .filter(({ targetUri }) => targetUri === uri)
       .flatMap(({ items: reported }) => reported),
+    ({ range, message }) =>
+      `${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}:${message}`,
   );
-  diagnostics.set(uri, items);
   const open = documents.get(uri);
   connection.sendDiagnostics({
     uri,
     ...(open ? { version: open.version } : {}),
     diagnostics: items,
-  });
-};
-const uniqueDiagnostics = (items) => {
-  const seen = new Set();
-  return items.filter(({ range, message }) => {
-    const key =
-      `${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}:${message}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
   });
 };
 const errorRange = (document, diagnostic) => {
@@ -731,18 +727,6 @@ const roleDescription = (definition) => {
     : "private";
   return [visibility, definition.role, where].filter(Boolean).join(" · ");
 };
-const declarationRange = (model, definition) => {
-  const region = model.regions
-    .filter(
-      ({ startOffset, endOffset }) =>
-        startOffset <= definition.token.offset &&
-        definition.token.offset <= endOffset,
-    )
-    .sort((a, b) =>
-      a.endOffset - a.startOffset - (b.endOffset - b.startOffset)
-    )[0];
-  return region?.range || definition.range;
-};
 const selectionRange = (model, position) => {
   const token = tokenAtPosition(model, position);
   const ranges = [
@@ -820,22 +804,6 @@ const findTongueDir = (configured) => {
   return candidates
     .filter(Boolean)
     .find((candidate) => fs.existsSync(path.join(candidate, "tung.cabal")));
-};
-const filePath = (uri) => {
-  try {
-    return uri?.startsWith("file:") ? fileURLToPath(uri) : undefined;
-  } catch {
-    return undefined;
-  }
-};
-const unique = (items, keyOf = (item) => item) => {
-  const seen = new Set();
-  return items.filter((item) => {
-    const key = keyOf(item);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 };
 documents.listen(connection);
 connection.listen();

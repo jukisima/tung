@@ -22,7 +22,6 @@ import Tung.Token
 data FunctionResult = FunctionResult
   { functionResultType :: TypeExpr
   , functionResultEffects :: [TypeExpr]
-  , functionResultNeeds :: [ShapeNeed]
   }
   deriving (Eq, Show)
 
@@ -294,10 +293,10 @@ parseTypedParamPatternTokens :: [Token] -> Either String ([Token], [Token])
 parseTypedParamPatternTokens ts = takeTopLevelUntil ts (\case TColon -> True; TComma -> True; TRParen -> True; _ -> False) "unterminated typed argument"
 
 functionLetAnn :: [ShapeNeed] -> [Maybe TypeExpr] -> FunctionResult -> Either String TypeAnn
-functionLetAnn needs [] FunctionResult{functionResultType = result, functionResultEffects = [], functionResultNeeds} = Right (TypeAnn result (needs ++ functionResultNeeds))
+functionLetAnn needs [] FunctionResult{functionResultType = result, functionResultEffects = []} = Right (TypeAnn result needs)
 functionLetAnn _ [] _ = Left "effect annotation requireþ function arguments"
 functionLetAnn needs argTypes FunctionResult{..} =
-  TypeAnn <$> makeArrowType (fillMissingTypes argTypes) functionResultEffects functionResultType <*> pure (needs ++ functionResultNeeds)
+  TypeAnn <$> makeArrowType (fillMissingTypes argTypes) functionResultEffects functionResultType <*> pure needs
 
 implicitLetAnn :: [ShapeNeed] -> [Maybe TypeExpr] -> Maybe TypeAnn
 implicitLetAnn [] [] = Nothing
@@ -649,25 +648,7 @@ parseExprParts stopBrace = go []
         | otherwise -> Right (reverse acc, ts)
 
 exprStop :: Token -> Bool
-exprStop = \case
-  TComma -> True
-  TDot -> True
-  TMapsTo -> True
-  TRParen -> True
-  TRBrace -> True
-  TLet -> True
-  TGraith -> True
-  TBring -> True
-  TLetIlk -> True
-  TKin -> True
-  TDeed -> True
-  TYield -> True
-  TShape -> True
-  TFill -> True
-  TShow -> True
-  TShowIlk -> True
-  TLaw -> True
-  _ -> False
+exprStop token = startsFileDeclaration token || token `elem` [TComma, TDot, TMapsTo, TRParen, TRBrace, TYield, TLaw]
 
 parseExprAtom :: P Expr
 parseExprAtom = locateParsed parseExprAtomRaw
@@ -941,7 +922,9 @@ parseFunctionResultUntilCommaOrBrace = collect []
 
   startsRightBrace (TRBrace : _) = True
   startsRightBrace _ = False
-parseFunctionResultUntilEquals ts = parseFunctionResultUntilTopLevel ts (\case TEquals -> True; _ -> False) "expected '=' after type"
+parseFunctionResultUntilEquals ts = do
+  (seen, rest) <- takeTopLevelUntil ts (\case TEquals -> True; _ -> False) "expected '=' after type"
+  finishFunctionResult seen rest
 
 parseTypeUntilTopLevel :: [Token] -> (Token -> Bool) -> String -> Either String (TypeExpr, [Token])
 parseTypeUntilTopLevel ts stop message = do
@@ -957,24 +940,19 @@ parseTypeUntilTopLevelOrEnd ts stop message =
 finishType :: [Token] -> [Token] -> Either String (TypeExpr, [Token])
 finishType tokens rest = (,rest) <$> parseWhole "could not parse whole type" parseTypeTokens tokens
 
-parseFunctionResultUntilTopLevel :: [Token] -> (Token -> Bool) -> String -> Either String (FunctionResult, [Token])
-parseFunctionResultUntilTopLevel ts stop message = do
-  (seen, rest) <- takeTopLevelUntil ts stop message
-  finishFunctionResult seen rest
-
 parseFunctionResultTokens :: [Token] -> Either String FunctionResult
 parseFunctionResultTokens tokens = fst <$> finishFunctionResult tokens []
 
 finishFunctionResult :: [Token] -> [Token] -> Either String (FunctionResult, [Token])
 finishFunctionResult tokens rest =
   case parseTypeTokens tokens of
-    Right (t, []) -> Right (FunctionResult t [] [], rest)
+    Right (t, []) -> Right (FunctionResult t [], rest)
     _ -> case splitTopLevelBang tokens of
       Nothing -> Left "could not parse whole function result type"
       Just (retTokens, effectTokens) -> do
         ret <- parseWhole "unexpected tokens before effects" parseTypeTokens retTokens
         effects <- parseWhole "unexpected tokens after effects" parseCommaTypes effectTokens
-        Right (FunctionResult ret effects [], rest)
+        Right (FunctionResult ret effects, rest)
 
 -- arrows are special syntax with non-empty domains. type application otherwise
 -- followeþ the same second-is-function rule as term application.

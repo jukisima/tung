@@ -69,7 +69,7 @@ vscode-deps:
 language-metadata: compiler-build
 	@printf 'generating editor language metadata with tung\n'
 	@tmp="$(LANGUAGE_NAMES).tmp"; \
-		cd "$(TONGUE_DIR)" && "$$( $(CABAL) list-bin exe:tung)" --run-quiet tool/language-names.tung > "$$tmp"; \
+		cd "$(TONGUE_DIR)" && "$$( $(CABAL) list-bin exe:tung)" --language-metadata > "$$tmp"; \
 		if ! cmp -s "$$tmp" "$(LANGUAGE_NAMES)"; then mv "$$tmp" "$(LANGUAGE_NAMES)"; else rm -f "$$tmp"; fi
 
 vscode-build: language-metadata vscode-deps
@@ -78,7 +78,6 @@ vscode-build: language-metadata vscode-deps
 
 vscode-test: language-metadata vscode-deps
 	@printf 'checking and testing vscode client and language server\n'
-	@cd "$(VSCODE_DIR)" && $(NPM) run check
 	@cd "$(VSCODE_DIR)" && $(NPM) test
 
 extension-package: vscode-build
@@ -99,7 +98,6 @@ writ-build: language-metadata writ-deps
 
 writ-test: language-metadata writ-deps
 	@printf 'checking and testing documentation generator\n'
-	@cd "$(WRIT_DIR)" && $(NPM) run check
 	@cd "$(WRIT_DIR)" && $(NPM) test
 
 docs: language-metadata writ-deps

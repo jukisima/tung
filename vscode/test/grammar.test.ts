@@ -377,7 +377,6 @@ test("manifest exposeþ running a tung file from the editor", () => {
   assert.equal(command.title, "Run Tung File");
   assert.equal(command.icon, "$(play)");
   assert.equal(title.when, "resourceLangId == tung");
-  assert(manifest.activationEvents.includes("onCommand:tung.runFile"));
   assert.equal(
     manifest.contributes.configuration.properties["tung.executablePath"]
       .default,

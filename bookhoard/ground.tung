@@ -52,6 +52,16 @@ show-ilk fail, console, random, state, async, file, system, clock, process, web
 show-ilk process-result
 show-ilk request, response
 
+show-ilk equal
+show-ilk less-equal, order-partial, order-total
+show-ilk semilattice-infimal, semilattice-supremal, lattice
+show-ilk semilattice-infimal-bounded, semilattice-supremal-bounded, lattice-bounded, complement
+show-ilk to-text, from-text
+show-ilk add, zero, monoid-additive, multiply, one, monoid-multiplicative, semiring
+show-ilk subtract, ring, divide, field, divide-remainder, euclidean
+show-ilk functor, applicative, monad, inhold
+show-ilk elementary
+
 show ¬, if
 show when, when-not, branch
 

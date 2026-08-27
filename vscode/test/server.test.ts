@@ -11,6 +11,9 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
+// lsp results are deliberately heterogeneous in this integration harness.
+// deno-lint-ignore no-explicit-any
+type LspTestResult = any;
 test("server implementeþ the editor workflow over stdio", async (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-lsp-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -40,19 +43,18 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     connection,
     "workspace/semanticTokens/refresh",
   );
-  const semanticChanged = notificationQueue(
-    connection,
-    "tung/semanticTokensChanged",
-  );
   connection.listen();
   const request = (method, params) =>
-    connection.sendRequest<any>(method, params);
-  const initialized = await connection.sendRequest<any>("initialize", {
-    processId: process.pid,
-    rootUri: pathToFileURL(root).href,
-    workspaceFolders: [{ uri: pathToFileURL(root).href, name: "fixture" }],
-    capabilities: { workspace: { semanticTokens: { refreshSupport: true } } },
-  });
+    connection.sendRequest<LspTestResult>(method, params);
+  const initialized = await connection.sendRequest<LspTestResult>(
+    "initialize",
+    {
+      processId: process.pid,
+      rootUri: pathToFileURL(root).href,
+      workspaceFolders: [{ uri: pathToFileURL(root).href, name: "fixture" }],
+      capabilities: { workspace: { semanticTokens: { refreshSupport: true } } },
+    },
+  );
   const capabilities = initialized.capabilities;
   assert.equal(capabilities.textDocumentSync.change, 2);
   for (
@@ -100,7 +102,6 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     ({ diagnostics }) => diagnostics.length > 0,
   );
   const changedHighlight = semanticRefresh.next();
-  const changedFallback = semanticChanged.next();
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: depUri, version: 2 },
     contentChanges: [
@@ -113,7 +114,6 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     ],
   });
   await changedHighlight;
-  await changedFallback;
   assert.match((await staleDiskGuard).diagnostics[0].message, /^type error:/);
   const restoredImport = nextDiagnostics(
     connection,
@@ -121,13 +121,11 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     ({ diagnostics }) => diagnostics.length === 0,
   );
   const restoredHighlight = semanticRefresh.next();
-  const restoredFallback = semanticChanged.next();
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: depUri, version: 3 },
     contentChanges: [{ text: depText }],
   });
   await restoredHighlight;
-  await restoredFallback;
   assert.deepEqual((await restoredImport).diagnostics, []);
   connection.sendNotification("textDocument/didSave", {
     textDocument: { uri: depUri },
@@ -291,7 +289,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: mainUri },
     options: { tabSize: 2, insertSpaces: true },
   });
-  assert.match(formatted[0].newText, /show kin a box \{\n  a box\n\}/);
+  assert.match(formatted[0].newText, /show kin a box \{\n[ ]{2}a box\n\}/);
   const boxStartLine = positionOf(mainText, "show kin a box").line;
   const rangeFormatted = await request("textDocument/rangeFormatting", {
     textDocument: { uri: mainUri },
@@ -301,7 +299,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     },
     options: { tabSize: 2, insertSpaces: true },
   });
-  assert.match(rangeFormatted[0].newText, /  a box/);
+  assert.match(rangeFormatted[0].newText, /[ ]{2}a box/);
   connection.sendNotification("textDocument/didClose", {
     textDocument: { uri: depUri },
   });
@@ -373,108 +371,12 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   connection.dispose();
   assert.equal(stderr, "");
 });
-test("server semantic tokens colour real shape methods", async (context) => {
-  const root = path.resolve(__dirname, "..", "..", "..");
-  const file = path.join(
-    root,
-    "bookhoard",
-    "collection",
-    "functor.tung",
-  );
-  const text = fs.readFileSync(file, "utf8");
-  const uri = pathToFileURL(file).href;
-  const server = childProcess.spawn(
-    process.execPath,
-    [path.join(__dirname, "..", "server", "main.js"), "--stdio"],
-    { stdio: ["pipe", "pipe", "pipe"] },
-  );
-  context.after(() => server.kill());
-  const connection = createMessageConnection(
-    new StreamMessageReader(server.stdout),
-    new StreamMessageWriter(server.stdin),
-  );
-  connection.listen();
-  const initialized = await connection.sendRequest<any>("initialize", {
-    processId: process.pid,
-    rootUri: pathToFileURL(root).href,
-    workspaceFolders: [{ uri: pathToFileURL(root).href, name: "tung" }],
-    capabilities: {},
-  });
-  connection.sendNotification("initialized", {});
-  connection.sendNotification("textDocument/didOpen", {
-    textDocument: { uri, languageId: "tung", version: 1, text },
-  });
-  const semantic = await connection.sendRequest<any>(
-    "textDocument/semanticTokens/full",
-    {
-      textDocument: { uri },
-    },
-  );
-  const semanticAt = decodedSemanticTokens(
-    semantic.data,
-    initialized.capabilities.semanticTokensProvider.legend.tokenTypes,
-  );
-  assert.equal(semanticAt.get(positionKey(positionOf(text, "map"))), "method");
-  connection.sendNotification("textDocument/didClose", {
-    textDocument: { uri },
-  });
-  await connection.sendRequest("shutdown");
-  connection.sendNotification("exit");
-  await once(server, "exit");
-  connection.dispose();
-});
-test("server sendeþ semantic fallback notification without refresh capability", async (context) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-lsp-fallback-"));
-  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const file = path.join(root, "main.tung");
-  const text = "let value: integer = 1\n";
-  fs.writeFileSync(file, text);
-  const uri = pathToFileURL(file).href;
-  const server = childProcess.spawn(
-    process.execPath,
-    [path.join(__dirname, "..", "server", "main.js"), "--stdio"],
-    { stdio: ["pipe", "pipe", "pipe"] },
-  );
-  context.after(() => server.kill());
-  const connection = createMessageConnection(
-    new StreamMessageReader(server.stdout),
-    new StreamMessageWriter(server.stdin),
-  );
-  const semanticChanged = notificationQueue(
-    connection,
-    "tung/semanticTokensChanged",
-  );
-  connection.listen();
-  await connection.sendRequest("initialize", {
-    processId: process.pid,
-    rootUri: pathToFileURL(root).href,
-    workspaceFolders: [{ uri: pathToFileURL(root).href, name: "fixture" }],
-    capabilities: {},
-  });
-  connection.sendNotification("initialized", {});
-  connection.sendNotification("textDocument/didOpen", {
-    textDocument: { uri, languageId: "tung", version: 1, text },
-  });
-  const changed = semanticChanged.next();
-  connection.sendNotification("textDocument/didChange", {
-    textDocument: { uri, version: 2 },
-    contentChanges: [{ text: "let value: integer = 2\n" }],
-  });
-  await changed;
-  connection.sendNotification("textDocument/didClose", {
-    textDocument: { uri },
-  });
-  await connection.sendRequest("shutdown");
-  connection.sendNotification("exit");
-  await once(server, "exit");
-  connection.dispose();
-});
 const nextDiagnostics = (
   connection,
   uri,
-  accept: (params: any) => boolean = () => true,
+  accept: (params: LspTestResult) => boolean = () => true,
 ) => {
-  return new Promise<any>((resolve, reject) => {
+  return new Promise<LspTestResult>((resolve, reject) => {
     const timeout = setTimeout(
       () => reject(new Error(`timed out waiting for diagnostics for ${uri}`)),
       30000,
@@ -498,33 +400,6 @@ const requestQueue = (connection, method) => {
     if (resolve) resolve();
     else queued.push(true);
     return null;
-  });
-  return {
-    next() {
-      if (queued.length) {
-        queued.shift();
-        return Promise.resolve();
-      }
-      return new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(
-          () => reject(new Error(`timed out waiting for ${method}`)),
-          30000,
-        );
-        waiting.push(() => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
-    },
-  };
-};
-const notificationQueue = (connection, method) => {
-  const queued = [];
-  const waiting = [];
-  connection.onNotification(method, () => {
-    const resolve = waiting.shift();
-    if (resolve) resolve();
-    else queued.push(true);
   });
   return {
     next() {

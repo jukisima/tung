@@ -28,7 +28,6 @@ const closeForOpen = new Map([
   ["{", "}"],
 ]);
 const closingDelimiters = new Set(closeForOpen.values());
-const specialOpenPrefixes = new Set(["r", "<", ">"]);
 
 const tokenize = (text) => {
   const tokens = [];
@@ -152,7 +151,7 @@ const tokenize = (text) => {
       consumeString();
     } else if (ch === "`") {
       consumeCharacter();
-    } else if (specialOpenPrefixes.has(ch) && next() === "(") {
+    } else if (closeForOpen.has(ch + next())) {
       consumeSpecialOpen();
     } else if (ch === "." && next() === "*") {
       consumeName();
@@ -241,6 +240,41 @@ const splitTopLevel = (tokens, start, end, separators) => {
   return segments;
 };
 
+// pattern arms recover independently in incomplete buffers: an unmatched
+// opener begins a local pattern, and a missing body terminator extends to EOF.
+const patternArmRegions = (tokens) => {
+  const regions = [];
+  const frames = [{ patternStart: 0, openArms: [] }];
+  const closeArms = (frame, bodyEnd) => {
+    for (const arm of frame.openArms) arm.bodyEnd = bodyEnd;
+    frame.openArms = [];
+  };
+  for (const token of tokens) {
+    if (isOpen(token.text)) {
+      frames.push({ patternStart: token.index + 1, openArms: [] });
+      continue;
+    }
+    const frame = frames.at(-1);
+    if (token.text === "|") {
+      const arm = {
+        patternStart: frame.patternStart,
+        pipe: token,
+        bodyEnd: tokens.length,
+      };
+      regions.push(arm);
+      frame.openArms.push(arm);
+      frame.patternStart = token.index + 1;
+    } else if (token.text === "," && frame.openArms.length) {
+      closeArms(frame, token.index);
+      frame.patternStart = token.index + 1;
+    } else if (isClose(token.text)) {
+      closeArms(frame, token.index);
+      if (frames.length > 1) frames.pop();
+    }
+  }
+  return regions;
+};
+
 // a leading graiþ and its following let form one member declaration.
 const splitDeclarations = (
   tokens,
@@ -314,18 +348,19 @@ const bringParts = (tokens, bringIndex, depths = tokenDepths(tokens)) => {
   const aliasToken = index < end && tokens[index]?.kind === "name"
     ? tokens[index]
     : undefined;
-  return { end, pathTokens, aliasToken };
+  return { pathTokens, aliasToken };
+};
+
+const lastQualifiedSegment = (name) => {
+  return name.slice(name.lastIndexOf("@") + 1);
 };
 
 const bringNamespace = (path, alias) => {
-  const canonical = path.split(".")[0];
-  return alias || canonical.split("/").at(-1) || canonical;
+  const basename = path.split("/").at(-1) || path;
+  return alias || basename.split(".")[0];
 };
 
-const languageNames = {
-  keywords: [...keywords],
-  primitiveTypes: [...primitiveTypes],
-};
+const languageNames = generatedLanguageNames;
 
 export {
   bracketPairs,
@@ -338,6 +373,8 @@ export {
   isClose,
   isOpen,
   languageNames,
+  lastQualifiedSegment,
+  patternArmRegions,
   primitiveTypes,
   splitDeclarations,
   splitTopLevel,

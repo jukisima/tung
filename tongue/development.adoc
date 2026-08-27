@@ -81,10 +81,10 @@ source text
   -> tokenisation and utf-16 spans
   -> parsing and source locations
   -> structural validation
-  -> project loading, imports, and name lookup
-  -> type, effect, coverage, shape, and fill checking
-  -> evidence elaboration
-  -> validated CoreProgram
+  -> project loading and the canonical import graph
+  -> type, effect, coverage, shape, and fill checking with name resolution
+  -> evidence selection and explicit dictionary elaboration
+  -> Core lowering and validation
   -> strict evaluation
 ----
 
@@ -107,27 +107,64 @@ relative brings from their owner, then platform-separated `TUNG_PATH` roots;
 the embedded bookhoard is the final fallback. one written bring path resolving
 to different canonical files is rejected.
 
-the checker cacheþ each imported static context and elaborated core while it
-walkeþ one acyclic graph. a `CoreProgram` carrieþ the elaborated root and its
-flat imported-core map. evaluation resolveþ imports only from that checked map
-and initialiseþ each shared module once.
+þe checker cacheþ each imported static context and lowered Core module while it
+walkeþ one acyclic graph. resolved runtime names have a canonical `ModuleId`
+and module-qualified `SymbolId` values. after checking, a `ModuleInterface`
+projecteþ public runtime term targets and kinds. static visibility remainþ in
+`TcContext`, while elaborated Core declarations carry þe checked shape/fill
+closure, so private parent shapes may cross at runtime without gaining a public
+name. lowering need not retain export or re-export declarations. a `CoreProgram`
+carrieþ þe lowered root module and its flat imported-core map. evaluation
+resolveþ imports only from þat checked map and initialiseþ each shared module
+once.
 
 == types, evidence, and evaluation
 
 `Tung.Type` owneþ hindley-milner inference, effect rows, coverage integration,
-shape requirements, fill selection, and dictionary elaboration. fill selection
-is static: inheritance depth is considered first, then a type pattern may
-outrank a broader pattern it strictly refines. equivalent imported candidates
-are deduplicated before this comparison.
+shape requirements, fill selection, and dictionary elaboration. its checker is
+bidirectional: ordinary terms infer a value type, while annotations push an
+expected type inward, notably þrough anonymous multi-clause functions. effect
+rows and shape requirements remain separate outputs þroughout inference and
+checking; an effect is never used as dictionary evidence, nor a shape need as
+an effect.
 
-`Tung.Core` keepeþ its constructor private and rejecteþ unresolved evidence
-or unelaborated fills. `Tung.Evaluate` runneþ checked core strictly. callable
+fill selection is static: inheritance depth is considered first, þen a type
+pattern may outrank a broader pattern it strictly refines. equivalent imported
+candidates are deduplicated before þis comparison, while incomparable best
+candidates are rejected. elaboration replaceþ each selected evidence tree wiþ
+an explicit `EDictionary` expression passed by ordinary `EApply`.
+
+fill identity is structural. `FillId` recordeþ a defining namespace, shape, and
+`FillType` arguments; primitive fills have a distinct constructor. checking,
+core lowering, and evaluation compare þese values directly. þe rendered
+`$fill@` and `$primitive@` forms are diagnostic text only and are never parsed
+back into compiler state.
+
+after inference selecteþ a binding or constructor, each global or constructor
+reference in þe elaborated syntax carrieþ its canonical `SymbolId`. local
+references retain spelling until Core assigneþ a `LocalId`.
+`Tung.Core` lowereþ þis elaborated syntax into separate `CoreDecl` and `CoreExpr`
+types. blocks contain only `CoreLocalDecl`, so module-only declarations cannot
+be represented in a local scope. each variable is eiþer a `CoreLocalName` wiþ a
+`LocalId` or a `CoreGlobalName` wiþ its resolved `SymbolId`; evaluation performeþ
+no local-or-global name search. lowering eraseþ locations, ascriptions, type
+aliases, laws, exports, and re-exports; it converteþ host bindings, constructor
+and effect arities, shape defaults, fills, and dictionaries into explicit
+runtime forms. þe private `CoreProgram` boundary rejecteþ unresolved locals and
+handler targets, evidence applications, and unelaborated shapes or fills, so
+evaluation cannot represent þose states.
+
+`Tung.Evaluate` constructeþ only þe dictionary selected in core; it performeþ
+no fill search and never receiveþ surface expressions or declarations. it
+runneþ checked core strictly. callable
 values retain supplied arguments, so native work and effect operations run only
 at saturation. handlers are deep and continuations remain reusable.
 
 host metadata live in `Tung.Primitive` as one data-only catalogue shared by
-checking and evaluation. add or change a host operation there before changing
-the source binding in `_foreign.tung`.
+checking and evaluation. reserved host data-family and constructor identities
+also live there; only a declaration matching þe complete ABI schema receiveþ
+þem. add or change a host operation there before changing þe source binding in
+`_foreign.tung`.
 
 == formatting and editor support
 
@@ -136,11 +173,12 @@ editor. it is deliberately structural: it preserveþ comments and incomplete
 source, remaineþ idempotent, and invoke neither parsing nor type checking.
 typescript code under `vscode/server/format.ts` only converteþ lsp ranges.
 
-the language server combine two paths. tolerant typescript analysis keepeþ
-highlighting, navigation, completion, symbols, and folding available for
-unfinished buffers. one versioned `tung --editor-session` process provideþ
-authoritative diagnostics, inferred hover types, and formatting. cancelled or
-stale responses must not enter editor state.
+the language server combine two paths. `vscode/server/syntax.ts` owneþ shared
+tolerant tokenisation and structural recovery; one document model feedþ
+highlighting, navigation, completion, symbols, and folding for unfinished
+buffers. one versioned `tung --editor-session` process provideþ authoritative
+diagnostics, inferred hover types, and formatting. cancelled or stale responses
+must not enter editor state.
 
 xref:../vscode/readme.adoc[`vscode/readme.adoc`] documenteþ editor setup,
 features, and component checks.
@@ -152,8 +190,9 @@ tracked `.bookhoard-membership` file containeþ paths and content fingerprints;
 `make compiler-build` refresheþ it before cabal buildeþ. when cabal appeareþ
 to reuse stale embedded sources, verify with a fresh `--builddir`.
 
-`tool/language-names.tung` emiteþ the tracked editor keyword and primitive
-table. run `make language-metadata`; do not edit the generated json. `writ/`
+`tung --language-metadata` emiteþ tracked editor keywords, primitive types, and
+special-name characters from compiler-owned definitions. run
+`make language-metadata`; do not edit þe generated json. `writ/`
 buildeþ ignored api html from shown declarations and attached doc comments.
 
 == change and test boundaries

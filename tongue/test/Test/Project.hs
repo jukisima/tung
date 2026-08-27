@@ -5,14 +5,33 @@ import Control.Exception (bracket)
 import Data.List (isInfixOf)
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (getPOSIXTime)
-import System.Directory (canonicalizePath, createDirectory, createDirectoryIfMissing, getTemporaryDirectory, removePathForcibly)
+import System.Directory (
+  canonicalizePath,
+  createDirectory,
+  createDirectoryIfMissing,
+  createFileLink,
+  getTemporaryDirectory,
+  removePathForcibly,
+ )
 import System.FilePath (takeDirectory, (</>))
 import Test.Harness (Group, Test, expect, expectEq)
 import Test.Harness qualified as Harness
 import Tung (Project (..), loadProjectFile, loadProjectFileWithRoots)
 
 group :: IO Group
-group = Harness.group "project" [nestedImports, localImportPaths, moduleRootImport, ambiguousModuleRoots, embeddedFallback, localShadowsBuiltin, missingImport, ambiguousRelativeImport]
+group =
+  Harness.group
+    "project"
+    [ nestedImports
+    , localImportPaths
+    , moduleRootImport
+    , ambiguousModuleRoots
+    , embeddedFallback
+    , localShadowsBuiltin
+    , missingImport
+    , ambiguousRelativeImport
+    , canonicalAlias
+    ]
 
 nestedImports :: Test
 nestedImports = withProject files "main.tung" \result ->
@@ -107,6 +126,22 @@ ambiguousRelativeImport = withProject files "main.tung" \result ->
     , ("right/b.tung", "bring shared.tung")
     , ("right/shared.tung", "show let right = 2")
     ]
+
+canonicalAlias :: Test
+canonicalAlias = withDirectory \root -> do
+  let mainPath = root </> "main.tung"
+      sourcePath = root </> "source.tung"
+      aliasPath = root </> "alias.tung"
+  writeProject
+    root
+    [ ("main.tung", "bring source.tung bring alias.tung")
+    , ("source.tung", "show let value = 1")
+    ]
+  createFileLink sourcePath aliasPath
+  result <- loadProjectFile Map.empty mainPath
+  expect
+    "rejecteþ two bring paths for one canonical file"
+    (either (isInfixOf "resolveþ to the same file") (const False) result)
 
 withProject :: [(FilePath, String)] -> FilePath -> (Either String Project -> Test) -> Test
 withProject = withProjectUsing Map.empty

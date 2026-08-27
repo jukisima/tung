@@ -1,7 +1,6 @@
 -- | pure helpers for import namespaces, qualification, and record-field fallback.
 module Tung.Name (
   checkImportAlias,
-  constructorNamesMatch,
   hasPathNamespace,
   importAlias,
   importNamespace,
@@ -14,25 +13,18 @@ where
 
 import Data.List (stripPrefix)
 import Data.Maybe (fromMaybe)
+import System.FilePath (stripExtension, takeFileName)
 
 checkImportAlias :: String -> Either String ()
 checkImportAlias alias
   | isQualifiedName alias || '/' `elem` alias = Left "bring alias must be slash-free and unqualified"
   | otherwise = pure ()
 
-constructorNamesMatch :: String -> String -> Bool
-constructorNamesMatch patternName constructorName
-  | isQualifiedName patternName = patternName == constructorName || patternName == importedName constructorName
-  | otherwise = patternName == lastQualifiedSegment constructorName
-
-importedName :: String -> String
-importedName name = takeWhile (/= '@') name ++ "@" ++ lastQualifiedSegment name
-
 importNamespace :: String -> String
-importNamespace = takeWhile (/= '.')
+importNamespace path = fromMaybe path (stripExtension ".tung" path)
 
 importAlias :: String -> Maybe String -> String
-importAlias path = fromMaybe (reverse . takeWhile (/= '/') . reverse $ importNamespace path)
+importAlias path = fromMaybe (takeWhile (/= '.') (takeFileName path))
 
 hasPathNamespace :: String -> Bool
 hasPathNamespace name = isQualifiedName name && '/' `elem` takeWhile (/= '@') name

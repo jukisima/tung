@@ -68,6 +68,20 @@ test("workspace resolveþ and completeþ a default basename alias", (context) =>
   assert(labels.has("dep@answer"));
   assert(!labels.has("data/dep@answer"));
 });
+test("workspace default alias ignoreþ dots in import directories", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-dotted-bring-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dep = path.join(root, "pkg.one", "query.tung");
+  const main = path.join(root, "main.tung");
+  fs.mkdirSync(path.dirname(dep), { recursive: true });
+  fs.writeFileSync(dep, "show let answer: integer = 42");
+  fs.writeFileSync(main, "bring pkg.one/query.tung yield query@answer");
+  const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
+  workspace.configure([root]);
+  const model = workspace.model(pathToFileURL(main).href);
+  assert.equal(workspace.resolveVisible(model, "query@answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "pkg@answer").length, 0);
+});
 test("workspace leaveþ duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));

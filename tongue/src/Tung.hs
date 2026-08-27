@@ -5,7 +5,6 @@ module Tung (
   Program (..),
   Decl (..),
   TypeExpr (..),
-  Evidence (..),
   Expr (..),
   Pattern (..),
   MatchCase (..),
@@ -25,15 +24,27 @@ module Tung (
   HostRole (..),
   HostSignature (..),
   HostType (..),
+  ModuleId (..),
+  SymbolId (..),
+  TypeRef (..),
+  HandlerTarget (..),
+  FillType (..),
+  FillId (..),
   Project (..),
   Ty (..),
   Scheme (..),
   EnvLookup (..),
+  EnvBinding (..),
   TcContext (..),
   TcState (..),
   TcResult (..),
   TypeFailure (..),
   CoreProgram,
+  ModuleInterface (..),
+  TermExport (..),
+  TermKind (..),
+  coreInterface,
+  coreImportInterface,
   formatSource,
   parse,
   parseLocated,
@@ -42,6 +53,7 @@ module Tung (
   keywordNames,
   languageKeywordNames,
   specialNameChars,
+  languageMetadata,
   enterImport,
   validateProgram,
   check,
@@ -80,11 +92,13 @@ module Tung (
 ) where
 
 import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
-import Tung.Core (CoreProgram)
+import Tung.Core (CoreProgram, ModuleInterface (..), coreImportInterface, coreInterface)
 import Tung.Diagnostic
 import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainCoreProgram, evaluateMainCoreProgramWithArgs, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
 import Tung.Format (formatSource)
+import Tung.Identity
 import Tung.Import (enterImport)
+import Tung.Metadata (languageMetadata)
 import Tung.Parse (ParsedSource (..), parse, parseLocated)
 import Tung.Primitive
 import Tung.Project

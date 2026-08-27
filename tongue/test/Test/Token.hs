@@ -1,7 +1,6 @@
 -- literal, escape, comment, keyword, broad-name, and lexical failure coverage.
 module Test.Token (group) where
 
-import Data.List (intercalate)
 import System.FilePath ((</>))
 import Test.Harness (Group, Test, expectEq, expectPrefix)
 import Test.Harness qualified as Harness
@@ -15,26 +14,7 @@ group = do
 languageMetadataCase :: IO Test
 languageMetadataCase = do
   actual <- readFile (".." </> "vscode" </> "generated" </> "language-names.json")
-  pure $ expectEq "self-hosted language metadata agreeþ with the compiler" expected actual
- where
-  expected =
-    "{\"keywords\":"
-      ++ jsonArray languageKeywordNames
-      ++ ",\"primitiveTypes\":"
-      ++ jsonArray primitiveTypeNames
-      ++ ",\"specialNameChars\":"
-      ++ jsonString specialNameChars
-      ++ "}\n"
-
-jsonArray :: [String] -> String
-jsonArray values = "[" ++ intercalate "," (map jsonString values) ++ "]"
-
-jsonString :: String -> String
-jsonString value = "\"" ++ concatMap escape value ++ "\""
- where
-  escape '"' = "\\\""
-  escape '\\' = "\\\\"
-  escape character = [character]
+  pure $ expectEq "generated language metadata agreeþ with the compiler" languageMetadata actual
 
 lexCases :: [(String, String, [Token])]
 lexCases =

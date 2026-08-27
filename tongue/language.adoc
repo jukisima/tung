@@ -36,8 +36,9 @@ re-export anything.
 
 most non-space characters not reserved by syntax may occur in a name. `@`
 qualifieþ an imported name or, when no exact name existeþ, selecteþ a record
-field. `.*` is one ordinary name; there is no general infix escape. `_`
-discardeþ a binding or match value.
+field. type alias, data, effect, and shape names and þeir owned constructor,
+operation, or member names are therefore unqualified. `.*` is one ordinary
+name; there is no general infix escape. `_` discardeþ a binding or match value.
 
 `#` starteþ a line comment, and `/* ... */` formeþ a non-nested block
 comment. `##` and `/** ... */` are doc comments attached to the following

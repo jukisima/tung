@@ -6,10 +6,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   analyzeDocument,
   findDefinition,
-  languageNames,
   nameRange,
   tokenAtPosition,
 } from "./analysis.ts";
+import { languageNames } from "./syntax.ts";
+type DocumentModel = ReturnType<typeof analyzeDocument>;
+type CachedModel = { text: string; model: DocumentModel };
+type DocumentLike = { uri: string; getText(): string };
+type DocumentStore = {
+  get(uri: string): DocumentLike | undefined;
+  all(): DocumentLike[];
+};
+type Definition = DocumentModel["definitions"][number];
 const skippedDirectories = new Set([".git", "dist-newstyle", "node_modules"]);
 const termRoles = new Set([
   "function",
@@ -19,20 +27,18 @@ const termRoles = new Set([
   "operator",
 ]);
 class WorkspaceIndex {
-  documents: any;
+  documents: DocumentStore;
   roots: string[];
-  tongue: string | undefined;
   bookhoard: string | undefined;
-  cache: Map<string, any>;
+  cache: Map<string, CachedModel>;
   fileUris: string[];
   filesDirty: boolean;
-  modelsCache: any[] | undefined;
-  resolveImportCache: Map<string, any>;
-  publicDefinitionsCache: Map<string, any[]>;
-  constructor(documents) {
+  modelsCache: DocumentModel[] | undefined;
+  resolveImportCache: Map<string, DocumentModel | undefined>;
+  publicDefinitionsCache: Map<string, Definition[]>;
+  constructor(documents: DocumentStore) {
     this.documents = documents;
     this.roots = [];
-    this.tongue = undefined;
     this.bookhoard = undefined;
     this.cache = new Map();
     this.fileUris = [];
@@ -45,7 +51,6 @@ class WorkspaceIndex {
     this.roots = [
       ...new Set(roots.filter(Boolean).map((root) => path.resolve(root))),
     ];
-    this.tongue = tongue;
     this.bookhoard = tongue && path.resolve(tongue, "..", "bookhoard");
     this.invalidateFiles();
   }
@@ -173,7 +178,8 @@ class WorkspaceIndex {
     }
     return definitions;
   }
-  resolveVisible(model, name, seen = new Set()) {
+  resolveVisible(model, name, seen = new Set(), role = undefined) {
+    const visibleRole = (definition) => !role || definition.role === role;
     const split = name.lastIndexOf("@");
     if (split >= 0) {
       const qualifier = name.slice(0, split);
@@ -185,17 +191,21 @@ class WorkspaceIndex {
         return this.publicDefinitions(
           this.resolveImport(model, imported),
           seen,
-        ).filter(
-          ({ bareName }) => bareName === bare,
+        ).filter((definition) =>
+          definition.bareName === bare && visibleRole(definition)
         );
       }
       return model.definitions.filter(
         ({ bareName, containerName }) =>
           bareName === bare && containerName === qualifier,
+      ).filter(
+        visibleRole,
       );
     }
     const own = model.definitions.filter(
-      (definition) => !definition.local && definition.bareName === name,
+      (definition) =>
+        !definition.local && definition.bareName === name &&
+        visibleRole(definition),
     );
     if (own.length) return own;
     return uniqueByKey(
@@ -203,8 +213,8 @@ class WorkspaceIndex {
         this.publicDefinitions(
           this.resolveImport(model, imported),
           seen,
-        ).filter(
-          ({ bareName }) => bareName === name,
+        ).filter((definition) =>
+          definition.bareName === name && visibleRole(definition)
         )
       ),
       definitionKey,
@@ -247,29 +257,7 @@ class WorkspaceIndex {
     };
   }
   resolveVisibleRole(model, name, role) {
-    const split = name.lastIndexOf("@");
-    if (split >= 0) {
-      return this.resolveVisible(model, name).filter((definition) =>
-        definition.role === role
-      );
-    }
-    const own = model.definitions.filter(
-      (definition) =>
-        !definition.local && definition.bareName === name &&
-        definition.role === role,
-    );
-    if (own.length) return own;
-    return uniqueByKey(
-      model.imports.flatMap((imported) =>
-        this.publicDefinitions(this.resolveImport(model, imported))
-          .filter(
-            (definition) =>
-              definition.bareName === name &&
-              definition.role === role,
-          )
-      ),
-      definitionKey,
-    );
+    return this.resolveVisible(model, name, new Set(), role);
   }
   references(definition, includeDeclaration = true) {
     if (!definition) return [];
@@ -422,14 +410,14 @@ const collectFiles = (root, result) => {
     if (entry.isFile() && entry.name.endsWith(".tung")) result.push(file);
   }
 };
-const primitive = (name, role, modifier = undefined) => {
+const primitive = (name, role) => {
   return {
     name,
     bareName: name,
     completionName: name,
     role,
-    modifiers: ["defaultLibrary", ...(modifier ? [modifier] : [])],
-    detail: `built-in ${modifier || role} ${name}`,
+    modifiers: ["defaultLibrary"],
+    detail: `built-in ${role} ${name}`,
     primitive: true,
   };
 };
@@ -437,7 +425,7 @@ const definitionKey = (definition) => {
   return definition.id ||
     `${definition.uri}:${definition.token?.offset}:${definition.bareName}`;
 };
-const uniqueByKey = (items, keyOf) => {
+const uniqueByKey = (items, keyOf = (item) => item) => {
   const seen = new Set();
   return items.filter((item) => {
     const key = keyOf(item);
@@ -464,4 +452,4 @@ const toFilePath = (uri) => {
     return undefined;
   }
 };
-export { definitionKey, toFilePath, WorkspaceIndex };
+export { toFilePath, uniqueByKey, WorkspaceIndex };

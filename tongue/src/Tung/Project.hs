@@ -10,14 +10,13 @@ module Tung.Project (
   loadProjectSourceWithRoots,
 ) where
 
-import Control.Monad (filterM, unless)
+import Control.Monad (filterM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.State.Strict (StateT, execStateT, gets, modify')
-import Data.List (intercalate)
+import Data.List (find, intercalate)
 import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import System.Directory (canonicalizePath, doesFileExist, makeAbsolute)
@@ -34,10 +33,7 @@ data Project = Project
   }
   deriving stock (Eq, Show)
 
-data Loaded = Loaded
-  { loadedFiles :: Map.Map String (FilePath, String)
-  , loadedPaths :: Set.Set FilePath
-  }
+type Loaded = Map.Map String (FilePath, String)
 
 type Loader = StateT Loaded (ExceptT String IO)
 
@@ -62,9 +58,9 @@ loadProjectSourceWithRoots builtins roots base source = runExceptT do
 
 loadProjectSourceM :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> String -> ExceptT String IO Project
 loadProjectSourceM builtins roots owner base source = do
-  loaded <- execStateT (discover builtins roots owner base source) (Loaded Map.empty Set.empty)
-  let locals = snd <$> loadedFiles loaded
-      paths = fst <$> loadedFiles loaded
+  loaded <- execStateT (discover builtins roots owner base source) Map.empty
+  let locals = snd <$> loaded
+      paths = fst <$> loaded
   pure (Project owner source (Map.union locals builtins) paths)
 
 discover :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> String -> Loader ()
@@ -88,7 +84,7 @@ loadImport builtins roots owner base importPath = do
  where
   loadCandidate candidate = do
     absolute <- liftIOErrorL "resolve" candidate (canonicalizePath candidate)
-    known <- gets (Map.lookup importPath . loadedFiles)
+    known <- gets (Map.lookup importPath)
     case known of
       Just (other, _)
         | other /= absolute ->
@@ -102,15 +98,24 @@ loadImport builtins roots owner base importPath = do
                   ++ "'"
               )
       _ -> pure ()
-    visited <- gets (Set.member absolute . loadedPaths)
-    unless visited do
-      imported <- readSourceL absolute
-      modify' \loaded ->
-        loaded
-          { loadedFiles = Map.insert importPath (absolute, imported) (loadedFiles loaded)
-          , loadedPaths = Set.insert absolute (loadedPaths loaded)
-          }
-      discover builtins roots absolute (takeDirectory absolute) imported
+    ownerPath <- gets (fmap fst . find ((== absolute) . fst . snd) . Map.toList)
+    case ownerPath of
+      Just other
+        | other /= importPath ->
+            failLoader
+              ( "bring paths '"
+                  ++ other
+                  ++ "' and '"
+                  ++ importPath
+                  ++ "' resolveþ to the same file '"
+                  ++ absolute
+                  ++ "'"
+              )
+      Just _ -> pure ()
+      Nothing -> do
+        imported <- readSourceL absolute
+        modify' (Map.insert importPath (absolute, imported))
+        discover builtins roots absolute (takeDirectory absolute) imported
 
 importCandidates :: [FilePath] -> FilePath -> FilePath -> Loader [FilePath]
 importCandidates roots base importPath = do

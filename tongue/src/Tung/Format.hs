@@ -51,7 +51,7 @@ formatLine state line
             | startsComment = formatContinuation state
             | closes > 0 = 0
             | delta == 0 && lineContinues code (lineContinuation > 0) = 1
-            | keepsContinuation (lineContinuation > 0) delta = max 2 lineContinuation
+            | lineContinuation > 0 && delta == 0 = max 2 lineContinuation
             | otherwise = 0
           next = FormatState depth lexicalState continuation remainingBlocks
        in (next, replicate (lineDepth * 2) ' ' ++ content)
@@ -91,9 +91,6 @@ lineContinues code continued =
     || (startsWord "law" code && ":" `isSuffixOf` code)
     || (continued && ":" `isPrefixOf` code)
     || ("let" `elem` words code && '=' `notElem` code)
-
-keepsContinuation :: Bool -> Int -> Bool
-keepsContinuation continued delimiterDelta = continued && delimiterDelta == 0
 
 scanLine :: LexicalState -> String -> (Int, LexicalState, String)
 scanLine started input =

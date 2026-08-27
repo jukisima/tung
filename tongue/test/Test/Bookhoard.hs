@@ -129,12 +129,17 @@ primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) 
         declaredForeigns = Set.fromList (concatMap foreignNames declarations)
         declaredEffects = Map.fromList (concatMap effectArities declarations)
         catalogueForeigns = Set.fromList [hostName | HostBinding{hostName, hostRole = ForeignBinding} <- hostBindings]
-        catalogueEffects = Map.fromList [((owner, hostName), length hostArguments) | HostBinding{hostName, hostRole = SourceEffect owner, hostSignature = HostSignature{hostArguments}} <- hostBindings]
+        catalogueEffects =
+          Map.fromList
+            [ ((owner, hostName), length hostArguments)
+            | HostBinding{hostName, hostRole, hostSignature = HostSignature{hostArguments}} <- hostBindings
+            , owner <- effectOwners hostRole
+            ]
      in if catalogueForeigns /= declaredForeigns
           then Just "host catalogue and fremmed declarations differ"
           else
             if not (Map.isSubmapOfBy (==) catalogueEffects declaredEffects)
-              then Just "host catalogue and source effect declarations differ"
+              then Just "host catalogue and dispatched effect declarations differ"
               else
                 if any (null . hostArguments . hostSignature) hostBindings
                   then Just "host catalogue containeþ an empty function"
@@ -150,6 +155,9 @@ primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) 
     _ -> []
   effectArity (TypeArrow arguments _ _) = length arguments
   effectArity _ = 0
+  effectOwners (BaseEffect owner) = [owner]
+  effectOwners (SourceEffect owner) = [owner]
+  effectOwners _ = []
 
 oneDataTypeCase :: FilePath -> Test
 oneDataTypeCase path = do
