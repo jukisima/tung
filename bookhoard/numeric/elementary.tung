@@ -8,8 +8,10 @@ show shape a elementary {
   let a logariþm: a
   let a sine: a
   let a cosine: a
-  let (a: a) tangent: a = (a sine) ∕ (a cosine)
 }
+
+graiþ a elementary, a divide
+show let (a: a) tangent: a = (a sine) ∕ (a cosine)
 
 fill float elementary {
   let exponent = exponent-float

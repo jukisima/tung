@@ -72,7 +72,8 @@ adjacentImportedEvidence =
   dependency =
     unlines
       [ "show kin truth { yea, nay }"
-      , "show shape a less { let a ≤ a: truth let a < b = a ≤ b }"
+      , "show shape a less { let a ≤ a: truth }"
+      , "graiþ a less show let (a: a, b: a) <: truth = a ≤ b"
       , "fill integer less { let x ≤ y = yea }"
       ]
 

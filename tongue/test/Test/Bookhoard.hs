@@ -4,7 +4,7 @@
 module Test.Bookhoard (group) where
 
 import Data.Foldable (traverse_)
-import Data.List (intercalate, nub, sort)
+import Data.List (intercalate, isPrefixOf, nub, sort)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, listToMaybe)
 import Data.Set qualified as Set
@@ -25,6 +25,7 @@ group = do
       : acyclicCase imports
       : noUmbrellaDependencyCase
       : groundEffectExportsCase imports
+      : systemExplicitCase imports
       : runnerEffectsCase imports
       : primitiveCatalogueCase imports
       : map (typeCase imports) bookhoardImportFiles
@@ -102,9 +103,13 @@ groundEffectExportsCase imports =
  where
   source =
     "bring ground.tung "
-      ++ "show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file, ground@system, ground@clock, ground@process, ground@web "
-      ++ "show-ilk ground@request, ground@response "
-      ++ "show ground@request-target, ground@ok, ground@serve"
+      ++ "show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file"
+
+systemExplicitCase :: Map.Map String String -> Test
+systemExplicitCase imports =
+  pure $ case checkWithImports "bring ground.tung show-ilk ground@system" imports of
+    actual | "type error:" `isPrefixOf` actual -> Nothing
+    actual -> Just ("ground unexpectedly exports system: " ++ actual)
 
 runnerEffectsCase :: Map.Map String String -> Test
 runnerEffectsCase imports =
@@ -113,7 +118,7 @@ runnerEffectsCase imports =
     actual -> Just ("runner effects: " ++ actual)
  where
   source =
-    "bring ground.tung bring data/list.tung bring data/option.tung "
+    "bring ground.tung bring clock.tung bring process.tung bring system.tung bring web/server.tung bring data/list.tung bring data/option.tung "
       ++ "let (_: request) route: response = 'ok' ok "
       ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process, web = ("
       ++ "let args = null arguments "

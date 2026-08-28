@@ -33,10 +33,10 @@ accepted =
   , ("parameterised effect", "deed a state { 𝟙 get: a, a set: 𝟙 }")
   , ("effect operation with an effect row", "deed e fail { e fail: a } deed web { integer serve (request → response ! e): 𝟙 ! e, text fail, 𝟙 stop: 𝟙 }")
   , ("text-keyed fremmed let", "let plus: integer → integer → integer = 'add-integer' fremmed")
-  , ("shape requirement and default", "graiþ a equal shape a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }")
+  , ("shape requirement", "graiþ a equal shape a order-partial { let a ≤ a: 𝟚 }")
   , ("shape member requirement", "shape f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m }")
   , ("shape law", "shape a identity { let a identity: a law (x: a): x identity ~ x }")
-  , ("shape members need no separators", "shape a identity { let a identity: a let (x: a) same: a = x law (x: a): x identity ~ x }")
+  , ("shape members need no separators", "shape a identity { let a identity: a let a same: a law (x: a): x identity ~ x }")
   , ("shape and fill headers use second-is-function order", "shape a convert b { let a convert: b } fill integer convert text { let x convert = 'x' }")
   , ("fill methods use let", "graiþ a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y }")
   , ("adjacent fill members", "fill integer linked { let x first = x let x second = x first }")
@@ -90,6 +90,7 @@ rejected =
   , ("shape member requirement needeþ a member", "shape f bad { graiþ m applicative }")
   , ("required shape member needeþ let", "shape a bad { a bad: a }")
   , ("graiþ shape member needeþ let", "shape f bad { graiþ m applicative (a f) bad: a }")
+  , ("shape members reject definitions", "shape a bad { let (x: a) same: a = x }")
   , ("match arm requireþ bar", "match 1 { _ 1 }")
   , ("try requireþ handler cases", "try action")
   , ("dollar requireþ a left expression", "$ + 1 2")
@@ -159,7 +160,6 @@ generatedDefinitionForms =
   [ parseOk (owner ++ " form " ++ show n) (wrap source)
   | (owner, wrap) <-
       [ ("let", id)
-      , ("shape default", \source -> "shape thing klass { " ++ source ++ " }")
       , ("fill method", \source -> "fill thing klass { " ++ source ++ " }")
       ]
   , (n, source) <- zip [(1 :: Int) ..] definitionForms

@@ -6,9 +6,10 @@ bring equal.tung
 graiþ a equal
 show shape a less-equal {
   let a ≤ a: 𝟚
-
-  let a < b = (a ≤ b) if (a ≢ b) nay
 }
+
+graiþ a less-equal, a equal
+show let (a: a, b: a) <: 𝟚 = (a ≤ b) if (a ≢ b) nay
 
 fill 𝟚 less-equal {
   let ≤ = {
@@ -28,9 +29,11 @@ show shape a order-partial {
 ## a partial order in which every pair is comparable.
 graiþ a order-partial
 show shape a order-total {
-  let (a: a, b: a) compare: 𝟛 = (a ≤ b) if ((b ≤ a) if mid fore) aft
   law (a: a, b: a): ((a ≤ b) ≡ nay) ≤ (b ≤ a) ~ yea
 }
+
+graiþ a order-total, a less-equal
+show let (a: a, b: a) compare: 𝟛 = (a ≤ b) if ((b ≤ a) if mid fore) aft
 
 ## keep a value wiþin inclusive bounds of a total order.
 graiþ a order-total

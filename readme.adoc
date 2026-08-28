@@ -43,8 +43,6 @@ set `PREFIX` or `BIN_DIR` to choose another destination.
 | `tung --format file.tung [more.tung...]`
 | formateþ files in stead
 
-| `tung --repl`
-| starteþ the interactive checker and evaluator
 |===
 
 `main` takeþ `𝟙`, yieldeþ `𝟙`, and may use the standard runtime effects.
@@ -121,7 +119,7 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | bindeþ an annotated file-level `let` to the host function named by a text key
 
 | `shape`
-| declareþ a statically selected interface, defaults, and laws
+| declareþ a statically selected interface, requirements, and laws
 
 | `fill`
 | provideþ evidence and implementations for a shape

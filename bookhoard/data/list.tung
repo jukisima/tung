@@ -152,8 +152,6 @@ fill list traverse {
     empty, _ | empty pure,
     first .* rest, f | (first f) lift₂ (rest traverse f) .*
   }
-
-  let list sequence = list traverse identity
 }
 
 fill (a list) size {

@@ -77,8 +77,10 @@ webServerRoundTrip imports = do
   let source =
         """
         bring ground.tung
+        bring clock.tung
         bring data/option.tung
         bring data/table.tung
+        bring web/server.tung
 
         let (incoming: request) route: response ! clock = (
           let stamp = null unix-time

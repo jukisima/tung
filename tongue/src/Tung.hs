@@ -17,13 +17,11 @@ module Tung (
   Token (..),
   SourceSpan (..),
   LocatedToken (..),
-  ParsedSource (..),
   Diagnostic (..),
   DiagnosticKind (..),
   HostBinding (..),
   HostRole (..),
   HostSignature (..),
-  HostType (..),
   ModuleId (..),
   SymbolId (..),
   TypeRef (..),
@@ -31,14 +29,10 @@ module Tung (
   FillType (..),
   FillId (..),
   Project (..),
-  Ty (..),
   Scheme (..),
   EnvLookup (..),
-  EnvBinding (..),
-  TcContext (..),
-  TcState (..),
+  TcContext,
   TcResult (..),
-  TypeFailure (..),
   CoreProgram,
   ModuleInterface (..),
   TermExport (..),
@@ -47,20 +41,15 @@ module Tung (
   coreImportInterface,
   formatSource,
   parse,
-  parseLocated,
   lexTokens,
   lexLocatedTokens,
   keywordNames,
-  languageKeywordNames,
-  specialNameChars,
   languageMetadata,
   enterImport,
   validateProgram,
   check,
   checkWithImports,
-  checkEditorWithImports,
   checkDiagnosticWithImports,
-  checkEditorProgramWithImportsDetailed,
   checkEditorDiagnosticWithImports,
   renderFileDiagnostic,
   renderDiagnostic,
@@ -72,37 +61,33 @@ module Tung (
   inferProgramContext,
   lookupEnv,
   canonicalTypeName,
-  primitiveTypeNames,
   showTy,
   evaluate,
   evaluateWithImports,
   evaluateWithArgsAndImports,
   evaluateCoreProgram,
   evaluateMainCoreProgram,
-  evaluateMainCoreProgramWithArgs,
   evaluateMainWithImports,
   evaluateMainWithArgsAndImports,
   bookhoardImportFiles,
   readBookhoardImports,
   loadProjectFile,
   loadProjectFileWithRoots,
-  loadProjectSource,
-  loadProjectSourceWithRoots,
   hostBindings,
 ) where
 
 import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
 import Tung.Core (CoreProgram, ModuleInterface (..), coreImportInterface, coreInterface)
 import Tung.Diagnostic
-import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainCoreProgram, evaluateMainCoreProgramWithArgs, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
+import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainCoreProgram, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
 import Tung.Format (formatSource)
 import Tung.Identity
 import Tung.Import (enterImport)
 import Tung.Metadata (languageMetadata)
-import Tung.Parse (ParsedSource (..), parse, parseLocated)
+import Tung.Parse (parse)
 import Tung.Primitive
 import Tung.Project
 import Tung.Syntax
-import Tung.Token (LocatedToken (..), SourceSpan (..), Token (..), keywordNames, languageKeywordNames, lexLocatedTokens, lexTokens, specialNameChars)
+import Tung.Token (LocatedToken (..), SourceSpan (..), Token (..), keywordNames, lexLocatedTokens, lexTokens)
 import Tung.Type
 import Tung.Validate (validateProgram)

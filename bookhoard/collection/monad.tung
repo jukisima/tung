@@ -6,14 +6,16 @@ bring collection/applicative.tung
 graiþ f applicative
 show shape f monad {
   let ((a f) f) flat: a f
-  let (a: a f, f: a → b f ! e) map-flat: b f ! e =
-    a map f $ flat
 
   law (a: a, f: a → b f ! e):
-    (a pure) map-flat f ~ a f
+    (a pure) map f $ flat ~ a f
   law (a: a f):
-    a map-flat pure ~ a
+    a map pure $ flat ~ a
 }
+
+graiþ f monad, f functor
+show let (a: a f, f: a → b f ! e) map-flat: b f ! e =
+  a map f $ flat
 
 graiþ f monad
 show let (a: a f, b: b f) þen: b f =

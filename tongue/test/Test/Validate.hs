@@ -44,8 +44,6 @@ rejected =
   , ("qualified shape member name", "shape a left { let a right@op: a }")
   , ("duplicate shape parameter", "shape a bad a { let a op: a }")
   , ("duplicate shape member", "shape a bad { let a op: a let a op: a }")
-  , ("duplicate unannotated shape defaults", "shape a bad { let x same = x let y same = y }")
-  , ("duplicate annotated and unannotated shape defaults", "shape a bad { let (x: a) same: a = x let y same = y }")
   , ("duplicate shape law parameter", "shape a bad { law (x: a, x: a): x ~ x }")
   , ("duplicate fill member", "fill integer bad { let x op = x let y op = y }")
   , ("duplicate record type field", "let bad: r(x: integer, x: text) = r(x = 1)")

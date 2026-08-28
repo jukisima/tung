@@ -1,9 +1,4 @@
 bring _foreign.tung
-bring system.tung
-bring clock.tung
-bring process.tung
-bring process/result.tung
-bring web/server.tung
 bring data/zero.tung
 bring data/one.tung
 bring data/two.tung
@@ -48,9 +43,7 @@ show fore, mid, aft
 
 show-ilk task
 
-show-ilk fail, console, random, state, async, file, system, clock, process, web
-show-ilk process-result
-show-ilk request, response
+show-ilk fail, console, random, state, async, file
 
 show-ilk equal
 show-ilk less-equal, order-partial, order-total
@@ -71,14 +64,6 @@ show random
 show get, set
 show fork, wait, fordo, wait-for, sleep
 show read-file, write-file, append-file
-show arguments, environment, exit
-show unix-time
-show run-process
-show process-result, process-status, process-output, process-errors
-show request, request-meþod, request-target, request-headers, request-body
-show response, response-status, response-headers, response-body
-show respond, ok, not-found, wiþ-header, serve
-
 show ≡, ≢
 show ≤, <, compare, clamp, ∧, ∨, ⟂, ⊤
 show ∋

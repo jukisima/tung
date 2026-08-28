@@ -79,9 +79,8 @@ diagnostics, inferred types, and formatting.
 
 open a saved `.tung` file and select the play button in the editor title, or run
 `Tung: Run Tung File` from the command palette. the command saveþ the file and
-runneþ it in a dedicated terminal. set `tung.executablePath` when the runner is
-not the compiler found by the language server and is not available as `tung` on
-`PATH`.
+runneþ it in a dedicated terminal with the compiler found by the language
+server, then `tung` on `PATH`.
 
 term type ascriptions use `(term: type)`; semantic highlighting and formatting
 recognise the type tail while compiler diagnostics remain authoritative.

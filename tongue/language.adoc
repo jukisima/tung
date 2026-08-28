@@ -177,9 +177,11 @@ evidence for a declaration, shape, fill, or individual shape member.
 ----
 shape a equal {
   let a ≡ a: 𝟚
-  let a ≢ b = (a ≡ b) if nay yea
   law (x: a): x ≡ x ~ yea
 }
+
+graiþ a equal
+let (a: a, b: a) ≢: 𝟚 = (a ≡ b) if nay yea
 
 fill 𝟚 equal {
   let ≡ = {
@@ -190,7 +192,7 @@ fill 𝟚 equal {
 }
 ----
 
-a fill must supply every required member not supplied by a default or parent.
+a fill must supply every required member not supplied by a parent.
 a child fill also witnesseþ its required parent shapes and may define inherited
 members. duplicate fills are incoherent. when more than one fill match, a
 structured type pattern outrankeþ a blanket pattern that it refines;

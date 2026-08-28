@@ -34,15 +34,10 @@ const runFile = async (resource?: vscode.Uri) => {
     vscode.window.showErrorMessage("save the tung file before running it");
     return;
   }
-  const configured = vscode.workspace.getConfiguration("tung").get<string>(
-    "executablePath",
-  )?.trim();
-  const discovered = configured
-    ? undefined
-    : await client.sendRequest<string | undefined>("tung/executable").catch(
+  const executable =
+    await client.sendRequest<string | undefined>("tung/executable").catch(
       () => undefined,
-    );
-  const executable = configured || discovered || "tung";
+    ) || "tung";
   const folder = vscode.workspace.getWorkspaceFolder(document.uri);
   const task = new vscode.Task(
     { type: "tung", file: document.uri.fsPath },

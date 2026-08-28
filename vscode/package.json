@@ -151,11 +151,6 @@
     "configuration": {
       "title": "tung",
       "properties": {
-        "tung.executablePath": {
-          "type": "string",
-          "default": "",
-          "description": "path or command name for the tung runner; blank useþ the compiler found by the language server, then tung on PATH"
-        },
         "tung.tonguePath": {
           "type": "string",
           "default": "",

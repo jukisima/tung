@@ -378,9 +378,12 @@ test("manifest exposeþ running a tung file from the editor", () => {
   assert.equal(command.icon, "$(play)");
   assert.equal(title.when, "resourceLangId == tung");
   assert.equal(
-    manifest.contributes.configuration.properties["tung.executablePath"]
-      .default,
+    manifest.contributes.configuration.properties["tung.tonguePath"].default,
     "",
+  );
+  assert.equal(
+    manifest.contributes.configuration.properties["tung.executablePath"],
+    undefined,
   );
 });
 test("semantic modifiers use standard lsp names or manifest contributions", () => {

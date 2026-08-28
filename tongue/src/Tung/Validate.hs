@@ -78,7 +78,6 @@ validateEffectOp (EffectOp name operationType) = validateUnqualified "effect ope
 validateShapeMember :: ShapeMember -> Either String ()
 validateShapeMember = \case
   ShapeSpec name annotation -> validateUnqualified "shape member" name >> validateTypeAnn annotation
-  ShapeDefault name annotation body -> validateUnqualified "shape member" name >> traverse_ validateTypeAnn annotation >> validateExpr body
   ShapeLaw parameters left right -> do
     distinct "shape law parameter" (map fst parameters)
     traverse_ (validateType . snd) parameters

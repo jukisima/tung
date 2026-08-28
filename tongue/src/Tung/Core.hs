@@ -8,7 +8,6 @@ module Tung.Core (
   localIdText,
   CoreExpr (..),
   CorePattern (..),
-  CoreShapeMember (..),
   CoreReturnCase (..),
   CoreHandlerCase (..),
   CoreRecordUpdate (..),
@@ -44,11 +43,8 @@ data CoreDecl
   | CoreForeignLet TermExport String Int
   | CoreData [TermExport]
   | CoreEffect [TermExport]
-  | CoreShape SymbolId [SymbolId] [CoreShapeMember]
+  | CoreShape SymbolId [SymbolId] [TermExport]
   | CoreFill FillId SymbolId [(String, CoreExpr)]
-  deriving stock (Eq, Show)
-
-data CoreShapeMember = CoreShapeMember TermExport (Maybe CoreExpr)
   deriving stock (Eq, Show)
 
 data CoreLocalDecl = CoreLocalLet LocalId CoreExpr
@@ -200,15 +196,14 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
     _ -> lowerFailure "internal non-let fill member"
 
   lowerShapeMember owner (target, member) = case member of
-    ShapeSpec name _ -> lowerMember owner target name Nothing
-    ShapeDefault name _ body -> lowerMember owner target name (Just body)
+    ShapeSpec name _ -> lowerMember owner target name
     ShapeLaw{} -> lowerFailure "internal elaborated shape law"
 
-  lowerMember owner target name body
+  lowerMember owner target name
     | ShapeMemberTerm memberOwner <- termExportKind target
     , memberOwner == owner
     , lastQualifiedSegment (symbolName (termExportTarget target)) == name =
-        CoreShapeMember target <$> traverse (lowerExpr []) body
+        pure target
     | otherwise = lowerFailure ("internal shape member identity mismatch for '" ++ name ++ "'")
 
   lowerExpr locals = \case

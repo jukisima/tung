@@ -494,13 +494,7 @@ parseShapeMember _ = Left "expected shape member"
 parseShapeLet :: [ShapeNeed] -> P ShapeMember
 parseShapeLet needs (TLet : ts) = do
   (memberTokens, rest) <- takeTopLevelUntilOrEnd ts isShapeMemberBoundary
-  member <- case splitTopLevelEquals memberTokens of
-    Just _ -> do
-      declaration <- parseWhole "unexpected tokens after shape default" (parseLetDecl needs) memberTokens
-      case declaration of
-        Let name annotation body -> Right (ShapeDefault name annotation body)
-        _ -> Left "shape default must be a let"
-    Nothing -> parseShapeSignature needs memberTokens
+  member <- parseShapeSignature needs memberTokens
   pure (member, rest)
 parseShapeLet _ _ = Left "expected 'let' before shape member"
 
@@ -1157,13 +1151,11 @@ isRightBrace, isRightParen :: Token -> Bool
 isRightBrace = (== TRBrace)
 isRightParen = (== TRParen)
 
-splitTopLevelArrow, splitTopLevelBang, splitTopLevelColon, splitTopLevelComma, splitTopLevelEquals :: [Token] -> Maybe ([Token], [Token])
+splitTopLevelArrow, splitTopLevelBang, splitTopLevelColon, splitTopLevelComma :: [Token] -> Maybe ([Token], [Token])
 splitTopLevelArrow ts = splitTopLevel ts (\case TArrow -> True; _ -> False)
 splitTopLevelBang ts = splitTopLevel ts (\case TBang -> True; _ -> False)
 splitTopLevelColon ts = splitTopLevel ts (\case TColon -> True; _ -> False)
 splitTopLevelComma ts = splitTopLevel ts (\case TComma -> True; _ -> False)
-splitTopLevelEquals ts = splitTopLevel ts (\case TEquals -> True; _ -> False)
-
 splitTopLevel :: [Token] -> (Token -> Bool) -> Maybe ([Token], [Token])
 splitTopLevel ts stop = go [] (0 :: Int) ts
  where

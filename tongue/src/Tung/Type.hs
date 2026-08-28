@@ -13,7 +13,6 @@ module Tung.Type (
   ShapeInfo (..),
   check,
   checkWithImports,
-  checkEditorWithImports,
   checkProgramWithImportsDetailed,
   checkEditorProgramWithImportsDetailed,
   checkRunnableWithImports,
@@ -171,7 +170,6 @@ data ConstructorInfo = ConstructorInfo
 data ShapeMethod = ShapeMethod
   { shapeMethodName :: String
   , shapeMethodType :: ResolvedTypeAnn
-  , shapeMethodRequired :: Bool
   }
   deriving (Eq, Show)
 
@@ -750,15 +748,6 @@ convertEffectExprWith bound ctx = \case
   expression -> convertTypeExprWith bound ctx expression
  where
   convert = convertTypeExprWith bound ctx
-
-typeExprFromTy :: Ty -> TcState -> TypeExpr
-typeExprFromTy ty st = typeExprFromAppliedTy (normalizeFun (applyState ty st))
-
-shapeNeedsFromNeeds :: [Need] -> TcState -> [ShapeNeed]
-shapeNeedsFromNeeds needs st = map needFromAppliedNeed (applyStateNeeds needs st)
-
-needFromAppliedNeed :: Need -> ShapeNeed
-needFromAppliedNeed (Need args ShapeRef{shapeDisplayName}) = ShapeNeed (map typeExprFromAppliedTy args) shapeDisplayName
 
 typeExprFromAppliedTy :: Ty -> TypeExpr
 typeExprFromAppliedTy = \case
@@ -1629,12 +1618,11 @@ addShownType name ctx@TcContext{tcTypes, tcTypeAmbiguities}
 shownTypeInfo :: String -> TcContext -> Maybe TypeInfo
 shownTypeInfo name TcContext{tcTypes} = Map.lookup name tcTypes
 
-localEnvRank, aliasEnvRank, importEnvRank, baseEnvRank, selfAliasEnvRank, exportEnvRank :: Int
+localEnvRank, aliasEnvRank, importEnvRank, baseEnvRank, exportEnvRank :: Int
 localEnvRank = 0
 aliasEnvRank = 1
 importEnvRank = 1
 baseEnvRank = 2
-selfAliasEnvRank = 3
 exportEnvRank = 4
 
 lookupEnv :: String -> TcContext -> EnvLookup
@@ -1732,8 +1720,7 @@ addShapeInfo shapeName params needs members ctx@TcContext{tcModule, tcShapes, tc
       target = primitiveShapeId schemaResolves tcModule params shapeName members
       methods = mapMaybe resolveMethod members
       resolveMethod = \case
-        ShapeSpec name annotation -> Just (ShapeMethod name (resolve annotation) True)
-        ShapeDefault name (Just annotation) _ -> Just (ShapeMethod name (resolve annotation) False)
+        ShapeSpec name annotation -> Just (ShapeMethod name (resolve annotation))
         _ -> Nothing
       resolve (TypeAnn ty memberNeeds) =
         ResolvedTypeAnn (convertTypeExprWith params ctx ty) (map (convertShapeNeedWith params ctx) memberNeeds)
@@ -2411,30 +2398,16 @@ resolveInferredBindingM ctx needs core =
   let bindings = evidenceBindings needs
    in wrapEvidence bindings <$> resolveExprEvidenceM ctx bindings core
 
-elaborateShapeMemberM :: String -> TcContext -> ShapeMember -> Tc ShapeMember
-elaborateShapeMemberM shapeName ctx = \case
-  ShapeDefault name annotation@(Just ann) expr -> do
-    let internalNeeds = ownShapeNeed shapeName ctx
-    (expected, needs) <- instantiateM (shapeMemberScheme shapeName ann ctx)
-    (_, _, checkedNeeds, core) <- checkExprAgainstM name expected [] needs expr ctx
-    let bindings = evidenceBindings checkedNeeds
-    resolved <- resolveExprEvidenceM ctx bindings core
-    pure (ShapeDefault name annotation (wrapExternalEvidence internalNeeds bindings resolved))
-  member -> pure member
-
--- laws have no runtime term; every executable member retaineþ the exact term
--- selected while collecting the declaration, even when its shape is nominal.
+-- laws have no runtime term; executable shape members retain their nominal
+-- selector identities for Core.
 elaborateShapeMemberEntryM :: SymbolId -> String -> TcContext -> ShapeMember -> Tc (Maybe (TermExport, ShapeMember))
 elaborateShapeMemberEntryM _ _ _ ShapeLaw{} = pure Nothing
-elaborateShapeMemberEntryM shape shapeName ctx member = do
-  name <- case shapeMemberSignature member of
-    Just (found, _) -> pure found
-    Nothing -> failTc "internal shape member without a signature"
+elaborateShapeMemberEntryM shape shapeName ctx member@(ShapeSpec name _) = do
   let qualifiedName = shapeName ++ "@" ++ name
   target <- case listToMaybe [found | EnvBinding{envName, envTarget = Just found} <- tcEnv ctx, envName == qualifiedName, termExportKind found == ShapeMemberTerm shape] of
     Just found -> pure found
     Nothing -> failTc ("internal missing shape member '" ++ qualifiedName ++ "' during elaboration")
-  (Just . (target,)) <$> elaborateShapeMemberM shapeName ctx member
+  pure (Just (target, member))
 
 elaborateFillMembersM :: [TypeExpr] -> String -> [ShapeNeed] -> [Decl] -> TcContext -> Tc [Decl]
 elaborateFillMembersM types shapeName fillNeeds members ctx = case fillSpecsForShape shapeName types ctx [] of
@@ -2548,71 +2521,10 @@ checkEffectDeclM params effectName ops ctx = mapM_ checkOp ops
       TyFun{} -> pure ()
       _ -> failTc ("effect operation '" ++ effectName ++ "@" ++ opName ++ "' must have a function type")
 
-inferShapeDefaultDeclsM :: [Decl] -> TcContext -> Tc ([Decl], TcContext)
-inferShapeDefaultDeclsM ds ctx = do
-  (acc, finalCtx) <- foldM step ([], ctx) ds
-  pure (reverse acc, finalCtx)
- where
-  step (acc, currentCtx) (Export declaration@ShapeDecl{}) = do
-    (typed, ctx2) <- inferShape (acc, currentCtx) declaration
-    case typed of
-      declaration2 : rest -> pure (Export declaration2 : rest, exportDeclContext declaration2 ctx2)
-      [] -> pure (typed, ctx2)
-  step (acc, currentCtx) (ShapeDecl params shapeName needs members) = do
-    inferShape (acc, currentCtx) (ShapeDecl params shapeName needs members)
-  step (acc, currentCtx) d =
-    pure (d : acc, collectDeclContext d currentCtx)
-
-  inferShape (acc, currentCtx) (ShapeDecl params shapeName needs members) = do
-    let knownCtx = addShapeMembers shapeName params needs members currentCtx
-    typedMembers <- inferShapeDefaultMembersM params shapeName members knownCtx
-    let typedDecl = ShapeDecl params shapeName needs typedMembers
-        ctx2 = addShapeMembers shapeName params needs typedMembers currentCtx
-    pure (typedDecl : acc, ctx2)
-  inferShape state _ = pure state
-
-inferShapeDefaultMembersM :: [String] -> String -> [ShapeMember] -> TcContext -> Tc [ShapeMember]
-inferShapeDefaultMembersM shapeParams shapeName members ctx =
-  reverse . fst <$> foldM step ([], ctx) members
- where
-  step (acc, currentCtx) member = case member of
-    ShapeDefault name (Just t) expr -> do
-      let typedMember = ShapeDefault name (Just t) expr
-      checkRecursiveLetAnnotatedAliasM shapeParams name (shapeName ++ "@" ++ name) (typeAnnWithOwnShapeNeed shapeName t currentCtx) expr currentCtx
-      pure (typedMember : acc, addShapeMembersToEnv shapeName [typedMember] currentCtx)
-    ShapeDefault name Nothing expr -> do
-      t <- mapTcError (inferShapeDefaultTypeM shapeParams name expr currentCtx) (\msg -> "in shape default '" ++ name ++ "': " ++ msg)
-      let typedMember = ShapeDefault name (Just t) expr
-      pure (typedMember : acc, addShapeMembersToEnv shapeName [typedMember] currentCtx)
-    _ -> pure (member : acc, currentCtx)
-
-inferShapeDefaultTypeM :: [String] -> String -> Expr -> TcContext -> Tc TypeAnn
-inferShapeDefaultTypeM shapeParams name (ELocated span expression) ctx =
-  withTcSpan span (inferShapeDefaultTypeM shapeParams name expression ctx)
-inferShapeDefaultTypeM shapeParams name expr ctx = case expr of
-  EMatch [] [MatchCase ps body] -> do
-    let argTypeExprs = replicate (NE.length ps) (defaultShapeArgumentType shapeParams)
-        argTys = map (convertTypeExprWith shapeParams ctx) argTypeExprs
-    ctx2 <- bindPatternsM (NE.toList ps) argTys ctx
-    Inferred ret effects needs _ <- inferNamedM name body ctx2
-    st <- getTc
-    pure (TypeAnn (typeExprFromTy (curriedFunction argTys effects ret) st) (shapeNeedsFromNeeds needs st))
-  _ -> do
-    Inferred t effects needs _ <- inferNamedM name expr ctx
-    st <- getTc
-    if null (applyStateEffects effects st)
-      then pure (TypeAnn (typeExprFromTy t st) (shapeNeedsFromNeeds needs st))
-      else failTc ("effectful shape default '" ++ name ++ "' must be a function")
-
-defaultShapeArgumentType :: [String] -> TypeExpr
-defaultShapeArgumentType (param : _) = TypeName param
-defaultShapeArgumentType [] = TypeName "t0"
-
 checkShapeDeclM :: [String] -> String -> [ShapeNeed] -> [ShapeMember] -> TcContext -> Tc ()
 checkShapeDeclM shapeParams shapeName needs members ctx = do
   checkShapeNeedsWithM shapeParams ("shape '" ++ shapeName ++ "'") needs ctx
   checkShapeMemberNeedsM shapeParams shapeName members ctx
-  checkShapeDefaultsM members
   checkShapeLawsM shapeParams shapeName needs members ctx
 
 checkShapeNeedsM :: String -> [ShapeNeed] -> TcContext -> Tc ()
@@ -2678,12 +2590,6 @@ checkTypeNameM owner name ctx@TcContext{tcTypeAmbiguities}
   | Just choices <- Map.lookup name tcTypeAmbiguities =
       failTc (owner ++ " useþ ambiguous type '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " choices)
   | otherwise = pure ()
-
-checkShapeDefaultsM :: [ShapeMember] -> Tc ()
-checkShapeDefaultsM = mapM_ checkMember
- where
-  checkMember (ShapeDefault name Nothing _) = failTc ("shape default '" ++ name ++ "' hath no inferred type")
-  checkMember _ = pure ()
 
 checkShapeLawsM :: [String] -> String -> [ShapeNeed] -> [ShapeMember] -> TcContext -> Tc ()
 checkShapeLawsM shapeParams shapeName shapeNeeds members ctx = zipWithM_ checkLaw [(1 :: Int) ..] laws
@@ -2774,7 +2680,6 @@ data FillSpec = FillSpec
   , fillSpecShape :: ShapeRef
   , fillSpecTypes :: [Ty]
   , fillSpecType :: ResolvedTypeAnn
-  , fillSpecRequired :: Bool
   }
   deriving (Eq, Show)
 
@@ -2805,7 +2710,7 @@ fillMemberSpecs :: ShapeRef -> [String] -> [Ty] -> [ShapeMethod] -> [FillSpec]
 fillMemberSpecs shape shapeParams fillTypes = map makeSpec
  where
   makeSpec ShapeMethod{..} =
-    FillSpec shapeMethodName shape fillTypes (specializeResolvedTypeAnn shapeParams fillTypes shapeMethodType) shapeMethodRequired
+    FillSpec shapeMethodName shape fillTypes (specializeResolvedTypeAnn shapeParams fillTypes shapeMethodType)
 
 requireFillSpecM :: String -> [FillSpec] -> Tc FillSpec
 requireFillSpecM name = maybe (failTc ("fill defineþ unknown member '" ++ name ++ "'")) pure . find ((== name) . fillSpecName)
@@ -2864,7 +2769,6 @@ requireFillMembersM currentShape currentTypes members specs ctx = case missing o
   missing =
     [ spec
     | spec@FillSpec{..} <- specs
-    , fillSpecRequired
     , fillSpecName `notElem` provided
     , fillSpecName `notElem` inheritedProvided
     , fillSpecShape == currentShapeRef || not (hasDirectFill fillSpecShape fillSpecTypes ctx)
@@ -3385,19 +3289,6 @@ replaceTyMetas repls ty = case ty of
   TyMeta ident -> TyVar (IntMap.findWithDefault ("m" ++ show ident) ident repls)
   _ -> mapTyChildren (replaceTyMetas repls) (replaceTyMetas repls) ty
 
-checkRecursiveLetAnnotatedAliasM :: [String] -> String -> String -> TypeAnn -> Expr -> TcContext -> Tc ()
-checkRecursiveLetAnnotatedAliasM bound name qualifiedName expectedExpr expr ctx = do
-  checkTypeAnnNeedsWithM bound ("let '" ++ name ++ "'") expectedExpr ctx
-  (expectedValue, expectedEffects, expectedNeeds) <- instantiateAnnotationWithM bound expectedExpr ctx
-  let selfScheme = typeAnnSchemeWith bound ctx expectedExpr
-      ctx2 = addSelfEnv name qualifiedName selfScheme ctx
-  void (checkExprAgainstM name expectedValue expectedEffects expectedNeeds expr ctx2)
-
-addSelfEnv :: String -> String -> Scheme -> TcContext -> TcContext
-addSelfEnv name qualifiedName scheme ctx
-  | name == qualifiedName = addEnv name scheme ctx
-  | otherwise = addEnvWith qualifiedName scheme localEnvRank qualifiedName Nothing (addEnvWith name scheme selfAliasEnvRank qualifiedName Nothing ctx)
-
 -- source-checking entry points share this pipeline and differ only in their
 -- top-level mode. context inspection intentionally stoppeþ before Core lowering.
 check :: String -> String
@@ -3405,19 +3296,6 @@ check source = checkWithImports source Map.empty
 
 checkWithImports :: String -> Map.Map String String -> String
 checkWithImports source imports = checkPrepared source imports False
-
-checkEditorWithImports :: String -> Map.Map String String -> String
-checkEditorWithImports source imports = case parse source of
-  Left msg -> "parse error: " ++ msg
-  Right program
-    | looksRunnable program ->
-        let runnableResult = checkParsed program imports True
-         in if runnableResult == "type ok" then "type ok" else fallbackBookhoard runnableResult program
-    | otherwise -> checkParsed program imports False
- where
-  fallbackBookhoard runnableResult program =
-    let bookhoardResult = checkParsed program imports False
-     in if bookhoardResult == "type ok" then "type ok" else runnableResult
 
 checkEditorProgramWithImportsDetailed :: Program -> Map.Map String String -> Maybe TypeFailure
 checkEditorProgramWithImportsDetailed program imports
@@ -3552,8 +3430,7 @@ prepareDeclsM importStack ds imports baseCtx = do
   either failTc pure (validateProgram (Program ds))
   importCtx <- collectImportContextsM importStack ds imports baseCtx
   preparedCtx <- resolveTypeHeadersM ds importCtx
-  (typedDs, _) <- inferShapeDefaultDeclsM ds preparedCtx
-  pure (typedDs, preparedCtx)
+  pure (ds, preparedCtx)
 
 -- imports are checked in isolated states. þeir static contexts and lowered
 -- core modules are cached by public path and cross back as checked artifacts.

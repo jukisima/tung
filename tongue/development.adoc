@@ -149,7 +149,7 @@ be represented in a local scope. each variable is eiþer a `CoreLocalName` wiþ 
 `LocalId` or a `CoreGlobalName` wiþ its resolved `SymbolId`; evaluation performeþ
 no local-or-global name search. lowering eraseþ locations, ascriptions, type
 aliases, laws, exports, and re-exports; it converteþ host bindings, constructor
-and effect arities, shape defaults, fills, and dictionaries into explicit
+and effect arities, shapes, fills, and dictionaries into explicit
 runtime forms. þe private `CoreProgram` boundary rejecteþ unresolved locals and
 handler targets, evidence applications, and unelaborated shapes or fills, so
 evaluation cannot represent þose states.

@@ -26,7 +26,7 @@ import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.List (find, intercalate)
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TextIO
@@ -48,7 +48,6 @@ import Tung.Core (
   CoreProgram,
   CoreRecordUpdate (..),
   CoreReturnCase (..),
-  CoreShapeMember (..),
   LocalId (..),
   ModuleInterface (..),
   coreDeclarations,
@@ -105,21 +104,14 @@ type RuntimeExpr = RuntimeEnv -> Eval RuntimeValue
 
 data RuntimeMatchCase = RuntimeMatchCase (NE.NonEmpty CorePattern) RuntimeExpr
 
--- primitive dictionaries retain the declaration environment so native fills
--- can use ordinary bookhoard defaults and inherited members.
+-- primitive dictionaries retain inherited dictionaries after native lookup.
 data RuntimeDictionary
   = FillDictionary RuntimeFill [RuntimeValue] [RuntimeDictionary]
-  | PrimitiveDictionary SymbolId String RuntimeEnv [RuntimeDictionary]
+  | PrimitiveDictionary SymbolId String [RuntimeDictionary]
 
 data RuntimeFill = RuntimeFill
-  { runtimeFillShape :: SymbolId
-  , runtimeFillMembers :: Map.Map String CoreExpr
+  { runtimeFillMembers :: Map.Map String CoreExpr
   , runtimeFillEnv :: RuntimeEnv
-  }
-
-data RuntimeShapeInfo = RuntimeShapeInfo
-  { runtimeShapeNeeds :: [SymbolId]
-  , runtimeShapeMembers :: [CoreShapeMember]
   }
 
 instance Eq RuntimeValue where
@@ -135,7 +127,6 @@ instance Eq RuntimeValue where
 data RuntimeEnv = RuntimeEnv
   { runtimeGlobals :: Map.Map TermExport RuntimeValue
   , runtimeLocals :: Map.Map LocalId RuntimeValue
-  , runtimeShapes :: Map.Map SymbolId RuntimeShapeInfo
   , runtimeFills :: Map.Map FillId RuntimeFill
   }
 
@@ -334,11 +325,10 @@ cacheRuntimeImport path env = Eval $ \RuntimeHost{hostImportCache} -> do
   pure (RuntimeOk ())
 
 projectRuntimeInterface :: ModuleInterface -> RuntimeEnv -> RuntimeEnv
-projectRuntimeInterface ModuleInterface{interfaceTerms} RuntimeEnv{runtimeGlobals, runtimeShapes, runtimeFills} =
+projectRuntimeInterface ModuleInterface{interfaceTerms} RuntimeEnv{runtimeGlobals, runtimeFills} =
   RuntimeEnv
     { runtimeGlobals = Map.restrictKeys runtimeGlobals targets
     , runtimeLocals = Map.empty
-    , runtimeShapes
     , runtimeFills
     }
  where
@@ -349,7 +339,6 @@ mergeRuntimeEnv left right =
   RuntimeEnv
     { runtimeGlobals = Map.union (runtimeGlobals left) (runtimeGlobals right)
     , runtimeLocals = Map.union (runtimeLocals left) (runtimeLocals right)
-    , runtimeShapes = Map.union (runtimeShapes left) (runtimeShapes right)
     , runtimeFills = Map.union (runtimeFills left) (runtimeFills right)
     }
 
@@ -360,7 +349,7 @@ hoistRuntimeDecl :: RuntimeEnv -> CoreDecl -> RuntimeEnv
 hoistRuntimeDecl env = \case
   CoreData constructors -> addConstructors constructors env
   CoreEffect operations -> addEffectOps operations env
-  CoreShape shapeName needs members -> addShapeSelectors members (addRuntimeShapeInfo shapeName needs members env)
+  CoreShape _ _ members -> addShapeSelectors members env
   CoreForeignLet term hostKey arity -> addGlobalValue term (nativeValue hostKey arity) env
   _ -> env
 
@@ -369,10 +358,10 @@ closeRuntimeFills declarations env = closedEnv
  where
   closedEnv = foldl' add env declarations
   add current = \case
-    CoreFill key shapeName members ->
+    CoreFill key _ members ->
       current
         { runtimeFills =
-            Map.insert key (RuntimeFill shapeName (Map.fromList members) closedEnv) (runtimeFills current)
+            Map.insert key (RuntimeFill (Map.fromList members) closedEnv) (runtimeFills current)
         }
     _ -> current
 
@@ -383,10 +372,10 @@ evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
      in pure value
   Nothing -> compileExpr expr env
 
-addShapeSelectors :: [CoreShapeMember] -> RuntimeEnv -> RuntimeEnv
+addShapeSelectors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
 addShapeSelectors members env = foldl' add env members
  where
-  add current (CoreShapeMember term _) = addGlobalValue term (shapeMemberValue (shapeMemberName term)) current
+  add current term = addGlobalValue term (shapeMemberValue (shapeMemberName term)) current
 
 shapeMemberName :: TermExport -> String
 shapeMemberName = lastQualifiedSegment . symbolName . termExportTarget
@@ -505,7 +494,7 @@ makeDictionary key shape arguments parentValues env = do
     Just fill -> pure (VDictionary (FillDictionary fill arguments parentDictionaries))
     Nothing -> case key of
       PrimitiveFillId{fillIdPrimitiveType}
-        | null arguments -> pure (VDictionary (PrimitiveDictionary shape fillIdPrimitiveType env parentDictionaries))
+        | null arguments -> pure (VDictionary (PrimitiveDictionary shape fillIdPrimitiveType parentDictionaries))
       _ -> runtimeError ("internal missing selected fill '" ++ renderFillId key ++ "'")
  where
   expectDictionary (VDictionary dictionary) = pure dictionary
@@ -550,12 +539,11 @@ evalDictionaryMember member dictionary =
   fromMaybe missing (dictionaryMember dictionary)
  where
   missing = case dictionary of
-    PrimitiveDictionary shape typeName _ _ -> runtimeError ("primitive fill '" ++ symbolName shape ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
+    PrimitiveDictionary shape typeName _ -> runtimeError ("primitive fill '" ++ symbolName shape ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
     FillDictionary{} -> runtimeError ("selected fill hath no member '" ++ member ++ "'")
 
-  dictionaryMember current@(PrimitiveDictionary shape typeName env parents) =
+  dictionaryMember (PrimitiveDictionary shape typeName parents) =
     (pure <$> primitiveDictionaryValue shape typeName member)
-      <|> ((\expr -> compileExpr expr (addLocalValue (EvidenceLocal 0) (VDictionary current) env)) <$> shapeDefaultExpr member shape env)
       <|> asum (map dictionaryMember parents)
   dictionaryMember current@(FillDictionary fill requirements parents) =
     case fillMemberExpr member fill of
@@ -568,19 +556,7 @@ evalDictionaryMember member dictionary =
   addEvidence env (index, value) = addLocalValue (EvidenceLocal index) value env
 
 fillMemberExpr :: String -> RuntimeFill -> Maybe CoreExpr
-fillMemberExpr member RuntimeFill{runtimeFillShape, runtimeFillMembers, runtimeFillEnv} =
-  Map.lookup member runtimeFillMembers <|> shapeDefaultExpr member runtimeFillShape runtimeFillEnv
-
-shapeDefaultExpr :: String -> SymbolId -> RuntimeEnv -> Maybe CoreExpr
-shapeDefaultExpr member rootShape env = findDefault rootShape []
- where
-  findDefault shapeName seen
-    | shapeName `elem` seen = Nothing
-    | otherwise = case Map.lookup shapeName (runtimeShapes env) of
-        Nothing -> Nothing
-        Just RuntimeShapeInfo{runtimeShapeNeeds, runtimeShapeMembers} ->
-          listToMaybe [expr | CoreShapeMember term (Just expr) <- runtimeShapeMembers, shapeMemberName term == member]
-            <|> foldr (<|>) Nothing [findDefault neededName (shapeName : seen) | neededName <- runtimeShapeNeeds]
+fillMemberExpr member RuntimeFill{runtimeFillMembers} = Map.lookup member runtimeFillMembers
 
 primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
 primitiveDictionaryValue shape typeName member = do
@@ -1012,7 +988,7 @@ addEffectOps ops env = foldl' step env ops
 baseRuntimeEnv :: RuntimeEnv
 baseRuntimeEnv = foldl' add base hostBindings
  where
-  base = RuntimeEnv{runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeShapes = Map.empty, runtimeFills = Map.empty}
+  base = RuntimeEnv{runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeFills = Map.empty}
   add current binding = case hostRole binding of
     BaseNative -> addGlobalValue (TermExport (runtimeSymbol name) OrdinaryTerm) (nativeValue name arity) current
     BaseEffect effectName ->
@@ -1036,10 +1012,6 @@ lookupGlobalValue term RuntimeEnv{runtimeGlobals} = Map.lookup term runtimeGloba
 
 runtimeSymbol :: String -> SymbolId
 runtimeSymbol = SymbolId RuntimeModule
-
-addRuntimeShapeInfo :: SymbolId -> [SymbolId] -> [CoreShapeMember] -> RuntimeEnv -> RuntimeEnv
-addRuntimeShapeInfo shapeName needs members env@RuntimeEnv{runtimeShapes} =
-  env{runtimeShapes = Map.insert shapeName (RuntimeShapeInfo needs members) runtimeShapes}
 
 showUnhandledOperation :: SymbolId -> SymbolId -> String
 showUnhandledOperation effect operation =

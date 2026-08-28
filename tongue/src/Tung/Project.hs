@@ -6,8 +6,6 @@ module Tung.Project (
   Project (..),
   loadProjectFile,
   loadProjectFileWithRoots,
-  loadProjectSource,
-  loadProjectSourceWithRoots,
 ) where
 
 import Control.Monad (filterM)
@@ -46,15 +44,6 @@ loadProjectFileWithRoots builtins roots path = runExceptT do
   absoluteRoots <- traverse absoluteRoot roots
   source <- readSource absolute
   loadProjectSourceM builtins absoluteRoots absolute (takeDirectory absolute) source
-
-loadProjectSource :: Map.Map String String -> FilePath -> String -> IO (Either String Project)
-loadProjectSource builtins = loadProjectSourceWithRoots builtins []
-
-loadProjectSourceWithRoots :: Map.Map String String -> [FilePath] -> FilePath -> String -> IO (Either String Project)
-loadProjectSourceWithRoots builtins roots base source = runExceptT do
-  absolute <- liftIOError "resolve" base (normalise <$> makeAbsolute base)
-  absoluteRoots <- traverse absoluteRoot roots
-  loadProjectSourceM builtins absoluteRoots "<input>" absolute source
 
 loadProjectSourceM :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> String -> ExceptT String IO Project
 loadProjectSourceM builtins roots owner base source = do

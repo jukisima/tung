@@ -60,20 +60,17 @@ data TypeAnn = TypeAnn TypeExpr [ShapeNeed] deriving (Eq, Show)
 
 data ShapeMember
   = ShapeSpec String TypeAnn
-  | ShapeDefault String (Maybe TypeAnn) Expr
   | ShapeLaw [(String, TypeExpr)] Expr Expr
   deriving (Eq, Show)
 
 shapeMemberSignature :: ShapeMember -> Maybe (String, TypeAnn)
 shapeMemberSignature = \case
   ShapeSpec name annotation -> Just (name, annotation)
-  ShapeDefault name annotation _ -> (name,) <$> annotation
   ShapeLaw{} -> Nothing
 
 shapeMemberNames :: [ShapeMember] -> [String]
 shapeMemberNames = mapMaybe \case
   ShapeSpec name _ -> Just name
-  ShapeDefault name _ _ -> Just name
   ShapeLaw{} -> Nothing
 
 data TypeExpr

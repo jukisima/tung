@@ -111,9 +111,7 @@ deterministic =
   , ("different fills dispatch by inferred type", "shape a label { let a label: text } fill integer label { let _ label = 'integer' } fill text label { let _ label = 'text' } yield 'x' label", "eval ok: 'text'")
   , ("graiþ function receiveþ its caller dictionary", "shape a label { let a label: text } fill integer label { let _ label = 'integer' } fill text label { let _ label = 'text' } graiþ a label let (x: a) labelled: text = x label yield 1 labelled", "eval ok: 'integer'")
   , ("child dictionary useþ a direct parent fill", "shape a parent { let a parent: a } graiþ a parent shape a child { let a child: a } fill integer parent { let x parent = x } fill integer child { let x child = x parent } yield 4 child", "eval ok: 4")
-  , ("shape default useþ its child dictionary", "shape a source { let source: a } graiþ a source shape a derived { let derived: a = source } fill integer source { let source = 7 } fill integer derived {} let result: integer = derived yield result", "eval ok: 7")
   , ("fill may precede its resolved shape declaration", "fill integer identity { let x identity = x } shape a identity { let a identity: a } yield 3 identity", "eval ok: 3")
-  , ("forward fill may use a later inherited default", "fill integer derived {} shape a source { let source: a } graiþ a source shape a derived { let derived: a = source } fill integer source { let source = 7 } let result: integer = derived yield result", "eval ok: 7")
   , ("an exact primitive shape schema receiveþ its host fill", "shape a add { let a + a: a } yield 1 + 2", "eval ok: 3")
   , ("fill graiþ remaineþ an external dictionary", "shape a combine { let a combine a: a } fill integer combine { let x combine y = x + y } kin a box { a box } graiþ a combine fill (a box) combine { let (x box) combine (y box) = (x combine y) box } yield (1 box) combine (2 box)", "eval ok: (3 box)")
   ]
@@ -161,7 +159,7 @@ importedCases imports =
       "eval ok: 1"
   , evalTypeErrWith "same-spelled effects in extension-sharing paths stay distinct" "bring a.tung one bring a.extra.tung two yield try 3 two@ask { x one@ask | x }" samePrefixEffectImports
   , evalTypeErrWith "same-spelled effects beneath dotted directories stay distinct" "bring pkg.one/query.tung one bring pkg.two/query.tung two yield try 3 two@ask { x one@ask | x }" dottedDirectoryEffectImports
-  , evalOkWith "primitive shape defaults" "bring ground.tung yield (1 < 2) ∧ (1 ≢ 2)" imports "eval ok: yea"
+  , evalOkWith "derived shape operations" "bring ground.tung yield (1 < 2) ∧ (1 ≢ 2)" imports "eval ok: yea"
   , evalOkWith "false implieþ false" "bring ground.tung yield nay ≤ nay" imports "eval ok: yea"
   , evalOkWith "true doth not imply false" "bring ground.tung yield yea ≤ nay" imports "eval ok: nay"
   , evalOkWith "euclidean division returneþ quotient and remainder for a negative divisor" "bring ground.tung bring data/product.tung yield 5 ÷ -3" imports "eval ok: (-1 2 ∏)"
@@ -309,7 +307,7 @@ importedCases imports =
   , evalOkWith "text words collapse whitespace runs" "bring ground.tung bring text/operation.tung yield ' red\\tblue\\nred ' words-text $ join-wiþ-text '|'" imports "eval ok: 'red|blue|red'"
   , evalOkWith "typed paþs join components" "bring ground.tung bring data/path.tung yield (('root' paþ) join-paþ ('leaf' paþ)) to-text" imports "eval ok: 'root/leaf'"
   , evalOkWith "time spans drive async sleep" "bring ground.tung bring data/time-span.tung yield (0 milliseconds) sleep-for" imports "eval ok: null"
-  , evalOkWith "process captureþ standard output" "bring ground.tung bring data/list.tung yield ('printf' run-process ('hello' .* empty)) process-output" imports "eval ok: 'hello'"
+  , evalOkWith "process captureþ standard output" "bring ground.tung bring process.tung bring process/result.tung bring data/list.tung yield ('printf' run-process ('hello' .* empty)) process-output" imports "eval ok: 'hello'"
   , evalTypeErrWith "missing import is rejected before runtime" "bring missing.tung" Map.empty
   , evalTypeErrWith "import cycle is rejected before runtime" "bring left.tung" cyclicImports
   , evalOkWith "arctan range is nonnegative" "bring _foreign.tung yield 0.0 arctan-float -1.0" imports "eval ok: 4.71238898038469"
@@ -407,13 +405,13 @@ concurrentForks imports =
 
 systemArguments :: Map.Map String String -> Test
 systemArguments imports = do
-  actual <- evaluateWithArgsAndImports ["north", "two words"] "bring ground.tung yield null arguments" imports
+  actual <- evaluateWithArgsAndImports ["north", "two words"] "bring ground.tung bring system.tung yield null arguments" imports
   pure $ if actual == "eval ok: ('north' ('two words' empty .*) .*)" then Nothing else Just ("system arguments: " ++ actual)
 
 systemEnvironment :: Map.Map String String -> Test
 systemEnvironment imports = bracket (Environment.lookupEnv name) restore $ \_ -> do
   Environment.setEnv name "seen"
-  actual <- evaluateWithImports ("bring ground.tung yield '" ++ name ++ "' environment") imports
+  actual <- evaluateWithImports ("bring ground.tung bring system.tung yield '" ++ name ++ "' environment") imports
   pure $ if actual == "eval ok: ('seen' some)" then Nothing else Just ("system environment: " ++ actual)
  where
   name = "TUNG_TEST_ENVIRONMENT"
@@ -423,7 +421,7 @@ systemEnvironment imports = bracket (Environment.lookupEnv name) restore $ \_ ->
 unixTime :: Map.Map String String -> Test
 unixTime imports = do
   before <- floor <$> getPOSIXTime
-  actual <- evaluateWithImports "bring ground.tung yield null unix-time" imports
+  actual <- evaluateWithImports "bring ground.tung bring clock.tung yield null unix-time" imports
   after <- floor <$> getPOSIXTime
   pure $ case stripPrefix "eval ok: " actual >>= readMaybe of
     Just value | value >= (before :: Int) && value <= after -> Nothing

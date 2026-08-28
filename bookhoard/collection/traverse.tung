@@ -7,8 +7,8 @@ graiþ f functor, f cata
 show shape f traverse {
   graiþ m applicative
   let (a f) traverse (a → b m): (b f) m
-
-  graiþ m applicative
-  let (þings: (a m) f) sequence: (a f) m =
-    þings traverse identity
 }
+
+graiþ f traverse, m applicative
+show let (þings: (a m) f) sequence: (a f) m =
+  þings traverse identity

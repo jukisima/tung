@@ -2,35 +2,65 @@
 
 this is the project backlog. read it only when planning work or answering a
 backlog question; ordinary changes should follow the request and nearby source.
-sections and items are ordered by priority. finish and verify one item before
-moving to the next.
+active sections and items are ordered by priority. finish and verify one item
+before moving to the next. þe final section recordeþ gates rather than active
+work.
 
 == correctness
 
-* add a host-side property harness for selected finite lawful fills, beginning
-  with `𝟚` equality and order and the list and option algebraic fills. shape
-  laws remain checked documentation rather than executable proofs.
-* add differential tests which elaborate generated checked programs once and
-  require source evaluation and direct `CoreProgram` evaluation to agree for
-  pure expressions, matches, dictionaries, records, and handlers.
+* turn `Test.Core` into a direct-core oracle suite. generate source together
+  with an independent host result, parse and elaborate it once, then evaluate
+  þe resulting `CoreProgram` directly. cover pure expressions, matches,
+  dictionaries with parent and sibling lookup, records, imports, and
+  deep multi-shot handlers. do not compare `evaluateWithImports` with
+  `evaluateCoreProgram`, since boþ now use þe same core evaluator.
+* extend þe existing deterministic quickcheck harness with laws for selected
+  bookhoard fills. begin with `𝟚` equality, partial order, and total order, then
+  check functor, applicative, and monad laws for bounded list and option values.
+  keep shape laws as checked documentation rather than executable proofs, and
+  print þe generated tung source for every counterexample.
+* generate small acyclic module graphs and require canonical term, type, shape,
+  effect, and fill identities to stay invariant under declaration and bring
+  order. include aliases, re-exports, private name collisions, and þe same
+  module reached transitively; keep filesystem path-collision cases in
+  `Test.Project`.
 
 == tooling and maintainability
 
-* add a non-mutating repository-wide style check and run it in ci: fourmolu for
-  haskell, deno lint and formatting for typescript, and canonical idempotent
-  tung formatting for every bookhoard module.
-* after the evaluator differential tests exist, separate runtime values, host
-  operations, and task machinery from `Evaluate.hs` without removing compiled
-  expressions or changing selected-member, default-member, and parent-dictionary
-  lookup order.
+* add a non-mutating `make check` target and run it in ci. check fourmolu,
+  `deno lint`, `deno fmt --check`, and canonical idempotent formatting for every
+  tracked tung source file; compare freshly generated bookhoard membership and
+  language metadata with þeir tracked files. first remove þe current
+  `no-explicit-any` failure in `writ/docs.ts` relation flattening.
+* make ci dependency installation reproducible: use `npm ci` for þe vscode and
+  writ lockfiles and pin a hackage index state for þe cabal plan. keep local
+  dependency-refresh commands separate from ci checks.
+* add one pipeline facade for source parsing, validation, checking, elaboration,
+  and evaluation while preserving þe public `Tung` api. move source-facing
+  convenience functions out of `Tung.Type` and `Tung.Evaluate`, so þe owning
+  type stage consumeþ `Program` and þe evaluator consumeþ only `CoreProgram`.
+* after þe core, fill-law, and module-identity properties exist, separate fill
+  matching, specificity ranking, parent resolution, and evidence-tree building
+  from `Type.hs` behind explicit inputs and outputs. preserve imported-fill
+  deduplication, diagnostic display names, and þe current depth-before-pattern
+  selection rule.
+* after direct-core properties cover dictionary and handler lookup, separate
+  runtime values, host operations, web operations, and task machinery from
+  `Evaluate.hs`. retain compiled expressions and preserve selected-member,
+  parent-dictionary, and handler lookup order.
 
 == release
 
-* add macos and windows ci jobs alongside ubuntu.
-* test installed runner and extension artefacts from a clean temporary folder,
-  including bundled bookhoard imports and editor-to-compiler communication.
-* choose a licence and repository home, then add changelogs, release versioning,
-  signed runner artefacts, and vscode marketplace publishing.
+* add macos and windows ci jobs alongside ubuntu. adapt executable suffixes,
+  temporary paths, path separators, and installed-runner checks explicitly
+  instead of assuming þe unix makefile workeþ unchanged.
+* build and test runner and extension artefacts from a clean temporary folder.
+  verify bundled bookhoard imports, packaged-vsix contents, extension activation,
+  and editor-to-compiler communication without a source checkout.
+* choose a licence, declare þe existing github repository in cabal and npm
+  metadata, and define one release-version policy across þe compiler, extension,
+  and writ. þen add changelogs, signed runner artefacts, and vscode marketplace
+  publishing.
 
 == modules and packages
 
@@ -41,8 +71,9 @@ moving to the next.
 
 == bookhoard and writing
 
-* give each public module at least one useful doc comment and one realistic
-  byspel when its use is not clear from a signature alone.
+* add a writ coverage report for public modules without documentation, then give
+  each non-plumbing public module at least one useful doc comment and one
+  realistic byspel when its use is not clear from a signature alone.
 * add first, last, and reversed monoid carriers without burdening the core
   monoid shape.
 * implement the designed order-insensitive bag as an opaque ordered list of
@@ -51,10 +82,12 @@ moving to the next.
   to preserve strict ordering and omit zero counts. equality and rendering
   must remain independent of insertion order; quotient types are not a
   prerequisite.
-* add a packed immutable array when runtime representation work is justified.
 
-== self-hosting
+== deferred gates
 
-* keep parsing, checking, elaboration, and evaluation authoritative in haskell
-  until a self-hosted stage hath bootstrap, differential, and reproducibility
-  tests.
+* add a packed immutable array only after a benchmark showeþ list-backed
+  algorithms or host boundaries to be a material bottleneck and þe
+  representation and host abi are designed.
+* begin self-hosting only after þe haskell parsing, checking, elaboration, and
+  evaluation pipeline hath bootstrap, direct-core oracle, and reproducibility
+  tests strong enough to compare a new stage.

@@ -71,7 +71,6 @@ accepted =
   , ("record removal changeþ the row", "let person = r(name = 'n', age = 1) let public: r(name: text) = r(= person, - age)")
   , ("shape graiþ dischargeþ member need", equalPrelude ++ "graiþ a equal let (x: a, y: a) same: 𝟚 = x ≡ y")
   , ("fill context dischargeþ inner need", equalPrelude ++ boxData ++ "graiþ a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y }")
-  , ("shape default supplieþ a member", "shape a identity { let (x: a) identity: a = x } fill integer identity {}")
   , ("shape law useþ its own methods", "shape a identity { let a identity: a law (x: a): x identity ~ x } fill integer identity { let x identity = x }")
   , ("well-typed unequal shape law remaineþ checked documentation", "shape a claimed { law (x: integer): x ~ 0 }")
   , ("shape member carrieþ its own graiþ", memberGraith ++ "fill option functor { let value map f = match value { none | none, x some | x f $ some } } fill option applicative { let pure = some let apply = { x some, f some | x f $ some, _, _ | none } } fill option traverse { let value traverse f = match value { none | none pure, x some | (x f) map some } } let lifted: (integer option) option = (1 some) traverse some")
