@@ -1,11 +1,11 @@
-bring algebra/total/magma.tung
-bring algebra/total/semigroup/infimal.tung
-bring algebra/total/semigroup/supremal.tung
-bring data/two.tung
-bring order/lattice.tung
+use algebra/total/magma.tung
+use algebra/total/semigroup/infimal.tung
+use algebra/total/semigroup/supremal.tung
+use data/two.tung
+use order/lattice.tung
 
 graiþ a magma
-show shape a semigroup {
+show frame a semigroup {
   law (a: a, b: a, c: a): a * (b * c) ~ (a * b) * c
 }
 

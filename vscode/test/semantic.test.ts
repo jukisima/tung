@@ -143,15 +143,15 @@ test("semantic analysis treateþ graiþ heads as types", () => {
     "type:",
     undefined,
   ]);
-  assert.deepEqual(semanticLabelsOf(source, "equal"), ["shape:"]);
-  assert.deepEqual(semanticLabelsOf(source, "monoid"), ["shape:"]);
+  assert.deepEqual(semanticLabelsOf(source, "equal"), ["frame:"]);
+  assert.deepEqual(semanticLabelsOf(source, "monoid"), ["frame:"]);
 });
-test("semantic analysis separateþ a required shape from its member", () => {
+test("semantic analysis separateþ a required frame from its member", () => {
   const source =
-    "shape f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m }";
-  assert.deepEqual(semanticLabelsOf(source, "applicative"), ["shape:"]);
+    "frame f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m }";
+  assert.deepEqual(semanticLabelsOf(source, "applicative"), ["frame:"]);
   assert.deepEqual(semanticLabelsOf(source, "traverse"), [
-    "shape:declaration",
+    "frame:declaration",
     "method:declaration",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "a"), ["type:", "type:"]);
@@ -176,7 +176,7 @@ test("semantic lexer keepeþ a decimal unicode escape together", () => {
 });
 test("semantic analysis highlighteþ law binders, types, calls, and equation marker", () => {
   const source = [
-    "shape f functor {",
+    "frame f functor {",
     "  let (a f) map (a → b ! e): b f ! e",
     "  law (value: a f, morphism: a → b ! e): value map morphism ~ value map id",
     "}",
@@ -221,7 +221,7 @@ test("semantic analysis markeþ parameterised type alias headers", () => {
 });
 test("semantic analysis keepeþ ilk names apart and normaliseþ callable declarations", () => {
   const source =
-    "deed a action { a act: 𝟙 } shape a mapped { let a map: a } let x plain = x";
+    "deed a action { a act: 𝟙 } frame a mapped { let a map: a } let x plain = x";
   const ranges = buildSemanticRanges(source);
   const at = (name, occurrence = 0) => {
     const offset =
@@ -336,13 +336,13 @@ test("semantic analysis coloureþ lambda byspel function positions", () => {
   assert.deepEqual(typesOf("var"), ["function", "call", "call"]);
   assert.deepEqual(typesOf("app"), ["function", "call", "call"]);
 });
-test("semantic analysis coloureþ shape and fill methods", () => {
+test("semantic analysis coloureþ frame and fill methods", () => {
   const source = [
-    "show shape a equal {",
+    "show frame a equal {",
     "  let a ≡ a: 𝟚",
     "  let a ≢ b = (a ≡ b) ¬",
     "}",
-    "show shape f functor {",
+    "show frame f functor {",
     "  let (a f) map (a → b ! e): b f ! e",
     "}",
     "fill 𝟚 equal {",
@@ -371,7 +371,7 @@ test("semantic analysis coloureþ every fill target as a type", () => {
   const source = [
     "kin natural { zero, natural suc }",
     "kin a list { empty, (a, a list) cons }",
-    "shape a semiring {}",
+    "frame a semiring {}",
     "fill natural semiring {}",
     "fill (a list) semiring {}",
   ].join("\n");
@@ -393,9 +393,9 @@ test("semantic analysis coloureþ every fill target as a type", () => {
     "type:",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "semiring"), [
-    "shape:declaration",
-    "shape:",
-    "shape:",
+    "frame:declaration",
+    "frame:",
+    "frame:",
   ]);
 });
 test("lsp presents type variables and concrete types as one theme category", () => {
@@ -656,8 +656,8 @@ test("workspace highlighting coloureþ every anonymous-function argument and use
 test("workspace highlighting coloureþ every binder in each form of function", () => {
   const source = [
     "kin natural { zero }",
-    "shape a chooser {",
-    "  let (shape-first: a, shape-middle, shape-last: a) select: a = shape-middle",
+    "frame a chooser {",
+    "  let (frame-first: a, frame-middle, frame-last: a) select: a = frame-middle",
     "}",
     "fill natural chooser {",
     "  let fill-first select fill-middle fill-last: natural = fill-last",
@@ -669,8 +669,8 @@ test("workspace highlighting coloureþ every binder in each form of function", (
   ].join("\n");
   const resolve = workspaceResolver(source);
   const declarationOnly = [
-    "shape-first",
-    "shape-last",
+    "frame-first",
+    "frame-last",
     "fill-first",
     "fill-middle",
     "group-first",
@@ -683,7 +683,7 @@ test("workspace highlighting coloureþ every binder in each form of function", (
     "case-middle",
   ];
   const declaredAndUsed = [
-    "shape-middle",
+    "frame-middle",
     "fill-last",
     "group-middle",
     "plain-last",
@@ -756,18 +756,18 @@ test("n-ary fold names use ordinary function and call roles", () => {
     "call:",
   ]);
 });
-test("semantic analysis leaveþ bring paths to the textmate import scope", () => {
+test("semantic analysis leaveþ use paths to the textmate import scope", () => {
   const source = [
-    "bring _foreign.tung",
-    "bring equal.tung",
-    "bring order.tung",
-    "bring algebra/arithmetic/field.tung",
-    "bring integer.tung",
-    "bring table.tung",
+    "use _foreign.tung",
+    "use equal.tung",
+    "use order.tung",
+    "use algebra/arithmetic/field.tung",
+    "use integer.tung",
+    "use table.tung",
   ].join("\n");
   const ranges = buildSemanticRanges(source);
   for (const [line, text] of source.split("\n").entries()) {
-    const start = "bring ".length;
+    const start = "use ".length;
     const end = text.length;
     assert.equal(
       ranges.some(
@@ -780,8 +780,8 @@ test("semantic analysis leaveþ bring paths to the textmate import scope", () =>
     );
   }
 });
-test("semantic analysis markeþ a bring alias as a namespace", () => {
-  const source = "bring data/list.tung list yield list@empty";
+test("semantic analysis markeþ a use alias as a namespace", () => {
+  const source = "use data/list.tung list yield list@empty";
   assert.deepEqual(semanticLabelsOf(source, "list"), [
     "namespace:declaration",
   ]);
@@ -794,7 +794,7 @@ test("semantic analysis markeþ a bring alias as a namespace", () => {
   );
 });
 test("semantic analysis markeþ a default basename alias as a namespace", () => {
-  const source = "bring data/list.tung yield list@empty";
+  const source = "use data/list.tung yield list@empty";
   const ranges = buildSemanticRanges(source);
   const use = source.lastIndexOf("list@empty");
   assert(
@@ -804,7 +804,7 @@ test("semantic analysis markeþ a default basename alias as a namespace", () => 
   );
 });
 test("semantic analysis doth not expose a path-qualified namespace", () => {
-  const source = "bring data/list.tung yield data/list@empty";
+  const source = "use data/list.tung yield data/list@empty";
   const ranges = buildSemanticRanges(source);
   const use = source.lastIndexOf("data/list@empty");
   assert.equal(

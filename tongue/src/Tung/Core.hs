@@ -140,7 +140,7 @@ freshLocal name = do
   pure (BoundLocal index name)
 
 -- lowering allocateþ unique locals and eraseþ source-only syntax. þe checker
--- hath already disambiguated imports, overloads, constructors, and shapes;
+-- hath already disambiguated imports, overloads, constructors, and frames;
 -- core mappeþ declarations, expressions, patterns, and locals to þeir checked
 -- identities.
 lowerCoreProgram :: Map.Map String [TermExport] -> Program -> Either String [CoreDecl]
@@ -173,14 +173,14 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
     ElaboratedEffect target operations -> do
       operations2 <- traverse (lowerResolvedOperation target) operations
       pure [CoreEffect operations2]
-    ShapeDecl{} -> lowerFailure "internal unelaborated shape"
+    ShapeDecl{} -> lowerFailure "internal unelaborated frame"
     ElaboratedShape target needs members -> do
       members2 <- traverse (lowerShapeMember target) members
       pure [CoreShape target needs members2]
     FillDecl{} -> lowerFailure "internal unelaborated fill"
-    ElaboratedFill key shape _ _ _ members -> do
+    ElaboratedFill key frame _ _ _ members -> do
       members2 <- traverse lowerFillMember members
-      pure [CoreFill key shape members2]
+      pure [CoreFill key frame members2]
 
   lowerConstructor owner (Ctor name fields) =
     resolveOwn (owner ++ "@" ++ name) (== ConstructorTerm (length fields))
@@ -197,14 +197,14 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
 
   lowerShapeMember owner (target, member) = case member of
     ShapeSpec name _ -> lowerMember owner target name
-    ShapeLaw{} -> lowerFailure "internal elaborated shape law"
+    ShapeLaw{} -> lowerFailure "internal elaborated frame law"
 
   lowerMember owner target name
     | ShapeMemberTerm memberOwner <- termExportKind target
     , memberOwner == owner
     , lastQualifiedSegment (symbolName (termExportTarget target)) == name =
         pure target
-    | otherwise = lowerFailure ("internal shape member identity mismatch for '" ++ name ++ "'")
+    | otherwise = lowerFailure ("internal frame member identity mismatch for '" ++ name ++ "'")
 
   lowerExpr locals = \case
     ELocated _ expression -> lowerExpr locals expression
@@ -232,10 +232,10 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
       (locals2, nested2) <- lowerLocalDecls locals nested
       CoreBlock nested2 <$> lowerExpr locals2 body
     EWithEvidence{} -> lowerFailure "internal unresolved type-class evidence application"
-    EDictionary key shape required parents -> do
+    EDictionary key frame required parents -> do
       required2 <- traverse (lowerExpr locals) required
       parents2 <- traverse (lowerExpr locals) parents
-      pure (CoreDictionary key shape required2 parents2)
+      pure (CoreDictionary key frame required2 parents2)
 
   lowerUpdate locals = \case
     RecordSet name value -> CoreRecordSet name <$> lowerExpr locals value

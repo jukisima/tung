@@ -1,5 +1,5 @@
 -- bookhoard registry, dependency, ownership, export, and type-checking invariants.
--- the graph must be acyclic, dependencies may not bring ground, and each source
+-- the graph must be acyclic, dependencies may not import ground, and each source
 -- owneþ at most one algebraic data declaration.
 module Test.Bookhoard (group) where
 
@@ -79,7 +79,7 @@ acyclicCase imports = pure $ case traverse_ (walk []) (Map.keys imports) of
  where
   walk stack path = do
     nextStack <- enterImport stack path
-    source <- maybe (Left ("missing bring '" ++ path ++ "'")) Right (Map.lookup path imports)
+    source <- maybe (Left ("missing use '" ++ path ++ "'")) Right (Map.lookup path imports)
     Program declarations <- either (Left . (("parse " ++ path ++ ": ") ++)) Right (parse source)
     traverse_ (walk nextStack) (concatMap importedPaths declarations)
 
@@ -92,7 +92,7 @@ noUmbrellaDependencyCase = listToMaybe . catMaybes <$> traverse checkModule (nub
     pure $ case parse source of
       Left message -> Just ("parse " ++ path ++ ": " ++ message)
       Right (Program declarations)
-        | "ground.tung" `elem` concatMap importedPaths declarations -> Just (path ++ " brings the ground umbrella")
+        | "ground.tung" `elem` concatMap importedPaths declarations -> Just (path ++ " imports the ground umbrella")
         | otherwise -> Nothing
 
 groundEffectExportsCase :: Map.Map String String -> Test
@@ -102,12 +102,12 @@ groundEffectExportsCase imports =
     actual -> Just ("ground effect exports: " ++ actual)
  where
   source =
-    "bring ground.tung "
+    "use ground.tung "
       ++ "show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file"
 
 systemExplicitCase :: Map.Map String String -> Test
 systemExplicitCase imports =
-  pure $ case checkWithImports "bring ground.tung show-ilk ground@system" imports of
+  pure $ case checkWithImports "use ground.tung show-ilk ground@system" imports of
     actual | "type error:" `isPrefixOf` actual -> Nothing
     actual -> Just ("ground unexpectedly exports system: " ++ actual)
 
@@ -118,7 +118,7 @@ runnerEffectsCase imports =
     actual -> Just ("runner effects: " ++ actual)
  where
   source =
-    "bring ground.tung bring clock.tung bring process.tung bring system.tung bring web/server.tung bring data/list.tung bring data/option.tung "
+    "use ground.tung use clock.tung use process.tung use system.tung use web/server.tung use data/list.tung use data/option.tung "
       ++ "let (_: request) route: response = 'ok' ok "
       ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process, web = ("
       ++ "let args = null arguments "

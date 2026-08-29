@@ -1,6 +1,6 @@
-bring ground.tung
-bring data/list.tung
-bring collection/catamorphism.tung
+use ground.tung
+use data/list.tung
+use collection/catamorphism.tung
 
 kin team {
   norþ,

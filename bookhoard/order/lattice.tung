@@ -1,9 +1,9 @@
-bring data/two.tung
-bring data/three.tung
-bring order.tung
+use data/two.tung
+use data/three.tung
+use order.tung
 
 ## a carrier whose every pair haþ an infimum.
-show shape a semilattice-infimal {
+show frame a semilattice-infimal {
   let a ∧ a: a
   law (x: a): x ∧ x ~ x
   law (x: a, y: a): x ∧ y ~ y ∧ x
@@ -21,7 +21,7 @@ fill a semilattice-infimal {
 }
 
 ## a carrier whose every pair haþ a supremum.
-show shape a semilattice-supremal {
+show frame a semilattice-supremal {
   let a ∨ a: a
   law (x: a): x ∨ x ~ x
   law (x: a, y: a): x ∨ y ~ y ∨ x
@@ -40,7 +40,7 @@ fill a semilattice-supremal {
 
 ## a carrier wiþ compatible infimum and supremum semilattices.
 graiþ a semilattice-infimal, a semilattice-supremal
-show shape a lattice {
+show frame a lattice {
   law (x: a, y: a): x ∧ (x ∨ y) ~ x
   law (x: a, y: a): x ∨ (x ∧ y) ~ x
 }
@@ -53,7 +53,7 @@ fill a lattice {}
 
 ## an infimum semilattice wiþ a greatest value.
 graiþ a semilattice-infimal
-show shape a semilattice-infimal-bounded {
+show frame a semilattice-infimal-bounded {
   let ⊤: a
   law (a: a): ⊤ ∧ a ~ a
 }
@@ -65,7 +65,7 @@ fill (a func b) semilattice-infimal-bounded {
 
 ## a supremum semilattice wiþ a least value.
 graiþ a semilattice-supremal
-show shape a semilattice-supremal-bounded {
+show frame a semilattice-supremal-bounded {
   let ⟂: a
   law (a: a): ⟂ ∨ a ~ a
 }
@@ -77,14 +77,14 @@ fill (a func b) semilattice-supremal-bounded {
 
 ## a lattice wiþ greatest and least values.
 graiþ a lattice, a semilattice-infimal-bounded, a semilattice-supremal-bounded
-show shape a lattice-bounded {}
+show frame a lattice-bounded {}
 
 graiþ b lattice-bounded
 fill (a func b) lattice-bounded {}
 
 ## a bounded lattice wiþ a chosen complement for every value.
 graiþ a lattice-bounded
-show shape a complement {
+show frame a complement {
   let a ¬: a
   law (a: a): a ∧ (a ¬) ~ ⟂
   law (a: a): a ∨ (a ¬) ~ ⊤

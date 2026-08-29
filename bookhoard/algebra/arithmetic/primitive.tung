@@ -1,5 +1,5 @@
-bring _foreign.tung
-bring algebra/arithmetic/semiring.tung
+use _foreign.tung
+use algebra/arithmetic/semiring.tung
 
 fill integer add {
   let + = add-integer

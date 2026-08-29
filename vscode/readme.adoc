@@ -55,12 +55,12 @@ the server provideþ:
 * compiler-inferred types in hover
 * doc comments in hover
 * full and ranged semantic tokens
-* completion for visible names, qualified names, keywords, primitives, and bring paths
+* completion for visible names, qualified names, keywords, primitives, and use paths
 * hover, declaration, definition, type-definition, implementation, references, and document highlights
 * document and workspace symbols
 * checked workspace rename
 * signature help
-* document links for `bring`
+* document links for `use`
 * folding and selection ranges
 * document and range formatting
 * quick fixes for supported parse errors
@@ -68,7 +68,7 @@ the server provideþ:
 
 the tolerant workspace index followeþ local and bundled imports, honoureþ
 `show`, approximateþ qualify-if-needed lookup, default last-segment import
-aliases, and explicit `bring path alias` overrides, and sendeþ unsaved imported
+aliases, and explicit `use path alias` overrides, and sendeþ unsaved imported
 sources to the haskell checker. the checker bridge askeþ cabal for `exe:tung` and
 falleþ back to a built executable under `tongue/dist-newstyle` when cabal lookup
 is unavailable. it keepeþ one versioned session alive for checking, inferred

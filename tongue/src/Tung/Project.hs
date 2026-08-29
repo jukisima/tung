@@ -1,5 +1,5 @@
 {- | filesystem project loading is kept outside parsing and import semantics.
-the loader resolveþ relative brings into the flat source bundle consumed by the
+the loader resolveþ relative imports into the flat source bundle consumed by the
 checker, and rejecteþ path collisions instead of silently choosing one file.
 -}
 module Tung.Project (
@@ -61,11 +61,11 @@ loadImport builtins roots owner base importPath = do
   case candidates of
     []
       | Map.member importPath builtins -> pure ()
-      | otherwise -> failLoader ("missing bring '" ++ importPath ++ "' from '" ++ owner ++ "'")
+      | otherwise -> failLoader ("missing use '" ++ importPath ++ "' from '" ++ owner ++ "'")
     [candidate] -> loadCandidate candidate
     paths ->
       failLoader
-        ( "ambiguous bring '"
+        ( "ambiguous use '"
             ++ importPath
             ++ "' found at "
             ++ intercalate ", " (map (\path -> "'" ++ path ++ "'") paths)
@@ -78,7 +78,7 @@ loadImport builtins roots owner base importPath = do
       Just (other, _)
         | other /= absolute ->
             failLoader
-              ( "ambiguous bring '"
+              ( "ambiguous use '"
                   ++ importPath
                   ++ "' resolveþ to both '"
                   ++ other
@@ -92,7 +92,7 @@ loadImport builtins roots owner base importPath = do
       Just other
         | other /= importPath ->
             failLoader
-              ( "bring paths '"
+              ( "use paths '"
                   ++ other
                   ++ "' and '"
                   ++ importPath

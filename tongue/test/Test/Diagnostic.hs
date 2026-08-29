@@ -57,7 +57,7 @@ adjacentDeclarationEvidence =
   source =
     unlines
       [ "kin truth { yea, nay }"
-      , "shape a less { let a < a: truth }"
+      , "frame a less { let a < a: truth }"
       , "fill integer less { let x < y = yea }"
       , "let (score: integer) checked: integer = match score < 0 { yea | score, nay | score }"
       ]
@@ -68,11 +68,11 @@ adjacentImportedEvidence =
     Nothing -> pure Nothing
     Just diagnostic -> pure (Just ("adjacent imported evidence: " ++ show diagnostic))
  where
-  source = "bring dep.tung\nlet checked: truth = 1 < 0"
+  source = "use dep.tung\nlet checked: truth = 1 < 0"
   dependency =
     unlines
       [ "show kin truth { yea, nay }"
-      , "show shape a less { let a ≤ a: truth }"
+      , "show frame a less { let a ≤ a: truth }"
       , "graiþ a less show let (a: a, b: a) <: truth = a ≤ b"
       , "fill integer less { let x ≤ y = yea }"
       ]
@@ -95,7 +95,7 @@ importedTypeError :: Test
 importedTypeError =
   expectImportedDiagnostic
     "imported type error"
-    "bring dep.tung"
+    "use dep.tung"
     (Map.singleton "dep.tung" "let value: text = 1")
     "dep.tung"
     (SourceSpan 18 19)
@@ -104,9 +104,9 @@ nestedImportedTypeError :: Test
 nestedImportedTypeError =
   expectImportedDiagnostic
     "nested imported type error"
-    "bring dep.tung"
+    "use dep.tung"
     ( Map.fromList
-        [ ("dep.tung", "bring nested.tung")
+        [ ("dep.tung", "use nested.tung")
         , ("nested.tung", "let value: text = 1")
         ]
     )

@@ -1,8 +1,8 @@
-bring data/two.tung
-bring order.tung
-bring algebra/arithmetic/ring.tung
+use data/two.tung
+use order.tung
+use algebra/arithmetic/ring.tung
 
-show shape a absolute b {
+show frame a absolute b {
   let a absolute: b
 }
 

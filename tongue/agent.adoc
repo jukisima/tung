@@ -98,7 +98,7 @@ log permission.
 == common traps
 
 * do not force qualification for one unambiguous imported name or operator.
-* do not colour a `bring` path as ordinary names in editor tooling.
+* do not colour a `use` path as ordinary names in editor tooling.
 * do not put `! effect` on a non-function value type.
 * do not let partial native or effect-operation application perform work.
 * do not add `perform`; operations are ordinary calls handled with `try`.

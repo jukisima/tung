@@ -1,5 +1,5 @@
-bring data/list.tung
-bring data/option.tung
+use data/list.tung
+use data/option.tung
 
 ## host arguments, settings, and process ending.
 show deed system {

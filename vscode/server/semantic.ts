@@ -1,8 +1,6 @@
 // tolerant lexical and structural role inference. it never consults imports or
 // types; workspace definitions may refine a role after this pass.
 import {
-  bringNamespace,
-  bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
   findMatching,
@@ -15,12 +13,14 @@ import {
   splitDeclarations,
   splitTopLevel,
   tokenize,
+  useNamespace,
+  useParts,
 } from "./syntax.ts";
 const tokenTypes = [
   "keyword",
   "namespace",
   "type",
-  "shape",
+  "frame",
   "function",
   "method",
   "variable",
@@ -47,8 +47,8 @@ const applicationStartTexts = new Set([
   "=",
   "~",
 ]);
-const graithEndKeywords = new Set(["let", "shape", "fill", "show", "show-ilk"]);
-const typeRoles = new Set(["type", "typeParameter", "shape"]);
+const graithEndKeywords = new Set(["let", "frame", "fill", "show", "show-ilk"]);
+const typeRoles = new Set(["type", "typeParameter", "frame"]);
 const callableRoles = new Set(["function", "method", "operator"]);
 const separators = {
   comma: new Set([","]),
@@ -116,7 +116,7 @@ const functionPositionSemantic = (token, tokens, info, definition) => {
   if (typeRoles.has(role)) return undefined;
   if (
     info.types.has(name) ||
-    info.shapes.has(name) ||
+    info.frames.has(name) ||
     (info.effects.has(name) && !info.effectOps.has(name))
   ) {
     return undefined;
@@ -178,7 +178,7 @@ const analyze = (tokens) => {
     effects: new Set(),
     effectOps: new Set(),
     functions: new Set(),
-    shapes: new Set(),
+    frames: new Set(),
     imports: new Set(),
     importTokens: new Set(),
     exportTokens: new Set(),
@@ -217,7 +217,7 @@ const collectExportLists = (tokens, info) => {
   }
 };
 const collectImport = (tokens, index, info) => {
-  const { pathTokens, aliasToken } = bringParts(tokens, index);
+  const { pathTokens, aliasToken } = useParts(tokens, index);
   if (!pathTokens.length) {
     return;
   }
@@ -225,7 +225,7 @@ const collectImport = (tokens, index, info) => {
     info.importTokens.add(token.index);
   }
   const path = pathTokens.map(({ text }) => text).join("");
-  info.imports.add(bringNamespace(path, aliasToken?.text));
+  info.imports.add(useNamespace(path, aliasToken?.text));
   if (aliasToken) {
     mark(info, aliasToken.index, "namespace", ["declaration"], 110);
   }
@@ -254,7 +254,7 @@ const collectGraith = (tokens, index, info) => {
       info,
       new Set(requirement.name ? [requirement.name.index] : []),
     );
-    if (requirement.name) mark(info, requirement.name.index, "shape", [], 85);
+    if (requirement.name) mark(info, requirement.name.index, "frame", [], 85);
   }
 };
 const collectTypeAlias = (tokens, index, info) => {
@@ -314,7 +314,7 @@ const collectShape = (tokens, index, info) => {
   if (!body) return;
   const { open, close } = body;
   const header = defaultHeader(headerTerms(tokens, index + 1, open));
-  markOwnerHeader(info, header, info.shapes, "shape");
+  markOwnerHeader(info, header, info.frames, "frame");
   const heads = new Set(["let", "graiþ", "law"]);
   for (const segment of splitDeclarations(tokens, open + 1, close, heads)) {
     let member = segment.start;
@@ -363,7 +363,7 @@ const collectFill = (tokens, index, info) => {
     info,
     new Set(header.name ? [header.name.index] : []),
   );
-  if (header.name) mark(info, header.name.index, "shape", [], 70);
+  if (header.name) mark(info, header.name.index, "frame", [], 70);
   for (const segment of splitDeclarations(tokens, open + 1, close)) {
     if (tokens[segment.start] && tokens[segment.start].text === "let") {
       collectMemberLet(tokens, segment, info);
@@ -459,12 +459,12 @@ const markValueParameters = (terms, header, info) => {
   }
 };
 const declarationCollectors = {
-  bring: collectImport,
+  use: collectImport,
   graiþ: collectGraith,
   "let-ilk": collectTypeAlias,
   kin: collectData,
   deed: collectEffect,
-  shape: collectShape,
+  frame: collectShape,
   fill: collectFill,
   let: collectLet,
 };
@@ -527,8 +527,8 @@ const inferredSemantic = (token, tokens, info) => {
   if (info.effects.has(name) && isTypePosition(tokens, token.index)) {
     return { type: "type", modifiers: ["effect"] };
   }
-  if (info.shapes.has(name)) {
-    return { type: "shape", modifiers: [] };
+  if (info.frames.has(name)) {
+    return { type: "frame", modifiers: [] };
   }
   if (info.functions.has(name)) {
     return { type: "variable", modifiers: [] };
@@ -734,8 +734,8 @@ const markTypeTokens = (tokens, start, end, info, skip = new Set()) => {
         info.effects.has(name) ? ["effect"] : [],
         80,
       );
-    } else if (info.shapes.has(name)) {
-      mark(info, token.index, "shape", [], 80);
+    } else if (info.frames.has(name)) {
+      mark(info, token.index, "frame", [], 80);
     } else {
       mark(info, token.index, "typeParameter", [], 80);
     }

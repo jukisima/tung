@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show kin natural { zero }\nshow kin a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow shape a convert { let a convert: a }\n";
+    "show kin natural { zero }\nshow kin a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow frame a convert { let a convert: a }\n";
   const mainText =
-    'bring dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third | second }\nfill integer convert { let x convert = x }\nshow kin a box {\na box\n}\n';
+    'use dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third | second }\nfill integer convert { let x convert = x }\nshow kin a box {\na box\n}\n';
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -178,8 +178,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     undefined,
   );
   for (
-    let character = "bring ".length;
-    character < "bring dep.tung".length;
+    let character = "use ".length;
+    character < "use dep.tung".length;
     character += 1
   ) {
     assert.equal(semanticAt.has(positionKey({ line: 0, character })), false);
@@ -351,17 +351,17 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     badResult.diagnostics[0].range.start,
     positionOf(badText, "answer"),
   );
-  const completeBring = "bring dep.tung";
-  const bringDiagnostics = nextDiagnostics(
+  const completeUse = "use dep.tung";
+  const useDiagnostics = nextDiagnostics(
     connection,
     mainUri,
     ({ diagnostics }) => diagnostics.length === 0,
   );
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: mainUri, version: 3 },
-    contentChanges: [{ text: completeBring }],
+    contentChanges: [{ text: completeUse }],
   });
-  assert.deepEqual((await bringDiagnostics).diagnostics, []);
+  assert.deepEqual((await useDiagnostics).diagnostics, []);
   connection.sendNotification("textDocument/didClose", {
     textDocument: { uri: mainUri },
   });

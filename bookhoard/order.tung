@@ -1,10 +1,10 @@
-bring data/two.tung
-bring data/three.tung
-bring equal.tung
+use data/two.tung
+use data/three.tung
+use equal.tung
 
 ## a decidable less-þan-or-equal operation, wiþout order laws.
 graiþ a equal
-show shape a less-equal {
+show frame a less-equal {
   let a ≤ a: 𝟚
 }
 
@@ -20,7 +20,7 @@ fill 𝟚 less-equal {
 
 ## a decidable partial order.
 graiþ a less-equal
-show shape a order-partial {
+show frame a order-partial {
   law (a: a): a ≤ a ~ yea
   law (a: a, b: a): >(≤, a ≤ b, b ≤ a, a ≡ b) ~ yea
   law (a: a, b: a, c: a): >(≤, a ≤ b, b ≤ c, a, c) ~ yea
@@ -28,7 +28,7 @@ show shape a order-partial {
 
 ## a partial order in which every pair is comparable.
 graiþ a order-partial
-show shape a order-total {
+show frame a order-total {
   law (a: a, b: a): ((a ≤ b) ≡ nay) ≤ (b ≤ a) ~ yea
 }
 

@@ -1,10 +1,10 @@
-bring data/one.tung
-bring combinator.tung
-bring collection/functor.tung
-bring collection/applicative.tung
+use data/one.tung
+use combinator.tung
+use collection/functor.tung
+use collection/applicative.tung
 
 graiþ f applicative
-show shape f monad {
+show frame f monad {
   let ((a f) f) flat: a f
 
   law (a: a, f: a → b f ! e):

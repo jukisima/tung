@@ -11,6 +11,6 @@ group =
     "import"
     [ expectEq "empty stack accepteþ a path" (Right ["a.tung"]) (enterImport [] "a.tung")
     , expectEq "nested path is pushed" (Right ["b.tung", "a.tung"]) (enterImport ["a.tung"] "b.tung")
-    , expectEq "self cycle is rejected" (Left "bring cycle: a.tung -> a.tung") (enterImport ["a.tung"] "a.tung")
-    , expectEq "long cycle keepeþ its route" (Left "bring cycle: a.tung -> b.tung -> a.tung") (enterImport ["b.tung", "a.tung"] "a.tung")
+    , expectEq "self cycle is rejected" (Left "use cycle: a.tung -> a.tung") (enterImport ["a.tung"] "a.tung")
+    , expectEq "long cycle keepeþ its route" (Left "use cycle: a.tung -> b.tung -> a.tung") (enterImport ["b.tung", "a.tung"] "a.tung")
     ]

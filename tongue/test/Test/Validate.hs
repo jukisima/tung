@@ -14,10 +14,10 @@ group =
 
 accepted :: [(String, String)]
 accepted =
-  [ ("distinct declarations", "kin pair { pair } deed pulse { integer pulse: integer } shape a same { let a same: a }")
-  , ("explicit aliases override colliding defaults", "bring data/list.tung data-list bring syntax/list.tung syntax-list")
-  , ("explicit aliases distinguish extension-sharing paths", "bring a.tung one bring a.extra.tung two")
-  , ("explicit aliases distinguish dotted directories", "bring pkg.one/query.tung one bring pkg.two/query.tung two")
+  [ ("distinct declarations", "kin pair { pair } deed pulse { integer pulse: integer } frame a same { let a same: a }")
+  , ("explicit aliases override colliding defaults", "use data/list.tung data-list use syntax/list.tung syntax-list")
+  , ("explicit aliases distinguish extension-sharing paths", "use a.tung one use a.extra.tung two")
+  , ("explicit aliases distinguish dotted directories", "use pkg.one/query.tung one use pkg.two/query.tung two")
   , ("labels may repeat in separate records", "let first = r(x = 1) let second = r(x = 2)")
   , ("handler names may repeat in separate handlers", "yield try (try 1 { fail | 2 }) { fail | 3 }")
   , ("annotated fremmed let", "let plus: integer → integer → integer = 'add-integer' fremmed")
@@ -25,9 +25,9 @@ accepted =
 
 rejected :: [(String, String)]
 rejected =
-  [ ("colliding default bring aliases", "bring data/list.tung bring syntax/list.tung")
-  , ("extension-sharing paths retain colliding default aliases", "bring a.tung bring a.extra.tung")
-  , ("extensionless bring path", "bring ground")
+  [ ("colliding default use aliases", "use data/list.tung use syntax/list.tung")
+  , ("extension-sharing paths retain colliding default aliases", "use a.tung use a.extra.tung")
+  , ("extensionless use path", "use ground")
   , ("qualified type alias name", "let-ilk left@right = integer")
   , ("qualified data name", "kin left@right { value }")
   , ("qualified constructor name", "kin value { left@right }")
@@ -40,11 +40,11 @@ rejected =
   , ("duplicate effect operation", "deed bad { integer op: integer, integer op: integer }")
   , ("unannotated fremmed let", "let plus = 'add-integer' fremmed")
   , ("nested fremmed marker", "let bad: r(value: integer) = r(value = 'add-integer' fremmed)")
-  , ("qualified shape name", "shape a left@right { let a op: a }")
-  , ("qualified shape member name", "shape a left { let a right@op: a }")
-  , ("duplicate shape parameter", "shape a bad a { let a op: a }")
-  , ("duplicate shape member", "shape a bad { let a op: a let a op: a }")
-  , ("duplicate shape law parameter", "shape a bad { law (x: a, x: a): x ~ x }")
+  , ("qualified frame name", "frame a left@right { let a op: a }")
+  , ("qualified frame member name", "frame a left { let a right@op: a }")
+  , ("duplicate frame parameter", "frame a bad a { let a op: a }")
+  , ("duplicate frame member", "frame a bad { let a op: a let a op: a }")
+  , ("duplicate frame law parameter", "frame a bad { law (x: a, x: a): x ~ x }")
   , ("duplicate fill member", "fill integer bad { let x op = x let y op = y }")
   , ("duplicate record type field", "let bad: r(x: integer, x: text) = r(x = 1)")
   , ("duplicate record field", "let bad = r(x = 1, x = 2)")
@@ -67,5 +67,5 @@ astCases :: [Test]
 astCases =
   [ pure $ case validateProgram (Program [Export (Import "ground.tung" Nothing)]) of
       Left _ -> Nothing
-      Right () -> Just "show bring ast: unexpected acceptance"
+      Right () -> Just "show use ast: unexpected acceptance"
   ]

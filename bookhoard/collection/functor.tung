@@ -1,6 +1,6 @@
-bring algebra/partial/category.tung
+use algebra/partial/category.tung
 
-show shape f functor {
+show frame f functor {
   let (a f) map (a → b ! e): b f ! e
 
   law (af: a f): af map (identity: a → a) ~ af

@@ -281,11 +281,11 @@ evalProgramEnv importStack program declarations = evalDeclsWithImports importSta
 
 evalDeclsWithImports :: ImportStack -> CoreProgram -> [CoreDecl] -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
 evalDeclsWithImports importStack program declarations env lastValue = do
-  importedEnv <- foldM bring env declarations
+  importedEnv <- foldM use env declarations
   let declarationEnv = closeRuntimeFills declarations (foldl' hoistRuntimeDecl importedEnv declarations)
   foldM execute (declarationEnv, lastValue) declarations
  where
-  bring currentEnv = \case
+  use currentEnv = \case
     CoreImport path -> do
       importedEnv <- evalImport importStack path program
       pure (mergeRuntimeEnv importedEnv currentEnv)
@@ -302,7 +302,7 @@ evalDeclsWithImports importStack program declarations env lastValue = do
     _ -> pure (currentEnv, currentLast)
 
 -- runtime import caching mirrors static imports, but stores evaluated exported
--- environments so repeated brings do not repeat module initialisation.
+-- environments so repeated imports do not repeat module initialisation.
 evalImport :: ImportStack -> String -> CoreProgram -> Eval RuntimeEnv
 evalImport importStack path program = case enterImport importStack path of
   Left message -> runtimeError message
@@ -314,7 +314,7 @@ evalImport importStack path program = case enterImport importStack path of
           env <- projectRuntimeInterface interface . fst <$> evalProgramEnv nextStack program declarations
           cacheRuntimeImport path env
           pure env
-        _ -> runtimeError ("internal missing checked bring '" ++ path ++ "'")
+        _ -> runtimeError ("internal missing checked use '" ++ path ++ "'")
 
 lookupRuntimeImport :: String -> Eval (Maybe RuntimeEnv)
 lookupRuntimeImport path = Eval $ \RuntimeHost{hostImportCache} -> RuntimeOk . Map.lookup path <$> readIORef hostImportCache
@@ -413,13 +413,13 @@ compileExpr = \case
     let compiledDeclarations = map compileLocalDecl declarations
         compiledBody = compileExpr body
      in evalCompiledLocalDecls compiledDeclarations >=> compiledBody
-  CoreDictionary key shape required parents ->
+  CoreDictionary key frame required parents ->
     let compiledRequired = map compileExpr required
         compiledParents = map compileExpr parents
      in \env -> do
           arguments <- traverse ($ env) compiledRequired
           parentValues <- traverse ($ env) compiledParents
-          makeDictionary key shape arguments parentValues env
+          makeDictionary key frame arguments parentValues env
 
 evalCompiledArguments :: RuntimeValue -> [RuntimeExpr] -> RuntimeEnv -> Eval RuntimeValue
 evalCompiledArguments value arguments env = foldM step value arguments
@@ -488,13 +488,13 @@ evalRecordField field = \case
   value -> runtimeError ("record field access expected record, found " ++ showRuntimeValue value)
 
 makeDictionary :: FillId -> SymbolId -> [RuntimeValue] -> [RuntimeValue] -> RuntimeEnv -> Eval RuntimeValue
-makeDictionary key shape arguments parentValues env = do
+makeDictionary key frame arguments parentValues env = do
   parentDictionaries <- traverse expectDictionary parentValues
   case Map.lookup key (runtimeFills env) of
     Just fill -> pure (VDictionary (FillDictionary fill arguments parentDictionaries))
     Nothing -> case key of
       PrimitiveFillId{fillIdPrimitiveType}
-        | null arguments -> pure (VDictionary (PrimitiveDictionary shape fillIdPrimitiveType parentDictionaries))
+        | null arguments -> pure (VDictionary (PrimitiveDictionary frame fillIdPrimitiveType parentDictionaries))
       _ -> runtimeError ("internal missing selected fill '" ++ renderFillId key ++ "'")
  where
   expectDictionary (VDictionary dictionary) = pure dictionary
@@ -530,20 +530,20 @@ nativeValue :: String -> Int -> RuntimeValue
 nativeValue name arity = callableValue ("<native " ++ name ++ ">") arity (evalNative name)
 
 shapeMemberValue :: String -> RuntimeValue
-shapeMemberValue member = unaryValue ("<shape member " ++ member ++ ">") $ \case
+shapeMemberValue member = unaryValue ("<frame member " ++ member ++ ">") $ \case
   VDictionary dictionary -> evalDictionaryMember member dictionary
-  _ -> runtimeError ("shape member '" ++ member ++ "' received non-dictionary evidence")
+  _ -> runtimeError ("frame member '" ++ member ++ "' received non-dictionary evidence")
 
 evalDictionaryMember :: String -> RuntimeDictionary -> Eval RuntimeValue
 evalDictionaryMember member dictionary =
   fromMaybe missing (dictionaryMember dictionary)
  where
   missing = case dictionary of
-    PrimitiveDictionary shape typeName _ -> runtimeError ("primitive fill '" ++ symbolName shape ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
+    PrimitiveDictionary frame typeName _ -> runtimeError ("primitive fill '" ++ symbolName frame ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
     FillDictionary{} -> runtimeError ("selected fill hath no member '" ++ member ++ "'")
 
-  dictionaryMember (PrimitiveDictionary shape typeName parents) =
-    (pure <$> primitiveDictionaryValue shape typeName member)
+  dictionaryMember (PrimitiveDictionary frame typeName parents) =
+    (pure <$> primitiveDictionaryValue frame typeName member)
       <|> asum (map dictionaryMember parents)
   dictionaryMember current@(FillDictionary fill requirements parents) =
     case fillMemberExpr member fill of
@@ -559,7 +559,7 @@ fillMemberExpr :: String -> RuntimeFill -> Maybe CoreExpr
 fillMemberExpr member RuntimeFill{runtimeFillMembers} = Map.lookup member runtimeFillMembers
 
 primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
-primitiveDictionaryValue shape typeName member = do
+primitiveDictionaryValue frame typeName member = do
   _ <- find matches primitiveFillSpecs
   case (typeName, member) of
     ("integer", "zero") -> pure (VInteger 0)
@@ -569,7 +569,7 @@ primitiveDictionaryValue shape typeName member = do
     _ -> nativeValue member . hostArity <$> find ((== member) . hostName) baseNativeBindings
  where
   matches PrimitiveFillSpec{primitiveFillShapeTarget, primitiveFillType, primitiveFillMember} =
-    primitiveFillShapeTarget == shape && primitiveFillType == typeName && primitiveFillMember == member
+    primitiveFillShapeTarget == frame && primitiveFillType == typeName && primitiveFillMember == member
 
 -- handlers are deep because an escaping operation is rewrapped with 'handleEval'.
 -- the captured continuation is an ordinary reusable runtime value.

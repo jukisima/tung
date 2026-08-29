@@ -1,7 +1,7 @@
-bring data/list.tung
-bring data/option.tung
-bring data/product.tung
-bring data/two.tung
+use data/list.tung
+use data/option.tung
+use data/product.tung
+use data/two.tung
 
 kin a task {
   a done

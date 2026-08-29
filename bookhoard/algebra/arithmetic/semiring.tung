@@ -1,37 +1,37 @@
-bring data/two.tung
+use data/two.tung
 
-show shape a add {
+show frame a add {
   let a + a: a
 }
 
-show shape a zero {
+show frame a zero {
   let zero: a
 }
 
 graiþ a add, a zero
-show shape a monoid-additive {
+show frame a monoid-additive {
   law (a: a, b: a, c: a): a + (b + c) ~ (a + b) + c
   law (a: a): zero + a ~ a
   law (a: a): a + zero ~ a
 }
 
-show shape a multiply {
+show frame a multiply {
   let a × a: a
 }
 
-show shape a one {
+show frame a one {
   let one: a
 }
 
 graiþ a multiply, a one
-show shape a monoid-multiplicative {
+show frame a monoid-multiplicative {
   law (a: a, b: a, c: a): a × (b × c) ~ (a × b) × c
   law (a: a): one × a ~ a
   law (a: a): a × one ~ a
 }
 
 graiþ a monoid-additive, a monoid-multiplicative
-show shape a semiring {
+show frame a semiring {
   law (a: a, b: a): a + b ~ b + a
   law (a: a, b: a, c: a): a × (b + c) ~ (a × b) + (a × c)
   law (a: a, b: a, c: a): (a + b) × c ~ (a × c) + (b × c)

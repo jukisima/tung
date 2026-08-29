@@ -7,7 +7,7 @@ import {
 } from "../server/analysis.ts";
 test("analysis recordeþ shown owners, members, parameters, and imports", () => {
   const source =
-    "bring ground.tung graiþ a equal show shape a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }";
+    "use ground.tung graiþ a equal show frame a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }";
   const model = analyzeDocument(source, "file:///model.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
@@ -16,7 +16,7 @@ test("analysis recordeþ shown owners, members, parameters, and imports", () => 
   assert(
     model.definitions.some(
       ({ name, role, exported }) =>
-        name === "order-partial" && role === "shape" && exported,
+        name === "order-partial" && role === "frame" && exported,
     ),
   );
   assert(
@@ -33,16 +33,16 @@ test("analysis recordeþ shown owners, members, parameters, and imports", () => 
   );
 });
 test("analysis recordeþ foreign import paths", () => {
-  const source = "bring _foreign.tung\nbring algebra/arithmetic/field.tung";
+  const source = "use _foreign.tung\nuse algebra/arithmetic/field.tung";
   const model = analyzeDocument(source, "file:///imports.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
     ["_foreign.tung", "algebra/arithmetic/field.tung"],
   );
 });
-test("analysis recordeþ an optional bring alias separately from its path", () => {
+test("analysis recordeþ an optional import alias separately from its path", () => {
   const model = analyzeDocument(
-    "bring data/list.tung list yield list@empty",
+    "use data/list.tung list yield list@empty",
     "file:///imports.tung",
   );
   assert.deepEqual(
@@ -60,9 +60,9 @@ test("analysis recordeþ an optional bring alias separately from its path", () =
     ],
   );
 });
-test("analysis defaulteþ a bring namespace to its last path segment", () => {
+test("analysis defaulteþ an import namespace to its last path segment", () => {
   const model = analyzeDocument(
-    "bring data/list.tung yield list@empty",
+    "use data/list.tung yield list@empty",
     "file:///imports.tung",
   );
   assert.deepEqual(
@@ -77,7 +77,7 @@ test("analysis defaulteþ a bring namespace to its last path segment", () => {
 });
 test("analysis ignoreþ dots in directories when defaulting a namespace", () => {
   const model = analyzeDocument(
-    "bring pkg.one/query.tung yield query@answer",
+    "use pkg.one/query.tung yield query@answer",
     "file:///imports.tung",
   );
   assert.equal(model.imports[0].namespace, "query");

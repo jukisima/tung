@@ -1,4 +1,4 @@
-bring ground.tung
+use ground.tung
 
 kin v lambda {
   v var,

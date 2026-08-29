@@ -80,7 +80,7 @@ const makeEntry = (entry) => ({
   relations: {
     owner: [],
     members: [],
-    shape: [],
+    frame: [],
     targets: [],
     fills: [],
     references: [],
@@ -116,7 +116,7 @@ const linkDefinition = (workspace, definitions, entry) => {
       (candidate) =>
         candidate.kind === "definition" &&
         candidate.name === definition.containerName &&
-        ["type", "shape"].includes(candidate.role),
+        ["type", "frame"].includes(candidate.role),
     );
     if (owner) {
       addRelation(entry, "owner", owner);
@@ -135,11 +135,11 @@ const linkDefinition = (workspace, definitions, entry) => {
 };
 const linkFill = (workspace, definitions, entry) => {
   const { fill, module, region } = entry;
-  const shape = workspace.resolveAt(module.model.uri, fill.range.start)
+  const frame = workspace.resolveAt(module.model.uri, fill.range.start)
     .definition;
-  const shapeEntry = shape && definitions.get(shape.id);
+  const shapeEntry = frame && definitions.get(frame.id);
   if (shapeEntry) {
-    addRelation(entry, "shape", shapeEntry);
+    addRelation(entry, "frame", shapeEntry);
     addRelation(shapeEntry, "fills", entry);
   }
   if (!region) return;
@@ -282,7 +282,7 @@ const renderRelations = (entry) => {
   return [
     ["owner", "owner"],
     ["members", "members"],
-    ["shape", "shape"],
+    ["frame", "frame"],
     ["targets", "targets"],
     ["fills", "fills"],
     ["references", "references"],
@@ -330,7 +330,7 @@ const entrySearch = (entry) => {
 const roleOrder = (role) => {
   return {
     type: 0,
-    shape: 1,
+    frame: 1,
     fill: 2,
     enumMember: 3,
     method: 4,

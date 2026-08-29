@@ -27,7 +27,7 @@ generatedIdempotence = expect "formatter is idempotent for generated structural 
     [ ["show kin a box {", "a box", "}"]
     , ["let result =", "match value {", "yea | 1,", "nay | 0", "}"]
     , ["let handled =", "try risky {", "message fail | 0", "}"]
-    , ["shape a identity {", "let a identity: a", "law (x: a):", "x identity ~ x", "}"]
+    , ["frame a identity {", "let a identity: a", "law (x: a):", "x identity ~ x", "}"]
     ]
 
 isIdempotent :: String -> Bool
@@ -38,13 +38,13 @@ isIdempotent source = formatSource formatted == formatted
 cases :: [(String, String, String)]
 cases =
   [
-    ( "bring alias"
+    ( "use alias"
     , """
-      bring data/list.tung list
+      use data/list.tung list
 
       """
     , """
-      bring data/list.tung list
+      use data/list.tung list
 
       """
     )
@@ -251,7 +251,7 @@ cases =
   ,
     ( "multiline law header"
     , """
-      shape f applicative {
+      frame f applicative {
       law (a: a f):
       a apply (identity pure) ~ a
       law (a: a): a pure ~ a pure
@@ -259,7 +259,7 @@ cases =
 
       """
     , """
-      shape f applicative {
+      frame f applicative {
         law (a: a f):
           a apply (identity pure) ~ a
         law (a: a): a pure ~ a pure
@@ -351,7 +351,7 @@ cases =
   ,
     ( "comment useþ structural indentation"
     , """
-      shape a identity {
+      frame a identity {
       law (x: a):
       # the equation.
       x identity ~ x
@@ -361,7 +361,7 @@ cases =
 
       """
     , """
-      shape a identity {
+      frame a identity {
         law (x: a):
         # the equation.
           x identity ~ x

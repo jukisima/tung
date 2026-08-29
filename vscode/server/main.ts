@@ -157,7 +157,7 @@ connection.languages.semanticTokens.onRange(({ textDocument, range }) =>
 connection.onCompletion(({ textDocument, position }) => {
   const model = workspace.model(textDocument.uri);
   if (!model) return [];
-  if (inBringPath(model, position)) {
+  if (inUsePath(model, position)) {
     return workspace
       .modulePaths(textDocument.uri)
       .map((label) => ({
@@ -691,7 +691,7 @@ const completionKind = (role) => {
     {
       namespace: CompletionItemKind.Module,
       type: CompletionItemKind.TypeParameter,
-      shape: CompletionItemKind.Interface,
+      frame: CompletionItemKind.Interface,
       function: CompletionItemKind.Function,
       method: CompletionItemKind.Method,
       variable: CompletionItemKind.Variable,
@@ -706,7 +706,7 @@ const symbolKind = (role) => {
     {
       namespace: SymbolKind.Namespace,
       type: SymbolKind.TypeParameter,
-      shape: SymbolKind.Interface,
+      frame: SymbolKind.Interface,
       function: SymbolKind.Function,
       method: SymbolKind.Method,
       variable: SymbolKind.Variable,
@@ -750,11 +750,11 @@ const selectionRange = (model, position) => {
   }
   return parent;
 };
-const inBringPath = (model, position) => {
+const inUsePath = (model, position) => {
   const offset = offsetAt(model.text, position);
   return (
     model.imports.some(({ range }) => positionInRange(position, range)) ||
-    /(?:^|\s)bring\s+[^\s]*$/.test(model.text.slice(0, offset))
+    /(?:^|\s)use\s+[^\s]*$/.test(model.text.slice(0, offset))
   );
 };
 const completionPrefix = (model, position) => {

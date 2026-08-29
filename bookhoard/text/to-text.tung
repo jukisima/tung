@@ -1,6 +1,6 @@
-bring data/two.tung
+use data/two.tung
 
-show shape a to-text {
+show frame a to-text {
   let a to-text: text
 }
 

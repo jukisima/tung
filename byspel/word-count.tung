@@ -1,12 +1,12 @@
-bring ground.tung
-bring system.tung
-bring data/list.tung
-bring data/option.tung
-bring data/product.tung
-bring data/table.tung
-bring text/operation.tung
-bring algebra/total/magma.tung
-bring collection/catamorphism.tung
+use ground.tung
+use system.tung
+use data/list.tung
+use data/option.tung
+use data/product.tung
+use data/table.tung
+use text/operation.tung
+use algebra/total/magma.tung
+use collection/catamorphism.tung
 
 let (counts: text table integer, word: text) count-word: text table integer =
   match counts lookup word {

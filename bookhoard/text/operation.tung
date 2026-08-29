@@ -1,18 +1,18 @@
-bring _foreign.tung
-bring data/list.tung
-bring data/natural.tung
-bring data/option.tung
-bring data/two.tung
-bring collection/size.tung
-bring collection/catamorphism.tung
-bring collection/functor.tung
-bring collection/filter.tung
-bring equal.tung
-bring algebra/partial/semigroupoid.tung
-bring algebra/total/semigroup.tung
-bring algebra/total/magma.tung
-bring order/lattice.tung
-bring text/structure.tung
+use _foreign.tung
+use data/list.tung
+use data/natural.tung
+use data/option.tung
+use data/two.tung
+use collection/size.tung
+use collection/catamorphism.tung
+use collection/functor.tung
+use collection/filter.tung
+use equal.tung
+use algebra/partial/semigroupoid.tung
+use algebra/total/semigroup.tung
+use algebra/total/magma.tung
+use order/lattice.tung
+use text/structure.tung
 
 ## true when text haþ no unicode code points.
 show let (text: text) is-empty-text: 𝟚 =

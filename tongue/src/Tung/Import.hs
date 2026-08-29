@@ -11,5 +11,5 @@ type ImportStack = [String]
 
 enterImport :: ImportStack -> String -> Either String ImportStack
 enterImport stack path
-  | path `elem` stack = Left ("bring cycle: " ++ intercalate " -> " (reverse stack ++ [path]))
+  | path `elem` stack = Left ("use cycle: " ++ intercalate " -> " (reverse stack ++ [path]))
   | otherwise = Right (path : stack)

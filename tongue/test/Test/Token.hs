@@ -19,6 +19,8 @@ languageMetadataCase = do
 lexCases :: [(String, String, [Token])]
 lexCases =
   [ ("field access stayeþ one name", "person@age", [TIdent "person@age"])
+  , ("retired bring spelling is an ordinary name", "bring", [TIdent "bring"])
+  , ("retired shape spelling is an ordinary name", "shape", [TIdent "shape"])
   , ("qualified operator stayeþ one name", "list@.*", [TIdent "list@.*"])
   , ("unicode operator is a name", "≡", [TIdent "≡"])
   , ("minus signs an integer", "-1", [TInteger (-1)])
@@ -75,13 +77,13 @@ keywordToken = \case
   "graiþ" -> TGraith
   "show" -> TShow
   "show-ilk" -> TShowIlk
-  "bring" -> TBring
+  "use" -> TUse
   "let-ilk" -> TLetIlk
   "kin" -> TKin
   "deed" -> TDeed
   "yield" -> TYield
   "fremmed" -> TForeign
-  "shape" -> TShape
+  "frame" -> TFrame
   "fill" -> TFill
   "law" -> TLaw
   "match" -> TMatch

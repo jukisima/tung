@@ -1,8 +1,8 @@
-bring _foreign.tung
-bring data/natural.tung
-bring data/two.tung
-bring order.tung
-bring order/lattice.tung
+use _foreign.tung
+use data/natural.tung
+use data/two.tung
+use order.tung
+use order/lattice.tung
 
 ## convert a nonnegative integer to a natural.
 show let (integer: integer) integer-to-natural: natural ! text fail =

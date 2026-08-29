@@ -1,10 +1,10 @@
-bring algebra/total/magma.tung
-bring algebra/total/semigroup.tung
-bring algebra/total/monoid.tung
-bring algebra/arithmetic/semiring.tung
-bring order/lattice.tung
+use algebra/total/magma.tung
+use algebra/total/semigroup.tung
+use algebra/total/monoid.tung
+use algebra/arithmetic/semiring.tung
+use order/lattice.tung
 
-show shape f cata {
+show frame f cata {
   let (a f) foldr b (a → b → b ! e): b ! e
   let (a f) foldl b (b → a → b ! e): b ! e
 }

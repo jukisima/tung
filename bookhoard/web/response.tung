@@ -1,5 +1,5 @@
-bring data/table.tung
-bring text/structure.tung
+use data/table.tung
+use text/structure.tung
 
 ## an http response wiþ its status, headers, and utf-8 body.
 show kin response {

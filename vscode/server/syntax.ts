@@ -9,11 +9,11 @@ const declarationKeywords = new Set([
   "let-ilk",
   "kin",
   "deed",
-  "shape",
+  "frame",
   "fill",
 ]);
 const fileDeclarationKeywords = new Set([
-  "bring",
+  "use",
   "graiþ",
   "yield",
   "show",
@@ -325,15 +325,15 @@ const findFileDeclarationBoundary = (
   return tokens.length;
 };
 
-const bringParts = (tokens, bringIndex, depths = tokenDepths(tokens)) => {
+const useParts = (tokens, useIndex, depths = tokenDepths(tokens)) => {
   const end = findFileDeclarationBoundary(
     tokens,
-    bringIndex + 1,
+    useIndex + 1,
     depths,
-    depths[bringIndex] ?? 0,
+    depths[useIndex] ?? 0,
   );
   const pathTokens = [];
-  let index = bringIndex + 1;
+  let index = useIndex + 1;
   if (index < end && ["name", "keyword"].includes(tokens[index]?.kind)) {
     pathTokens.push(tokens[index]);
     index += 1;
@@ -355,7 +355,7 @@ const lastQualifiedSegment = (name) => {
   return name.slice(name.lastIndexOf("@") + 1);
 };
 
-const bringNamespace = (path, alias) => {
+const useNamespace = (path, alias) => {
   const basename = path.split("/").at(-1) || path;
   return alias || basename.split(".")[0];
 };
@@ -364,8 +364,6 @@ const languageNames = generatedLanguageNames;
 
 export {
   bracketPairs,
-  bringNamespace,
-  bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
   findMatching,
@@ -380,4 +378,6 @@ export {
   splitTopLevel,
   tokenDepths,
   tokenize,
+  useNamespace,
+  useParts,
 };

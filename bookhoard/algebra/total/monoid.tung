@@ -1,10 +1,10 @@
-bring algebra/total/magma.tung
-bring algebra/total/semigroup.tung
-bring data/two.tung
-bring order/lattice.tung
+use algebra/total/magma.tung
+use algebra/total/semigroup.tung
+use data/two.tung
+use order/lattice.tung
 
 graiþ a semigroup
-show shape a monoid {
+show frame a monoid {
   let ∅: a
 
   law (a: a): ∅ * a ~ a

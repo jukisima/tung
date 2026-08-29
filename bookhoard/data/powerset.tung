@@ -1,13 +1,13 @@
-bring data/two.tung
-bring combinator.tung
-bring algebra/partial/category.tung
-bring algebra/partial/semigroupoid.tung
-bring equal.tung
-bring collection/inhold.tung
-bring algebra/arithmetic/ring.tung
-bring algebra/total/monoid.tung
-bring algebra/total/semigroup.tung
-bring order/lattice.tung
+use data/two.tung
+use combinator.tung
+use algebra/partial/category.tung
+use algebra/partial/semigroupoid.tung
+use equal.tung
+use collection/inhold.tung
+use algebra/arithmetic/ring.tung
+use algebra/total/monoid.tung
+use algebra/total/semigroup.tung
+use order/lattice.tung
 
 ## a powerset represented by its membership predicate.
 show let-ilk a powerset = a func 𝟚

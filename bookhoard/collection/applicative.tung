@@ -1,9 +1,9 @@
-bring algebra/partial/semigroupoid.tung
-bring algebra/partial/category.tung
-bring collection/functor.tung
-bring combinator.tung
+use algebra/partial/semigroupoid.tung
+use algebra/partial/category.tung
+use collection/functor.tung
+use combinator.tung
 
-graiþ f functor show shape f applicative {
+graiþ f functor show frame f applicative {
   let a pure: a f
   let (a f) apply ((a → b ! e) f): b f ! e
 

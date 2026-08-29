@@ -21,37 +21,37 @@ const languageConfiguration = JSON.parse(
     "utf8",
   ),
 );
-test("textmate fallback scopeþ bring paths as one import string", () => {
+test("textmate fallback scopeþ use paths as one import string", () => {
   const pattern = grammar.repository["import-path"].patterns[0];
-  const match = "bring algebra/foreign.tung".match(
+  const match = "use algebra/foreign.tung".match(
     new RegExp(pattern.match, "u"),
   );
-  assert.equal(match[1], "bring");
+  assert.equal(match[1], "use");
   assert.equal(match[3], "algebra/foreign.tung");
   assert.equal(pattern.captures["1"].name, "keyword.declaration.tung");
   assert.equal(pattern.captures["3"].name, "string.unquoted.import-path.tung");
 });
-test("textmate fallback scopeþ a bring alias as a namespace", () => {
+test("textmate fallback scopeþ a use alias as a namespace", () => {
   const pattern = grammar.repository["import-path"].patterns[0];
-  const match = "bring data/list.tung list".match(
+  const match = "use data/list.tung list".match(
     new RegExp(pattern.match, "u"),
   );
   assert.equal(match[3], "data/list.tung");
   assert.equal(match[5], "list");
   assert.equal(pattern.captures["5"].name, "entity.name.namespace.tung");
 });
-test("textmate giveþ a whole bring path one scope", async () => {
+test("textmate giveþ a whole use path one scope", async () => {
   const loaded = await loadGrammar();
   for (
     const line of [
-      "bring ground.tung",
-      "bring algebra/arithmetic/field.tung",
-      "bring _foreign.tung",
-      "bring equal.tung",
-      "bring order.tung",
+      "use ground.tung",
+      "use algebra/arithmetic/field.tung",
+      "use _foreign.tung",
+      "use equal.tung",
+      "use order.tung",
     ]
   ) {
-    const start = "bring ".length;
+    const start = "use ".length;
     const end = line.length;
     const pathTokens = loaded
       .tokenizeLine(line)
@@ -327,16 +327,16 @@ test("manifest mapeþ semantic roles to theme scopes", () => {
     ) => [id, superType]),
   );
   assert.equal(defaults["editor.semanticHighlighting.enabled"], true);
-  assert.equal(semanticTypes.shape, "type");
+  assert.equal(semanticTypes.frame, "type");
   assert.equal(semanticTypes.call, "function");
   assert(scopes.type.includes("support.type"));
   assert(scopes.keyword.includes("keyword.control"));
   assert(scopes.function.includes("entity.name.function"));
   assert(scopes.parameter.includes("variable.parameter"));
   assert.deepEqual(
-    scopes.shape,
+    scopes.frame,
     scopes.type,
-    "shape names use the theme's type colour",
+    "frame names use the theme's type colour",
   );
   assert.deepEqual(
     scopes.call,

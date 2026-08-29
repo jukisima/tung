@@ -1,7 +1,7 @@
-bring _foreign.tung
-bring data/one.tung
-bring web/request.tung
-bring web/response.tung
+use _foreign.tung
+use data/one.tung
+use web/request.tung
+use web/response.tung
 
 show-ilk request
 show request

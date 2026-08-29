@@ -17,10 +17,10 @@ work.
 * extend þe existing deterministic quickcheck harness with laws for selected
   bookhoard fills. begin with `𝟚` equality, partial order, and total order, then
   check functor, applicative, and monad laws for bounded list and option values.
-  keep shape laws as checked documentation rather than executable proofs, and
+  keep frame laws as checked documentation rather than executable proofs, and
   print þe generated tung source for every counterexample.
-* generate small acyclic module graphs and require canonical term, type, shape,
-  effect, and fill identities to stay invariant under declaration and bring
+* generate small acyclic module graphs and require canonical term, type, frame,
+  effect, and fill identities to stay invariant under declaration and import
   order. include aliases, re-exports, private name collisions, and þe same
   module reached transitively; keep filesystem path-collision cases in
   `Test.Project`.
@@ -75,7 +75,7 @@ work.
   each non-plumbing public module at least one useful doc comment and one
   realistic byspel when its use is not clear from a signature alone.
 * add first, last, and reversed monoid carriers without burdening the core
-  monoid shape.
+  monoid frame.
 * implement the designed order-insensitive bag as an opaque ordered list of
   distinct positive-count pairs in ascending value order. keep its constructor
   private, publish only the type, and require `order-total` smart constructors

@@ -1,8 +1,8 @@
-bring algebra/partial/category.tung
-bring algebra/partial/semigroupoid.tung
+use algebra/partial/category.tung
+use algebra/partial/semigroupoid.tung
 
 graiþ ⇨ category
-show shape ⇨ groupoid {
+show frame ⇨ groupoid {
   let (a ⇨ b) invert: b ⇨ a
 
   law (f: a ⇨ b): f ∘ (f invert) ~ identity

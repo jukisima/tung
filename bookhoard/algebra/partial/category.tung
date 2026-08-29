@@ -1,7 +1,7 @@
-bring algebra/partial/semigroupoid.tung
+use algebra/partial/semigroupoid.tung
 
 graiþ ⇨ semigroupoid
-show shape ⇨ category {
+show frame ⇨ category {
   let identity: a ⇨ a
 
   law (f: a ⇨ b): identity ∘ f ~ f

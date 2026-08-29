@@ -1,5 +1,5 @@
-bring data/natural.tung
+use data/natural.tung
 
-show shape a size {
+show frame a size {
   let a size: natural
 }

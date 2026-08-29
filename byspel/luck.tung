@@ -1,4 +1,4 @@
-bring ground.tung
+use ground.tung
 
 let (_: 𝟙) read-user: float ! console =
   try (null read) from-text {

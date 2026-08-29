@@ -67,9 +67,9 @@
     },
     "semanticTokenTypes": [
       {
-        "id": "shape",
+        "id": "frame",
         "superType": "type",
-        "description": "tung shape name"
+        "description": "tung frame name"
       },
       {
         "id": "call",
@@ -100,7 +100,7 @@
             "support.type.effect",
             "support.type"
           ],
-          "shape": [
+          "frame": [
             "support.type.tung",
             "support.type"
           ],

@@ -1,23 +1,23 @@
-bring data/one.tung
-bring data/two.tung
-bring algebra/partial/category.tung
-bring equal.tung
-bring order.tung
-bring data/product.tung
-bring algebra/total/magma.tung
-bring algebra/total/semigroup.tung
-bring algebra/total/monoid.tung
-bring algebra/arithmetic/semiring.tung
-bring data/natural.tung
-bring data/option.tung
-bring collection/size.tung
-bring collection/catamorphism.tung
-bring collection/functor.tung
-bring collection/applicative.tung
-bring collection/monad.tung
-bring collection/filter.tung
-bring collection/inhold.tung
-bring collection/traverse.tung
+use data/one.tung
+use data/two.tung
+use algebra/partial/category.tung
+use equal.tung
+use order.tung
+use data/product.tung
+use algebra/total/magma.tung
+use algebra/total/semigroup.tung
+use algebra/total/monoid.tung
+use algebra/arithmetic/semiring.tung
+use data/natural.tung
+use data/option.tung
+use collection/size.tung
+use collection/catamorphism.tung
+use collection/functor.tung
+use collection/applicative.tung
+use collection/monad.tung
+use collection/filter.tung
+use collection/inhold.tung
+use collection/traverse.tung
 
 ## finite linked lists.
 show kin a list {

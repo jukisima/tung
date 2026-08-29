@@ -1,14 +1,14 @@
-bring algebra/arithmetic/semiring.tung
-bring data/two.tung
-bring _foreign.tung
+use algebra/arithmetic/semiring.tung
+use data/two.tung
+use _foreign.tung
 
 graiþ a add
-show shape a subtract {
+show frame a subtract {
   let a - a: a
 }
 
 graiþ a semiring, a subtract
-show shape a ring {
+show frame a ring {
   law (a: a): a - a ~ zero
 }
 

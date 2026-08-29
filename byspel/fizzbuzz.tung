@@ -1,7 +1,7 @@
-bring ground.tung
-bring data/list.tung
-bring data/product.tung
-bring algebra/partial/semigroupoid.tung
+use ground.tung
+use data/list.tung
+use data/product.tung
+use algebra/partial/semigroupoid.tung
 
 graiþ a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =

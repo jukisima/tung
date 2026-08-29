@@ -1,10 +1,10 @@
-bring collection/applicative.tung
-bring collection/catamorphism.tung
-bring collection/functor.tung
-bring algebra/partial/category.tung
+use collection/applicative.tung
+use collection/catamorphism.tung
+use collection/functor.tung
+use algebra/partial/category.tung
 
 graiþ f functor, f cata
-show shape f traverse {
+show frame f traverse {
   graiþ m applicative
   let (a f) traverse (a → b m): (b f) m
 }

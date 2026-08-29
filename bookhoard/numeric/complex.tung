@@ -1,9 +1,9 @@
-bring _foreign.tung
-bring algebra/arithmetic/semiring.tung
-bring algebra/arithmetic/ring.tung
-bring algebra/arithmetic/field.tung
-bring numeric/absolute.tung
-bring numeric/elementary.tung
+use _foreign.tung
+use algebra/arithmetic/semiring.tung
+use algebra/arithmetic/ring.tung
+use algebra/arithmetic/field.tung
+use numeric/absolute.tung
+use numeric/elementary.tung
 
 show kin a complex {
   a complex a

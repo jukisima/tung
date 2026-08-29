@@ -97,7 +97,7 @@ findDiagnosticToken message tokens =
     <|> listToMaybe tokens
  where
   keywordToken
-    | "bring" `isInfixOf` message = find ((== TBring) . locatedToken) tokens
+    | "use" `isInfixOf` message = find ((== TUse) . locatedToken) tokens
     | otherwise = Nothing
 
 diagnosticNames :: String -> Maybe [String]

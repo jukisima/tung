@@ -1,9 +1,9 @@
-bring _foreign.tung
-bring algebra/arithmetic/field.tung
-bring numeric/constant.tung
+use _foreign.tung
+use algebra/arithmetic/field.tung
+use numeric/constant.tung
 
 graiþ a divide
-show shape a elementary {
+show frame a elementary {
   let a exponent: a
   let a logariþm: a
   let a sine: a

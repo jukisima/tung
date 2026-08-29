@@ -1,6 +1,6 @@
-bring data/two.tung
+use data/two.tung
 
 ## a container whose membership can be decided.
-show shape a inhold b {
+show frame a inhold b {
   let a ∋ b: 𝟚
 }

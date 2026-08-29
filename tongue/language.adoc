@@ -10,13 +10,13 @@ a `.tung` file containeþ declarations. a runnable file declareþ `main`
 locally; `main` takeþ `𝟙`, returneþ `𝟙`, and may use only runner-supported
 effects. the runner calleþ `null main` after pure module initialisation.
 
-`bring path` importeþ a module. the final path segment is its default
+`use path` importeþ a module. the final path segment is its default
 namespace, and an optional final name replaceþ that namespace.
 
 [source,tung]
 ----
-bring data/list.tung
-bring data/table.tung hashmap
+use data/list.tung
+use data/table.tung hashmap
 
 let xs = list@empty
 let entries = hashmap@empty
@@ -29,14 +29,14 @@ bookhoard. `ground.tung` is an ordinary optional import, not a prelude.
 
 declarations are private by default. `show` publisheþ a declaration or an
 already visible term; `show-ilk` publisheþ an already visible type, effect, or
-shape. term and type namespaces are separate. an ordinary `bring` doth not
+frame. term and type namespaces are separate. an ordinary `use` doth not
 re-export anything.
 
 == names, comments, and literals
 
 most non-space characters not reserved by syntax may occur in a name. `@`
 qualifieþ an imported name or, when no exact name existeþ, selecteþ a record
-field. type alias, data, effect, and shape names and þeir owned constructor,
+field. type alias, data, effect, and frame names and þeir owned constructor,
 operation, or member names are therefore unqualified. `.*` is one ordinary
 name; there is no general infix escape. `_` discardeþ a binding or match value.
 
@@ -167,15 +167,15 @@ let age = older@age
 field sets must match an annotated record type. duplicate labels, removal of
 an unknown field, and update of a non-record are errors.
 
-== shapes, fills, and laws
+== frames, fills, and laws
 
-`shape` declareþ a statically selected interface. `fill` provideþ its
+`frame` declareþ a statically selected interface. `fill` provideþ its
 evidence and member implementations. leading `graiþ` clauses state required
-evidence for a declaration, shape, fill, or individual shape member.
+evidence for a declaration, frame, fill, or individual frame member.
 
 [source,tung]
 ----
-shape a equal {
+frame a equal {
   let a ≡ a: 𝟚
   law (x: a): x ≡ x ~ yea
 }
@@ -193,7 +193,7 @@ fill 𝟚 equal {
 ----
 
 a fill must supply every required member not supplied by a parent.
-a child fill also witnesseþ its required parent shapes and may define inherited
+a child fill also witnesseþ its required parent frames and may define inherited
 members. duplicate fills are incoherent. when more than one fill match, a
 structured type pattern outrankeþ a blanket pattern that it refines;
 incomparable matching fills are ambiguous. selection dependeþ only on static

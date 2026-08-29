@@ -1,8 +1,8 @@
-bring _foreign.tung
-bring data/one.tung
-bring algebra/total/magma.tung
-bring text/to-text.tung
-bring text/structure.tung
+use _foreign.tung
+use data/one.tung
+use algebra/total/magma.tung
+use text/to-text.tung
+use text/structure.tung
 
 ## a paþ kept distinct from arbitrary text at api boundaries.
 show kin paþ {

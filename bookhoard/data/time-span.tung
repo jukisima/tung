@@ -1,5 +1,5 @@
-bring _foreign.tung
-bring data/one.tung
+use _foreign.tung
+use data/one.tung
 
 ## a non-normalised span measured in milliseconds.
 show kin milliseconds {

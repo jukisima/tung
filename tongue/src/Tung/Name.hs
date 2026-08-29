@@ -17,7 +17,7 @@ import System.FilePath (stripExtension, takeFileName)
 
 checkImportAlias :: String -> Either String ()
 checkImportAlias alias
-  | isQualifiedName alias || '/' `elem` alias = Left "bring alias must be slash-free and unqualified"
+  | isQualifiedName alias || '/' `elem` alias = Left "use alias must be slash-free and unqualified"
   | otherwise = pure ()
 
 importNamespace :: String -> String

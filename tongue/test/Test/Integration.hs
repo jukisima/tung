@@ -47,12 +47,12 @@ runnableFileCase imports path = do
 
 mainEntry :: Imports -> Test
 mainEntry imports = do
-  actual <- evaluateMainWithImports "bring ground.tung let (_: 𝟙) main: 𝟙 = null yield 42" imports
+  actual <- evaluateMainWithImports "use ground.tung let (_: 𝟙) main: 𝟙 = null yield 42" imports
   pure $ if actual == "eval ok: null" then Nothing else Just ("main entry: " ++ actual)
 
 rejectedMain :: Imports -> Test
 rejectedMain imports = do
-  actual <- evaluateMainWithImports "bring ground.tung let (_: 𝟙) main: 𝟙 = missing" imports
+  actual <- evaluateMainWithImports "use ground.tung let (_: 𝟙) main: 𝟙 = missing" imports
   pure $ if "type error:" `isPrefixOf` actual then Nothing else Just ("rejected main reached evaluation: " ++ actual)
 
 fibonacciSampleResult :: Imports -> Test
@@ -65,7 +65,7 @@ fileRoundTrip :: Imports -> Test
 fileRoundTrip imports = do
   directory <- getTemporaryDirectory
   let path = directory ++ "/tung-file-effect-test.txt"
-      source = "bring ground.tung let _ = '" ++ path ++ "' write-file 'hello' let _ = '" ++ path ++ "' append-file ' world' yield '" ++ path ++ "' read-file"
+      source = "use ground.tung let _ = '" ++ path ++ "' write-file 'hello' let _ = '" ++ path ++ "' append-file ' world' yield '" ++ path ++ "' read-file"
   removeIfPresent path
   actual <- evaluateWithImports source imports
   removeIfPresent path
@@ -76,11 +76,11 @@ webServerRoundTrip imports = do
   port <- unusedPort
   let source =
         """
-        bring ground.tung
-        bring clock.tung
-        bring data/option.tung
-        bring data/table.tung
-        bring web/server.tung
+        use ground.tung
+        use clock.tung
+        use data/option.tung
+        use data/table.tung
+        use web/server.tung
 
         let (incoming: request) route: response ! clock = (
           let stamp = null unix-time

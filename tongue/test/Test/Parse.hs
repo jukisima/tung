@@ -20,9 +20,9 @@ group =
 accepted :: [(String, String)]
 accepted =
   [ ("last let declaration", "let answer = 42")
-  , ("bring accepteþ an optional alias", "bring data/list.tung list yield list@empty")
-  , ("bring accepteþ a dotted filename", "bring a.extra.tung extra")
-  , ("bring accepteþ a dotted directory", "bring pkg.one/query.tung query")
+  , ("use accepteþ an optional alias", "use data/list.tung list yield list@empty")
+  , ("use accepteþ a dotted filename", "use a.extra.tung extra")
+  , ("use accepteþ a dotted directory", "use pkg.one/query.tung query")
   , ("adjacent top-level declarations", "let x = 1 let y = 2")
   , ("type alias declaration boundary", "let-ilk count = integer let answer: count = 42")
   , ("yield introduceþ the final file expression", "let answer = 42 yield answer")
@@ -33,11 +33,11 @@ accepted =
   , ("parameterised effect", "deed a state { 𝟙 get: a, a set: 𝟙 }")
   , ("effect operation with an effect row", "deed e fail { e fail: a } deed web { integer serve (request → response ! e): 𝟙 ! e, text fail, 𝟙 stop: 𝟙 }")
   , ("text-keyed fremmed let", "let plus: integer → integer → integer = 'add-integer' fremmed")
-  , ("shape requirement", "graiþ a equal shape a order-partial { let a ≤ a: 𝟚 }")
-  , ("shape member requirement", "shape f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m }")
-  , ("shape law", "shape a identity { let a identity: a law (x: a): x identity ~ x }")
-  , ("shape members need no separators", "shape a identity { let a identity: a let a same: a law (x: a): x identity ~ x }")
-  , ("shape and fill headers use second-is-function order", "shape a convert b { let a convert: b } fill integer convert text { let x convert = 'x' }")
+  , ("frame requirement", "graiþ a equal frame a order-partial { let a ≤ a: 𝟚 }")
+  , ("frame member requirement", "frame f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m }")
+  , ("frame law", "frame a identity { let a identity: a law (x: a): x identity ~ x }")
+  , ("frame members need no separators", "frame a identity { let a identity: a let a same: a law (x: a): x identity ~ x }")
+  , ("frame and fill headers use second-is-function order", "frame a convert b { let a convert: b } fill integer convert text { let x convert = 'x' }")
   , ("fill methods use let", "graiþ a equal fill (a box) equal { let (x box) ≡ (y box) = x ≡ y }")
   , ("adjacent fill members", "fill integer linked { let x first = x let x second = x first }")
   , ("graiþ fill member boundary", "fill integer linked { graiþ a equal let x first = x let x second = x }")
@@ -48,12 +48,12 @@ accepted =
   , ("exported data", "show kin a option { none, a some }")
   , ("exported effect", "show deed ask { integer ask: integer }")
   , ("exported fremmed let", "show let plus: integer → integer → integer = 'add-integer' fremmed")
-  , ("exported shape", "show shape a equal { let a ≡ a: 𝟚 }")
-  , ("exported graiþ shape", "graiþ a equal show shape a order-partial { let a ≤ a: 𝟚 }")
-  , ("name re-export", "bring file.tung show file@value")
-  , ("grouped name re-export", "bring file.tung show file@first, file@second")
-  , ("type re-export", "bring file.tung show-ilk file@value")
-  , ("grouped type re-export", "bring file.tung show-ilk file@first, file@second")
+  , ("exported frame", "show frame a equal { let a ≡ a: 𝟚 }")
+  , ("exported graiþ frame", "graiþ a equal show frame a order-partial { let a ≤ a: 𝟚 }")
+  , ("name re-export", "use file.tung show file@value")
+  , ("grouped name re-export", "use file.tung show file@first, file@second")
+  , ("type re-export", "use file.tung show-ilk file@value")
+  , ("grouped type re-export", "use file.tung show-ilk file@first, file@second")
   , ("closed record and update", "let person = r(name = 'n', age = 1) yield r(= person, age = 2, - name)")
   , ("record removal needeþ space", "yield r(= person, - age)")
   , ("multi-scrutinee match", "yield match 1, 2 { a, b | a }")
@@ -72,12 +72,12 @@ accepted =
 rejected :: [(String, String)]
 rejected =
   [ ("bare final expression requireþ yield", "42")
-  , ("bring requireþ a path", "bring")
-  , ("bring alias must be unqualified", "bring data/list.tung list@short")
-  , ("bring alias must be slash-free", "bring data/list.tung sequence/list")
-  , ("qualified namespace must be slash-free", "bring data/list.tung yield data/list@empty")
+  , ("use requireþ a path", "use")
+  , ("use alias must be unqualified", "use data/list.tung list@short")
+  , ("use alias must be slash-free", "use data/list.tung sequence/list")
+  , ("qualified namespace must be slash-free", "use data/list.tung yield data/list@empty")
   , ("show requireþ a name", "show")
-  , ("show cannot prefix bring", "show bring ground.tung")
+  , ("show cannot prefix use", "show use ground.tung")
   , ("show-ilk requireþ a name", "show-ilk")
   , ("show cannot prefix an expression", "show 42")
   , ("local block requireþ yield", "yield (let x = 1 x)")
@@ -85,12 +85,12 @@ rejected =
   , ("kin requireþ a body", "kin option")
   , ("deed operation requireþ a type", "deed pulse { pulse }")
   , ("fill requireþ a target type", "fill equal {}")
-  , ("law parameters require types", "shape a bad { law (x): x ~ x }")
-  , ("law requireþ equivalence separator", "shape a bad { law (x: a): x }")
-  , ("shape member requirement needeþ a member", "shape f bad { graiþ m applicative }")
-  , ("required shape member needeþ let", "shape a bad { a bad: a }")
-  , ("graiþ shape member needeþ let", "shape f bad { graiþ m applicative (a f) bad: a }")
-  , ("shape members reject definitions", "shape a bad { let (x: a) same: a = x }")
+  , ("law parameters require types", "frame a bad { law (x): x ~ x }")
+  , ("law requireþ equivalence separator", "frame a bad { law (x: a): x }")
+  , ("frame member requirement needeþ a member", "frame f bad { graiþ m applicative }")
+  , ("required frame member needeþ let", "frame a bad { a bad: a }")
+  , ("graiþ frame member needeþ let", "frame f bad { graiþ m applicative (a f) bad: a }")
+  , ("frame members reject definitions", "frame a bad { let (x: a) same: a = x }")
   , ("match arm requireþ bar", "match 1 { _ 1 }")
   , ("try requireþ handler cases", "try action")
   , ("dollar requireþ a left expression", "$ + 1 2")
@@ -116,13 +116,13 @@ rejected =
 importCases :: [Test]
 importCases =
   [ expectEq
-      "dotted filename remaineþ whole in the bring ast"
+      "dotted filename remaineþ whole in the use ast"
       (Right (Program [Import "a.extra.tung" (Just "extra")]))
-      (parse "bring a.extra.tung extra")
+      (parse "use a.extra.tung extra")
   , expectEq
-      "dotted directory remaineþ whole in the bring ast"
+      "dotted directory remaineþ whole in the use ast"
       (Right (Program [Import "pkg.one/query.tung" (Just "query")]))
-      (parse "bring pkg.one/query.tung query")
+      (parse "use pkg.one/query.tung query")
   ]
 
 expressions :: [(String, String, Expr)]
@@ -185,9 +185,9 @@ parserProperties =
           QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \second ->
             let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second
              in QuickCheck.counterexample source (isRight (parse source))
-  , Harness.propertyTest "property: complete bring declaration" $
+  , Harness.propertyTest "property: complete use declaration" $
       QuickCheck.forAll (QuickCheck.elements ["ground.tung", "data/list.tung", "nested/deep.tung"]) \path ->
-        let source = "bring " ++ path
+        let source = "use " ++ path
          in QuickCheck.counterexample source (isRight (parse source))
   ]
  where

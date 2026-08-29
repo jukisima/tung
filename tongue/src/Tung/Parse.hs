@@ -79,7 +79,7 @@ parseExportGroup ts = case parseReExportNames ts of
   Left _ -> do
     (decl, rest) <- parseDecl ts
     case decl of
-      Import _ _ -> Left "show cannot precede bring"
+      Import _ _ -> Left "show cannot precede use"
       Let "_" _ _ -> Left "show must precede a declaration or name"
       _ -> pure ([Export decl], rest)
 
@@ -98,27 +98,27 @@ parseReExportNames = go []
 
 parseDecl :: P Decl
 parseDecl = \case
-  TBring : rest -> parseImport rest
+  TUse : rest -> parseImport rest
   TGraith : rest -> parseGraithDecl rest
   TLet : rest -> parseLetDecl [] rest
   TLetIlk : rest -> parseTypeAlias rest
   TKin : rest -> parseData rest
   TDeed : rest -> parseEffect rest
-  TShape : rest -> parseShape [] rest
+  TFrame : rest -> parseShape [] rest
   TFill : rest -> parseFill [] rest
   _ -> Left "expected declaration"
 
 parseGraithDecl :: P Decl
 parseGraithDecl ts = do
-  (needs, rest) <- parseGraithPrefix isGraithEnd "expected 'let', 'shape' or 'fill' after graiþ" ts
+  (needs, rest) <- parseGraithPrefix isGraithEnd "expected 'let', 'frame' or 'fill' after graiþ" ts
   case rest of
     TLet : rest2 -> parseLetDecl needs rest2
-    TShape : rest2 -> parseShape needs rest2
+    TFrame : rest2 -> parseShape needs rest2
     TFill : rest2 -> parseFill needs rest2
     TShow : TLet : rest2 -> exportParsed (parseLetDecl needs rest2)
-    TShow : TShape : rest2 -> exportParsed (parseShape needs rest2)
+    TShow : TFrame : rest2 -> exportParsed (parseShape needs rest2)
     TShow : TFill : rest2 -> exportParsed (parseFill needs rest2)
-    _ -> Left "expected 'let', 'shape' or 'fill' after graiþ"
+    _ -> Left "expected 'let', 'frame' or 'fill' after graiþ"
 
 exportParsed :: Either String (Decl, [Token]) -> Either String (Decl, [Token])
 exportParsed = fmap (\(decl, rest) -> (Export decl, rest))
@@ -126,7 +126,7 @@ exportParsed = fmap (\(decl, rest) -> (Export decl, rest))
 isGraithEnd :: Token -> Bool
 isGraithEnd = \case
   TLet -> True
-  TShape -> True
+  TFrame -> True
   TFill -> True
   TShow -> True
   TShowIlk -> True
@@ -174,7 +174,7 @@ parseImportPath (TIdent part : TDot : TIdent next : rest) = do
   (parts, rest2) <- parseImportPath (TIdent next : rest)
   pure (part : parts, rest2)
 parseImportPath (TIdent part : rest) = pure ([part], rest)
-parseImportPath _ = Left "expected bring path"
+parseImportPath _ = Left "expected use path"
 
 parseTypeAlias :: P Decl
 parseTypeAlias ts = do
@@ -195,13 +195,13 @@ parseTypeUntilFileBoundary ts =
 
 startsFileDeclaration :: Token -> Bool
 startsFileDeclaration = \case
-  TBring -> True
+  TUse -> True
   TGraith -> True
   TLet -> True
   TLetIlk -> True
   TKin -> True
   TDeed -> True
-  TShape -> True
+  TFrame -> True
   TFill -> True
   TShow -> True
   TShowIlk -> True
@@ -380,13 +380,13 @@ parseEffectOp ts =
 
 parseShape :: [ShapeNeed] -> P Decl
 parseShape needs ts = do
-  (header, body) <- parseHeaderBody "shape" ts
-  (paramTerms, name) <- maybeToEither "shape declaration requireþ a name" (headerFromTokens header)
-  params <- maybeToEither "shape parameters must be names" (namesFromHeaderTerms paramTerms)
+  (header, body) <- parseHeaderBody "frame" ts
+  (paramTerms, name) <- maybeToEither "frame declaration requireþ a name" (headerFromTokens header)
+  params <- maybeToEither "frame parameters must be names" (namesFromHeaderTerms paramTerms)
   (members, rest) <- parseShapeMembers body
   case rest of
     TRBrace : following -> pure (ShapeDecl params name needs members, following)
-    _ -> Left "expected '}' after shape body"
+    _ -> Left "expected '}' after frame body"
 
 parseShapeNeeds :: P [ShapeNeed]
 parseShapeNeeds = go []
@@ -413,7 +413,7 @@ parseShapeNeed ts = case headerFromTokens ts of
 parseFill :: [ShapeNeed] -> P Decl
 parseFill needs ts = do
   (header, body) <- parseHeaderBody "fill" ts
-  (tyTerms, shapeName) <- maybeToEither "fill declaration requireþ a shape name" (headerFromTokens header)
+  (tyTerms, shapeName) <- maybeToEither "fill declaration requireþ a frame name" (headerFromTokens header)
   tyArgs <- maybeToEither "fill type arguments must be types" (typesFromHeaderTerms tyTerms)
   case tyArgs of
     [] -> Left "fill declaration requireþ at least one type argument"
@@ -483,26 +483,26 @@ parseShapeMembers ts = do
 
 parseShapeMember :: P ShapeMember
 parseShapeMember (TGraith : ts) = do
-  (needs, rest) <- parseGraithPrefix (\case TLet -> True; _ -> False) "expected 'let' after shape member graiþ" ts
+  (needs, rest) <- parseGraithPrefix (\case TLet -> True; _ -> False) "expected 'let' after frame member graiþ" ts
   case rest of
     TLet : _ -> parseShapeLet needs rest
-    _ -> Left "expected 'let' after shape member graiþ"
+    _ -> Left "expected 'let' after frame member graiþ"
 parseShapeMember ts@(TLet : _) = parseShapeLet [] ts
 parseShapeMember ts@(TLaw : _) = parseShapeLaw ts
-parseShapeMember _ = Left "expected shape member"
+parseShapeMember _ = Left "expected frame member"
 
 parseShapeLet :: [ShapeNeed] -> P ShapeMember
 parseShapeLet needs (TLet : ts) = do
   (memberTokens, rest) <- takeTopLevelUntilOrEnd ts isShapeMemberBoundary
   member <- parseShapeSignature needs memberTokens
   pure (member, rest)
-parseShapeLet _ _ = Left "expected 'let' before shape member"
+parseShapeLet _ _ = Left "expected 'let' before frame member"
 
 parseShapeSignature :: [ShapeNeed] -> [Token] -> Either String ShapeMember
 parseShapeSignature needs ts = case splitTopLevelColon ts of
-  Nothing -> Left "expected ':' in required shape member"
+  Nothing -> Left "expected ':' in required frame member"
   Just (header, resultTokens) -> do
-    (argTypes, name) <- maybe (Left "expected shape member name") Right (shapeMemberHeader header)
+    (argTypes, name) <- maybe (Left "expected frame member name") Right (shapeMemberHeader header)
     result <- parseFunctionResultTokens resultTokens
     ann <- functionLetAnn needs (map Just argTypes) result
     pure (ShapeSpec name ann)
@@ -1218,7 +1218,7 @@ locateParsed parser tokens = do
   (expression, rest) <- parser tokens
   case expression of
     -- fremmed is a declaration marker rather than an ordinary expression; its
-    -- direct-body shape must remain visible to validation and elaboration.
+    -- direct-body frame must remain visible to validation and elaboration.
     EForeign _ -> pure (expression, rest)
     _ -> do
       let consumed = take (length tokens - length rest) tokens

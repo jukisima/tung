@@ -11,28 +11,28 @@ import Tung.Name (checkImportAlias, importAlias, isQualifiedName)
 import Tung.Syntax
 
 validateProgram :: Program -> Either String ()
-validateProgram (Program declarations) = validateBringNamespaces declarations >> traverse_ validateDecl declarations
+validateProgram (Program declarations) = validateUseNamespaces declarations >> traverse_ validateDecl declarations
 
-validateBringNamespaces :: [Decl] -> Either String ()
-validateBringNamespaces declarations = do
+validateUseNamespaces :: [Decl] -> Either String ()
+validateUseNamespaces declarations = do
   traverse_ validateImport imports
   foldM_ register Map.empty [(importAlias path alias, path) | (path, alias) <- imports]
  where
   imports = [(path, alias) | Import path alias <- declarations]
   validateImport (path, alias) = validateImportPath path >> traverse_ checkImportAlias alias
   register owners (namespace, path) = case Map.lookup namespace owners of
-    Just other | other /= path -> Left ("bring namespace '" ++ namespace ++ "' referreþ to both '" ++ other ++ "' and '" ++ path ++ "'")
+    Just other | other /= path -> Left ("use namespace '" ++ namespace ++ "' referreþ to both '" ++ other ++ "' and '" ++ path ++ "'")
     _ -> pure (Map.insert namespace path owners)
 
 validateImportPath :: String -> Either String ()
 validateImportPath path
   | ".tung" `isSuffixOf` path = pure ()
-  | otherwise = Left ("bring path '" ++ path ++ "' must end in '.tung'")
+  | otherwise = Left ("use path '" ++ path ++ "' must end in '.tung'")
 
 validateDecl :: Decl -> Either String ()
 validateDecl = \case
   Import path alias -> validateImportPath path >> traverse_ checkImportAlias alias
-  Export Import{} -> Left "bring cannot be shown"
+  Export Import{} -> Left "use cannot be shown"
   Export FillDecl{} -> Left "fill evidence cannot be shown"
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
@@ -56,9 +56,9 @@ validateDecl = \case
     traverse_ validateEffectOp operations
   ElaboratedEffect _ operations -> traverse_ (validateEffectOp . snd) operations
   ShapeDecl params name needs members -> do
-    validateUnqualified "shape" name
-    distinct ("shape '" ++ name ++ "' parameter") params
-    distinct ("shape '" ++ name ++ "' member") (shapeMemberNames members)
+    validateUnqualified "frame" name
+    distinct ("frame '" ++ name ++ "' parameter") params
+    distinct ("frame '" ++ name ++ "' member") (shapeMemberNames members)
     traverse_ validateNeed needs
     traverse_ validateShapeMember members
   ElaboratedShape _ _ members -> traverse_ (validateShapeMember . snd) members
@@ -77,9 +77,9 @@ validateEffectOp (EffectOp name operationType) = validateUnqualified "effect ope
 
 validateShapeMember :: ShapeMember -> Either String ()
 validateShapeMember = \case
-  ShapeSpec name annotation -> validateUnqualified "shape member" name >> validateTypeAnn annotation
+  ShapeSpec name annotation -> validateUnqualified "frame member" name >> validateTypeAnn annotation
   ShapeLaw parameters left right -> do
-    distinct "shape law parameter" (map fst parameters)
+    distinct "frame law parameter" (map fst parameters)
     traverse_ (validateType . snd) parameters
     validateExpr left
     validateExpr right

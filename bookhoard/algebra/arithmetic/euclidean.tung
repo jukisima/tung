@@ -1,19 +1,19 @@
-bring _foreign.tung
-bring data/two.tung
-bring data/product.tung
-bring order.tung
-bring algebra/arithmetic/semiring.tung
-bring algebra/arithmetic/ring.tung
+use _foreign.tung
+use data/two.tung
+use data/product.tung
+use order.tung
+use algebra/arithmetic/semiring.tung
+use algebra/arithmetic/ring.tung
 
 ## euclidean quotient and remainder computed togeþer.
-show shape a divide-remainder {
+show frame a divide-remainder {
   let a ÷ a: a ∏ a ! text fail
 }
 
 ## euclidean division, whose remainder lieþ between zero and þe divisor's
 ## absolute magnitude. each law shareþ þe operations' division-by-zero effect.
 graiþ a ring, a divide-remainder, a order-total
-show shape a euclidean {
+show frame a euclidean {
   law (dividend: a, divisor: a):
     match dividend ÷ divisor {
       quotient ∏ rest | (quotient × divisor) + rest

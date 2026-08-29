@@ -1,4 +1,4 @@
-bring ground.tung
+use ground.tung
 
 deed pick {
   𝟙 pick: integer

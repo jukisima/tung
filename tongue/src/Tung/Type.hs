@@ -1,5 +1,5 @@
 {- | static semantics: imports and visibility, Hindley-Milner inference,
-effect rows, coverage, shapes and fills, and elaboration to dictionary passing.
+effect rows, coverage, frames and fills, and elaboration to dictionary passing.
 -}
 module Tung.Type (
   Ty (..),
@@ -52,7 +52,7 @@ import Tung.Token (SourceSpan)
 import Tung.Validate (validateProgram)
 
 -- function effects are latent on 'TyFun'; 'Inferred' carrieþ only effects caused
--- while evaluating the current expression, plus unresolved shape requirements.
+-- while evaluating the current expression, plus unresolved frame requirements.
 data Ty
   = TyMeta Int
   | TyVar String
@@ -303,8 +303,8 @@ relabelTypeRefs names fallback = go
   go ty = mapTyChildren go go ty
 
 relabelNeedRefs :: DisplayNames -> (String -> String) -> Need -> Need
-relabelNeedRefs names fallback (Need args shape) =
-  Need (map (relabelTypeRefs names fallback) args) (relabelShapeRef names fallback shape)
+relabelNeedRefs names fallback (Need args frame) =
+  Need (map (relabelTypeRefs names fallback) args) (relabelShapeRef names fallback frame)
 
 relabelTypeRef :: DisplayNames -> (String -> String) -> TypeRef -> TypeRef
 relabelTypeRef DisplayNames{displayTypes} fallback ref@TypeRef{typeIdentity, typeDisplayName} =
@@ -762,9 +762,9 @@ typeExprFromAppliedTy = \case
   TyFun args effects ret -> TypeArrow (fmap typeExprFromAppliedTy args) (map typeExprFromAppliedTy effects) (typeExprFromAppliedTy ret)
 
 specializeNeed :: [String] -> [Ty] -> Need -> Need
-specializeNeed params arguments (Need needArguments shape) =
+specializeNeed params arguments (Need needArguments frame) =
   let replacements = Map.fromList (zip params arguments)
-   in Need (map (replaceShapeTyParams replacements) needArguments) shape
+   in Need (map (replaceShapeTyParams replacements) needArguments) frame
 
 specializeResolvedTypeAnn :: [String] -> [Ty] -> ResolvedTypeAnn -> ResolvedTypeAnn
 specializeResolvedTypeAnn params fillTypes (ResolvedTypeAnn ty needs) =
@@ -772,7 +772,7 @@ specializeResolvedTypeAnn params fillTypes (ResolvedTypeAnn ty needs) =
    in ResolvedTypeAnn (replaceShapeTyParams replacements ty) (map (replaceNeedShapeTyParams replacements) needs)
 
 replaceNeedShapeTyParams :: Map.Map String Ty -> Need -> Need
-replaceNeedShapeTyParams replacements (Need args shape) = Need (map (replaceShapeTyParams replacements) args) shape
+replaceNeedShapeTyParams replacements (Need args frame) = Need (map (replaceShapeTyParams replacements) args) frame
 
 replaceShapeTyParams :: Map.Map String Ty -> Ty -> Ty
 replaceShapeTyParams replacements ty = case ty of
@@ -963,14 +963,14 @@ namespaceImportContext ns TcContext{..} =
         }
 
 projectedDisplayNames :: String -> Map.Map String TypeInfo -> Map.Map String ShapeInfo -> DisplayNames
-projectedDisplayNames ns types shapes =
+projectedDisplayNames ns types frames =
   DisplayNames
     { displayTypes = projectedTypes typeInfoNominalIdentity
     , displayEffects = projectedTypes typeInfoEffectIdentity
     , displayShapes =
         Map.fromList
           [ (shapeTarget, namespaceDisplayName ns name)
-          | (name, ShapeInfo{shapeExported = True, shapeTarget}) <- Map.toList shapes
+          | (name, ShapeInfo{shapeExported = True, shapeTarget}) <- Map.toList frames
           , not (isQualifiedName name)
           ]
     }
@@ -1156,7 +1156,7 @@ termTargets TcContext{tcEnv} = foldr add Map.empty tcEnv
   add _ = id
 
 -- project runtime term exports from the same context that passed static
--- checking. types and private shape/fill closure remain in 'TcContext'.
+-- checking. types and private frame/fill closure remain in 'TcContext'.
 moduleInterface :: TcContext -> ModuleInterface
 moduleInterface TcContext{tcModule, tcEnv} = ModuleInterface tcModule terms
  where
@@ -1343,7 +1343,7 @@ typeExprHeads = \case
   TypeRecord fields -> concatMap (typeExprHeads . snd) fields
   TypeArrow arguments effects result -> concatMap typeExprHeads (NE.toList arguments ++ effects ++ [result])
 
--- shapes form þe nominal index used by fills. collecting þeir headers first
+-- frames form þe nominal index used by fills. collecting þeir headers first
 -- makeþ a forward fill equivalent to þe same declarations in source order.
 collectShapeContexts :: [Decl] -> TcContext -> TcContext
 collectShapeContexts ds ctx = foldl' (flip collectShapeContext) ctx ds
@@ -1419,7 +1419,7 @@ reExportTypeName name ctx@TcContext{tcTypes, tcTypeAmbiguities}
           withType = maybe ctx (const (addShownType name ctx)) typeInfo
           withShape = maybe withType (const (markShapeExported name withType)) shapeInfo
       if isNothing typeInfo && isNothing shapeInfo
-        then Left ("unknown type or shape '" ++ name ++ "'")
+        then Left ("unknown type or frame '" ++ name ++ "'")
         else Right withShape
 
 reExportTypeInfo :: String -> TcContext -> Either String (Maybe TypeInfo)
@@ -1531,10 +1531,10 @@ fillsForShape :: String -> TcContext -> [FillInfo]
 fillsForShape name = Map.findWithDefault [] (lastQualifiedSegment name) . tcFills
 
 fillsForShapeRef :: ShapeRef -> TcContext -> [FillInfo]
-fillsForShapeRef shape = filter ((== shape) . fillShape) . fillsForShape (shapeDisplayName shape)
+fillsForShapeRef frame = filter ((== frame) . fillShape) . fillsForShape (shapeDisplayName frame)
 
 -- duplicate imports may share one FillId; nested diagnostic names still follow
--- þe wanted shape's alias without changing semantic candidate order.
+-- þe wanted frame's alias without changing semantic candidate order.
 projectFillNeeds :: ShapeRef -> FillInfo -> [Need] -> [Need]
 projectFillNeeds wanted FillInfo{fillShape} = map (relabelNeedRefs emptyDisplayNames project)
  where
@@ -1553,16 +1553,16 @@ fillParentNeeds shapeName types ctx = case findShapeInfo shapeName ctx of
   Just ShapeInfo{shapeParams, shapeNeeds} -> map (specializeNeed shapeParams (map (`convertTypeExpr` ctx) types)) shapeNeeds
 
 fillClosure :: FillId -> ShapeRef -> [Ty] -> [Need] -> [String] -> TcContext -> [ShapeRef] -> Int -> [FillInfo]
-fillClosure key shape tyArgs needs provided ctx seen depth
-  | shape `elem` seen = []
-  | otherwise = FillInfo shape tyArgs needs key depth parents provided : inherited
+fillClosure key frame tyArgs needs provided ctx seen depth
+  | frame `elem` seen = []
+  | otherwise = FillInfo frame tyArgs needs key depth parents provided : inherited
  where
-  parents = case findShapeInfoByRef shape ctx of
+  parents = case findShapeInfoByRef frame ctx of
     Nothing -> []
     Just ShapeInfo{shapeParams, shapeNeeds} -> map (specializeNeed shapeParams tyArgs) shapeNeeds
   inherited = concatMap closeNeed parents
   closeNeed (Need neededTypes neededShape) =
-    fillClosure key neededShape neededTypes needs provided ctx (shape : seen) (depth + 1)
+    fillClosure key neededShape neededTypes needs provided ctx (frame : seen) (depth + 1)
 
 addEnv :: String -> Scheme -> TcContext -> TcContext
 addEnv name scheme = addEnvWith name scheme localEnvRank name Nothing
@@ -1743,8 +1743,8 @@ addShapeMembersToEnv shapeName members ctx = foldl' step ctx (mapMaybe shapeMemb
   step current (name, annotation) =
     let scheme = shapeMemberScheme shapeName annotation current
         qualifiedName = shapeName ++ "@" ++ name
-        shape = maybe (SymbolId (tcModule current) shapeName) shapeTarget (findShapeInfo shapeName current)
-        kind = ShapeMemberTerm shape
+        frame = maybe (SymbolId (tcModule current) shapeName) shapeTarget (findShapeInfo shapeName current)
+        kind = ShapeMemberTerm frame
      in addGlobalEnv name qualifiedName scheme kind (addGlobalEnv qualifiedName qualifiedName scheme kind current)
 
 shapeMemberScheme :: String -> TypeAnn -> TcContext -> Scheme
@@ -1780,7 +1780,7 @@ findShapeInfoByRef ShapeRef{shapeIdentity, shapeDisplayName} TcContext{tcShapes,
 
 resolveShapeTargetM :: String -> TcContext -> Tc SymbolId
 resolveShapeTargetM name ctx =
-  maybe (failTc ("internal missing checked shape '" ++ name ++ "'")) (pure . shapeTarget) (findShapeInfo name ctx)
+  maybe (failTc ("internal missing checked frame '" ++ name ++ "'")) (pure . shapeTarget) (findShapeInfo name ctx)
 
 -- pattern binding and coverage use the same constructor metadata so nullary
 -- constructors are never mistaken for binders.
@@ -2388,8 +2388,8 @@ elaborateDeclM declaration ctx = case declaration of
   FillDecl types shapeName needs members -> do
     members2 <- elaborateFillMembersM types shapeName needs members ctx
     let key = fillKeyFor (tcModule ctx) (canonicalShapeName shapeName ctx) (map (`convertTypeExpr` ctx) types)
-    shape <- resolveShapeTargetM shapeName ctx
-    pure (ElaboratedFill key shape types shapeName needs members2)
+    frame <- resolveShapeTargetM shapeName ctx
+    pure (ElaboratedFill key frame types shapeName needs members2)
   ElaboratedFill{} -> pure declaration
   other -> pure other
 
@@ -2398,20 +2398,20 @@ resolveInferredBindingM ctx needs core =
   let bindings = evidenceBindings needs
    in wrapEvidence bindings <$> resolveExprEvidenceM ctx bindings core
 
--- laws have no runtime term; executable shape members retain their nominal
+-- laws have no runtime term; executable frame members retain their nominal
 -- selector identities for Core.
 elaborateShapeMemberEntryM :: SymbolId -> String -> TcContext -> ShapeMember -> Tc (Maybe (TermExport, ShapeMember))
 elaborateShapeMemberEntryM _ _ _ ShapeLaw{} = pure Nothing
-elaborateShapeMemberEntryM shape shapeName ctx member@(ShapeSpec name _) = do
+elaborateShapeMemberEntryM frame shapeName ctx member@(ShapeSpec name _) = do
   let qualifiedName = shapeName ++ "@" ++ name
-  target <- case listToMaybe [found | EnvBinding{envName, envTarget = Just found} <- tcEnv ctx, envName == qualifiedName, termExportKind found == ShapeMemberTerm shape] of
+  target <- case listToMaybe [found | EnvBinding{envName, envTarget = Just found} <- tcEnv ctx, envName == qualifiedName, termExportKind found == ShapeMemberTerm frame] of
     Just found -> pure found
-    Nothing -> failTc ("internal missing shape member '" ++ qualifiedName ++ "' during elaboration")
+    Nothing -> failTc ("internal missing frame member '" ++ qualifiedName ++ "' during elaboration")
   pure (Just (target, member))
 
 elaborateFillMembersM :: [TypeExpr] -> String -> [ShapeNeed] -> [Decl] -> TcContext -> Tc [Decl]
 elaborateFillMembersM types shapeName fillNeeds members ctx = case fillSpecsForShape shapeName types ctx [] of
-  Nothing -> failTc ("internal missing fill shape '" ++ shapeName ++ "' during elaboration")
+  Nothing -> failTc ("internal missing fill frame '" ++ shapeName ++ "' during elaboration")
   Just specs -> traverse (elaborateMember specs) members
  where
   -- inherited members receive the dictionary for the declared fill. member
@@ -2461,14 +2461,14 @@ invalidMainType actual =
 
 declLabel :: Decl -> String
 declLabel = \case
-  Import path _ -> "bring '" ++ path ++ "'"
+  Import path _ -> "use '" ++ path ++ "'"
   Let name _ _ -> "let '" ++ name ++ "'"
   TypeAlias _ name _ -> "let-ilk '" ++ name ++ "'"
   DataDecl _ name _ -> "kin '" ++ name ++ "'"
   EffectDecl _ name _ -> "deed '" ++ name ++ "'"
   ElaboratedEffect target _ -> "deed '" ++ symbolName target ++ "'"
-  ShapeDecl _ name _ _ -> "shape '" ++ name ++ "'"
-  ElaboratedShape target _ _ -> "shape '" ++ symbolName target ++ "'"
+  ShapeDecl _ name _ _ -> "frame '" ++ name ++ "'"
+  ElaboratedShape target _ _ -> "frame '" ++ symbolName target ++ "'"
   FillDecl tyArgs shapeName _ _ -> "fill '" ++ showShapeHeader tyArgs shapeName ++ "'"
   ElaboratedFill _ _ tyArgs shapeName _ _ -> "fill '" ++ showShapeHeader tyArgs shapeName ++ "'"
   Export declaration -> "show " ++ declLabel declaration
@@ -2523,7 +2523,7 @@ checkEffectDeclM params effectName ops ctx = mapM_ checkOp ops
 
 checkShapeDeclM :: [String] -> String -> [ShapeNeed] -> [ShapeMember] -> TcContext -> Tc ()
 checkShapeDeclM shapeParams shapeName needs members ctx = do
-  checkShapeNeedsWithM shapeParams ("shape '" ++ shapeName ++ "'") needs ctx
+  checkShapeNeedsWithM shapeParams ("frame '" ++ shapeName ++ "'") needs ctx
   checkShapeMemberNeedsM shapeParams shapeName members ctx
   checkShapeLawsM shapeParams shapeName needs members ctx
 
@@ -2536,7 +2536,7 @@ checkShapeNeedsWithM bound owner needs ctx = mapM_ checkNeed needs
   checkNeed (ShapeNeed args neededName) = do
     mapM_ (\argument -> checkTypeExprNamesWithM bound owner argument ctx) args
     case findShapeInfo neededName ctx of
-      Nothing -> failTc (owner ++ " hath unknown graith shape '" ++ neededName ++ "'")
+      Nothing -> failTc (owner ++ " hath unknown graith frame '" ++ neededName ++ "'")
       Just ShapeInfo{shapeParams} -> do
         let expected = length shapeParams
             actual = length args
@@ -2546,7 +2546,7 @@ checkShapeNeedsWithM bound owner needs ctx = mapM_ checkNeed needs
 checkShapeMemberNeedsM :: [String] -> String -> [ShapeMember] -> TcContext -> Tc ()
 checkShapeMemberNeedsM bound shapeName members ctx = mapM_ checkMember (mapMaybe shapeMemberSignature members)
  where
-  checkMember (name, annotation) = checkTypeAnnNeedsWithM bound ("shape member '" ++ shapeName ++ "@" ++ name ++ "'") annotation ctx
+  checkMember (name, annotation) = checkTypeAnnNeedsWithM bound ("frame member '" ++ shapeName ++ "@" ++ name ++ "'") annotation ctx
 
 checkTypeAnnNeedsM :: String -> TypeAnn -> TcContext -> Tc ()
 checkTypeAnnNeedsM = checkTypeAnnNeedsWithM []
@@ -2597,10 +2597,10 @@ checkShapeLawsM shapeParams shapeName shapeNeeds members ctx = zipWithM_ checkLa
   laws = [(parameters, left, right) | ShapeLaw parameters left right <- members]
   availableNeeds = map (convertShapeNeedWith shapeParams ctx) (ownShapeNeed shapeName ctx ++ shapeNeeds)
 
-  checkLaw number (parameters, left, right) = mapTcError check (\message -> "in law " ++ show number ++ " of shape '" ++ shapeName ++ "': " ++ message)
+  checkLaw number (parameters, left, right) = mapTcError check (\message -> "in law " ++ show number ++ " of frame '" ++ shapeName ++ "': " ++ message)
    where
     check = do
-      mapM_ (\(_, ty) -> checkTypeExprNamesWithM shapeParams ("law of shape '" ++ shapeName ++ "'") ty ctx) parameters
+      mapM_ (\(_, ty) -> checkTypeExprNamesWithM shapeParams ("law of frame '" ++ shapeName ++ "'") ty ctx) parameters
       let rawParameterTypes = map (convertTypeExprWith shapeParams ctx . snd) parameters
           variables = nub (shapeParams ++ concatMap (typeExprVars . snd) parameters)
           rowVariables = nub (foldl' (flip effectRowVarsInTy) [] rawParameterTypes)
@@ -2663,11 +2663,11 @@ checkFillM tyArgs shapeName needs members ctx = do
           ]
   unless (duplicateCount == 1) (failTc ("duplicate fill '" ++ showShapeHeader tyArgs shapeName ++ "'"))
   case findShapeInfo shapeName ctx of
-    Nothing -> failTc ("unknown shape '" ++ shapeName ++ "' in fill")
+    Nothing -> failTc ("unknown frame '" ++ shapeName ++ "' in fill")
     Just ShapeInfo{shapeParams} -> do
       checkFillArityM shapeName shapeParams tyArgs
       case fillSpecsForShape shapeName tyArgs ctx [] of
-        Nothing -> failTc ("fill '" ++ shapeName ++ "' hath an unknown required shape")
+        Nothing -> failTc ("fill '" ++ shapeName ++ "' hath an unknown required frame")
         Just specs -> checkFillMembersM shapeName tyArgs needs members specs ctx
 
 checkFillArityM :: String -> [String] -> [TypeExpr] -> Tc ()
@@ -2688,15 +2688,15 @@ fillSpecsForShape shapeName fillTypes ctx =
   fillSpecsForShapeRef (shapeRefForName shapeName ctx) (map (`convertTypeExpr` ctx) fillTypes) ctx
 
 fillSpecsForShapeRef :: ShapeRef -> [Ty] -> TcContext -> [ShapeRef] -> Maybe [FillSpec]
-fillSpecsForShapeRef shape fillTypes ctx seen
-  | shape `elem` seen = Just []
-  | otherwise = case findShapeInfoByRef shape ctx of
+fillSpecsForShapeRef frame fillTypes ctx seen
+  | frame `elem` seen = Just []
+  | otherwise = case findShapeInfoByRef frame ctx of
       Nothing -> Nothing
       Just ShapeInfo{..}
         | length fillTypes /= length shapeParams -> Nothing
         | otherwise -> do
-            inherited <- fillSpecsForNeeds shapeNeeds shapeParams fillTypes ctx (shape : seen)
-            pure (fillMemberSpecs shape shapeParams fillTypes shapeMethods ++ inherited)
+            inherited <- fillSpecsForNeeds shapeNeeds shapeParams fillTypes ctx (frame : seen)
+            pure (fillMemberSpecs frame shapeParams fillTypes shapeMethods ++ inherited)
 
 fillSpecsForNeeds :: [Need] -> [String] -> [Ty] -> TcContext -> [ShapeRef] -> Maybe [FillSpec]
 fillSpecsForNeeds needs currentParams currentFillTypes ctx seen =
@@ -2707,10 +2707,10 @@ fillSpecsForNeeds needs currentParams currentFillTypes ctx seen =
     fillSpecsForShapeRef neededShape neededFillTypes ctx seen
 
 fillMemberSpecs :: ShapeRef -> [String] -> [Ty] -> [ShapeMethod] -> [FillSpec]
-fillMemberSpecs shape shapeParams fillTypes = map makeSpec
+fillMemberSpecs frame shapeParams fillTypes = map makeSpec
  where
   makeSpec ShapeMethod{..} =
-    FillSpec shapeMethodName shape fillTypes (specializeResolvedTypeAnn shapeParams fillTypes shapeMethodType)
+    FillSpec shapeMethodName frame fillTypes (specializeResolvedTypeAnn shapeParams fillTypes shapeMethodType)
 
 requireFillSpecM :: String -> [FillSpec] -> Tc FillSpec
 requireFillSpecM name = maybe (failTc ("fill defineþ unknown member '" ++ name ++ "'")) pure . find ((== name) . fillSpecName)
@@ -3008,12 +3008,12 @@ needCovers ctx seen graith@(Need graithArgs graithShape) wanted
         any (\need -> needCovers ctx (graithShape : seen) (specializeNeed shapeParams graithArgs need) wanted) shapeNeeds
 
 fillNeedsForNeed :: TcContext -> Need -> Maybe [Need]
-fillNeedsForNeed ctx (Need tys shape) =
-  if all hasConcreteHead tys then listToMaybe (mapMaybe matches (fillsForShapeRef shape ctx)) else Nothing
+fillNeedsForNeed ctx (Need tys frame) =
+  if all hasConcreteHead tys then listToMaybe (mapMaybe matches (fillsForShapeRef frame ctx)) else Nothing
  where
   matches info@FillInfo{..} = do
     bindings <- zipWithExact typePatternBindings fillTypes tys >>= mergeBindingMaps
-    pure (projectFillNeeds shape info (map (needWithBindings bindings) fillNeeds))
+    pure (projectFillNeeds frame info (map (needWithBindings bindings) fillNeeds))
 
 -- evidence holes keep inference independent of fill selection. resolution turns
 -- them into hidden local parameters or a statically chosen dictionary tree.
@@ -3083,7 +3083,7 @@ bestLocalEvidence ctx available wanted = choose (filter (covers . fst) available
   localEvidenceRank given = if needSubsumes ctx given wanted then (0 :: Int) else 1
 
 selectFillEvidenceM :: TcContext -> Need -> Tc (FillInfo, [Need], [Need])
-selectFillEvidenceM ctx wanted@(Need actualTypes shape)
+selectFillEvidenceM ctx wanted@(Need actualTypes frame)
   | not (all hasConcreteHead actualTypes) = failTc ("missing graith " ++ showNeed wanted)
   | otherwise = case bestCandidates of
       [] -> failTc ("missing graith " ++ showNeed wanted)
@@ -3092,12 +3092,12 @@ selectFillEvidenceM ctx wanted@(Need actualTypes shape)
  where
   -- selection is static: inheritance depth rankeþ fills first, then a
   -- structured type pattern outrankeþ a blanket pattern it refines.
-  candidates = mapMaybe match (fillsForShapeRef shape ctx)
+  candidates = mapMaybe match (fillsForShapeRef frame ctx)
   match info@FillInfo{..}
     | not (fillSuppliesShape ctx info) = Nothing
     | otherwise = do
         bindings <- zipWithExact typePatternBindings fillTypes actualTypes >>= mergeBindingMaps
-        let specialize = projectFillNeeds shape info . map (needWithBindings bindings)
+        let specialize = projectFillNeeds frame info . map (needWithBindings bindings)
         pure (info, specialize fillNeeds, specialize fillParents)
   candidateRank (FillInfo{fillKey, fillDepth}, _, _)
     | isPrimitiveFillId fillKey = maxBound :: Int
@@ -3155,7 +3155,7 @@ resolveExprEvidenceM ctx available = go
       pure $ case dictionaries of
         [] -> function2
         first : rest -> EApply function2 (first :| rest)
-    EDictionary key shape nested parents -> EDictionary key shape <$> traverse go nested <*> traverse go parents
+    EDictionary key frame nested parents -> EDictionary key frame <$> traverse go nested <*> traverse go parents
   resolveDictionary = resolveEvidenceHoleM ctx available
   resolveUpdate = \case
     RecordSet name expr -> RecordSet name <$> go expr
@@ -3166,8 +3166,8 @@ resolveExprEvidenceM ctx available = go
   resolveCase (MatchCase patterns body) = MatchCase patterns <$> go body
 
 needWithBindings :: Map.Map String Ty -> Need -> Need
-needWithBindings bindings (Need args shape) =
-  Need (map (replaceVarsWithBindings bindings) args) shape
+needWithBindings bindings (Need args frame) =
+  Need (map (replaceVarsWithBindings bindings) args) frame
 
 replaceVarsWithBindings :: Map.Map String Ty -> Ty -> Ty
 replaceVarsWithBindings bindings ty = case ty of
@@ -3446,8 +3446,8 @@ collectImportContextsM importStack ds imports ctx = foldM step ctx ds
     importedCtx <- case cached of
       Just context -> pure context
       Nothing -> do
-        source <- maybe (failTc ("missing bring '" ++ path ++ "'")) pure (Map.lookup path imports)
-        let importError message = failImportTc path ("in bring '" ++ path ++ "': " ++ message)
+        source <- maybe (failTc ("missing use '" ++ path ++ "'")) pure (Map.lookup path imports)
+        let importError message = failImportTc path ("in use '" ++ path ++ "': " ++ message)
         locateImports <- tcLocateImports <$> getTc
         p <- either importError pure (if locateImports then parsedProgram <$> parseLocated source else parse source)
         importedContextM nextStack path p imports
@@ -3467,7 +3467,7 @@ importedContextM importStack path p imports = Tc $ StateT $ \st ->
         Left failure ->
           Left
             failure
-              { typeFailureMessage = "in bring '" ++ path ++ "': " ++ typeFailureMessage failure
+              { typeFailureMessage = "in use '" ++ path ++ "': " ++ typeFailureMessage failure
               , typeFailurePath = typeFailurePath failure <|> Just path
               }
         Right ((importedCtx, importedCore), importedSt) ->

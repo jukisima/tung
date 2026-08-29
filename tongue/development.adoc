@@ -82,7 +82,7 @@ source text
   -> parsing and source locations
   -> structural validation
   -> project loading and the canonical import graph
-  -> type, effect, coverage, shape, and fill checking with name resolution
+  -> type, effect, coverage, frame, and fill checking with name resolution
   -> evidence selection and explicit dictionary elaboration
   -> Core lowering and validation
   -> strict evaluation
@@ -103,16 +103,17 @@ implementation. this guide explaineþ only relationships between modules.
 == projects and imports
 
 `Tung.Project` discovereþ local source bundles before checking. it resolveþ
-relative brings from their owner, then platform-separated `TUNG_PATH` roots;
-the embedded bookhoard is the final fallback. one written bring path resolving
+relative imports declared with `use` from their owner, then platform-separated
+`TUNG_PATH` roots; the embedded bookhoard is the final fallback. one written
+import path resolving
 to different canonical files is rejected.
 
 þe checker cacheþ each imported static context and lowered Core module while it
 walkeþ one acyclic graph. resolved runtime names have a canonical `ModuleId`
 and module-qualified `SymbolId` values. after checking, a `ModuleInterface`
 projecteþ public runtime term targets and kinds. static visibility remainþ in
-`TcContext`, while elaborated Core declarations carry þe checked shape/fill
-closure, so private parent shapes may cross at runtime without gaining a public
+`TcContext`, while elaborated Core declarations carry þe checked frame/fill
+closure, so private parent frames may cross at runtime without gaining a public
 name. lowering need not retain export or re-export declarations. a `CoreProgram`
 carrieþ þe lowered root module and its flat imported-core map. evaluation
 resolveþ imports only from þat checked map and initialiseþ each shared module
@@ -121,11 +122,11 @@ once.
 == types, evidence, and evaluation
 
 `Tung.Type` owneþ hindley-milner inference, effect rows, coverage integration,
-shape requirements, fill selection, and dictionary elaboration. its checker is
+frame requirements, fill selection, and dictionary elaboration. its checker is
 bidirectional: ordinary terms infer a value type, while annotations push an
 expected type inward, notably þrough anonymous multi-clause functions. effect
-rows and shape requirements remain separate outputs þroughout inference and
-checking; an effect is never used as dictionary evidence, nor a shape need as
+rows and frame requirements remain separate outputs þroughout inference and
+checking; an effect is never used as dictionary evidence, nor a frame need as
 an effect.
 
 fill selection is static: inheritance depth is considered first, þen a type
@@ -134,7 +135,7 @@ candidates are deduplicated before þis comparison, while incomparable best
 candidates are rejected. elaboration replaceþ each selected evidence tree wiþ
 an explicit `EDictionary` expression passed by ordinary `EApply`.
 
-fill identity is structural. `FillId` recordeþ a defining namespace, shape, and
+fill identity is structural. `FillId` recordeþ a defining namespace, frame, and
 `FillType` arguments; primitive fills have a distinct constructor. checking,
 core lowering, and evaluation compare þese values directly. þe rendered
 `$fill@` and `$primitive@` forms are diagnostic text only and are never parsed
@@ -149,9 +150,9 @@ be represented in a local scope. each variable is eiþer a `CoreLocalName` wiþ 
 `LocalId` or a `CoreGlobalName` wiþ its resolved `SymbolId`; evaluation performeþ
 no local-or-global name search. lowering eraseþ locations, ascriptions, type
 aliases, laws, exports, and re-exports; it converteþ host bindings, constructor
-and effect arities, shapes, fills, and dictionaries into explicit
+and effect arities, frames, fills, and dictionaries into explicit
 runtime forms. þe private `CoreProgram` boundary rejecteþ unresolved locals and
-handler targets, evidence applications, and unelaborated shapes or fills, so
+handler targets, evidence applications, and unelaborated frames or fills, so
 evaluation cannot represent þose states.
 
 `Tung.Evaluate` constructeþ only þe dictionary selected in core; it performeþ
@@ -207,7 +208,7 @@ follow the owning stage first and then every consumer:
 | syntax or tokens
 | parser, formatter, diagnostics, editor grammar and lexer, language guide, byspels, and tests
 
-| type, effect, shape, or fill semantics
+| type, effect, frame, or fill semantics
 | type and evaluator regressions, bookhoard checking, and language guide
 
 | runtime or host surface

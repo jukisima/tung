@@ -230,7 +230,7 @@ class WorkspaceIndex {
       const visibleShapes = this.resolveVisibleRole(
         model,
         token.text,
-        "shape",
+        "frame",
       );
       return {
         model,
@@ -290,7 +290,7 @@ class WorkspaceIndex {
     return locations;
   }
   implementations(definition) {
-    if (!definition || definition.role !== "shape") return [];
+    if (!definition || definition.role !== "frame") return [];
     return this.models().flatMap((model) =>
       model.fills
         .filter(({ shapeName }) => shapeName === definition.bareName)

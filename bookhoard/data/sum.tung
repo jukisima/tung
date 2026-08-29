@@ -1,10 +1,10 @@
-bring data/two.tung
-bring collection/functor.tung
-bring collection/applicative.tung
-bring collection/monad.tung
-bring collection/catamorphism.tung
-bring collection/traverse.tung
-bring order/lattice.tung
+use data/two.tung
+use collection/functor.tung
+use collection/applicative.tung
+use collection/monad.tung
+use collection/catamorphism.tung
+use collection/traverse.tung
+use order/lattice.tung
 
 show kin a ∐ b {
   a inject₀,

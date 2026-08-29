@@ -49,7 +49,7 @@ set `PREFIX` or `BIN_DIR` to choose another destination.
 
 [source,tung]
 ----
-bring ground.tung
+use ground.tung
 
 let (_: 𝟙) main: 𝟙 ! console =
   'hello, tung' write-line
@@ -92,15 +92,15 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | bindeþ a value to a name
 
 | `graiþ`
-| requireþ shape evidence from the caller
+| requireþ frame evidence from the caller
 
 | `show`
 | publisheþ a declaration or re-publisheþ a visible term
 
 | `show-ilk`
-| publisheþ a type, effect, or shape name
+| publisheþ a type, effect, or frame name
 
-| `bring`
+| `use`
 | importeþ a module
 
 | `let-ilk`
@@ -118,11 +118,11 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | `fremmed`
 | bindeþ an annotated file-level `let` to the host function named by a text key
 
-| `shape`
+| `frame`
 | declareþ a statically selected interface, requirements, and laws
 
 | `fill`
-| provideþ evidence and implementations for a shape
+| provideþ evidence and implementations for a frame
 
 | `law`
 | recordeþ a type-checked equation without proving it
@@ -137,12 +137,12 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | continueþ the captured computation inside an operation case
 |===
 
-`bring` introduceþ a module with the file name or an optional name given.
+`use` introduceþ a module with the file name or an optional name given.
 
 [source,tung]
 ----
-bring data/list.tung
-bring data/table.tung hashmap
+use data/list.tung
+use data/table.tung hashmap
 
 let my-empty-list = list@empty
 let my-empty-table = hashmap@empty
@@ -157,7 +157,7 @@ partial application is pure; an effect operation runneþ only when fully applied
 
 [source,tung]
 ----
-bring ground.tung
+use ground.tung
 
 deed ask {
   integer ask: integer

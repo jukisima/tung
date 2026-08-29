@@ -16,7 +16,7 @@ whereas `set` and `table` are finite list-backed containers with qualified
 constructors.
 
 lawful numeric fills stop at their honest boundary. integers provide exact
-euclidean division and the corresponding algebraic shapes. floats expose ieee
+euclidean division and the corresponding algebraic frames. floats expose ieee
 operations but do not claim exact field or total-order laws.
 
 == purescript comparison
@@ -40,11 +40,11 @@ direct counterparts for its central families:
 | alternate infimal and supremal carriers stay separate
 
 | `semiring`, `ring`, `field`
-| arithmetic shapes, `divide-remainder`, `euclidean`
+| arithmetic frames, `divide-remainder`, `euclidean`
 | integer `÷` returneþ quotient and remainder under explicit euclidean laws; ieee float `∕` retaineþ operation without claiming exact algebra or order laws
 
 | `functor`, `applicative`, `monad`
-| collection shapes
+| collection frames
 | list, option, nonempty, right-biased `a ∐`, and second-biased `a ∏` have the common fills; the product applicative and monad require a monoid for `a`
 
 | `foldable`
@@ -68,7 +68,7 @@ boolean disjunction useþ `𝟚 supremal`, and boolean conjunction useþ
 `𝟚 infimal`; no boolean-only wrapper duplicateþ these generic carriers.
 
 the https://pursuit.purescript.org/packages/purescript-foldable-traversable/docs/Data.Traversable[purescript traversable api]
-guides the `functor` plus `cata` parent shapes and the method-local
+guides the `functor` plus `cata` parent frames and the method-local
 `applicative` requirement. tung doth not copy purescript's open record rows,
 lazy assumptions, or effect encoding.
 
@@ -102,8 +102,8 @@ the planned order-insensitive bag needeþ not wait for quotient types. its
 representation boundary and implementation work are tracked in
 xref:../todo.adoc[`todo.adoc`] rather than described as part of the current api.
 
-mathlib's theorem hierarchy is much richer than tung's checked shape laws.
-shape laws in tung are type-checked statements, not proofs and not evaluator
+mathlib's theorem hierarchy is much richer than tung's checked frame laws.
+frame laws in tung are type-checked statements, not proofs and not evaluator
 rewrite rules. additions from mathlib should therefore first improve data and
-shape boundaries; proof-dependent structures belong after tung gaineþ an
+frame boundaries; proof-dependent structures belong after tung gaineþ an
 explicit proof story.

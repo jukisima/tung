@@ -1,12 +1,12 @@
-bring order/lattice.tung
-bring algebra/total/magma.tung
-bring algebra/total/semigroup.tung
-bring algebra/total/monoid.tung
-bring collection/functor.tung
-bring collection/applicative.tung
-bring collection/monad.tung
-bring collection/catamorphism.tung
-bring collection/traverse.tung
+use order/lattice.tung
+use algebra/total/magma.tung
+use algebra/total/semigroup.tung
+use algebra/total/monoid.tung
+use collection/functor.tung
+use collection/applicative.tung
+use collection/monad.tung
+use collection/catamorphism.tung
+use collection/traverse.tung
 
 show kin a ∏ b {
   a ∏ b

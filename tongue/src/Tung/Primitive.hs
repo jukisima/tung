@@ -130,22 +130,22 @@ hostData =
 
 primitiveFillSpecs :: [PrimitiveFillSpec]
 primitiveFillSpecs =
-  [ fill typeName shape
+  [ fill typeName frame
   | (typeName, supported) <-
       [ ("integer", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide-remainder", "to-text"])
       , ("float", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide", "from-text", "to-text"])
       ]
-  , shape@PrimitiveShape{primitiveShapeName} <- primitiveShapes
+  , frame@PrimitiveShape{primitiveShapeName} <- primitiveShapes
   , primitiveShapeName `elem` supported
   ]
  where
-  fill typeName shape@PrimitiveShape{primitiveShapeName, primitiveShapeRequired = (member, _)} =
-    PrimitiveFillSpec primitiveShapeName (primitiveShapeTarget shape) typeName member
+  fill typeName frame@PrimitiveShape{primitiveShapeName, primitiveShapeRequired = (member, _)} =
+    PrimitiveFillSpec primitiveShapeName (primitiveShapeTarget frame) typeName member
 
--- | assign þe reserved primitive identity only to a compatible shape schema.
+-- | assign þe reserved primitive identity only to a compatible frame schema.
 primitiveShapeId :: Bool -> ModuleId -> [String] -> String -> [ShapeMember] -> SymbolId
 primitiveShapeId schemaResolves owner parameters name members = case find compatible primitiveShapes of
-  Just shape | schemaResolves -> primitiveShapeTarget shape
+  Just frame | schemaResolves -> primitiveShapeTarget frame
   _
     | any reservedOwner primitiveShapes -> SymbolId owner ("$nominal@" ++ name)
     | otherwise -> SymbolId owner name
@@ -162,22 +162,22 @@ primitiveShapeTarget PrimitiveShape{primitiveShapeSource, primitiveShapeName} = 
 
 primitiveShapes :: [PrimitiveShape]
 primitiveShapes =
-  [ shape "equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two)
-  , shape "order.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two)
-  , shape "algebra/arithmetic/semiring.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , shape "algebra/arithmetic/semiring.tung" "zero" "zero" (variable "a")
-  , shape "algebra/arithmetic/ring.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , shape "algebra/arithmetic/semiring.tung" "multiply" "×" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , shape "algebra/arithmetic/semiring.tung" "one" "one" (variable "a")
-  , shape "algebra/arithmetic/euclidean.tung" "divide-remainder" "÷" (arrow [variable "a", variable "a"] [failText] (TypeApply "∏" [variable "a", variable "a"]))
-  , shape "algebra/arithmetic/field.tung" "divide" "∕" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , shape "text/from-text.tung" "from-text" "from-text" (arrow [text] [failText] (variable "a"))
-  , shape "text/to-text.tung" "to-text" "to-text" (arrow [variable "a"] [] text)
+  [ frame "equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two)
+  , frame "order.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two)
+  , frame "algebra/arithmetic/semiring.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "algebra/arithmetic/semiring.tung" "zero" "zero" (variable "a")
+  , frame "algebra/arithmetic/ring.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "algebra/arithmetic/semiring.tung" "multiply" "×" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "algebra/arithmetic/semiring.tung" "one" "one" (variable "a")
+  , frame "algebra/arithmetic/euclidean.tung" "divide-remainder" "÷" (arrow [variable "a", variable "a"] [failText] (TypeApply "∏" [variable "a", variable "a"]))
+  , frame "algebra/arithmetic/field.tung" "divide" "∕" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "text/from-text.tung" "from-text" "from-text" (arrow [text] [failText] (variable "a"))
+  , frame "text/to-text.tung" "to-text" "to-text" (arrow [variable "a"] [] text)
   ]
  where
-  shape source name member signature = PrimitiveShape source name ["a"] (member, TypeAnn signature [])
+  frame source name member signature = PrimitiveShape source name ["a"] (member, TypeAnn signature [])
   arrow (argument : arguments) effects result = TypeArrow (argument :| arguments) effects result
-  arrow [] _ _ = error "internal primitive shape member without an argument"
+  arrow [] _ _ = error "internal primitive frame member without an argument"
   variable = TypeName
   text = TypeName "text"
   two = TypeName "𝟚"

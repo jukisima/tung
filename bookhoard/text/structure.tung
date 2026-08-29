@@ -1,13 +1,13 @@
-bring _foreign.tung
-bring data/list.tung
-bring data/option.tung
-bring data/product.tung
-bring data/two.tung
-bring equal.tung
-bring order.tung
-bring order/lattice.tung
-bring algebra/total/semigroup.tung
-bring algebra/total/monoid.tung
+use _foreign.tung
+use data/list.tung
+use data/option.tung
+use data/product.tung
+use data/two.tung
+use equal.tung
+use order.tung
+use order/lattice.tung
+use algebra/total/semigroup.tung
+use algebra/total/monoid.tung
 
 fill text equal {
   let ≡ = equal-text

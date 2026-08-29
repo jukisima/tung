@@ -1,6 +1,6 @@
-bring data/two.tung
+use data/two.tung
 
-show shape a equal {
+show frame a equal {
   let a ≡ a: 𝟚
 }
 

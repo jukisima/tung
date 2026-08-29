@@ -1,6 +1,6 @@
-bring data/one.tung
-bring data/two.tung
-bring order/lattice.tung
+use data/one.tung
+use data/two.tung
+use order/lattice.tung
 
 ## run an action when þe condition is true.
 show let when: 𝟚 → (𝟙 → 𝟙 ! e) → 𝟙 ! e = {

@@ -3,31 +3,31 @@
 import { analyzeTokens, semanticRole } from "./semantic.ts";
 import {
   bracketPairs,
-  bringNamespace,
-  bringParts,
   declarationKeywords,
   findFileDeclarationBoundary,
   lastQualifiedSegment,
   patternArmRegions,
   tokenDepths,
   tokenize,
+  useNamespace,
+  useParts,
 } from "./syntax.ts";
-const ownedKinds = new Set(["kin", "deed", "shape"]);
+const ownedKinds = new Set(["kin", "deed", "frame"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
-  bring:
-    "bring a tung file into scope; its last path segment is the default namespace, and a third element overrideeþ it.",
+  use:
+    "import a tung file; its last path segment is the default namespace, and an optional alias overrideeþ it.",
   show: "publish a declaration or re-export a visible term.",
   "show-ilk": "re-export a visible type.",
-  graiþ: "state the shapes required by a declaration.",
+  graiþ: "state the frames required by a declaration.",
   yield:
     "introduce a block result or handle the normal result of a `try` expression.",
-  shape: "declare a shape and its members.",
+  frame: "declare a frame and its members.",
   fremmed:
     "bind an annotated file-level let to the host function named by a preceding text key.",
-  fill: "provide evidence and member definitions for a shape.",
+  fill: "provide evidence and member definitions for a frame.",
   law:
-    "state a type-checked equation required of a shape; equivalence is not proved.",
+    "state a type-checked equation required of a frame; equivalence is not proved.",
   deed: "declare an algebraic effect and its operations.",
   try: "handle effect operations for an expression.",
   eftgin: "continue the handled computation from an operation clause.",
@@ -92,7 +92,7 @@ const collectFills = (tokens, semantic, regions) => {
         index -= 1
       ) {
         const role = semantic.semantic.get(index);
-        if (role?.type === "shape" && tokens[index]?.kind === "name") {
+        if (role?.type === "frame" && tokens[index]?.kind === "name") {
           return [
             {
               shapeName: lastQualifiedSegment(tokens[index].text),
@@ -246,11 +246,11 @@ const findHeaderEnd = (tokens, depths, start, end, baseDepth) => {
 const collectImports = (tokens, depths) => {
   const imports = [];
   for (const token of tokens) {
-    if (token.text !== "bring") continue;
-    const { pathTokens, aliasToken } = bringParts(tokens, token.index, depths);
+    if (token.text !== "use") continue;
+    const { pathTokens, aliasToken } = useParts(tokens, token.index, depths);
     const importPath = pathTokens.map(({ text }) => text).join("");
     if (!importPath) continue;
-    const namespace = bringNamespace(importPath, aliasToken?.text);
+    const namespace = useNamespace(importPath, aliasToken?.text);
     imports.push({
       path: importPath,
       namespace,

@@ -47,14 +47,14 @@ test("generated bookhoard wiki cross-linkeþ declarations, fills, and modules", 
     path.join(bookhoard, "declarations.tung"),
     [
       "show kin a box { a box }",
-      "show shape a identity { let a identity: a }",
+      "show frame a identity { let a identity: a }",
       "show let (value: integer box) unwrap: integer = match value { x box | x }",
     ].join("\n"),
   );
   fs.writeFileSync(
     path.join(bookhoard, "fills.tung"),
     [
-      "bring declarations.tung",
+      "use declarations.tung",
       "fill (integer box) identity { let value identity = value }",
     ].join("\n"),
   );
@@ -67,7 +67,7 @@ test("generated bookhoard wiki cross-linkeþ declarations, fills, and modules", 
   assert.match(docs, /data-cross-link="references">box<\/a>/);
   assert.match(
     docs,
-    /data-cross-link="shape">declarations\.tung@identity<\/a>/,
+    /data-cross-link="frame">declarations\.tung@identity<\/a>/,
   );
   assert.match(
     docs,

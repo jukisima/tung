@@ -1,13 +1,13 @@
-bring data/list.tung
-bring data/option.tung
-bring data/product.tung
-bring data/two.tung
-bring equal.tung
-bring collection/catamorphism.tung
-bring collection/functor.tung
-bring collection/filter.tung
-bring collection/inhold.tung
-bring collection/size.tung
+use data/list.tung
+use data/option.tung
+use data/product.tung
+use data/two.tung
+use equal.tung
+use collection/catamorphism.tung
+use collection/functor.tung
+use collection/filter.tung
+use collection/inhold.tung
+use collection/size.tung
 
 ## a list-backed finite association table.
 show kin k table v {

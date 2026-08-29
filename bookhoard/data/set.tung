@@ -1,14 +1,14 @@
-bring data/list.tung
-bring data/two.tung
-bring data/powerset.tung
-bring equal.tung
-bring collection/catamorphism.tung
-bring collection/inhold.tung
-bring collection/size.tung
-bring algebra/total/semigroup.tung
-bring algebra/total/monoid.tung
-bring order.tung
-bring order/lattice.tung
+use data/list.tung
+use data/two.tung
+use data/powerset.tung
+use equal.tung
+use collection/catamorphism.tung
+use collection/inhold.tung
+use collection/size.tung
+use algebra/total/semigroup.tung
+use algebra/total/monoid.tung
+use order.tung
+use order/lattice.tung
 
 ## a list-backed finite set.
 show kin a set {
