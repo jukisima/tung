@@ -1,4 +1,5 @@
 use data/two.tung
+use collection/bifunctor.tung
 use collection/functor.tung
 use collection/applicative.tung
 use collection/monad.tung
@@ -16,6 +17,13 @@ show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) eiþer: c ! 
     a inject₀ | a f₀,
     b inject₁ | b f₁
   }
+
+fill ∐ bifunctor {
+  let sum bimap f g = match sum {
+    a inject₀ | (a f) inject₀,
+    b inject₁ | (b g) inject₁
+  }
+}
 
 show let is-inject₀: a ∐ b → 𝟚 = {
   _ inject₀ | yea,

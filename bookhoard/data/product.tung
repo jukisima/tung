@@ -2,6 +2,7 @@ use order/lattice.tung
 use algebra/total/magma.tung
 use algebra/total/semigroup.tung
 use algebra/total/monoid.tung
+use collection/bifunctor.tung
 use collection/functor.tung
 use collection/applicative.tung
 use collection/monad.tung
@@ -18,8 +19,9 @@ show let (a ∏ b: a ∏ b) project₁: b = b
 
 show let (a ∏ b: a ∏ b) swap: b ∏ a = b ∏ a
 
-show let (a ∏ b: a ∏ b, f: a → c ! e0, g: b → d ! e1) bimap: c ∏ d ! e0, e1 =
-  (a f) ∏ (b g)
+fill ∏ bifunctor {
+  let (a ∏ b) bimap f g = (a f) ∏ (b g)
+}
 
 fill (a ∏) functor {
   let (a ∏ b) map f = a ∏ (b f)
@@ -59,3 +61,6 @@ fill (a ∏ b) semilattice-supremal {
 
 graiþ a lattice, b lattice
 fill (a ∏ b) lattice {}
+
+graiþ a lattice-distributive, b lattice-distributive
+fill (a ∏ b) lattice-distributive {}

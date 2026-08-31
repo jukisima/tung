@@ -15,6 +15,7 @@ use algebra/arithmetic/ring.tung
 use algebra/arithmetic/field.tung
 use algebra/arithmetic/euclidean.tung
 use collection/functor.tung
+use collection/bifunctor.tung
 use collection/applicative.tung
 use collection/monad.tung
 use collection/inhold.tung
@@ -47,12 +48,12 @@ show-ilk fail, console, random, state, async, file
 
 show-ilk equal
 show-ilk less-equal, order-partial, order-total
-show-ilk semilattice-infimal, semilattice-supremal, lattice
+show-ilk semilattice-infimal, semilattice-supremal, lattice, lattice-distributive
 show-ilk semilattice-infimal-bounded, semilattice-supremal-bounded, lattice-bounded, complement
 show-ilk to-text, from-text
 show-ilk add, zero, monoid-additive, multiply, one, monoid-multiplicative, semiring
 show-ilk subtract, ring, divide, field, divide-remainder, euclidean
-show-ilk functor, applicative, monad, inhold
+show-ilk functor, bifunctor, applicative, monad, inhold
 show-ilk elementary
 
 show ¬, if
@@ -77,5 +78,6 @@ show from-text
 show unicode-to-integer, integer-to-unicode
 show behead-text, text-to-list, list-to-text
 show map
+show bimap
 show pure, apply, lift₂, lift₃, keep-left, keep-right
 show flat, map-flat, þen, void

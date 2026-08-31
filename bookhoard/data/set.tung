@@ -104,6 +104,9 @@ graiþ (a list) inhold a
 fill (a set) lattice {}
 
 graiþ (a list) inhold a
+fill (a set) lattice-distributive {}
+
+graiþ (a list) inhold a
 fill (a set) semilattice-supremal-bounded {
   let ⟂ = empty
 }

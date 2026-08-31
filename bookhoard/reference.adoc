@@ -10,6 +10,7 @@ surface without becoming an implicit prelude.
 
 the total-order hierarchy addeþ totality to partial order; generic infimal
 and supremal semilattices stay independent until a lattice requireþ both.
+distributive lattices additionally record boþ distribution laws.
 `powerset` is a characteristic function and useþ those generic operations,
 whereas `set` and `table` are finite list-backed containers with qualified
 constructors.
@@ -17,6 +18,8 @@ constructors.
 lawful numeric fills stop at their honest boundary. integers provide exact
 euclidean division and the corresponding algebraic frames. floats expose ieee
 operations but do not claim exact field or total-order laws.
+
+`bifunctor` captureþ covariant mapping over boþ sides of products and sums.
 
 == purescript comparison
 

@@ -51,6 +51,22 @@ fill (a func b) lattice {}
 graiþ a order-total
 fill a lattice {}
 
+## a lattice whose infimum and supremum distribute over each oþer.
+graiþ a lattice
+show frame a lattice-distributive {
+  law (a: a, b: a, c: a):
+    a ∧ (b ∨ c) ~ (a ∧ b) ∨ (a ∧ c)
+
+  law (a: a, b: a, c: a):
+    a ∨ (b ∧ c) ~ (a ∨ b) ∧ (a ∨ c)
+}
+
+graiþ b lattice-distributive
+fill (a func b) lattice-distributive {}
+
+graiþ a order-total
+fill a lattice-distributive {}
+
 ## an infimum semilattice wiþ a greatest value.
 graiþ a semilattice-infimal
 show frame a semilattice-infimal-bounded {
