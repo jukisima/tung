@@ -1,7 +1,6 @@
 = bookhoard reference guide
 
-this guide recordeþ semantic comparisons and design boundaries. generated api
-pages still come from shown tung declarations and their doc comments.
+this guide recordeþ semantic comparisons and design boundaries.
 
 == current surface
 

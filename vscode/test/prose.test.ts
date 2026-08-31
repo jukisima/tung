@@ -77,12 +77,9 @@ const proseFiles = (directory) => {
 };
 const repositoryFiles = (directory) => {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const generatedWiki = directory === path.join(root, "writ") &&
-      entry.name === "bookhoard";
-    if (
-      ignored.has(entry.name) || entry.name === "package-lock.json" ||
-      generatedWiki
-    ) return [];
+    if (ignored.has(entry.name) || entry.name === "package-lock.json") {
+      return [];
+    }
     const file = path.join(directory, entry.name);
     return entry.isDirectory() ? repositoryFiles(file) : [file];
   });

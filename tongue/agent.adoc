@@ -86,7 +86,6 @@ when ending:
 * run the narrowest useful tests first.
 * run `make compiler-test` after compiler, bookhoard, or byspel changes.
 * run `make vscode-test` after editor, grammar, semantic-token, or formatter changes.
-* run `make writ-test` after documentation-model or generator changes.
 * run `git diff --check`.
 * run a representative byspel after runner changes.
 * report every verification command which could not run.

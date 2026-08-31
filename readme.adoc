@@ -1,25 +1,31 @@
 = tung
 
-tung is a small functional programming tongue with
+tung is a small functional programming tongue wiþ
 
-* type inference, algebraic data,
+* type inference,
+* algebraic data types,
 * closed records,
 * type classes,
-* algebraic effects,
-* and infix notation.
+* algebraic effects, and
+* infix notation.
 
 == install
 
-install the command and vscode extension.
+[source,sh]
+----
+brew tap jukisima/tung
+brew install jukisima/tung/tung
+----
+
+or
 
 [source,sh]
 ----
 brew bundle
 make install
+# þe command is installed at `~/.local/bin/tung` by default.
+# set `PREFIX` or `BIN_DIR` to choose anoþer destination.
 ----
-
-the command is installed at `~/.local/bin/tung` by default.
-set `PREFIX` or `BIN_DIR` to choose another destination.
 
 == run
 
@@ -29,23 +35,22 @@ set `PREFIX` or `BIN_DIR` to choose another destination.
 | purpose
 
 | `tung program.tung [arguments...]`
-| runneþ `main` with the remaining arguments
+| runneþ `main` wiþ þe remaining arguments
 
 | `tung --check program.tung`
-| checkeþ a program with `main`
+| checkeþ a program wiþ `main`
 
 | `tung --check-module module.tung`
-| checkeþ a program without `main`
+| checkeþ a program wiþout `main`
 
 | `tung --type-of name program.tung`
-| printeþ the inferred type of a name
+| printeþ þe inferred type of a name
 
 | `tung --format file.tung [more.tung...]`
 | formateþ files in stead
-
 |===
 
-`main` takeþ `𝟙`, yieldeþ `𝟙`, and may use the standard runtime effects.
+`main` takeþ `𝟙`, yieldeþ `𝟙`, and may use þe standard runtime effects.
 
 [source,tung]
 ----
@@ -55,24 +60,21 @@ let (_: 𝟙) main: 𝟙 ! console =
   'hello, tung' write-line
 ----
 
-examples are in link:byspel/[`byspel/`].
+byspels lie in link:byspel/[`byspel/`].
 
 == syntax
 
 tung useþ function-second syntax for application.
-`$` groupeþ the expression on its left before passing it to the function on its right.
 
 [source,tung]
 ----
-a f           # f a in haskell
-a f b c       # f a b c in haskell
-a f $ g b     # g (f a) b in haskell
-<(f, a, b, c) # (a f b) f c
->(f, a, b, c) # a f (b f c)
+              # in haskell
+a f           # f a
+a f b c       # f a b c
+a f $ g b     # g (f a) b
+<(f, a, b, c) # (a `f` b) `f` c
+>(f, a, b, c) # a `f` (b `f` c)
 ----
-
-the opening parenthesis must touch `r`, `<`, or `>` in these special forms.
-an associative form requireþ its combining function and at least two values.
 
 functions are curried.
 effects follow `!` on a function arrow, and
@@ -92,7 +94,7 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | bindeþ a value to a name
 
 | `graiþ`
-| requireþ frame evidence from the caller
+| requireþ frame evidence from þe caller
 
 | `show`
 | publisheþ a declaration or re-publisheþ a visible term
@@ -116,7 +118,7 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | return a block result or handleþ a normal `try` result
 
 | `fremmed`
-| bindeþ an annotated file-level `let` to the host function named by a text key
+| bindeþ an annotated file-level `let` to þe host function named by a text key
 
 | `frame`
 | declareþ a statically selected interface, requirements, and laws
@@ -125,7 +127,7 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | provideþ evidence and implementations for a frame
 
 | `law`
-| recordeþ a type-checked equation without proving it
+| recordeþ a type-checked equation wiþout proving it
 
 | `match`
 | selecteþ an exhaustive, non-redundant pattern case
@@ -134,25 +136,22 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | handleþ effects performed by an expression
 
 | `eftgin`
-| continueþ the captured computation inside an operation case
+| continueþ þe captured computation inside an operation case
 |===
-
-`use` introduceþ a module with the file name or an optional name given.
 
 [source,tung]
 ----
 use data/list.tung
 use data/table.tung hashmap
 
-let my-empty-list = list@empty
-let my-empty-table = hashmap@empty
+let mine-list-empty = list@empty
+let mine-table-empty = hashmap@empty
 ----
 
 imported names may stay bare when unambiguous.
-declarations remain private unless published with `show` or `show-ilk`. module lookup searcheþ local files,
-`TUNG_PATH`, then the embedded standard bookhoard.
+module lookup searcheþ local files, `TUNG_PATH`, þen þe standard bookhoard.
 
-handlers are deep, and thou mayst call `eftgin` more than once.
+handlers are deep, and þou mayst call `eftgin` more þan once.
 partial application is pure; an effect operation runneþ only when fully applied.
 
 [source,tung]
@@ -172,13 +171,10 @@ let answer: text = try 10 ask {
 evaluation is strict and call-by-value.
 checking precedeþ evaluation, and file-level initialisation must stay pure.
 
-== further reading
+== furþer reading
 
-* xref:tongue/language.adoc[`tongue/language.adoc`] is the detailed language reference.
+* xref:tongue/language.adoc[`tongue/language.adoc`] is þe detailed language reference.
 * xref:vscode/readme.adoc[`vscode/readme.adoc`] covereþ editor commands, settings, and features.
 * xref:bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ standard-library design boundaries.
 * xref:tongue/development.adoc[`tongue/development.adoc`] covereþ repository architecture, commands, and testing.
-* xref:tongue/agent.adoc[`tongue/agent.adoc`] is the short operating contract for repository changes.
-
-`make docs` writeþ the generated standard-library reference to
-`writ/bookhoard/index.html`.
+* xref:tongue/agent.adoc[`tongue/agent.adoc`] is þe short operating contract for repository changes.

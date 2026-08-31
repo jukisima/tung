@@ -254,6 +254,6 @@ an annotated file-level `let` may bind a host operation by placing a text key
 before `fremmed`. this is chiefly the boundary used by `_foreign.tung`; the
 host key and full declared type must match the compiler catalogue.
 
-the generated api at `writ/bookhoard/index.html` listeþ the public standard
-surface. xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ
-its design boundaries, and runnable examples live under link:../byspel/[`byspel/`].
+xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ the
+standard library's design boundaries, and runnable examples live under
+link:../byspel/[`byspel/`].

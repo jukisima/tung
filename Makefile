@@ -4,7 +4,6 @@
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 TONGUE_DIR ?= $(ROOT)/tongue
 VSCODE_DIR := $(ROOT)/vscode
-WRIT_DIR := $(ROOT)/writ
 PREFIX ?= $(HOME)/.local
 BIN_DIR ?= $(PREFIX)/bin
 VSIX := $(VSCODE_DIR)/dist/tung-vscode.vsix
@@ -17,20 +16,19 @@ RUNGHC ?= runghc
 BENCH_RUNS ?= 3
 BENCH_SIZE ?= 1000
 
-.PHONY: all setup build test benchmark docs install \
+.PHONY: all setup build test benchmark install \
 	bookhoard-membership compiler-build compiler-test compiler-install runner-check \
 	language-metadata \
-	vscode-deps vscode-build vscode-test extension-package extension-install \
-	writ-deps writ-build writ-test
+	vscode-deps vscode-build vscode-test extension-package extension-install
 
 all: build
 
-setup: test docs install
-	@printf 'ready: tung runner, vscode extension, and documentation\n'
+setup: test install
+	@printf 'ready: tung runner and vscode extension\n'
 
-build: compiler-build vscode-build writ-build
+build: compiler-build vscode-build
 
-test: compiler-test vscode-test writ-test
+test: compiler-test vscode-test
 
 benchmark: compiler-build
 	@printf 'benchmarking tung compiler and evaluator\n'
@@ -88,19 +86,3 @@ extension-package: vscode-build
 extension-install: extension-package
 	@printf 'installing or updating vscode extension\n'
 	@$(CODE) --install-extension "$(VSIX)" --force
-
-writ-deps:
-	@cd "$(WRIT_DIR)" && $(NPM) install
-
-writ-build: language-metadata writ-deps
-	@printf 'building documentation generator\n'
-	@cd "$(WRIT_DIR)" && $(NPM) run build
-
-writ-test: language-metadata writ-deps
-	@printf 'checking and testing documentation generator\n'
-	@cd "$(WRIT_DIR)" && $(NPM) test
-
-docs: language-metadata writ-deps
-	@printf 'generating documentation\n'
-	@cd "$(WRIT_DIR)" && $(NPM) run docs
-	@printf 'documentation: %s\n' "$(WRIT_DIR)/bookhoard/index.html"

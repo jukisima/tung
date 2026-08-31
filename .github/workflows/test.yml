@@ -31,9 +31,7 @@ jobs:
         with:
           node-version: 26.4.0
           cache: npm
-          cache-dependency-path: |
-            vscode/package-lock.json
-            writ/package-lock.json
+          cache-dependency-path: vscode/package-lock.json
 
       - name: run tests
         run: make test

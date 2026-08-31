@@ -30,10 +30,9 @@ work.
 * add a non-mutating `make check` target and run it in ci. check fourmolu,
   `deno lint`, `deno fmt --check`, and canonical idempotent formatting for every
   tracked tung source file; compare freshly generated bookhoard membership and
-  language metadata with þeir tracked files. first remove þe current
-  `no-explicit-any` failure in `writ/docs.ts` relation flattening.
-* make ci dependency installation reproducible: use `npm ci` for þe vscode and
-  writ lockfiles and pin a hackage index state for þe cabal plan. keep local
+  language metadata with þeir tracked files.
+* make ci dependency installation reproducible: use `npm ci` for þe vscode
+  lockfile and pin a hackage index state for þe cabal plan. keep local
   dependency-refresh commands separate from ci checks.
 * add one pipeline facade for source parsing, validation, checking, elaboration,
   and evaluation while preserving þe public `Tung` api. move source-facing
@@ -58,8 +57,8 @@ work.
   verify bundled bookhoard imports, packaged-vsix contents, extension activation,
   and editor-to-compiler communication without a source checkout.
 * choose a licence, declare þe existing github repository in cabal and npm
-  metadata, and define one release-version policy across þe compiler, extension,
-  and writ. þen add changelogs, signed runner artefacts, and vscode marketplace
+  metadata, and define one release-version policy across þe compiler and
+  extension. þen add changelogs, signed runner artefacts, and vscode marketplace
   publishing.
 
 == modules and packages
@@ -69,11 +68,8 @@ work.
 * define how duplicate package versions and same-named shown items interact with
   qualify-if-needed lookup.
 
-== bookhoard and writing
+== bookhoard
 
-* add a writ coverage report for public modules without documentation, then give
-  each non-plumbing public module at least one useful doc comment and one
-  realistic byspel when its use is not clear from a signature alone.
 * add first, last, and reversed monoid carriers without burdening the core
   monoid frame.
 * implement the designed order-insensitive bag as an opaque ordered list of
