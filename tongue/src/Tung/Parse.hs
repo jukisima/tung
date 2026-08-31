@@ -102,7 +102,7 @@ parseDecl = \case
   TGraith : rest -> parseGraithDecl rest
   TLet : rest -> parseLetDecl [] rest
   TLetIlk : rest -> parseTypeAlias rest
-  TKin : rest -> parseData rest
+  TIlk : rest -> parseData rest
   TDeed : rest -> parseEffect rest
   TFrame : rest -> parseShape [] rest
   TFill : rest -> parseFill [] rest
@@ -199,7 +199,7 @@ startsFileDeclaration = \case
   TGraith -> True
   TLet -> True
   TLetIlk -> True
-  TKin -> True
+  TIlk -> True
   TDeed -> True
   TFrame -> True
   TFill -> True
@@ -334,7 +334,7 @@ parseUntypedLet needs name argTypes ts = do
 
 parseData :: P Decl
 parseData ts = do
-  (params, name, body) <- parseParamHeaderBody "kin" ts
+  (params, name, body) <- parseParamHeaderBody "ilk" ts
   (ctors, rest) <- parseCtors body
   pure (DataDecl params name ctors, rest)
 
@@ -1208,7 +1208,7 @@ takeHeaderTokens kind ts = takeTopLevelUntil ts (\case TLBrace -> True; _ -> Fal
 
 takeCtorTokens :: [Token] -> Either String ([Token], [Token])
 takeCtorTokens ts = case break (\token -> token == TComma || token == TRBrace) ts of
-  (_, []) -> Left "unterminated kin declaration"
+  (_, []) -> Left "unterminated ilk declaration"
   result -> Right result
 
 -- located parser tokens decorate atoms as they are consumed; application spans

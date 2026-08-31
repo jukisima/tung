@@ -1,5 +1,5 @@
 ## captured process status and standard streams.
-show kin process-result {
+show ilk process-result {
   integer process-result text text
 }
 

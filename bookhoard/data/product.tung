@@ -8,7 +8,7 @@ use collection/monad.tung
 use collection/catamorphism.tung
 use collection/traverse.tung
 
-show kin a ∏ b {
+show ilk a ∏ b {
   a ∏ b
 }
 

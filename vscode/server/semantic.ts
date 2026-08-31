@@ -462,7 +462,7 @@ const declarationCollectors = {
   use: collectImport,
   graiþ: collectGraith,
   "let-ilk": collectTypeAlias,
-  kin: collectData,
+  ilk: collectData,
   deed: collectEffect,
   frame: collectShape,
   fill: collectFill,

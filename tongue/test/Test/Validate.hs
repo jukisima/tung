@@ -14,7 +14,7 @@ group =
 
 accepted :: [(String, String)]
 accepted =
-  [ ("distinct declarations", "kin pair { pair } deed pulse { integer pulse: integer } frame a same { let a same: a }")
+  [ ("distinct declarations", "ilk pair { pair } deed pulse { integer pulse: integer } frame a same { let a same: a }")
   , ("explicit aliases override colliding defaults", "use data/list.tung data-list use syntax/list.tung syntax-list")
   , ("explicit aliases distinguish extension-sharing paths", "use a.tung one use a.extra.tung two")
   , ("explicit aliases distinguish dotted directories", "use pkg.one/query.tung one use pkg.two/query.tung two")
@@ -29,11 +29,11 @@ rejected =
   , ("extension-sharing paths retain colliding default aliases", "use a.tung use a.extra.tung")
   , ("extensionless use path", "use ground")
   , ("qualified type alias name", "let-ilk left@right = integer")
-  , ("qualified data name", "kin left@right { value }")
-  , ("qualified constructor name", "kin value { left@right }")
-  , ("duplicate data parameter", "kin a bad a { bad }")
+  , ("qualified data name", "ilk left@right { value }")
+  , ("qualified constructor name", "ilk value { left@right }")
+  , ("duplicate data parameter", "ilk a bad a { bad }")
   , ("duplicate type alias parameter", "let-ilk a bad a = a")
-  , ("duplicate constructor", "kin bad { same, same }")
+  , ("duplicate constructor", "ilk bad { same, same }")
   , ("qualified effect name", "deed left@right { integer op: integer }")
   , ("qualified effect operation name", "deed left { integer right@op: integer }")
   , ("duplicate effect parameter", "deed a bad a { a op: a }")

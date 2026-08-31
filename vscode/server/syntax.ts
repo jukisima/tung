@@ -7,7 +7,7 @@ const specialNameChars = new Set([...generatedLanguageNames.specialNameChars]);
 const declarationKeywords = new Set([
   "let",
   "let-ilk",
-  "kin",
+  "ilk",
   "deed",
   "frame",
   "fill",

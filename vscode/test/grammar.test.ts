@@ -107,14 +107,14 @@ test("textmate keepeþ standalone export names plain", async () => {
   const loaded = await loadGrammar();
   const cases: Array<[string, string[]]> = [
     ["show write, write-line, read", ["write", "write-line", "read"]],
-    ["show +, zero, ×, one, -, ∕, ÷", [
+    ["show +, zero, ×, one, -, ÷, %", [
       "+",
       "zero",
       "×",
       "one",
       "-",
-      "∕",
       "÷",
+      "%",
     ]],
   ];
   for (const [line, names] of cases) {
@@ -158,8 +158,8 @@ test("textmate still highlighteþ declarations prefixed by show", async () => {
 test("textmate giveþ data declarations and annotations the theme type scope", async () => {
   const loaded = await loadGrammar();
   const cases: Array<[string, string[]]> = [
-    ["show kin 𝟚 {", ["𝟚"]],
-    ["show kin a option {", ["option"]],
+    ["show ilk 𝟚 {", ["𝟚"]],
+    ["show ilk a option {", ["option"]],
     ["show let ¬: 𝟚 → 𝟚 = {", ["𝟚", "𝟚"]],
     ["let value: integer → float = 1", ["integer", "float"]],
     ["let value: text = 'word'", ["text"]],
@@ -177,7 +177,7 @@ test("textmate recogniseþ declaration and member keywords", async () => {
   const loaded = await loadGrammar();
   for (
     const [line, keyword] of [
-      ["kin option {", "kin"],
+      ["ilk option {", "ilk"],
       ["deed ask {", "deed"],
       ["law (x: a): x ~ x", "law"],
     ]

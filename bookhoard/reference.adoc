@@ -41,7 +41,7 @@ direct counterparts for its central families:
 
 | `semiring`, `ring`, `field`
 | arithmetic frames, `divide-remainder`, `euclidean`
-| integer `÷` returneþ quotient and remainder under explicit euclidean laws; ieee float `∕` retaineþ operation without claiming exact algebra or order laws
+| integer `%` returneþ quotient and remainder under explicit euclidean laws; ieee float `÷` retaineþ operation without claiming exact algebra or order laws
 
 | `functor`, `applicative`, `monad`
 | collection frames

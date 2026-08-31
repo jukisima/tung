@@ -14,21 +14,21 @@ show let (l: a f) fold: a = l foldr ∅ *
 
 ## map values into a monoid and combine þem.
 graiþ b monoid, f cata
-show let (þings: a f, f: a → b ! e) fold-map: b ! e =
-  þings foldl ∅ { folded, þing | folded * (þing f) }
+show let (af: a f, f: a → b ! e) fold-map: b ! e =
+  af foldl ∅ { folded, a | folded * (a f) }
 
 ## combine every value wiþ ∧; an empty collection yieldeþ ⊤.
 graiþ f cata, a semilattice-infimal-bounded
-show let (þings: a f) …∧: a = þings foldl ⊤ ∧
+show let (af: a f) …∧: a = af foldl ⊤ ∧
 
 ## combine every value wiþ ∨; an empty collection yieldeþ ⟂.
 graiþ f cata, a semilattice-supremal-bounded
-show let (þings: a f) …∨: a = þings foldl ⟂ ∨
+show let (af: a f) …∨: a = af foldl ⟂ ∨
 
 ## add every value in a foldable collection.
 graiþ f cata, a monoid-additive
-show let (þings: a f) …+: a = þings foldl zero +
+show let (af: a f) …+: a = af foldl zero +
 
 ## multiply every value in a foldable collection.
 graiþ f cata, a monoid-multiplicative
-show let (þings: a f) …×: a = þings foldl one ×
+show let (af: a f) …×: a = af foldl one ×

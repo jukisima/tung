@@ -121,13 +121,13 @@
     "export-list": {
       "patterns": [
         {
-          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graiþ\\b|kin\\b|deed\\b|frame\\b|fill\\b))",
+          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graiþ\\b|ilk\\b|deed\\b|frame\\b|fill\\b))",
           "beginCaptures": {
             "1": {
               "name": "keyword.declaration.tung"
             }
           },
-          "end": "(?=\\b(?:use|graiþ|yield|show|show-ilk|let|let-ilk|kin|deed|frame|fill)\\b)|$",
+          "end": "(?=\\b(?:use|graiþ|yield|show|show-ilk|let|let-ilk|ilk|deed|frame|fill)\\b)|$",
           "name": "meta.export.tung"
         }
       ]
@@ -141,11 +141,11 @@
               "name": "keyword.declaration.tung"
             }
           },
-          "end": "(?=\\b(?:use|graiþ|yield|show|show-ilk|let|let-ilk|kin|deed|frame|fill)\\b)|$",
+          "end": "(?=\\b(?:use|graiþ|yield|show|show-ilk|let|let-ilk|ilk|deed|frame|fill)\\b)|$",
           "name": "meta.export.type.tung",
           "patterns": [
             {
-              "match": "[^\\s#(){}:,|!=.$→`']+|[+\\-×∕÷≤≡¬∅∏∐*]",
+              "match": "[^\\s#(){}:,|!=.$→`']+|[+\\-×÷%≤≡¬∅∏∐*]",
               "name": "support.type.tung"
             },
             {
@@ -159,7 +159,7 @@
     "data-declaration": {
       "patterns": [
         {
-          "match": "\\b(kin)\\b(\\s+)([^\\s#(){}:,|!=.$→`']+)(\\s+)([^\\s#(){}:,|!=.$→`']+)(?=(?:\\s+[^\\s#(){}:,|!=.$→`']+)*\\s*\\{)",
+          "match": "\\b(ilk)\\b(\\s+)([^\\s#(){}:,|!=.$→`']+)(\\s+)([^\\s#(){}:,|!=.$→`']+)(?=(?:\\s+[^\\s#(){}:,|!=.$→`']+)*\\s*\\{)",
           "captures": {
             "1": {
               "name": "keyword.declaration.tung"
@@ -171,7 +171,7 @@
           "name": "meta.declaration.data.tung"
         },
         {
-          "match": "\\b(kin)\\b(\\s+)([^\\s#(){}:,|!=.$→`']+)(?=\\s*\\{)",
+          "match": "\\b(ilk)\\b(\\s+)([^\\s#(){}:,|!=.$→`']+)(?=\\s*\\{)",
           "captures": {
             "1": {
               "name": "keyword.declaration.tung"
@@ -199,7 +199,7 @@
     "declaration-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:let-ilk|let|graiþ|use|kin|deed|frame|fill|law|show-ilk|show)\\b",
+          "match": "\\b(?:let-ilk|let|graiþ|use|ilk|deed|frame|fill|law|show-ilk|show)\\b",
           "name": "keyword.declaration.tung"
         }
       ]
@@ -275,7 +275,7 @@
     "name": {
       "patterns": [
         {
-          "match": "\\.\\*|[^\\s#(){}:,|!=.$→`']+|[+\\-×∕÷≤≡¬∅∏∐*]",
+          "match": "\\.\\*|[^\\s#(){}:,|!=.$→`']+|[+\\-×÷%≤≡¬∅∏∐*]",
           "name": "variable.other.tung"
         }
       ]

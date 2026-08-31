@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show kin natural { zero }\nshow kin a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow frame a convert { let a convert: a }\n";
+    "show ilk natural { zero }\nshow ilk a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow frame a convert { let a convert: a }\n";
   const mainText =
-    'use dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third | second }\nfill integer convert { let x convert = x }\nshow kin a box {\na box\n}\n';
+    'use dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third | second }\nfill integer convert { let x convert = x }\nshow ilk a box {\na box\n}\n';
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -289,8 +289,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: mainUri },
     options: { tabSize: 2, insertSpaces: true },
   });
-  assert.match(formatted[0].newText, /show kin a box \{\n[ ]{2}a box\n\}/);
-  const boxStartLine = positionOf(mainText, "show kin a box").line;
+  assert.match(formatted[0].newText, /show ilk a box \{\n[ ]{2}a box\n\}/);
+  const boxStartLine = positionOf(mainText, "show ilk a box").line;
   const rangeFormatted = await request("textDocument/rangeFormatting", {
     textDocument: { uri: mainUri },
     range: {

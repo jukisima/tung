@@ -79,7 +79,7 @@ keywordToken = \case
   "show-ilk" -> TShowIlk
   "use" -> TUse
   "let-ilk" -> TLetIlk
-  "kin" -> TKin
+  "ilk" -> TIlk
   "deed" -> TDeed
   "yield" -> TYield
   "fremmed" -> TForeign

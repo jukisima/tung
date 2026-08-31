@@ -46,7 +46,7 @@ test("generated bookhoard wiki cross-linkeþ declarations, fills, and modules", 
   fs.writeFileSync(
     path.join(bookhoard, "declarations.tung"),
     [
-      "show kin a box { a box }",
+      "show ilk a box { a box }",
       "show frame a identity { let a identity: a }",
       "show let (value: integer box) unwrap: integer = match value { x box | x }",
     ].join("\n"),

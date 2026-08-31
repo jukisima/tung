@@ -45,20 +45,20 @@ accepted =
   , ("two effect rows compose", "let (f: a → b ! e0, g: b → c ! e1, x: a) compose: c ! e0, e1 = (x f) g")
   , ("subscripted effect rows compose", "let (f: a → b ! e₀, g: b → c ! e₁, x: a) compose: c ! e₀, e₁ = (x f) g")
   , ("effect-only parameter generaliseþ at a let", unitData ++ "deed a phantom { 𝟙 tick: 𝟙 } let operation = tick let first: 𝟙 → 𝟙 ! integer phantom = operation let second: 𝟙 → 𝟙 ! text phantom = operation")
-  , ("pure partial application hideþ latent effect", "let half = 1 ÷")
+  , ("pure partial application hideþ latent effect", "let half = 1 %")
   , ("type alias is transparent", "let-ilk count = integer let answer: count = 42")
-  , ("forward type-alias chains resolve by dependency", "let-ilk first = second let-ilk second = token kin token { token } let good: first = token")
-  , ("type-alias parameters shadow nominal types", "kin a { a } let-ilk a wrapper = a let good: integer wrapper = 1")
-  , ("data parameters shadow type aliases", "let-ilk a = integer kin a box { a box } let good: text box = 'x' box")
-  , ("effect parameters shadow type aliases", "kin 𝟙 { null } let-ilk a = integer deed a state { 𝟙 get: a } let good: 𝟙 → text ! text state = get")
+  , ("forward type-alias chains resolve by dependency", "let-ilk first = second let-ilk second = token ilk token { token } let good: first = token")
+  , ("type-alias parameters shadow nominal types", "ilk a { a } let-ilk a wrapper = a let good: integer wrapper = 1")
+  , ("data parameters shadow type aliases", "let-ilk a = integer ilk a box { a box } let good: text box = 'x' box")
+  , ("effect parameters shadow type aliases", "ilk 𝟙 { null } let-ilk a = integer deed a state { 𝟙 get: a } let good: 𝟙 → text ! text state = get")
   , ("frame parameters shadow type aliases", "let-ilk a = integer frame a identity { let a identity: a } fill text identity { let x identity = x } let good: text = 'x' identity")
   , ("effect operation type may be a transparent function alias", "let-ilk binary = integer → integer → integer deed addition { add: binary }")
   , ("unresolved raw primitive frame dependency stayeþ ABI-compatible", "frame a equal { let a ≡ a: 𝟚 } let result = 1 ≡ 1")
   , ("parameterised type alias is transparent", boolData ++ "let (_: integer) member: 𝟚 = yea let answer: 𝟚 = 1 member")
   , ("func equaleþ pure unary arrow", "let (x: integer) id: integer = x")
   , ("curried triple function", "let (x: integer, _: text, _: float) pick: integer = x")
-  , ("constructor application is curried", "kin a option { none, a some } let make = some let value: integer option = 1 make")
-  , ("empty type eliminator", "kin 𝟘 {} let initial: 𝟘 → a = {} let eliminate: 𝟘 → integer = initial")
+  , ("constructor application is curried", "ilk a option { none, a some } let make = some let value: integer option = 1 make")
+  , ("empty type eliminator", "ilk 𝟘 {} let initial: 𝟘 → a = {} let eliminate: 𝟘 → integer = initial")
   , ("multi-scrutinee exhaustive match", boolData ++ "let ok: integer = match yea, nay { yea, yea | 1, yea, nay | 2, nay, yea | 3, nay, nay | 4 }")
   , ("overlapping wildcards cover a product", boolData ++ "let ok: integer = match yea, nay { yea, _ | 1, _, yea | 2, nay, nay | 3 }")
   , ("nested exhaustive match", boolData ++ optionData ++ "let ok: integer = match yea some { yea some | 1, nay some | 2, none | 0 }")
@@ -86,7 +86,7 @@ accepted =
   , ("effect clause removeþ every operation", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null first { duo | null }")
   , ("handler clause effects escape handler", duoEffect ++ "let (_: 𝟙) run: 𝟙 ! duo = try null first { first | null second, second | null }")
   , ("operation keepeþ declared extra effect", unitData ++ "deed other { 𝟙 other: 𝟙 } deed mine { 𝟙 op: 𝟙 ! other } let (_: 𝟙) run: 𝟙 ! other = try null op { op | null other }")
-  , ("operation propagateþ a handler effect row", unitData ++ "kin request { request } kin response { response } deed e fail { e fail: a } deed clock { 𝟙 tick: 𝟙 } deed web { integer serve (request → response ! e): 𝟙 ! e, text fail } let (_: request) route: response ! clock = (let _ = null tick yield response) let (_: 𝟙) run: 𝟙 ! web, clock, text fail = 8080 serve route")
+  , ("operation propagateþ a handler effect row", unitData ++ "ilk request { request } ilk response { response } deed e fail { e fail: a } deed clock { 𝟙 tick: 𝟙 } deed web { integer serve (request → response ! e): 𝟙 ! e, text fail } let (_: request) route: response ! clock = (let _ = null tick yield response) let (_: 𝟙) run: 𝟙 ! web, clock, text fail = 8080 serve route")
   , ("fremmed key entereþ value scope under another name", "let plus: integer → integer → integer = 'add-integer' fremmed let answer: integer = 1 plus 2")
   , ("declaration-only file is runnable", "let answer = 42")
   ]
@@ -98,7 +98,7 @@ rejected =
   , ("parameterised type alias needeþ its argument", "let _ bad: predicate = 1")
   , ("parameterised type alias rejecteþ extra arguments", "let _ bad: integer integer predicate = 1")
   , ("recursive type aliases are rejected", "let-ilk first = second let-ilk second = first")
-  , ("local type declarations cannot share a name", "let-ilk token = integer kin token { token }")
+  , ("local type declarations cannot share a name", "let-ilk token = integer ilk token { token }")
   , ("occurs check rejecteþ self application", "let x omega = x x")
   , ("occurs check followeþ nested records", "let x omega = r(value = x) x")
   , ("annotation cannot claim false polymorphism", "let (_: a) bad: a = 1")
@@ -126,7 +126,7 @@ rejected =
   , ("fill rejecteþ unknown member", "frame a identity { let a identity: a } fill integer identity { let x other = x }")
   , ("fill member hath declared type", "frame a identity { let a identity: a } fill integer identity { let x identity = 'wrong' }")
   , ("duplicate fill is incoherent", "frame a identity { let a identity: a } fill integer identity { let x identity = x } fill integer identity { let x identity = x }")
-  , ("incomparable fills are ambiguous when used", "frame a identity { let a identity: a } kin a box { a box } fill (integer f) identity { let x identity = x } fill (a box) identity { let x identity = x } let bad = (1 box) identity")
+  , ("incomparable fills are ambiguous when used", "frame a identity { let a identity: a } ilk a box { a box } fill (integer f) identity { let x identity = x } fill (a box) identity { let x identity = x } let bad = (1 box) identity")
   , ("frame law sides share a value type", "frame a bad { law (x: a): x ~ 1 }")
   , ("frame law sides share an effect row", unitData ++ "deed pulse { 𝟙 pulse: 𝟙 } frame a bad { law (x: 𝟙): x ~ null pulse }")
   , ("frame law rejecteþ an unbound value", "frame a bad { law (x: a): x ~ missing }")
@@ -134,7 +134,7 @@ rejected =
   , ("frame member graiþ is required at use", memberGraith ++ "fill box traverse { let (x box) traverse f = (x f) map box } let bad: (integer box) box = (1 box) traverse { x | x box }")
   , ("fill arity followeþ frame", "frame a convert b { let a convert: b } fill integer convert { let x convert = x }")
   , ("effect operation must be a function", "deed bad { tick: integer }")
-  , ("primitive frame rejecteþ a nominal result lookalike", "kin 𝟚 { maybe } frame a equal { let a ≡ a: 𝟚 } let result: 𝟚 = 1 ≡ 1")
+  , ("primitive frame rejecteþ a nominal result lookalike", "ilk 𝟚 { maybe } frame a equal { let a ≡ a: 𝟚 } let result: 𝟚 = 1 ≡ 1")
   , ("primitive frame rejecteþ a nominal effect lookalike", "deed e fail { e nope: a } frame a from-text { let text from-text: a ! text fail } let (x: text) parse: float ! text fail = x from-text")
   , ("state parameter mismatch", unitData ++ "deed a state { 𝟙 get: a, a set: 𝟙 } let got: 𝟙 → integer ! text state = get")
   , ("one operation clause cannot erase sibling operations", duoEffect ++ "let (_: 𝟙) run: 𝟙 = try null second { first | null }")
@@ -188,7 +188,7 @@ importCases =
   , typeOkWith "value with a private imported type remaineth inferable" "use opaque.tung opaque let value = opaque@value" opaqueTypeImport
   , typeOkWith "type identity surviveþ a re-export" "use base-data.tung original use middle-data.tung reexport let from-original: reexport@token = original@value let from-reexport: original@token = reexport@value" reexportedTypeImport
   , typeErrWith "host data schema rejecteþ nested nominal lookalikes" nestedTableLookalike rawTableImport
-  , typeOkWith "unresolved raw host data dependencies remain ABI-compatible" "use data/table.tung standard kin k table v { ((k ∏ v) list) from-list } let cast: integer table text → integer standard@table text = { x | x }" rawTableImport
+  , typeOkWith "unresolved raw host data dependencies remain ABI-compatible" "use data/table.tung standard ilk k table v { ((k ∏ v) list) from-list } let cast: integer table text → integer standard@table text = { x | x }" rawTableImport
   , typeOkWith "coverage separateþ same-spelled imported data" "use left-token.tung left use right-token.tung right let result: integer = match left@value { left@zero | 0, left@one | 1 }" nominalCoverageImports
   , typeErrWith "use aliases cannot collide" "use left.tung common use right.tung common" duplicateAliases
   , typeErrWith "default use aliases cannot collide" "use data/item.tung use syntax/item.tung" defaultAliasCollisionImports
@@ -207,19 +207,19 @@ importCases =
   , typeErrWith "mutual use cycle is rejected" "use left.tung" cyclic
   , runnableErr "module without main is not runnable" "let answer = 42"
   , runnableOk "inferred pure main is runnable" (unitData ++ "let _ main = null")
-  , runnableOk "partial effectful call is pure at boundary" (unitData ++ "let half = 1 ÷ let (_: 𝟙) main: 𝟙 = null")
+  , runnableOk "partial effectful call is pure at boundary" (unitData ++ "let half = 1 % let (_: 𝟙) main: 𝟙 = null")
   , runnableOk "runner accepteþ unit and runner effects" runnableOkSource
   , runnableOk "host effect operation order is schema-insensitive" (unitData ++ "deed console { 𝟙 read: text, text write: 𝟙 } let (_: 𝟙) main: 𝟙 ! console = 'ok' write")
   , runnableOk "host effect rows are schema-insensitive sets" reorderedWebSource
   , expect "host effect schema rejecteþ a nominal unit lookalike" $
-      "unsupported effects {console}" `isInfixOf` checkRunnableWithImports nominalConsoleLookalike (Map.singleton "data/one.tung" "show kin 𝟙 { null }")
+      "unsupported effects {console}" `isInfixOf` checkRunnableWithImports nominalConsoleLookalike (Map.singleton "data/one.tung" "show ilk 𝟙 { null }")
   , expect "host effect schema rejecteþ a nested nominal effect lookalike" $
       "unsupported effects {web}" `isInfixOf` checkRunnableWithImports nominalWebFailLookalike Map.empty
-  , runnableErr "main rejecteþ a nonstandard unit lookalike" "kin 𝟙 { done } let (done: 𝟙) main: 𝟙 = done"
+  , runnableErr "main rejecteþ a nonstandard unit lookalike" "ilk 𝟙 { done } let (done: 𝟙) main: 𝟙 = done"
   , runnableErr "main must be a function" (unitData ++ "let main = null")
   , runnableErr "main takeþ one unit argument" (unitData ++ "let (_: integer) main: 𝟙 = null")
   , runnableErr "main returneþ unit" (unitData ++ "let (_: 𝟙) main: integer = 42")
-  , runnableErr "fail is not a main effect" (unitData ++ "let (_: 𝟙) main: 𝟙 ! text fail = (let _ = 1 ÷ 0 yield null)")
+  , runnableErr "fail is not a main effect" (unitData ++ "let (_: 𝟙) main: 𝟙 ! text fail = (let _ = 1 % 0 yield null)")
   , runnableErr "custom effect is not a main effect" (unitData ++ "deed ask { 𝟙 ask: 𝟙 } let (_: 𝟙) main: 𝟙 ! ask = null ask")
   , runnableErr "parameterised runner-looking effect is rejected" (unitData ++ "deed a console { 𝟙 fake: 𝟙 } let (_: 𝟙) main: 𝟙 ! 𝟙 console = null fake")
   , runnableErr "effects cannot run before main" (unitData ++ "let _ = 'early' write let (_: 𝟙) main: 𝟙 = null")
@@ -229,18 +229,18 @@ importCases =
   , typeOkWith "shared diamond imports" "use left.tung use right.tung yield left@left + right@right" sharedImports
   ]
  where
-  shown = Map.fromList [("file.tung", "show kin box { box } let hidden = 1")]
-  aliased = Map.singleton "data/item.tung" "show kin item { item } show frame a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item"
+  shown = Map.fromList [("file.tung", "show ilk box { box } let hidden = 1")]
+  aliased = Map.singleton "data/item.tung" "show ilk item { item } show frame a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item"
   reexportMismatchImports =
     Map.fromList
-      [ ("base-left.tung", "show kin token { token } show let value: token = token")
-      , ("base-right.tung", "show kin token { token } show let value: token = token")
+      [ ("base-left.tung", "show ilk token { token } show let value: token = token")
+      , ("base-right.tung", "show ilk token { token } show let value: token = token")
       , ("middle-left.tung", "use base-left.tung base show-ilk base@token show base@value")
       , ("middle-right.tung", "use base-right.tung base show-ilk base@token show base@value")
       ]
   concreteAliasProjection =
     Map.fromList
-      [ ("base.tung", "show kin a box { a box }")
+      [ ("base.tung", "show ilk a box { a box }")
       , ("middle.tung", "use base.tung base show let-ilk boxed = integer base@box show let value: boxed = 1 base@box")
       ]
   reexportEffectImports =
@@ -259,38 +259,38 @@ importCases =
       ]
   fixedShapeTypeImports =
     Map.fromList
-      [ ("left-data.tung", "show kin token { token } show frame a maker { let maker: token }")
-      , ("right-data.tung", "show kin token { token }")
+      [ ("left-data.tung", "show ilk token { token } show frame a maker { let maker: token }")
+      , ("right-data.tung", "show ilk token { token }")
       ]
   nestedFillImport =
     Map.singleton
       "dep.tung"
-      "show kin token { token } show frame a identity { let a identity: a } show frame a label { let a label: a } graiþ token label fill token identity { let x identity = x label } show let value: token = token"
+      "show ilk token { token } show frame a identity { let a identity: a } show frame a label { let a label: a } graiþ token label fill token identity { let x identity = x label } show let value: token = token"
   duplicatedFillImport =
     Map.singleton
       "base.tung"
-      "show kin token { token } show frame a parent { let a parent: integer } show frame a child { let a child: integer } graiþ token parent fill token child { let x child = x parent } show let value: token = token"
-  sharedTypeAlias = Map.singleton "shared-data.tung" "show kin token { token }"
-  opaqueTypeImport = Map.singleton "opaque.tung" "kin secret { secret } show let value: secret = secret"
+      "show ilk token { token } show frame a parent { let a parent: integer } show frame a child { let a child: integer } graiþ token parent fill token child { let x child = x parent } show let value: token = token"
+  sharedTypeAlias = Map.singleton "shared-data.tung" "show ilk token { token }"
+  opaqueTypeImport = Map.singleton "opaque.tung" "ilk secret { secret } show let value: secret = secret"
   reexportedTypeImport =
     Map.fromList
-      [ ("base-data.tung", "show kin token { token } show let value: token = token")
+      [ ("base-data.tung", "show ilk token { token } show let value: token = token")
       , ("middle-data.tung", "use base-data.tung base show-ilk base@token show base@value")
       ]
   nominalCoverageImports =
     Map.fromList
-      [ ("left-token.tung", "show kin token { zero, one } show let value: token = zero")
-      , ("right-token.tung", "show kin token { only } show let value: token = only")
+      [ ("left-token.tung", "show ilk token { zero, one } show let value: token = zero")
+      , ("right-token.tung", "show ilk token { only } show let value: token = only")
       ]
   duplicateAliases = Map.fromList [("left.tung", "show let left = 1"), ("right.tung", "show let right = 2")]
   defaultAliasCollisionImports = Map.fromList [("data/item.tung", "show let value = 1"), ("syntax/item.tung", "show let value = 2")]
   ambiguousZeros = Map.fromList [("data/natural.tung", "show let zero = 0"), ("algebra/arithmetic/semiring.tung", "show let zero = 1")]
   privateShapeImports = Map.fromList [("leaf.tung", "show frame a hidden { let a hidden: a }"), ("middle.tung", "use leaf.tung")]
-  reservedTwoLookalike = Map.singleton "data/two.tung" "show kin 𝟚 { yea, maybe }"
-  rawTableImport = Map.singleton "data/table.tung" "show kin k table v { ((k ∏ v) list) from-list }"
+  reservedTwoLookalike = Map.singleton "data/two.tung" "show ilk 𝟚 { yea, maybe }"
+  rawTableImport = Map.singleton "data/table.tung" "show ilk k table v { ((k ∏ v) list) from-list }"
   nestedTableLookalike =
     "use data/table.tung standard "
-      ++ "kin a ∏ b { pair } kin a list { empty } kin k table v { ((k ∏ v) list) from-list } "
+      ++ "ilk a ∏ b { pair } ilk a list { empty } ilk k table v { ((k ∏ v) list) from-list } "
       ++ "let local: integer table text = empty from-list let escaped: integer standard@table text = local"
   cyclic = Map.fromList [("left.tung", "use right.tung"), ("right.tung", "use left.tung")]
   sharedImports =
@@ -331,7 +331,7 @@ orderCases imports =
  where
   rankPrefix =
     "use data/two.tung use equal.tung use order.tung "
-      ++ "kin rank { lesser, greater } "
+      ++ "ilk rank { lesser, greater } "
       ++ "fill rank equal { let ≡ = { lesser, lesser | yea, greater, greater | yea, _, _ | nay } } "
   partialPrefix =
     rankPrefix
@@ -358,15 +358,15 @@ boundCases imports =
  where
   prefix = "use ground.tung use data/list.tung use data/natural.tung use collection/catamorphism.tung "
   powersetPrefix = "use ground.tung use data/list.tung use data/powerset.tung use collection/catamorphism.tung let empty-set: integer powerset = powerset@empty let full-set: integer powerset = universe "
-  semilatticePrefix = "use order/lattice.tung kin one-sided { item } fill one-sided semilattice-infimal { let _ ∧ _ = item } "
-  supremumPrefix = "use order/lattice.tung kin one-sided { item } fill one-sided semilattice-supremal { let _ ∨ _ = item } "
+  semilatticePrefix = "use order/lattice.tung ilk one-sided { item } fill one-sided semilattice-infimal { let _ ∧ _ = item } "
+  supremumPrefix = "use order/lattice.tung ilk one-sided { item } fill one-sided semilattice-supremal { let _ ∨ _ = item } "
 
 numericHierarchyCases :: Map.Map String String -> [Test]
 numericHierarchyCases imports =
-  [ typeOkWith "integer supplieþ euclidean division" "use ground.tung use data/product.tung graiþ a euclidean let (x: a, y: a) divide-with-rest: a ∏ a ! text fail = x ÷ y let value: integer ∏ integer = try -5 divide-with-rest 3 { fail | 0 ∏ 0 }" imports
-  , typeOkWith "float retaineþ raw numeric and comparison operations" "use ground.tung let sum: float = 1.0 + 2.0 let quotient: float = 1.0 ∕ 2.0 let compared: 𝟚 = 1.0 ≤ 2.0" imports
+  [ typeOkWith "integer supplieþ euclidean division" "use ground.tung use data/product.tung graiþ a euclidean let (x: a, y: a) divide-with-rest: a ∏ a ! text fail = x % y let value: integer ∏ integer = try -5 divide-with-rest 3 { fail | 0 ∏ 0 }" imports
+  , typeOkWith "float retaineþ raw numeric and comparison operations" "use ground.tung let sum: float = 1.0 + 2.0 let quotient: float = 1.0 ÷ 2.0 let compared: 𝟚 = 1.0 ≤ 2.0" imports
   , typeErrWith "float doth not claim exact semiring laws" "use ground.tung graiþ a semiring let (x: a) twice: a = x + x let bad: float = 1.0 twice" imports
-  , typeErrWith "float doth not claim exact field laws" "use ground.tung graiþ a field let (x: a) reciprocal: a = one ∕ x let bad: float = 2.0 reciprocal" imports
+  , typeErrWith "float doth not claim exact field laws" "use ground.tung graiþ a field let (x: a) reciprocal: a = one ÷ x let bad: float = 2.0 reciprocal" imports
   , typeErrWith "float doth not claim partial-order laws" "use ground.tung graiþ a order-partial let (x: a) reflexive: 𝟚 = x ≤ x let bad: 𝟚 = 1.0 reflexive" imports
   ]
 
@@ -407,12 +407,12 @@ redundantCoverageCases =
   , typeErrContaining "wildcard hideþ constructor pattern" "redundant match case 2; pattern yea is unreachable" (boolData ++ "let bad = match yea { _ | 0, yea | 1 }")
   , typeErrContaining "constructor pattern hidden inside product" "redundant match case 3" (boolData ++ "let bad = match yea, nay { yea, _ | 1, nay, _ | 2, _, yea | 3 }")
   , typeErrContaining "nested constructor pattern is reported" "redundant match case 2" (boolData ++ optionData ++ "let bad = match yea some { _ some | 1, yea some | 2, none | 0 }")
-  , typeErrContaining "pattern over empty type is unreachable" "redundant match case 1" "kin 𝟘 {} let bad: 𝟘 → integer = { _ | 1 }"
+  , typeErrContaining "pattern over empty type is unreachable" "redundant match case 1" "ilk 𝟘 {} let bad: 𝟘 → integer = { _ | 1 }"
   ]
 
 memberGraith :: String
 memberGraith =
-  "kin a option { none, a some } kin a box { a box } "
+  "ilk a option { none, a some } ilk a box { a box } "
     ++ "frame f functor { let (a f) map (a → b): b f } "
     ++ "graiþ f functor frame f applicative { let a pure: a f let (a f) apply ((a → b) f): b f } "
     ++ "frame f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m } "
@@ -535,16 +535,16 @@ coverageProperties =
   ]
 
 unitData, boolData, optionData, boxData, equalPrelude, classHierarchy, inheritedMethodHierarchy, parentDictionaryGraith, redundantCollectionGraith, duoEffect, runnableOkSource, webData, reorderedWebSource, nominalConsoleLookalike, nominalWebFailLookalike :: String
-unitData = "kin 𝟙 { null } "
-boolData = "kin 𝟚 { yea, nay } "
-optionData = "kin a option { none, a some } "
-boxData = "kin a box { a box } "
+unitData = "ilk 𝟙 { null } "
+boolData = "ilk 𝟚 { yea, nay } "
+optionData = "ilk a option { none, a some } "
+boxData = "ilk a box { a box } "
 equalPrelude = boolData ++ "frame a equal { let a ≡ a: 𝟚 } "
 classHierarchy = "frame a parent { let a parent: a } graiþ a parent frame a child { let a child: a } "
 inheritedMethodHierarchy =
   "frame a magma { let a combine a: a } "
     ++ "graiþ a magma frame a semigroup {} "
-    ++ "kin a option { none, a some } "
+    ++ "ilk a option { none, a some } "
     ++ "graiþ a semigroup fill (a option) semigroup { "
     ++ "let combine = { none, b | b, a, none | a, a some, b some | a combine b $ some } "
     ++ "}"
@@ -557,9 +557,9 @@ parentDictionaryGraith =
 redundantCollectionGraith =
   equalPrelude
     ++ "frame a inhold b { let a ∋ b: 𝟚 } "
-    ++ "kin a list { empty, a cons (a list) } "
+    ++ "ilk a list { empty, a cons (a list) } "
     ++ "graiþ a equal fill (a list) inhold a { let list ∋ value = match list { empty | nay, candidate cons _ | value ≡ candidate } } "
-    ++ "kin a set { (a list) set } "
+    ++ "ilk a set { (a list) set } "
     ++ "graiþ a equal, (a list) inhold a fill (a set) inhold a { let (list set) ∋ value = list ∋ value }"
 duoEffect = unitData ++ "deed duo { 𝟙 first: 𝟙, 𝟙 second: 𝟙 } "
 runnableOkSource = unitData ++ "let (_: 𝟙) main: 𝟙 ! console = 'ok' write"
@@ -571,12 +571,12 @@ reorderedWebSource =
     ++ "let (_: 𝟙) main: 𝟙 ! web = try 8080 serve route { _ fail | null }"
 webData =
   unitData
-    ++ "kin a list { empty, a .* (a list) } "
-    ++ "kin k table v { ((k ∏ v) list) from-list } "
-    ++ "kin request { text request text (text table text) text } "
-    ++ "kin response { integer response (text table text) text } "
+    ++ "ilk a list { empty, a .* (a list) } "
+    ++ "ilk k table v { ((k ∏ v) list) from-list } "
+    ++ "ilk request { text request text (text table text) text } "
+    ++ "ilk response { integer response (text table text) text } "
 nominalConsoleLookalike =
-  "use data/one.tung one kin 𝟙 { done } deed console { text write: 𝟙, 𝟙 read: text } "
+  "use data/one.tung one ilk 𝟙 { done } deed console { text write: 𝟙, 𝟙 read: text } "
     ++ "let (_: one@𝟙) main: one@𝟙 ! console = (let _ = 'ok' write yield one@null)"
 nominalWebFailLookalike =
   webData

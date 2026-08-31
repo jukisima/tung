@@ -5,11 +5,11 @@ use order.tung
 use order/lattice.tung
 
 ## convert a nonnegative integer to a natural.
-show let (integer: integer) integer-to-natural: natural ! text fail =
+show let (integer: integer) to-natural: natural ! text fail =
   match 0 ≤ integer {
     yea | match integer {
       0 | zero,
-      n | (n - 1) integer-to-natural $ suc
+      n | (n - 1) to-natural $ suc
     },
     nay | 'negative cannot be a natural' fail
   }

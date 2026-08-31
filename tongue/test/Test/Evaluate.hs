@@ -51,20 +51,20 @@ deterministic =
   , ("unicode text", "yield 'λ字'", "eval ok: 'λ字'")
   , ("unicode control rendering useþ decimal terminator", "yield `\\1;", "eval ok: `\\1;")
   , ("float arithmetic", "let a = '0.5' from-text let b = '0.25' from-text yield a + b", "eval ok: 0.75")
-  , ("float division useþ the division slash", "yield 6.0 ∕ 4.0", "eval ok: 1.5")
-  , ("float division by zero followeþ ieee", "yield 1.0 ∕ 0.0", "eval ok: Infinity")
-  , ("float equality ignoreþ literal spelling", "kin 𝟚 { yea, nay } yield 1.0 ≡ 1.00", "eval ok: yea")
-  , ("standard boolean ABI ignoreþ constructor declaration order", "kin 𝟚 { nay, yea } yield 1 ≡ 1", "eval ok: yea")
-  , ("native booleans match exact standard local constructors", "kin 𝟚 { yea, nay } yield match 1.0 ≡ 1.00 { yea | 1, nay | 0 }", "eval ok: 1")
-  , ("native unit matcheþ the exact standard local constructor", "kin 𝟙 { null } yield match 0 sleep { null | 1 }", "eval ok: 1")
-  , ("alpha-renamed standard list receiveþ a host list", "kin x list { empty, x .* (x list) } let convert: text → unicode list = 'text-to-list' fremmed yield 'a' convert", "eval ok: (`a empty .*)")
-  , ("alpha-renamed standard product receiveþ a host product", "kin x ∏ y { x ∏ y } let divide: integer → integer → integer ∏ integer ! text fail = 'divide-remainder-integer' fremmed yield 5 divide 2", "eval ok: (2 1 ∏)")
-  , ("nonstandard lookalike data remain nominally usable", "kin 𝟚 { yes, no } yield match yes { yes | 1, no | 0 }", "eval ok: 1")
-  , ("a constructor and an ordinary term retain distinct runtime identities", "kin token { box } let token@box = 7 yield box", "eval ok: box")
-  , ("float ordering is numeric", "kin 𝟚 { yea, nay } yield 2.0 ≤ 10.0", "eval ok: yea")
+  , ("float division useþ the division sign", "yield 6.0 ÷ 4.0", "eval ok: 1.5")
+  , ("float division by zero followeþ ieee", "yield 1.0 ÷ 0.0", "eval ok: Infinity")
+  , ("float equality ignoreþ literal spelling", "ilk 𝟚 { yea, nay } yield 1.0 ≡ 1.00", "eval ok: yea")
+  , ("standard boolean ABI ignoreþ constructor declaration order", "ilk 𝟚 { nay, yea } yield 1 ≡ 1", "eval ok: yea")
+  , ("native booleans match exact standard local constructors", "ilk 𝟚 { yea, nay } yield match 1.0 ≡ 1.00 { yea | 1, nay | 0 }", "eval ok: 1")
+  , ("native unit matcheþ the exact standard local constructor", "ilk 𝟙 { null } yield match 0 sleep { null | 1 }", "eval ok: 1")
+  , ("alpha-renamed standard list receiveþ a host list", "ilk x list { empty, x .* (x list) } let convert: text → unicode list = 'text-to-list' fremmed yield 'a' convert", "eval ok: (`a empty .*)")
+  , ("alpha-renamed standard product receiveþ a host product", "ilk x ∏ y { x ∏ y } let divide: integer → integer → integer ∏ integer ! text fail = 'divide-remainder-integer' fremmed yield 5 divide 2", "eval ok: (2 1 ∏)")
+  , ("nonstandard lookalike data remain nominally usable", "ilk 𝟚 { yes, no } yield match yes { yes | 1, no | 0 }", "eval ok: 1")
+  , ("a constructor and an ordinary term retain distinct runtime identities", "ilk token { box } let token@box = 7 yield box", "eval ok: box")
+  , ("float ordering is numeric", "ilk 𝟚 { yea, nay } yield 2.0 ≤ 10.0", "eval ok: yea")
   , ("curried partial application", "let a add b = a + b let add-one = 1 add yield 2 add-one", "eval ok: 3")
   , ("three curried arguments", "let a add b c = (a + b) + c yield 1 add 2 3", "eval ok: 6")
-  , ("local recursive function", "kin natural { zero, natural suc } let count = (let loop = { zero | 0, n suc | 1 + (n loop) } yield loop) yield ((zero suc) suc) count", "eval ok: 2")
+  , ("local recursive function", "ilk natural { zero, natural suc } let count = (let loop = { zero | 0, n suc | 1 + (n loop) } yield loop) yield ((zero suc) suc) count", "eval ok: 2")
   , ("evidence abstraction preserveþ local recursive capture", "frame a ident { let a ident: a } yield (let loop = { x | (x loop) ident } yield 1)", "eval ok: 1")
   , ("second-position function header", "let a add b = a + b yield 1 add 2", "eval ok: 3")
   , ("dollar function segment", "let x f = x + 1 let x h y z = (x + y) × z yield 1 f $h 2 3", "eval ok: 12")
@@ -77,7 +77,7 @@ deterministic =
   , ("integer match patterns", "yield match -1 { 0 | 10, -1 | 20, _ | 30 }", "eval ok: 20")
   , ("integer patterns fall through", "yield match 2 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 30")
   , ("integer function patterns", "let classify: integer → integer = { 0 | 10, 1 | 20, _ | 30 } yield 1 classify", "eval ok: 20")
-  , ("unchosen arm is not evaluated", boolData ++ "let _ ignore = 1 yield match yea { yea | 1, nay | (1 ÷ 0) ignore }", "eval ok: 1")
+  , ("unchosen arm is not evaluated", boolData ++ "let _ ignore = 1 yield match yea { yea | 1, nay | (1 % 0) ignore }", "eval ok: 1")
   , ("let right side is strict", stopEffect ++ "yield try (let x = 1 stop yield 2 stop) { x stop | x }", "eval ok: 1")
   , ("function expression runneþ before arguments", stopEffect ++ "yield try 0 (1 stop) (2 stop) { x stop | x }", "eval ok: 1")
   , ("arguments run left to right", stopEffect ++ "let x choose _ = x yield try (1 stop) choose (2 stop) { yield x | x, x stop | x }", "eval ok: 1")
@@ -89,11 +89,11 @@ deterministic =
   , ("record removal", "let person = r(name = 'n', age = 1) yield r(= person, - age)", "eval ok: r(name = 'n')")
   , ("fremmed arity followeþ a transparent alias", "let-ilk binary = integer → integer → integer let plus: binary = 'add-integer' fremmed yield 1 plus 2", "eval ok: 3")
   , ("effect arity followeþ a transparent result alias", "let-ilk unary = integer → integer deed addition { integer add: unary } yield try 1 add 2 { x add y | x + y }", "eval ok: 3")
-  , ("handled division failure", "let _ ignore = 1 yield try (1 ÷ 0) ignore { fail | 9 }", "eval ok: 9")
-  , ("operation payload", "deed e fail { e fail: a } let _ ignore = 'ok' yield try (1 ÷ 0) ignore { yield text | text, message fail | message }", "eval ok: 'division by zero'")
-  , ("a concrete-result fail lookalike remaineþ nominal", "kin payload { payload } deed e fail { e fail: payload } yield try 'message' fail { _ fail | payload }", "eval ok: payload")
+  , ("handled division failure", "let _ ignore = 1 yield try (1 % 0) ignore { fail | 9 }", "eval ok: 9")
+  , ("operation payload", "deed e fail { e fail: a } let _ ignore = 'ok' yield try (1 % 0) ignore { yield text | text, message fail | message }", "eval ok: 'division by zero'")
+  , ("a concrete-result fail lookalike remaineþ nominal", "ilk payload { payload } deed e fail { e fail: payload } yield try 'message' fail { _ fail | payload }", "eval ok: payload")
   , ("yield clause mapeþ normal answer", "yield try 2 + 3 { yield n | n to-text }", "eval ok: '5'")
-  , ("partial call performeþ only when saturated", "let _ ignore = 0 yield try (0 (1 ÷)) ignore { fail | 7 }", "eval ok: 7")
+  , ("partial call performeþ only when saturated", "let _ ignore = 0 yield try (0 (1 %)) ignore { fail | 7 }", "eval ok: 7")
   , ("eftgin once", "deed ask { integer ask: integer } yield try 10 ask { x ask | (x + 1) eftgin }", "eval ok: 11")
   , ("eftgin zero times", "deed ask { integer ask: integer } yield try 10 ask { x ask | x + 1 }", "eval ok: 11")
   , ("deep eftgin handleþ later operation", unitData ++ "deed choice { 𝟙 pick: integer } yield try (null pick) + (null pick) { pick | 1 eftgin }", "eval ok: 2")
@@ -106,19 +106,19 @@ deterministic =
   , ("a custom system operation is not host-dispatched", unitData ++ "deed system { 𝟙 arguments: integer } yield try null arguments { arguments | 42 }", "eval ok: 42")
   , ("an effect operation and an ordinary term retain distinct runtime identities", "deed s { integer op: integer } let s@op = 7 yield try 1 op { x op | x }", "eval ok: 1")
   , ("frame laws are erased", "frame a identity { let a identity: a law (x: a): x identity ~ x } fill integer identity { let x identity = x } yield 2 identity", "eval ok: 2")
-  , ("a frame selector and a constructor retain distinct runtime identities", "frame a s { let a op: a } fill integer s { let x op = x } kin s { op } yield 1 op", "eval ok: 1")
+  , ("a frame selector and a constructor retain distinct runtime identities", "frame a s { let a op: a } fill integer s { let x op = x } ilk s { op } yield 1 op", "eval ok: 1")
   , ("result-only member useþ expected type", "frame a origin { let origin: a } fill integer origin { let origin = 7 } let value: integer = origin yield value", "eval ok: 7")
   , ("different fills dispatch by inferred type", "frame a label { let a label: text } fill integer label { let _ label = 'integer' } fill text label { let _ label = 'text' } yield 'x' label", "eval ok: 'text'")
   , ("graiþ function receiveþ its caller dictionary", "frame a label { let a label: text } fill integer label { let _ label = 'integer' } fill text label { let _ label = 'text' } graiþ a label let (x: a) labelled: text = x label yield 1 labelled", "eval ok: 'integer'")
   , ("child dictionary useþ a direct parent fill", "frame a parent { let a parent: a } graiþ a parent frame a child { let a child: a } fill integer parent { let x parent = x } fill integer child { let x child = x parent } yield 4 child", "eval ok: 4")
   , ("fill may precede its resolved frame declaration", "fill integer identity { let x identity = x } frame a identity { let a identity: a } yield 3 identity", "eval ok: 3")
   , ("an exact primitive frame schema receiveþ its host fill", "frame a add { let a + a: a } yield 1 + 2", "eval ok: 3")
-  , ("fill graiþ remaineþ an external dictionary", "frame a combine { let a combine a: a } fill integer combine { let x combine y = x + y } kin a box { a box } graiþ a combine fill (a box) combine { let (x box) combine (y box) = (x combine y) box } yield (1 box) combine (2 box)", "eval ok: (3 box)")
+  , ("fill graiþ remaineþ an external dictionary", "frame a combine { let a combine a: a } fill integer combine { let x combine y = x + y } ilk a box { a box } graiþ a combine fill (a box) combine { let (x box) combine (y box) = (x combine y) box } yield (1 box) combine (2 box)", "eval ok: (3 box)")
   ]
 
 runtimeErrors :: [(String, String)]
 runtimeErrors =
-  [ ("division failure is unhandled", "yield 1 ÷ 0")
+  [ ("division failure is unhandled", "yield 1 % 0")
   , ("from-text failure is unhandled", "yield 'not a float' from-text")
   , ("handler clause is outside its own handler", unitData ++ "deed pulse { 𝟙 pulse: 𝟙 } yield try null pulse { pulse | null pulse }")
   , ("unhandled sibling operation escapeþ", duoEffect ++ "yield try null second { first | null }")
@@ -128,13 +128,13 @@ typeErrors :: [(String, String)]
 typeErrors =
   [ ("unknown value", "yield missing")
   , ("non-function application", "yield 1 2")
-  , ("constructor overapplication", "kin a box { a box } yield 1 box 2")
+  , ("constructor overapplication", "ilk a box { a box } yield 1 box 2")
   , ("missing record field", "let value = r(x = 1) yield value@y")
   , ("unknown record removal", "let person = r(name = 'n') yield r(= person, - age)")
   , ("update of non-record", "yield r(= 1, field = 2)")
   , ("non-exhaustive match", boolData ++ "yield match nay { yea | 1 }")
-  , ("nonstandard local boolean cannot receive a native boolean", "kin 𝟚 { yes, no } yield match 1 ≡ 1 { yes | 1, no | 0 }")
-  , ("nonstandard local unit cannot receive native unit", "kin 𝟙 { done } yield match 0 sleep { done | 1 }")
+  , ("nonstandard local boolean cannot receive a native boolean", "ilk 𝟚 { yes, no } yield match 1 ≡ 1 { yes | 1, no | 0 }")
+  , ("nonstandard local unit cannot receive native unit", "ilk 𝟙 { done } yield match 0 sleep { done | 1 }")
   , ("a primitive namesake wiþ an incompatible schema hath no host fill", "frame a add { let a magic: a } graiþ a add let (x: a) apply: a = x magic yield 1 apply")
   , ("owned declaration components cannot collapse through qualification", "deed left { integer right@op: integer } deed left@right { integer op: integer } let x choose y = y yield try (try (2 op) choose (1 right@op) { x right@op | 7 }) { x op | 9 }")
   ]
@@ -146,8 +146,8 @@ importedCases imports =
   , evalOkWith "a local and its imported predecessor retain distinct identities" "use source.tung let value = value + 1 yield value + source@value" (Map.insert "source.tung" "show let value = 2" imports) "eval ok: 5"
   , evalOkWith "a local value doth not hide an imported constructor pattern" "use data/two.tung let yea: 𝟚 = two@yea yield match yea { yea | 1, nay | 0 }" imports "eval ok: 1"
   , evalOkWith "an incompatible local value doth not hide an imported constructor pattern" "use data/two.tung let yea = 0 yield match two@yea { yea | 1, nay | 0 }" imports "eval ok: 1"
-  , evalOkWith "an exact standard ABI is stable when imported" "use truth.tung yield truth@truth" (Map.insert "truth.tung" "show kin 𝟚 { yea, nay } show let truth: 𝟚 = 1 ≡ 1" imports) "eval ok: yea"
-  , evalOkWith "default use alias workeþ for values, frames, and constructor patterns" "use data/item.tung let value: item@item = item@empty yield match (value item@identity) { item@item | 1 }" (Map.insert "data/item.tung" "show kin item { item } show frame a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item" imports) "eval ok: 1"
+  , evalOkWith "an exact standard ABI is stable when imported" "use truth.tung yield truth@truth" (Map.insert "truth.tung" "show ilk 𝟚 { yea, nay } show let truth: 𝟚 = 1 ≡ 1" imports) "eval ok: yea"
+  , evalOkWith "default use alias workeþ for values, frames, and constructor patterns" "use data/item.tung let value: item@item = item@empty yield match (value item@identity) { item@item | 1 }" (Map.insert "data/item.tung" "show ilk item { item } show frame a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item" imports) "eval ok: 1"
   , evalOkWith "use alias workeþ for effect operations and handlers" "use effect/ask.tung a yield try 3 a@ask { x a@ask | x }" (Map.insert "effect/ask.tung" "show deed ask { integer ask: integer }" imports) "eval ok: 3"
   , evalOkWith "qualified handler target distinguishþ effect and operation names" "use effect/query.tung q yield try 3 q@ask { x q@ask | x }" (Map.insert "effect/query.tung" "show deed query { integer ask: integer }" imports) "eval ok: 3"
   , evalOkWith "an imported module handleþ its own operation identity" "use query.tung yield value" (Map.insert "query.tung" "show deed query { integer ask: integer } show let value: integer = try 3 ask { x ask | x }" imports) "eval ok: 3"
@@ -162,10 +162,10 @@ importedCases imports =
   , evalOkWith "derived frame operations" "use ground.tung yield (1 < 2) ∧ (1 ≢ 2)" imports "eval ok: yea"
   , evalOkWith "false implieþ false" "use ground.tung yield nay ≤ nay" imports "eval ok: yea"
   , evalOkWith "true doth not imply false" "use ground.tung yield yea ≤ nay" imports "eval ok: nay"
-  , evalOkWith "euclidean division returneþ quotient and remainder for a negative divisor" "use ground.tung use data/product.tung yield 5 ÷ -3" imports "eval ok: (-1 2 ∏)"
-  , evalOkWith "euclidean division returneþ quotient and remainder for a negative dividend" "use ground.tung use data/product.tung yield -5 ÷ 3" imports "eval ok: (-2 1 ∏)"
-  , evalOkWith "euclidean quotient and remainder reconstruct the dividend" "use ground.tung use data/product.tung let dividend = -5 let divisor = -3 yield match dividend ÷ divisor { quotient ∏ rest | (quotient × divisor) + rest }" imports "eval ok: -5"
-  , evalOkWith "euclidean division faileþ at zero" "use ground.tung let _ ignore = 1 yield try (1 ÷ 0) ignore { fail | 9 }" imports "eval ok: 9"
+  , evalOkWith "euclidean division returneþ quotient and remainder for a negative divisor" "use ground.tung use data/product.tung yield 5 % -3" imports "eval ok: (-1 2 ∏)"
+  , evalOkWith "euclidean division returneþ quotient and remainder for a negative dividend" "use ground.tung use data/product.tung yield -5 % 3" imports "eval ok: (-2 1 ∏)"
+  , evalOkWith "euclidean quotient and remainder reconstruct the dividend" "use ground.tung use data/product.tung let dividend = -5 let divisor = -3 yield match dividend % divisor { quotient ∏ rest | (quotient × divisor) + rest }" imports "eval ok: -5"
+  , evalOkWith "euclidean division faileþ at zero" "use ground.tung let _ ignore = 1 yield try (1 % 0) ignore { fail | 9 }" imports "eval ok: 9"
   , evalOkWith "three-way comparison distinguishes each result" "use ground.tung use data/product.tung yield (0 compare 1) ∏ (1 compare 1) $∏ (2 compare 1)" imports "eval ok: ((fore mid ∏) aft ∏)"
   , evalOkWith "clamp keepeþ a value inside its bounds" "use ground.tung yield 0 clamp 10 12" imports "eval ok: 10"
   , evalOkWith "qualified duplicate values" "use left.tung use right.tung yield left@foo + right@foo" duplicateImports "eval ok: 3"
@@ -187,7 +187,7 @@ importedCases imports =
   , evalOkWith "data constructor survives a named re-export" "use data-middle.tung yield 4 box" dataReexportImports "eval ok: (4 box)"
   , evalOkWith "constructor identity survives a different re-export path" "use data-base.tung use data-middle.tung yield match 4 data-middle@box { x data-base@box | x }" dataReexportImports "eval ok: 4"
   , evalOkWith "constructor pattern surviveþ a middle-module re-export" "use middle.tung yield match middle@off { middle@off | 1 }" constructorReexportImports "eval ok: 1"
-  , evalOkWith "qualified constructor pattern useþ import alias" "use alias.tung yield match 4 alias@box { x alias@box | x }" (Map.insert "alias.tung" "show kin a box { a box }" imports) "eval ok: 4"
+  , evalOkWith "qualified constructor pattern useþ import alias" "use alias.tung yield match 4 alias@box { x alias@box | x }" (Map.insert "alias.tung" "show ilk a box { a box }" imports) "eval ok: 4"
   , evalOkWith "qualified global outrankeþ record field fallback" "use public.tung let public = r(visible = 9) yield public@visible" (Map.insert "public.tung" "show let visible = 7" imports) "eval ok: 7"
   , evalOkWith "effect operation survives a named re-export" "use ask-middle.tung yield try 3 ask { x ask | x }" effectReexportImports "eval ok: 3"
   , evalTypeErrWith "private qualified value is rejected before runtime" "use private.tung yield private@hidden" (Map.fromList [("private.tung", "let hidden = 1")])
@@ -217,7 +217,7 @@ importedCases imports =
   , evalOkWith "integer lattice chooseþ the lesser value" "use ground.tung yield 3 ∧ 2" imports "eval ok: 2"
   , evalOkWith "non-total powerset lattice joineþ predicates" "use ground.tung use data/list.tung use data/powerset.tung use collection/catamorphism.tung let one: integer powerset = { x | x ≡ 1 } let two: integer powerset = { x | x ≡ 2 } let joined = one .* (two .* list@empty) $ …∨ yield joined ∋ 2" imports "eval ok: yea"
   , evalOkWith "empty powerset meet yieldeþ the universal set" "use ground.tung use data/list.tung use data/powerset.tung use collection/catamorphism.tung let values: (integer powerset) list = list@empty let all = values …∧ yield all ∋ 42" imports "eval ok: yea"
-  , evalOkWith "pattern binders do not become constructor patterns" "use ground.tung use data/list.tung kin bit { off } yield 0 till 2 $ map { _ | off } $ map { _ | 1 }" imports "eval ok: (1 (1 (1 empty .*) .*) .*)"
+  , evalOkWith "pattern binders do not become constructor patterns" "use ground.tung use data/list.tung ilk bit { off } yield 0 till 2 $ map { _ | off } $ map { _ | 1 }" imports "eval ok: (1 (1 (1 empty .*) .*) .*)"
   , evalOkWith "control branch suspends actions" "use ground.tung yield nay branch { _ | 1 } { _ | 2 }" imports "eval ok: 2"
   , evalOkWith "option maybe mapeþ present value" "use ground.tung use data/option.tung yield (3 some) maybe 0 { x | x + 1 }" imports "eval ok: 4"
   , evalOkWith "sum eiþer consumeþ selected side" "use ground.tung use data/sum.tung yield (2 inject₁) eiþer { x | x + 1 } { y | y × 3 }" imports "eval ok: 6"
@@ -247,7 +247,7 @@ importedCases imports =
   , evalOkWith "list unzip preserveþ both sides" "use data/list.tung use data/product.tung yield ((1 ∏ 'a') .* ((2 ∏ 'b') .* empty)) unzip" imports "eval ok: ((1 (2 empty .*) .*) ('a' ('b' empty .*) .*) ∏)"
   , evalOkWith "n-ary sum addeþ a foldable collection" "use ground.tung use data/list.tung use collection/catamorphism.tung yield (1 .* (2 .* (3 .* empty))) …+" imports "eval ok: 6"
   , evalOkWith "n-ary sum of an empty collection is zero" "use ground.tung use data/list.tung use collection/catamorphism.tung let values: integer list = empty yield values …+" imports "eval ok: 0"
-  , evalTypeErrWith "n-ary sum needeþ a catamorphism" "use ground.tung use collection/catamorphism.tung kin a box { a box } let value: integer box = 1 box yield value …+" imports
+  , evalTypeErrWith "n-ary sum needeþ a catamorphism" "use ground.tung use collection/catamorphism.tung ilk a box { a box } let value: integer box = 1 box yield value …+" imports
   , evalOkWith "n-ary product multiplies a foldable collection" "use ground.tung use data/list.tung use collection/catamorphism.tung yield (2 .* (3 .* (4 .* empty))) …×" imports "eval ok: 24"
   , evalOkWith "n-ary product of an empty collection is one" "use ground.tung use data/list.tung use collection/catamorphism.tung let values: integer list = empty yield values …×" imports "eval ok: 1"
   , evalTypeErrWith "n-ary product needeþ a multiplicative monoid" "use ground.tung use data/list.tung use collection/catamorphism.tung yield ('a' .* empty) …×" imports
@@ -257,8 +257,8 @@ importedCases imports =
   , evalOkWith "empty boolean infimal fold yieldeþ yea" "use ground.tung use data/list.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let values: (𝟚 infimal) list = list@empty yield match values fold { result infimal | result }" imports "eval ok: yea"
   , evalOkWith "natural semiring computeþ with both identities" "use ground.tung use data/natural.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two × three) + one) to-integer" imports "eval ok: 7"
   , evalOkWith "natural semiring supplieþ multiplicative monoid evidence" "use ground.tung use data/list.tung use data/natural.tung use collection/catamorphism.tung let two: natural = (natural@zero suc) suc let three = two suc yield ((two .* (three .* list@empty)) …×) to-integer" imports "eval ok: 6"
-  , evalOkWith "nonnegative integer converteþ to natural" "use ground.tung use data/natural.tung yield 3 integer-to-natural $ to-integer" imports "eval ok: 3"
-  , evalOkWith "negative integer cannot become natural" "use ground.tung yield try -1 integer-to-natural { yield _ | 'valid', message fail | message }" imports "eval ok: 'negative cannot be a natural'"
+  , evalOkWith "nonnegative integer converteþ to natural" "use ground.tung use data/natural.tung yield 3 to-natural $ to-integer" imports "eval ok: 3"
+  , evalOkWith "negative integer cannot become natural" "use ground.tung yield try -1 to-natural { yield _ | 'valid', message fail | message }" imports "eval ok: 'negative cannot be a natural'"
   , evalOkWith "complex sine of zero is zero" "use ground.tung use numeric/complex.tung yield ((0.0 complex 0.0) sine) real" imports "eval ok: 0.0"
   , evalOkWith "complex cosine of zero is one" "use ground.tung use numeric/complex.tung yield ((0.0 complex 0.0) cosine) real" imports "eval ok: 1.0"
   , evalOkWith "complex exponentiation scaleþ by the real exponent" "use ground.tung use numeric/complex.tung yield ((1.0 complex 0.0) exponent) real" imports "eval ok: 2.718281828459045"
@@ -350,28 +350,28 @@ importedCases imports =
   nominalTypeFillImports =
     Map.fromList
       [ ("common.tung", "show frame a label { let a label: integer }")
-      , ("left.tung", "use common.tung show kin token { token } fill token common@label { let _ label = 1 } show let value: token = token")
-      , ("right.tung", "use common.tung show kin token { token } fill token common@label { let _ label = 10 } show let value: token = token")
+      , ("left.tung", "use common.tung show ilk token { token } fill token common@label { let _ label = 1 } show let value: token = token")
+      , ("right.tung", "use common.tung show ilk token { token } fill token common@label { let _ label = 10 } show let value: token = token")
       ]
   transparentAliasFillImports =
     Map.fromList
-      [ ("base.tung", "show kin token { token } show frame a label { let a label: integer } fill token label { let _ label = 7 }")
+      [ ("base.tung", "show ilk token { token } show frame a label { let a label: integer } fill token label { let _ label = 7 }")
       , ("alias.tung", "use base.tung show let-ilk alias = base@token show let value: alias = base@token")
       ]
   privateAliasFillImports =
     Map.singleton
       "opaque.tung"
-      "kin secret { secret } show let-ilk public = secret show frame a label { let a label: integer } fill secret label { let _ label = 7 } show let value: public = secret"
+      "ilk secret { secret } show let-ilk public = secret show frame a label { let a label: integer } fill secret label { let _ label = 7 } show let value: public = secret"
   reexportImports = Map.fromList [("base.tung", "show let value = 7"), ("middle.tung", "use base.tung show base@value")]
   identityImports = Map.fromList [("identity.tung", "show frame a identity { let a identity: a } fill integer identity { let x identity = x }")]
   dataReexportImports =
     Map.fromList
-      [ ("data-base.tung", "show kin a box { a box }")
+      [ ("data-base.tung", "show ilk a box { a box }")
       , ("data-middle.tung", "use data-base.tung show-ilk data-base@box show data-base@box")
       ]
   constructorReexportImports =
     Map.fromList
-      [ ("base.tung", "show kin bit { off }")
+      [ ("base.tung", "show ilk bit { off }")
       , ("middle.tung", "use base.tung show-ilk base@bit show base@off")
       ]
   effectReexportImports =
@@ -437,8 +437,8 @@ typeErrorCase :: (String, String) -> Test
 typeErrorCase = uncurry evalTypeErr
 
 unitData, boolData, optionData, stopEffect, duoEffect :: String
-unitData = "kin 𝟙 { null } "
-boolData = "kin 𝟚 { yea, nay } "
-optionData = "kin a option { none, a some } "
+unitData = "ilk 𝟙 { null } "
+boolData = "ilk 𝟚 { yea, nay } "
+optionData = "ilk a option { none, a some } "
 stopEffect = "deed e stop { e stop: a } "
 duoEffect = unitData ++ "deed duo { 𝟙 first: 𝟙, 𝟙 second: 𝟙 } "

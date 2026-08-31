@@ -3,7 +3,7 @@ use data/option.tung
 use data/product.tung
 use data/two.tung
 
-kin a task {
+ilk a task {
   a done
 }
 

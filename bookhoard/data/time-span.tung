@@ -2,7 +2,7 @@ use _foreign.tung
 use data/one.tung
 
 ## a non-normalised span measured in milliseconds.
-show kin milliseconds {
+show ilk milliseconds {
   integer milliseconds
 }
 

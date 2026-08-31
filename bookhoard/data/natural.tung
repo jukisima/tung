@@ -4,7 +4,7 @@ use order.tung
 use order/lattice.tung
 use algebra/arithmetic/semiring.tung
 
-show kin natural {
+show ilk natural {
   zero,
   natural suc
 }

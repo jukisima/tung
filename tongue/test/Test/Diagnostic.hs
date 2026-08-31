@@ -34,7 +34,7 @@ precedingTypeAlias =
 
 precedingData :: Test
 precedingData =
-  expectDiagnostic "term after data declaration" "kin item { value } let other: text = value" TypeDiagnostic (SourceSpan 37 42)
+  expectDiagnostic "term after data declaration" "ilk item { value } let other: text = value" TypeDiagnostic (SourceSpan 37 42)
 
 finalExpression :: Test
 finalExpression =
@@ -56,7 +56,7 @@ adjacentDeclarationEvidence =
  where
   source =
     unlines
-      [ "kin truth { yea, nay }"
+      [ "ilk truth { yea, nay }"
       , "frame a less { let a < a: truth }"
       , "fill integer less { let x < y = yea }"
       , "let (score: integer) checked: integer = match score < 0 { yea | score, nay | score }"
@@ -71,7 +71,7 @@ adjacentImportedEvidence =
   source = "use dep.tung\nlet checked: truth = 1 < 0"
   dependency =
     unlines
-      [ "show kin truth { yea, nay }"
+      [ "show ilk truth { yea, nay }"
       , "show frame a less { let a ≤ a: truth }"
       , "graiþ a less show let (a: a, b: a) <: truth = a ≤ b"
       , "fill integer less { let x ≤ y = yea }"

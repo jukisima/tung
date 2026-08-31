@@ -11,7 +11,7 @@ show frame a elementary {
 }
 
 graiþ a elementary, a divide
-show let (a: a) tangent: a = (a sine) ∕ (a cosine)
+show let (a: a) tangent: a = (a sine) ÷ (a cosine)
 
 fill float elementary {
   let exponent = exponent-float

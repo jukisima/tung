@@ -100,7 +100,7 @@ test("analysis attacheþ doc comments to following shown declarations", () => {
     "/**",
     " * boxed data.",
     " */",
-    "show kin a box { a box }",
+    "show ilk a box { a box }",
   ].join("\n");
   const model = analyzeDocument(source, "file:///docs.tung");
   assert.equal(

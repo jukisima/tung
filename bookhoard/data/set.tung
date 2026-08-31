@@ -11,7 +11,7 @@ use order.tung
 use order/lattice.tung
 
 ## a list-backed finite set.
-show kin a set {
+show ilk a set {
   (a list) from-list
 }
 

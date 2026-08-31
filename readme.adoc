@@ -106,7 +106,7 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 | `let-ilk`
 | defineþ a type alias
 
-| `kin`
+| `ilk`
 | declareþ an algebraic data type and its constructors
 
 | `deed`

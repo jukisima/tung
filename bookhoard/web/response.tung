@@ -2,7 +2,7 @@ use data/table.tung
 use text/structure.tung
 
 ## an http response wiþ its status, headers, and utf-8 body.
-show kin response {
+show ilk response {
   integer response (text table text) text
 }
 

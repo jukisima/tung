@@ -1,6 +1,6 @@
 use ground.tung
 
-kin v lambda {
+ilk v lambda {
   v var,
   v abs (v lambda),
   (v lambda) app (v lambda)

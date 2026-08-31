@@ -58,7 +58,7 @@ checkedMainCore = case parse source >>= (\program -> elaborateProgramWithImports
   Left message -> pure (Just ("checked main core: elaboration failed: " ++ message))
   Right program -> evaluateMainCoreProgram program >>= Harness.expectEq "checked main core evaluateþ without surface syntax" "eval ok: null"
  where
-  source = "kin 𝟙 { null } let (_: 𝟙) main: 𝟙 = null"
+  source = "ilk 𝟙 { null } let (_: 𝟙) main: 𝟙 = null"
 
 checkedModuleInterface :: Test
 checkedModuleInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program Map.empty) of
@@ -77,7 +77,7 @@ checkedModuleInterface = case parse source >>= (\program -> elaborateInteractive
         expected = (RootModule, expectedTerms)
      in Harness.expectEq "checked module interface recordeþ public runtime terms" expected actual
  where
-  source = "show kin box { box } show frame a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
+  source = "show ilk box { box } show frame a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
 
 checkedImportInterface :: Test
 checkedImportInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
@@ -98,7 +98,7 @@ checkedImportInterface = case parse source >>= (\program -> elaborateInteractive
        in Harness.expectEq "checked import interface retaineþ its resolved module identity" expected importedSummary
  where
   source = "use dep.tung let same: dep@box = dep@value dep@identity"
-  imports = Map.singleton "dep.tung" "show kin box { box } show frame a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
+  imports = Map.singleton "dep.tung" "show ilk box { box } show frame a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
 
 checkedReExportInterface :: Test
 checkedReExportInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
@@ -118,7 +118,7 @@ checkedReExportInterface = case parse source >>= (\program -> elaborateInteracti
   source = "use middle.tung yield middle@value"
   imports =
     Map.fromList
-      [ ("base.tung", "show kin bit { off } show let value = 7")
+      [ ("base.tung", "show ilk bit { off } show let value = 7")
       , ("middle.tung", "use base.tung show base@off show base@value")
       ]
 
@@ -134,7 +134,7 @@ checkedReservedDataInterface = case parse source >>= (\program -> elaborateInter
  where
   path = "data/two.tung"
   source = "use data/two.tung let value: two@𝟚 = two@yea"
-  imports = Map.singleton path "show kin 𝟚 { yea, maybe }"
+  imports = Map.singleton path "show ilk 𝟚 { yea, maybe }"
 
 integerCase :: Map.Map String String -> (String, Integer) -> Test
 integerCase imports (source, expected) = safeResult imports ("generated integer " ++ source) ("yield " ++ source) ("eval ok: " ++ show expected)
@@ -168,12 +168,12 @@ languagePrograms :: [(String, String, String)]
 languagePrograms =
   [ ("checked record access", "let value = r(left = 1, right = 2) yield value@right", "eval ok: 2")
   , ("checked record update", "let value = r(left = 1, right = 2) yield r(= value, right = 3, - left)", "eval ok: r(right = 3)")
-  , ("checked exhaustive match", "kin 𝟚 { yea, nay } yield match nay { yea | 1, nay | 2 }", "eval ok: 2")
+  , ("checked exhaustive match", "ilk 𝟚 { yea, nay } yield match nay { yea | 1, nay | 2 }", "eval ok: 2")
   , ("checked integer match", "yield match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
   , ("checked class evidence", "frame a identity { let a identity: a } fill integer identity { let x identity = x } yield 7 identity", "eval ok: 7")
   , ("checked fill member calleþ sibling", "frame a linked { let a first: a let a second: a } fill integer linked { let x first = x let x second = x first } yield 7 second", "eval ok: 7")
   , ("checked empty effect", "deed marker {} yield 1", "eval ok: 1")
-  , ("checked multi-shot handler", "kin 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 eftgin) + (2 eftgin) }", "eval ok: 3")
+  , ("checked multi-shot handler", "ilk 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 eftgin) + (2 eftgin) }", "eval ok: 3")
   , ("checked non-finite floor failure", "use ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail | 0 }", "eval ok: 0")
   ]
 
@@ -190,5 +190,5 @@ booleanProductPrograms =
         cases = intercalate ", " [intercalate ", " row ++ " | " ++ show result | (row, result) <- zip rows [0 :: Int ..]]
   ]
  where
-  boolData = "kin 𝟚 { yea, nay } "
+  boolData = "ilk 𝟚 { yea, nay } "
   booleanRows arity = replicateM arity ["yea", "nay"]

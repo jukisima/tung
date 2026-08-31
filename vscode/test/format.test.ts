@@ -4,7 +4,7 @@ import { formatRangeEdit } from "../server/format.ts";
 
 test("range formatting returneþ requested full lines from formatted source", () => {
   const source = [
-    "show kin a box {",
+    "show ilk a box {",
     "a box",
     "}",
     "let value = {",
@@ -13,7 +13,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
     "",
   ].join("\n");
   const formatted = [
-    "show kin a box {",
+    "show ilk a box {",
     "  a box",
     "}",
     "let value = {",
@@ -37,7 +37,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
 });
 
 test("range formatting returneþ null when the source is unchanged", () => {
-  const source = "show kin a box {\n  a box\n}\n";
+  const source = "show ilk a box {\n  a box\n}\n";
   assert.equal(
     formatRangeEdit(source, source, {
       start: { line: 0, character: 0 },

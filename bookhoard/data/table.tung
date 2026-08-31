@@ -10,7 +10,7 @@ use collection/inhold.tung
 use collection/size.tung
 
 ## a list-backed finite association table.
-show kin k table v {
+show ilk k table v {
   ((k ∏ v) list) from-list
 }
 

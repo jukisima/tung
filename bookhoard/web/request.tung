@@ -1,7 +1,7 @@
 use data/table.tung
 
 ## an incoming http request wiþ its meþod, target, headers, and utf-8 body.
-show kin request {
+show ilk request {
   text request text (text table text) text
 }
 

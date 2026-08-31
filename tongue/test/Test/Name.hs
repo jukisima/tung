@@ -68,12 +68,12 @@ resolutionCases =
       ]
   dataReexport =
     Map.fromList
-      [ ("data-base.tung", "show kin a box { a box }")
+      [ ("data-base.tung", "show ilk a box { a box }")
       , ("data-middle.tung", "use data-base.tung show-ilk data-base@box show data-base@box")
       ]
   dataWholeReexport =
     Map.fromList
-      [ ("data-base.tung", "show kin a box { a box }")
+      [ ("data-base.tung", "show ilk a box { a box }")
       , ("data-middle.tung", "use data-base.tung show-ilk data-base@box show data-base@box")
       ]
   selectiveReexports =
@@ -98,7 +98,7 @@ resolutionCases =
       ]
   typeKindCollision =
     Map.fromList
-      [ ("data.tung", "show kin signal { signal-value }")
+      [ ("data.tung", "show ilk signal { signal-value }")
       , ("effect.tung", "show deed signal { integer signal: integer }")
       ]
   aliasImports =
@@ -109,7 +109,7 @@ resolutionCases =
   dottedFileImport = Map.singleton "a.extra.tung" (moduleSource 1)
   dottedDirectoryImport = Map.singleton "pkg.one/query.tung" (moduleSource 1)
 moduleSource :: Int -> String
-moduleSource value = "show kin box { box } show let foo: integer = " ++ show value
+moduleSource value = "show ilk box { box } show let foo: integer = " ++ show value
 
 lookupCase :: Test
 lookupCase = case contextOf "use left.tung" imports of

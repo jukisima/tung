@@ -5,7 +5,7 @@ use algebra/arithmetic/field.tung
 use numeric/absolute.tung
 use numeric/elementary.tung
 
-show kin a complex {
+show ilk a complex {
   a complex a
 }
 
@@ -43,9 +43,9 @@ fill (a complex) one {
 
 graiþ a subtract, a multiply, a divide
 fill (a complex) divide {
-  let (a complex b) ∕ (c complex d) =  (
+  let (a complex b) ÷ (c complex d) =  (
     let e = c × c $ + (d × d)
-    yield ((a × c) + (b × d) $ ∕ e) complex ((b × c) - (a × d) $ ∕ e)
+    yield ((a × c) + (b × d) $ ÷ e) complex ((b × c) - (a × d) $ ÷ e)
   )
 }
 

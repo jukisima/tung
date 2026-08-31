@@ -2,7 +2,7 @@ use ground.tung
 use data/list.tung
 use collection/catamorphism.tung
 
-kin team {
+ilk team {
   norþ,
   souþ,
   east,
@@ -31,7 +31,7 @@ let-ilk scoreline = r(
 
 let-ilk cancelled-game = r(away: team, home: team, reason: text)
 
-kin match-result {
+ilk match-result {
   scoreline finished,
   cancelled-game cancelled
 }

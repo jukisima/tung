@@ -5,7 +5,7 @@ use text/to-text.tung
 use text/structure.tung
 
 ## a paþ kept distinct from arbitrary text at api boundaries.
-show kin paþ {
+show ilk paþ {
   text paþ
 }
 

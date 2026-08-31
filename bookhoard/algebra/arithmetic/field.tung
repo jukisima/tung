@@ -3,17 +3,17 @@ use algebra/arithmetic/semiring.tung
 use algebra/arithmetic/ring.tung
 
 show frame a divide {
-  let a ∕ a: a
+  let a ÷ a: a
 }
 
 graiþ a ring, a divide
 show frame a field {
   law (dividend: a, divisor: a):
-    (dividend ∕ divisor) × divisor ~ dividend
+    (dividend ÷ divisor) × divisor ~ dividend
 }
 
 ## ieee floats provide division, but rounding, infinities, and nan prevent a
 ## lawful field fill.
 fill float divide {
-  let ∕ = divide-float
+  let ÷ = divide-float
 }

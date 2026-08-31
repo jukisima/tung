@@ -5,11 +5,11 @@ use algebra/partial/semigroupoid.tung
 
 graiþ a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =
-  try ((dividend ÷ divisor) project₁) ≡ zero {
+  try ((dividend % divisor) project₁) ≡ zero {
     _ fail | nay
   }
 
-kin fizzbuzz {
+ilk fizzbuzz {
   fizz,
   buzz,
   fizzbuzz,

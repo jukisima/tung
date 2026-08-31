@@ -68,9 +68,9 @@ show ≡, ≢
 show ≤, <, compare, clamp, ∧, ∨, ⟂, ⊤
 show ∋
 
-show +, zero, ×, one, -, ∕, ÷
+show +, zero, ×, one, -, ÷, %
 show sine, cosine, tangent, exponent, logariþm, ⌊
-show integer-to-natural
+show to-natural
 
 show to-text
 show from-text

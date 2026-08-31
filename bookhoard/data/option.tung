@@ -12,7 +12,7 @@ use collection/traverse.tung
 use order/lattice.tung
 
 ## optional value.
-show kin a option {
+show ilk a option {
   none,
   a some
 }

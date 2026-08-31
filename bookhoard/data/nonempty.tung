@@ -10,7 +10,7 @@ use collection/traverse.tung
 use collection/inhold.tung
 
 ## a list wiþ a statically known first element.
-show kin a nonempty {
+show ilk a nonempty {
   a nonempty (a list)
 }
 

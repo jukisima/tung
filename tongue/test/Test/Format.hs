@@ -24,7 +24,7 @@ generatedIdempotence = expect "formatter is idempotent for generated structural 
     , ending <- ["", "\n"]
     ]
   declarations =
-    [ ["show kin a box {", "a box", "}"]
+    [ ["show ilk a box {", "a box", "}"]
     , ["let result =", "match value {", "yea | 1,", "nay | 0", "}"]
     , ["let handled =", "try risky {", "message fail | 0", "}"]
     , ["frame a identity {", "let a identity: a", "law (x: a):", "x identity ~ x", "}"]
@@ -51,14 +51,14 @@ cases =
   ,
     ( "nested declarations"
     , """
-      show kin a box {
+      show ilk a box {
       a box
       }
       let text = '{not a block}' # }
 
       """
     , """
-      show kin a box {
+      show ilk a box {
         a box
       }
       let text = '{not a block}' # }
@@ -328,7 +328,7 @@ cases =
 
       """
     )
-  , ("windows newlines", "kin box {\r\nbox\r\n}\r\n", "kin box {\n  box\n}\n")
+  , ("windows newlines", "ilk box {\r\nbox\r\n}\r\n", "ilk box {\n  box\n}\n")
   ,
     ( "blank line endeþ continuation"
     , """

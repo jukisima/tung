@@ -2464,7 +2464,7 @@ declLabel = \case
   Import path _ -> "use '" ++ path ++ "'"
   Let name _ _ -> "let '" ++ name ++ "'"
   TypeAlias _ name _ -> "let-ilk '" ++ name ++ "'"
-  DataDecl _ name _ -> "kin '" ++ name ++ "'"
+  DataDecl _ name _ -> "ilk '" ++ name ++ "'"
   EffectDecl _ name _ -> "deed '" ++ name ++ "'"
   ElaboratedEffect target _ -> "deed '" ++ symbolName target ++ "'"
   ShapeDecl _ name _ _ -> "frame '" ++ name ++ "'"

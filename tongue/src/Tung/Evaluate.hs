@@ -670,8 +670,8 @@ evalNative name args = case (name, args) of
   ("-", [VFloat a, VFloat b]) -> evalFloatBinary (-) a b
   ("×", [VInteger a, VInteger b]) -> pure (VInteger (a * b))
   ("×", [VFloat a, VFloat b]) -> evalFloatBinary (*) a b
-  ("∕", [VFloat a, VFloat b]) -> pure (VFloat (a / b))
-  ("÷", [VInteger a, VInteger b]) -> evalIntegerDivideRemainder a b
+  ("÷", [VFloat a, VFloat b]) -> pure (VFloat (a / b))
+  ("%", [VInteger a, VInteger b]) -> evalIntegerDivideRemainder a b
   ("≡", [a, b]) -> pure (runtimeBool (a == b))
   ("≤", [VInteger a, VInteger b]) -> pure (runtimeBool (a <= b))
   ("≤", [VFloat a, VFloat b]) -> pure (runtimeBool (a <= b))

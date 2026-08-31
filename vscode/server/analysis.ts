@@ -12,7 +12,7 @@ import {
   useNamespace,
   useParts,
 } from "./syntax.ts";
-const ownedKinds = new Set(["kin", "deed", "frame"]);
+const ownedKinds = new Set(["ilk", "deed", "frame"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
   use:
@@ -33,7 +33,7 @@ const keywordHelp = {
   eftgin: "continue the handled computation from an operation clause.",
   match: "match one or more values against exhaustive pattern rows.",
   let: "bind a value or curried function.",
-  kin: "declare an algebraic data type.",
+  ilk: "declare an algebraic data type.",
   "let-ilk": "declare a type alias.",
 };
 const analyzeDocument = (text, uri = "") => {

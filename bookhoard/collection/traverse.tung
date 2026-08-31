@@ -10,5 +10,5 @@ show frame f traverse {
 }
 
 graiþ f traverse, m applicative
-show let (þings: (a m) f) sequence: (a f) m =
-  þings traverse identity
+show let (amf: (a m) f) sequence: (a f) m =
+  amf traverse identity

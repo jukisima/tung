@@ -114,12 +114,12 @@ remain monomorphic; creating a function with latent effects is still pure.
 
 == algebraic data and patterns
 
-`kin` declareþ an algebraic data type. type parameters and constructor
+`ilk` declareþ an algebraic data type. type parameters and constructor
 arguments use the ordinary sequence rule.
 
 [source,tung]
 ----
-kin a option {
+ilk a option {
   none,
   a some
 }

@@ -4,7 +4,7 @@
 'specialNameChars'; literals and comments are consumed before name parsing.
 -}
 module Tung.Token (
-  Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TKin, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar),
+  Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar),
   SourceSpan (..),
   LocatedToken (..),
   tokenSpan,
@@ -49,7 +49,7 @@ data TokenKind
   | KTShowIlk
   | KTUse
   | KTLetIlk
-  | KTKin
+  | KTIlk
   | KTDeed
   | KTYield
   | KTForeign
@@ -109,14 +109,14 @@ pattern TParenKeyword name <- Token _ (KTParenKeyword name)
  where
   TParenKeyword name = Token Nothing (KTParenKeyword name)
 
-pattern TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TKin, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar :: Token
+pattern TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar :: Token
 pattern TLet <- Token _ KTLet where TLet = Token Nothing KTLet
 pattern TGraith <- Token _ KTGraith where TGraith = Token Nothing KTGraith
 pattern TShow <- Token _ KTShow where TShow = Token Nothing KTShow
 pattern TShowIlk <- Token _ KTShowIlk where TShowIlk = Token Nothing KTShowIlk
 pattern TUse <- Token _ KTUse where TUse = Token Nothing KTUse
 pattern TLetIlk <- Token _ KTLetIlk where TLetIlk = Token Nothing KTLetIlk
-pattern TKin <- Token _ KTKin where TKin = Token Nothing KTKin
+pattern TIlk <- Token _ KTIlk where TIlk = Token Nothing KTIlk
 pattern TDeed <- Token _ KTDeed where TDeed = Token Nothing KTDeed
 pattern TYield <- Token _ KTYield where TYield = Token Nothing KTYield
 pattern TForeign <- Token _ KTForeign where TForeign = Token Nothing KTForeign
@@ -138,7 +138,7 @@ pattern TEquals <- Token _ KTEquals where TEquals = Token Nothing KTEquals
 pattern TDot <- Token _ KTDot where TDot = Token Nothing KTDot
 pattern TDollar <- Token _ KTDollar where TDollar = Token Nothing KTDollar
 
-{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TKin, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar #-}
+{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar #-}
 
 tokenSpan :: Token -> Maybe SourceSpan
 tokenSpan (Token span _) = span
@@ -314,7 +314,7 @@ keywordTokens =
   , ("show-ilk", TShowIlk)
   , ("use", TUse)
   , ("let-ilk", TLetIlk)
-  , ("kin", TKin)
+  , ("ilk", TIlk)
   , ("deed", TDeed)
   , ("yield", TYield)
   , ("fremmed", TForeign)

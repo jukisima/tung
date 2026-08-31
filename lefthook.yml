@@ -1,6 +1,6 @@
 pre-commit:
   jobs:
-    - name: tung library formatter
+    - name: format tung
       glob: "bookhoard/**/*.tung"
       run: tung --format {staged_files}
       stage_fixed: true
@@ -10,12 +10,12 @@ pre-commit:
       run: make bookhoard-membership
       stage_fixed: true
 
-    - name: fourmolu
+    - name: format haskell
       glob: "**/*.hs"
       run: fourmolu --mode inplace {staged_files}
       stage_fixed: true
 
-    - name: deno
+    - name: format typescript
       glob: "**/*.{ts,html}"
       run: |
         deno lint {staged_files}
