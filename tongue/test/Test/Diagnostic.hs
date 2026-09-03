@@ -59,7 +59,7 @@ adjacentDeclarationEvidence =
       [ "ilk truth { yea, nay }"
       , "frame a less { let a < a: truth }"
       , "fill integer less { let x < y = yea }"
-      , "let (score: integer) checked: integer = match score < 0 { yea | score, nay | score }"
+      , "let (score: integer) checked: integer = match score < 0 { yea @ score, nay @ score }"
       ]
 
 adjacentImportedEvidence :: Test

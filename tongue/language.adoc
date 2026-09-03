@@ -8,18 +8,18 @@ and repository details belong in xref:development.adoc[`development.adoc`].
 
 a `.tung` file containeþ declarations. a runnable file declareþ `main`
 locally; `main` takeþ `𝟙`, returneþ `𝟙`, and may use only runner-supported
-effects. the runner calleþ `null main` after pure module initialisation.
+effects. the runner calleþ `only main` after pure module initialisation.
 
 `use path` importeþ a module. the final path segment is its default
 namespace, and an optional final name replaceþ that namespace.
 
 [source,tung]
 ----
-use data/list.tung
-use data/table.tung hashmap
+use ilk/list.tung
+use ilk/table.tung hashmap
 
-let xs = list@empty
-let entries = hashmap@empty
+let xs = list.empty
+let entries = hashmap.empty
 ----
 
 visible imported names may remain bare when unambiguous. two different direct
@@ -34,11 +34,12 @@ re-export anything.
 
 == names, comments, and literals
 
-most non-space characters not reserved by syntax may occur in a name. `@`
-qualifieþ an imported name or, when no exact name existeþ, selecteþ a record
-field. type alias, data, effect, and frame names and þeir owned constructor,
-operation, or member names are therefore unqualified. `.*` is one ordinary
-name; there is no general infix escape. `_` discardeþ a binding or match value.
+most non-space characters not reserved by syntax may occur in a name. `.`
+qualifieþ an imported name; `@`, when embedded in a name, selecteþ a record
+field when no exact name existeþ. type alias, data, effect, and frame names and
+þeir owned constructor, operation, or member names are therefore unqualified.
+`.*` is one ordinary name; there is no general infix escape. `_` discardeþ a
+binding or match value.
 
 `#` starteþ a line comment, and `/* ... */` formeþ a non-nested block
 comment. `##` and `/** ... */` are doc comments attached to the following
@@ -126,28 +127,36 @@ ilk a option {
 ----
 
 constructor application is curried. patterns may bind variables, use `_`,
-match exact integers, or destructure constructors. binders in one pattern row
-must be linear.
+match exact integer or text literals, or destructure constructors. binders in
+one pattern row must be linear.
 
 `match` consumeþ one or more comma-separated scrutinees. bare braces form an
-anonymous function, with one curried input per pattern. cases use `|`.
+anonymous function, with one curried input per pattern. `@` separateþ a case
+from its result; `|` separateþ complete alternative pattern rows which share
+that result.
 
 [source,tung]
 ----
 let chosen = match yea, nay {
-  yea, b | b,
-  nay, _ | nay
+  yea, b | b, yea @ b,
+  nay, _ @ nay
 }
 
 let not: 𝟚 → 𝟚 = {
-  yea | nay,
-  nay | yea
+  yea @ nay,
+  nay @ yea
+}
+
+let classify: text → integer = {
+  'yes' @ 1,
+  _ @ 0
 }
 ----
 
 the checker rejecteþ non-exhaustive and redundant rows over algebraic data.
-finite integer rows need a variable or `_` because `integer` is infinite. an
-empty function `{}` eliminateþ an annotated uninhabited input such as `𝟘`.
+finite integer or text literal rows need a variable or `_` because both types
+have infinitely many values. an empty function `{}` eliminateþ an annotated
+uninhabited input such as `𝟘`.
 
 == records
 
@@ -185,9 +194,9 @@ let (a: a, b: a) ≢: 𝟚 = (a ≡ b) if nay yea
 
 fill 𝟚 equal {
   let ≡ = {
-    yea, yea | yea,
-    nay, nay | yea,
-    _, _ | nay
+    yea, yea @ yea,
+    nay, nay @ yea,
+    _, _ @ nay
   }
 }
 ----
@@ -234,8 +243,8 @@ deed ask {
 }
 
 let answer: text = try 10 ask {
-  yield n | n to-text,
-  n ask | (n + 1) eftgin
+  yield n @ n to-text,
+  n ask @ (n + 1) eftgin
 }
 ----
 

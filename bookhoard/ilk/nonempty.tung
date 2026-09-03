@@ -1,5 +1,5 @@
-use data/list.tung
-use data/option.tung
+use ilk/list.tung
+use ilk/option.tung
 use algebra/total/magma.tung
 use algebra/total/semigroup.tung
 use collection/functor.tung
@@ -15,22 +15,22 @@ show ilk a nonempty {
 }
 
 ## build a one-element non-empty list.
-show let (a: a) singleton-nonempty: a nonempty =
+show let (a: a) singleton: a nonempty =
   a nonempty empty
 
 ## expose a non-empty list as an ordinary list.
-show let (head nonempty tail: a nonempty) nonempty-to-list: a list =
+show let (head nonempty tail: a nonempty) to-list: a list =
   head .* tail
 
 ## make a non-empty list when þe input haþ a first element.
-show let list-to-nonempty: a list → (a nonempty) option = {
-  empty | none,
-  first .* rest | (first nonempty rest) some
+show let from-list: a list → (a nonempty) option = {
+  empty @ none,
+  first .* rest @ (first nonempty rest) some
 }
 
-show let (first nonempty _: a nonempty) nonempty-head: a = first
+show let (first nonempty _: a nonempty) head: a = first
 
-show let (_ nonempty rest: a nonempty) nonempty-tail: a list = rest
+show let (_ nonempty rest: a nonempty) tail: a list = rest
 
 graiþ (a list) inhold a
 fill (a nonempty) inhold a {
@@ -43,11 +43,11 @@ fill nonempty functor {
 
 fill (a nonempty) semigroup {
   let (first nonempty rest) * right =
-    first nonempty (rest * (right nonempty-to-list))
+    first nonempty (rest * (right to-list))
 }
 
 fill nonempty applicative {
-  let pure = singleton-nonempty
+  let pure = singleton
   let (first nonempty rest) apply (f nonempty fs) =
     (first f) nonempty (
       (rest map f) * ((first .* rest) apply fs)
@@ -55,12 +55,12 @@ fill nonempty applicative {
 }
 
 fill nonempty monad {
-  let (first nonempty rest) flat = rest foldl first *
+  let (first nonempty rest) flat = rest fold₁ first *
 }
 
 fill nonempty cata {
-  let (first nonempty rest) foldr b f = first f (rest foldr b f)
-  let (first nonempty rest) foldl b f = rest foldl (b f first) f
+  let (first nonempty rest) fold₀ b f = first f (rest fold₀ b f)
+  let (first nonempty rest) fold₁ b f = rest fold₁ (b f first) f
 }
 
 fill nonempty traverse {

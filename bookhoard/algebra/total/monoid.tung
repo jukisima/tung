@@ -1,6 +1,6 @@
 use algebra/total/magma.tung
 use algebra/total/semigroup.tung
-use data/two.tung
+use ilk/two.tung
 use order/lattice.tung
 
 graiþ a semigroup

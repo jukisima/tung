@@ -4,7 +4,7 @@
 'specialNameChars'; literals and comments are consumed before name parsing.
 -}
 module Tung.Token (
-  Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar),
+  Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDollar),
   SourceSpan (..),
   LocatedToken (..),
   tokenSpan,
@@ -21,6 +21,7 @@ where
 import Control.Applicative (many, some)
 import Data.Char (chr, isSpace, ord)
 import Data.IntMap.Strict qualified as IntMap
+import Data.List (isSuffixOf)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Void (Void)
 import Text.Megaparsec (Parsec)
@@ -69,7 +70,6 @@ data TokenKind
   | KTArrow
   | KTBang
   | KTEquals
-  | KTDot
   | KTDollar
   deriving (Eq, Show)
 
@@ -109,7 +109,7 @@ pattern TParenKeyword name <- Token _ (KTParenKeyword name)
  where
   TParenKeyword name = Token Nothing (KTParenKeyword name)
 
-pattern TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar :: Token
+pattern TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDollar :: Token
 pattern TLet <- Token _ KTLet where TLet = Token Nothing KTLet
 pattern TGraith <- Token _ KTGraith where TGraith = Token Nothing KTGraith
 pattern TShow <- Token _ KTShow where TShow = Token Nothing KTShow
@@ -135,10 +135,9 @@ pattern TMapsTo <- Token _ KTMapsTo where TMapsTo = Token Nothing KTMapsTo
 pattern TArrow <- Token _ KTArrow where TArrow = Token Nothing KTArrow
 pattern TBang <- Token _ KTBang where TBang = Token Nothing KTBang
 pattern TEquals <- Token _ KTEquals where TEquals = Token Nothing KTEquals
-pattern TDot <- Token _ KTDot where TDot = Token Nothing KTDot
 pattern TDollar <- Token _ KTDollar where TDollar = Token Nothing KTDollar
 
-{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDot, TDollar #-}
+{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TMapsTo, TArrow, TBang, TEquals, TDollar #-}
 
 tokenSpan :: Token -> Maybe SourceSpan
 tokenSpan (Token span _) = span
@@ -189,7 +188,7 @@ rawTokenParser =
     , unicodeLiteralParser
     , textParser
     , specialOpenParser
-    , nameParser
+    , M.try nameParser
     , singleTokenParser
     ]
 
@@ -208,10 +207,9 @@ singleTokenParser =
     , TRBrace <$ C.char '}'
     , TColon <$ C.char ':'
     , TComma <$ C.char ','
-    , TMapsTo <$ C.char '|'
+    , TMapsTo <$ C.char '@'
     , TBang <$ C.char '!'
     , TEquals <$ C.char '='
-    , TDot <$ C.char '.'
     , TDollar <$ C.char '$'
     , TArrow <$ C.char '→'
     ]
@@ -282,9 +280,12 @@ unicodeScalar value
 nameParser :: Lexer Token
 nameParser = do
   name <- concat <$> some nameChunk
-  if hasPathNamespace name
-    then fail "namespace must not contain '/'"
-    else pure (keywordOrIdent name)
+  if name == "@"
+    then fail "standalone '@' is syntax"
+    else
+      if hasPathNamespace name && not (".tung" `isSuffixOf` name)
+        then fail "namespace must not contain '/'"
+        else pure (keywordOrIdent name)
 
 nameChunk :: Lexer String
 nameChunk = M.try (C.string ".*") M.<|> ((: []) <$> M.satisfy isNameChar)
@@ -329,4 +330,4 @@ isNameChar :: Char -> Bool
 isNameChar c = not (isSpace c) && c `notElem` specialNameChars
 
 specialNameChars :: [Char]
-specialNameChars = "#(){}:,|!=.$→`'"
+specialNameChars = "#(){}:,!=$→`'"

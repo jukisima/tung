@@ -1,7 +1,7 @@
 use algebra/total/magma.tung
 use algebra/total/semigroup/infimal.tung
 use algebra/total/semigroup/supremal.tung
-use data/two.tung
+use ilk/two.tung
 use order/lattice.tung
 
 graiþ a magma
@@ -19,9 +19,8 @@ fill (a func b) semigroup {
 
 fill (𝟚 infimal) semigroup {
   let (a infimal) * (b infimal) = match a, b {
-    nay, _ | nay infimal,
-    _, nay | nay infimal,
-    _, _ | yea infimal
+    nay, _ | _, nay @ nay infimal,
+    _, _ @ yea infimal
   }
 }
 

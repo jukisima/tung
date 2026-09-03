@@ -66,6 +66,7 @@ data CorePattern
   = CoreWildcard
   | CoreBind LocalId
   | CoreIntegerPattern Integer
+  | CoreTextPattern String
   | CoreConstructorPattern SymbolId [CorePattern]
   deriving stock (Eq, Show)
 
@@ -276,6 +277,7 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
       local <- freshLocal name
       pure (CoreBind local, [(name, local)])
     PInteger value -> pure (CoreIntegerPattern value, [])
+    PText value -> pure (CoreTextPattern value, [])
     PCon name _ -> lowerFailure ("internal unresolved constructor pattern '" ++ name ++ "'")
     PConstructor target arguments -> do
       (arguments2, bindings) <- lowerPatterns arguments

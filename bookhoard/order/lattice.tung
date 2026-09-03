@@ -1,13 +1,13 @@
-use data/two.tung
-use data/three.tung
+use ilk/two.tung
+use ilk/three.tung
 use order.tung
 
 ## a carrier whose every pair haþ an infimum.
 show frame a semilattice-infimal {
   let a ∧ a: a
-  law (x: a): x ∧ x ~ x
-  law (x: a, y: a): x ∧ y ~ y ∧ x
-  law (x: a, y: a, z: a): (x ∧ y) ∧ z ~ x ∧ (y ∧ z)
+  law (a: a): a ∧ a ~ a
+  law (a: a, b: a): a ∧ b ~ b ∧ a
+  law (a: a, b: a, c: a): (a ∧ b) ∧ c ~ a ∧ (b ∧ c)
 }
 
 graiþ b semilattice-infimal
@@ -23,9 +23,9 @@ fill a semilattice-infimal {
 ## a carrier whose every pair haþ a supremum.
 show frame a semilattice-supremal {
   let a ∨ a: a
-  law (x: a): x ∨ x ~ x
-  law (x: a, y: a): x ∨ y ~ y ∨ x
-  law (x: a, y: a, z: a): (x ∨ y) ∨ z ~ x ∨ (y ∨ z)
+  law (a: a): a ∨ a ~ a
+  law (a: a, b: a): a ∨ b ~ b ∨ a
+  law (a: a, b: a, c: a): (a ∨ b) ∨ c ~ a ∨ (b ∨ c)
 }
 
 graiþ b semilattice-supremal
@@ -41,8 +41,8 @@ fill a semilattice-supremal {
 ## a carrier wiþ compatible infimum and supremum semilattices.
 graiþ a semilattice-infimal, a semilattice-supremal
 show frame a lattice {
-  law (x: a, y: a): x ∧ (x ∨ y) ~ x
-  law (x: a, y: a): x ∨ (x ∧ y) ~ x
+  law (a: a, b: a): a ∧ (a ∨ b) ~ a
+  law (a: a, b: a): a ∨ (a ∧ b) ~ a
 }
 
 graiþ b lattice
@@ -118,8 +118,8 @@ fill 𝟚 lattice-bounded {}
 
 fill 𝟚 complement {
   let ¬ = {
-    yea | nay,
-    nay | yea
+    yea @ nay,
+    nay @ yea
   }
 }
 

@@ -8,7 +8,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
     "a box",
     "}",
     "let value = {",
-    "x | x",
+    "x @ x",
     "}",
     "",
   ].join("\n");
@@ -17,7 +17,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
     "  a box",
     "}",
     "let value = {",
-    "  x | x",
+    "  x @ x",
     "}",
     "",
   ].join("\n");
@@ -31,7 +31,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
         start: { line: 3, character: 0 },
         end: { line: 5, character: 1 },
       },
-      newText: "let value = {\n  x | x\n}",
+      newText: "let value = {\n  x @ x\n}",
     },
   );
 });

@@ -1,7 +1,7 @@
-use data/list.tung
-use data/option.tung
-use data/product.tung
-use data/two.tung
+use ilk/list.tung
+use ilk/option.tung
+use ilk/product.tung
+use ilk/two.tung
 use equal.tung
 use collection/catamorphism.tung
 use collection/functor.tung
@@ -14,30 +14,30 @@ show ilk k table v {
   ((k ∏ v) list) from-list
 }
 
-show let empty: k table v = list@empty from-list
+show let empty: k table v = list.empty from-list
 
 show let (key: k, value: v) singleton: k table v =
-  key ∏ value $ .* list@empty $ from-list
+  key ∏ value $ .* list.empty $ from-list
 
 show let (entries from-list: k table v) entries: (k ∏ v) list =
   entries
 
 graiþ k equal
 show let (entries from-list: k table v, key: k) lookup: v option =
-  entries foldr none {
-    pair, found | (key ≡ (pair project₀)) if (pair project₁ $ some) found
+  entries fold₀ none {
+    pair, found @ (key ≡ (pair project₀)) if (pair project₁ $ some) found
   }
 
 graiþ k equal
 show let (entries from-list: k table v, key: k, value: v) put: k table v =
-  (key ∏ value) .* (entries foldr list@empty {
-      pair, rest | (key ≡ (pair project₀)) if rest (pair .* rest)
+  (key ∏ value) .* (entries fold₀ list.empty {
+      pair, rest @ (key ≡ (pair project₀)) if rest (pair .* rest)
   }) $ from-list
 
 graiþ k equal
 show let (entries from-list: k table v, key: k) rid: k table v =
-  entries foldr list@empty {
-    pair, rest | key ≡ (pair project₀) $ if rest (pair .* rest)
+  entries fold₀ list.empty {
+    pair, rest @ key ≡ (pair project₀) $ if rest (pair .* rest)
   } $ from-list
 
 show let (entries from-list: k table v) keys: k list =
@@ -54,14 +54,14 @@ fill (k table v) inhold k {
 fill (k table) functor {
   let (entries from-list) map f =
     entries map {
-      pair | (pair project₀) ∏ (pair project₁ $ f)
+      pair @ (pair project₀) ∏ (pair project₁ $ f)
     } $ from-list
 }
 
 fill (k table) filter {
   let (entries from-list) filter predicate =
     entries filter {
-      pair | (pair project₁) predicate
+      pair @ (pair project₁) predicate
     } $ from-list
 }
 
@@ -71,15 +71,15 @@ fill (k table v) size {
 
 graiþ k equal
 show let (left: k table v, right: k table v) merge: k table v =
-  (right entries) foldl left {
-    table, pair | table put (pair project₀) (pair project₁)
+  (right entries) fold₁ left {
+    table, pair @ table put (pair project₀) (pair project₁)
   }
 
 graiþ k equal
 show let (entries from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
-  entries foldr list@empty {
-    pair, changed | match key ≡ (pair project₀) {
-      yea | ((pair project₀) ∏ (pair project₁ $ change)) .* changed,
-      nay | pair .* changed
+  entries fold₀ list.empty {
+    pair, changed @ match key ≡ (pair project₀) {
+      nay @ pair .* changed,
+      yea @ ((pair project₀) ∏ (pair project₁ $ change)) .* changed
     }
   } $ from-list

@@ -1,5 +1,5 @@
 use _foreign.tung
-use data/one.tung
+use ilk/one.tung
 use web/request.tung
 use web/response.tung
 

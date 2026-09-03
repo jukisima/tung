@@ -1,0 +1,11 @@
+use text/to-text.tung
+
+show ilk 𝟙 {
+  only
+}
+
+show let (_: a) terminal: 𝟙 = only
+
+fill 𝟙 to-text {
+  let _ to-text = 'only'
+}

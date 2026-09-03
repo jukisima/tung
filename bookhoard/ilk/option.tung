@@ -1,5 +1,5 @@
-use data/one.tung
-use data/two.tung
+use ilk/one.tung
+use ilk/two.tung
 use algebra/total/magma.tung
 use algebra/total/semigroup.tung
 use algebra/total/monoid.tung
@@ -20,9 +20,9 @@ show ilk a option {
 graiþ a semigroup
 fill (a option) semigroup {
   let * = {
-    none, b | b,
-    a, none | a,
-    a some, b some | a * b $ some
+    none, b @ b,
+    a, none @ a,
+    a some, b some @ a * b $ some
   }
 }
 
@@ -33,67 +33,67 @@ fill (a option) monoid {
 
 fill option functor {
   let map = {
-    none, _ | none,
-    a some, f | a f $ some
+    none, _ @ none,
+    a some, f @ a f $ some
   }
 }
 
 fill option applicative {
   let pure = some
   let apply = {
-    a some, f some | a f $ some,
-    _, _ | none
+    a some, f some @ a f $ some,
+    _, _ @ none
   }
 }
 
 fill option monad {
   let flat = {
-    none | none,
-    a some | a
+    none @ none,
+    a some @ a
   }
 }
 
 fill option filter {
   let filter = {
-    none, _ | none,
-    a some, f | a f $ if (a some) none
+    none, _ @ none,
+    a some, f @ a f $ if (a some) none
   }
 }
 
 fill option cata {
-  let foldr = {
-    none, b, _ | b,
-    a some, b, f | a f b
+  let fold₀ = {
+    none, b, _ @ b,
+    a some, b, f @ a f b
   }
-  let foldl = {
-    none, b, _ | b,
-    a some, b, f | b f a
+  let fold₁ = {
+    none, b, _ @ b,
+    a some, b, f @ b f a
   }
 }
 
 fill option traverse {
   let traverse = {
-    none, _ | none pure,
-    a some, f | (a f) map some
+    none, _ @ none pure,
+    a some, f @ (a f) map some
   }
 }
 
 ## extract an option wiþ a fallback value.
 show let default: a option → a → a = {
-  none, b | b,
-  a some, _ | a
+  none, b @ b,
+  a some, _ @ a
 }
 
 ## consume an option wiþ a fallback and a present-value branch.
 show let maybe: a option → b → (a → b ! e) → b ! e = {
-  none, b, _ | b,
-  a some, _, f | a f
+  none, b, _ @ b,
+  a some, _, f @ a f
 }
 
 ## true when an option containeþ a value.
 show let is-some: a option → 𝟚 = {
-  none | nay,
-  _ some | yea
+  none @ nay,
+  _ some @ yea
 }
 
 ## true when an option is empty.
@@ -102,6 +102,6 @@ show let (option: a option) is-none: 𝟚 = option is-some $ ¬
 ## extract an option or run a fallback computation.
 show let (option: a option, fallback: 𝟙 → a ! e) or-else: a ! e =
   match option {
-    none | null fallback,
-    a some | a
+    none @ only fallback,
+    a some @ a
   }

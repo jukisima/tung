@@ -22,7 +22,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depText =
     "show ilk natural { zero }\nshow ilk a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow frame a convert { let a convert: a }\n";
   const mainText =
-    'use dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third | second }\nfill integer convert { let x convert = x }\nshow ilk a box {\na box\n}\n';
+    'use dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third @ second }\nfill integer convert { let x convert = x }\nshow ilk a box {\na box\n}\n';
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -201,7 +201,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     position: answerPosition,
   });
   assert(completion.some(({ label }) => label === "answer"));
-  assert(completion.some(({ label }) => label === "dep@answer"));
+  assert(completion.some(({ label }) => label === "dep.answer"));
   const definition = await request("textDocument/definition", {
     textDocument: { uri: mainUri },
     position: answerPosition,

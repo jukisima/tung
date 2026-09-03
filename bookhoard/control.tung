@@ -1,11 +1,11 @@
-use data/one.tung
-use data/two.tung
+use ilk/one.tung
+use ilk/two.tung
 use order/lattice.tung
 
 ## run an action when þe condition is true.
 show let when: 𝟚 → (𝟙 → 𝟙 ! e) → 𝟙 ! e = {
-  yea, f | null f,
-  nay, _ | null
+  yea, f @ only f,
+  nay, _ @ only
 }
 
 ## run an action when þe condition is false.
@@ -14,6 +14,6 @@ show let (two: 𝟚, f: 𝟙 → 𝟙 ! e)
 
 ## pick and run one delayed branch.
 show let branch: 𝟚 → (𝟙 → a ! e0) → (𝟙 → a ! e1) → a ! e0, e1 = {
-  yea, f, _ | null f,
-  nay, _, g | null g
+  yea, f, _ @ only f,
+  nay, _, g @ only g
 }

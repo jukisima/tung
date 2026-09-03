@@ -47,8 +47,8 @@ runnableFileCase imports path = do
 
 mainEntry :: Imports -> Test
 mainEntry imports = do
-  actual <- evaluateMainWithImports "use ground.tung let (_: 𝟙) main: 𝟙 = null yield 42" imports
-  pure $ if actual == "eval ok: null" then Nothing else Just ("main entry: " ++ actual)
+  actual <- evaluateMainWithImports "use ground.tung let (_: 𝟙) main: 𝟙 = only yield 42" imports
+  pure $ if actual == "eval ok: only" then Nothing else Just ("main entry: " ++ actual)
 
 rejectedMain :: Imports -> Test
 rejectedMain imports = do
@@ -78,21 +78,21 @@ webServerRoundTrip imports = do
         """
         use ground.tung
         use clock.tung
-        use data/option.tung
-        use data/table.tung
+        use ilk/option.tung
+        use ilk/table.tung
         use web/server.tung
 
         let (incoming: request) route: response ! clock = (
-          let stamp = null unix-time
+          let stamp = only unix-time
           yield match ((incoming request-meþod) ≡ 'POST') ∧ ((incoming request-target) ≡ '/echo') {
-            yea | match ((incoming request-headers) table@lookup 'Host') {
-              host option@some | match host ≡ 'localhost' {
-                yea | ((((incoming request-body) ok) wiþ-header 'Transfer-Encoding' 'chunked') wiþ-header 'X-Tung' 'old') wiþ-header 'X-Tung' 'yea',
-                nay | 'not found\\n' not-found
+            yea @ match ((incoming request-headers) table.lookup 'Host') {
+              host option.some @ match host ≡ 'localhost' {
+                yea @ ((((incoming request-body) ok) wiþ-header 'Transfer-Encoding' 'chunked') wiþ-header 'X-Tung' 'old') wiþ-header 'X-Tung' 'yea',
+                nay @ 'not found\\n' not-found
               },
-              _ | 'not found\\n' not-found
+              _ @ 'not found\\n' not-found
             },
-            nay | 'not found\\n' not-found
+            nay @ 'not found\\n' not-found
           }
         )
 
@@ -100,7 +100,7 @@ webServerRoundTrip imports = do
         """
           ++ " "
           ++ show port
-          ++ " serve route { _ fail | null }"
+          ++ " serve route { _ fail @ only }"
   server <- forkIO (void (evaluateMainWithImports source imports))
   -- type checking and evaluator startup share this budget with the round trip.
   response <- Timeout.timeout 10000000 (tryIOException (requestEventually 300 port)) `finally` killThread server

@@ -83,7 +83,7 @@ connection.onInitialize((params) => {
         full: true,
         range: true,
       },
-      completionProvider: { triggerCharacters: ["@", "/", "."] },
+      completionProvider: { triggerCharacters: ["/", "."] },
       hoverProvider: true,
       definitionProvider: true,
       declarationProvider: true,
@@ -174,7 +174,7 @@ connection.onCompletion(({ textDocument, position }) => {
   const definitionItems = definitions
     .map((definition) => definitionCompletion(definition))
     .filter(({ label }) =>
-      !prefix || label.startsWith(prefix) || label.includes(`@${prefix}`)
+      !prefix || label.startsWith(prefix) || label.includes(`.${prefix}`)
     );
   const keywordItems = languageNames.keywords
     .filter((name) => !prefix || name.startsWith(prefix))
@@ -641,7 +641,7 @@ const errorRange = (document, diagnostic) => {
   const token = name &&
     model?.tokens.find(
       (candidate) =>
-        candidate.text === name || candidate.text.endsWith(`@${name}`),
+        candidate.text === name || candidate.text.endsWith(`.${name}`),
     );
   if (token) return tokenRange(token);
   const offset = firstCodeOffset(document.getText());

@@ -40,8 +40,8 @@ fill (a ∏) monad {
 }
 
 fill (a ∏) cata {
-  let (_ ∏ a) foldr b f = a f b
-  let (_ ∏ a) foldl b f = b f a
+  let (_ ∏ a) fold₀ b f = a f b
+  let (_ ∏ a) fold₁ b f = b f a
 }
 
 fill (a ∏) traverse {
@@ -51,12 +51,12 @@ fill (a ∏) traverse {
 
 graiþ a semilattice-infimal, b semilattice-infimal
 fill (a ∏ b) semilattice-infimal {
-  let (a0 ∏ b0) ∧ (a1 ∏ b1) = (a0 ∧ a1) ∏ (b0 ∧ b1)
+  let (a₀ ∏ b₀) ∧ (a₁ ∏ b₁) = (a₀ ∧ a₁) ∏ (b₀ ∧ b₁)
 }
 
 graiþ a semilattice-supremal, b semilattice-supremal
 fill (a ∏ b) semilattice-supremal {
-  let (a0 ∏ b0) ∨ (a1 ∏ b1) = (a0 ∨ a1) ∏ (b0 ∨ b1)
+  let (a₀ ∏ b₀) ∨ (a₁ ∏ b₁) = (a₀ ∨ a₁) ∏ (b₀ ∨ b₁)
 }
 
 graiþ a lattice, b lattice

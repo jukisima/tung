@@ -1,15 +1,15 @@
-use data/one.tung
-use data/two.tung
+use ilk/one.tung
+use ilk/two.tung
 use algebra/partial/category.tung
 use equal.tung
 use order.tung
-use data/product.tung
+use ilk/product.tung
 use algebra/total/magma.tung
 use algebra/total/semigroup.tung
 use algebra/total/monoid.tung
 use algebra/arithmetic/semiring.tung
-use data/natural.tung
-use data/option.tung
+use ilk/natural.tung
+use ilk/option.tung
 use collection/size.tung
 use collection/catamorphism.tung
 use collection/functor.tung
@@ -28,15 +28,15 @@ show ilk a list {
 graiþ a equal
 fill (a list) inhold a {
   let ∋ = {
-    empty, _ | nay,
-    first .* rest, a | (a ≡ first) if yea (rest ∋ a)
+    empty, _ @ nay,
+    first .* rest, a @ (a ≡ first) if yea (rest ∋ a)
   }
 }
 
 ## integer range from start to stop, inclusive.
 show let (start: integer, stop: integer) till: integer list = match start ≤ stop {
-  yea | start .* (start + 1 $ till stop),
-  nay | empty
+  yea @ start .* (start + 1 $ till stop),
+  nay @ empty
 }
 
 ## build a one-element list.
@@ -44,8 +44,8 @@ show let (a: a) singleton: a list = a .* empty
 
 fill (a list) semigroup {
   let * = {
-    empty, list | list,
-    first .* rest, list | first .* (rest * list)
+    empty, list @ list,
+    first .* rest, list @ first .* (rest * list)
   }
 }
 
@@ -55,36 +55,36 @@ fill (a list) monoid {
 
 fill list functor {
   let map = {
-    empty, _ | empty,
-    first .* rest, f | (first f) .* (rest map f)
+    empty, _ @ empty,
+    first .* rest, f @ (first f) .* (rest map f)
   }
 }
 
 fill list monad {
   let a pure = a .* empty
   let list apply = {
-    empty | empty,
-    first .* rest | (list map first) * (list apply rest)
+    empty @ empty,
+    first .* rest @ (list map first) * (list apply rest)
   }
   let flat = {
-    empty | empty,
-    first .* rest | first * (rest flat)
+    empty @ empty,
+    first .* rest @ first * (rest flat)
   }
 }
 
 fill list filter {
   let filter = {
-    empty, _ | empty,
-    first .* rest, f | match first f {
-      yea | first .* (rest filter f),
-      nay | rest filter f
+    empty, _ @ empty,
+    first .* rest, f @ match first f {
+      yea @ first .* (rest filter f),
+      nay @ rest filter f
     }
   }
 }
 
 show let each: a list → (a → 𝟙 ! e) → 𝟙 ! e = {
-  empty, _ | null,
-  first .* rest, action | (
+  empty, _ @ only,
+  first .* rest, action @ (
     let _ = first action
     yield rest each action
   )
@@ -92,85 +92,84 @@ show let each: a list → (a → 𝟙 ! e) → 𝟙 ! e = {
 
 ## first list element, if present.
 show let head: a list → a option = {
-  empty | none,
-  first .* _ | first some
+  empty @ none,
+  first .* _ @ first some
 }
 
 ## list wiþout its first element, if present.
 show let tail: a list → (a list) option = {
-  empty | none,
-  _ .* rest | rest some
+  empty @ none,
+  _ .* rest @ rest some
 }
 
 show let behead: a list → (a ∏ (a list)) option = {
-  empty | none,
-  first .* rest | (first ∏ rest) some
+  empty @ none,
+  first .* rest @ (first ∏ rest) some
 }
 
 ## first count elements.
 show let (list: a list, count: integer) take: a list =
   match count ≤ 0 {
-    yea | empty,
-    nay | match list {
-      empty | empty,
-      first .* rest | first .* (rest take (count - 1))
+    yea @ empty,
+    nay @ match list {
+      empty @ empty,
+      first .* rest @ first .* (rest take (count - 1))
     }
   }
 
 ## list after removing count elements.
 show let (list: a list, count: integer) drop: a list =
   match count ≤ 0 {
-    yea | list,
-    nay | match list {
-      empty | empty,
-      _ .* rest | rest drop (count - 1)
+    yea @ list,
+    nay @ match list {
+      empty @ empty,
+      _ .* rest @ rest drop (count - 1)
     }
   }
 
 ## first element accepted by a predicate.
 show let find: a list → (a → 𝟚 ! e) → a option ! e = {
-  empty, _ | none,
-  first .* rest, f | match first f {
-    yea | first some,
-    nay | rest find f
+  empty, _ @ none,
+  first .* rest, f @ match first f {
+    yea @ first some,
+    nay @ rest find f
   }
 }
 
 fill list cata {
-  let list foldr b f = match list {
-    empty | b,
-    first .* rest | first f (rest foldr b f)
+  let list fold₀ b f = match list {
+    empty @ b,
+    first .* rest @ first f (rest fold₀ b f)
   }
-  let list foldl b f = match list {
-    empty | b,
-    first .* rest | rest foldl (b f first) f
+  let list fold₁ b f = match list {
+    empty @ b,
+    first .* rest @ rest fold₁ (b f first) f
   }
 }
 
 fill list traverse {
   let traverse = {
-    empty, _ | empty pure,
-    first .* rest, f | (first f) lift₂ (rest traverse f) .*
+    empty, _ @ empty pure,
+    first .* rest, f @ (first f) lift₂ (rest traverse f) .*
   }
 }
 
 fill (a list) size {
-  let list size = list foldl natural@zero { n, _ | n suc }
+  let list size = list fold₁ natural.zero { n, _ @ n suc }
 }
 
 show let (list: a list) reverse: a list =
-  list foldl empty { outcome, a | a .* outcome }
+  list fold₁ empty { outcome, a @ a .* outcome }
 
 show let zip: a list → b list → (a ∏ b) list = {
-  empty, _ | empty,
-  _, empty | empty,
-  a .* a…, b .* b… | (a ∏ b) .* (a… zip b…)
+  empty, _ | _, empty @ empty,
+  a .* a…, b .* b… @ (a ∏ b) .* (a… zip b…)
 }
 
 ## element at a zero-based index.
 show let (list: a list, index: integer) at: a option = match index ≤ -1 {
-  yea | none,
-  nay | (list drop index) head
+  yea @ none,
+  nay @ (list drop index) head
 }
 
 ## final element, if present.
@@ -180,26 +179,25 @@ show let (list: a list) last: a option =
 ## repeat a value count times.
 show let (a: a, count: integer) replicate: a list =
   match count ≤ 0 {
-    yea | empty,
-    nay | a .* (a replicate (count - 1))
+    yea @ empty,
+    nay @ a .* (a replicate (count - 1))
   }
 
 ## split values accepted and rejected by a predicate.
-show let partition: a list → (a → 𝟚 ! e) → (a list) ∏ (a list) ! e
-  = {
-    empty, _ | empty ∏ empty,
-    first .* rest, f | match rest partition f {
-      accepted ∏ rejected | match first f {
-        yea | (first .* accepted) ∏ rejected,
-        nay | accepted ∏ (first .* rejected)
-      }
+show let partition: a list → (a → 𝟚 ! e) → (a list) ∏ (a list) ! e = {
+  empty, _ @ empty ∏ empty,
+  first .* rest, f @ match rest partition f {
+    accepted ∏ rejected @ match first f {
+      yea @ (first .* accepted) ∏ rejected,
+      nay @ accepted ∏ (first .* rejected)
     }
   }
+}
 
 ## split a list of products into two lists.
 show let unzip: (a ∏ b) list → (a list) ∏ (b list) = {
-  empty | empty ∏ empty,
-  (a ∏ b) .* pairs | match pairs unzip {
-    a… ∏ b… | (a .* a…) ∏ (b .* b…)
+  empty @ empty ∏ empty,
+  (a ∏ b) .* pairs @ match pairs unzip {
+    a… ∏ b… @ (a .* a…) ∏ (b .* b…)
   }
 }

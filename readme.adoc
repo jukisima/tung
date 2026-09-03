@@ -141,11 +141,11 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 
 [source,tung]
 ----
-use data/list.tung
-use data/table.tung hashmap
+use ilk/list.tung
+use ilk/table.tung hashmap
 
-let mine-list-empty = list@empty
-let mine-table-empty = hashmap@empty
+let mine-list-empty = list.empty
+let mine-table-empty = hashmap.empty
 ----
 
 imported names may stay bare when unambiguous.
@@ -163,8 +163,8 @@ deed ask {
 }
 
 let answer: text = try 10 ask {
-  yield n | n to-text,
-  n ask | (n + 1) eftgin
+  yield n @ n to-text,
+  n ask @ (n + 1) eftgin
 }
 ----
 

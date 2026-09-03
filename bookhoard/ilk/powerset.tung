@@ -1,4 +1,4 @@
-use data/two.tung
+use ilk/two.tung
 use combinator.tung
 use algebra/partial/category.tung
 use algebra/partial/semigroupoid.tung
@@ -25,17 +25,17 @@ fill (a powerset) inhold a {
 
 graiþ a equal
 show let (powerset: a powerset, a: a) put: a powerset = {
-  b | (b ≡ a) ∨ (b powerset)
+  b @ (b ≡ a) ∨ (b powerset)
 }
 
 graiþ a equal
 show let (powerset: a powerset, a: a) rid: a powerset = {
-  b | (b ≢ a) ∧ (b powerset)
+  b @ (b ≢ a) ∧ (b powerset)
 }
 
 show let (powerset₀: a powerset, powerset₁: a powerset)
   ∖: a powerset = {
-    a | (a powerset₀) ∧ (a powerset₁ $ ¬)
+    a @ (a powerset₀) ∧ (a powerset₁ $ ¬)
   }
 
 graiþ (a powerset) semilattice-infimal

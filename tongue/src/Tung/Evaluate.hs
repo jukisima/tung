@@ -71,7 +71,7 @@ import Tung.Primitive (
   hostBindings,
   nayConstructorId,
   noneConstructorId,
-  nullConstructorId,
+  onlyConstructorId,
   primitiveFillSpecs,
   processResultConstructorId,
   productConstructorId,
@@ -271,7 +271,7 @@ runMain program = do
   let mainSymbol = SymbolId (interfaceModule (coreInterface program)) "main"
       mainTerm = TermExport mainSymbol OrdinaryTerm
   mainValue <- maybe (runtimeError "runnable file must declare main") pure (lookupGlobalValue mainTerm env)
-  applyOne mainValue runtimeNull
+  applyOne mainValue runtimeOnly
 
 evalProgram :: CoreProgram -> Eval RuntimeValue
 evalProgram program = snd <$> evalProgramEnv [] program (coreDeclarations program)
@@ -627,6 +627,9 @@ bindRuntimePattern (CoreBind local) value env = Just (addLocalValue local value 
 bindRuntimePattern (CoreIntegerPattern expected) value env = case value of
   VInteger actual | actual == expected -> Just env
   _ -> Nothing
+bindRuntimePattern (CoreTextPattern expected) value env = case value of
+  VText actual | actual == Text.pack expected -> Just env
+  _ -> Nothing
 bindRuntimePattern (CoreConstructorPattern constructor args) value env = case value of
   VData identity fields | constructor == identity -> bindRuntimePatterns args fields env
   _ -> Nothing
@@ -682,20 +685,20 @@ evalNative name args = case (name, args) of
 evalEffectOp :: SymbolId -> SymbolId -> [RuntimeValue] -> Eval RuntimeValue
 evalEffectOp effect operation args = case (effect, operation, args) of
   (SymbolId RuntimeModule "console", SymbolId RuntimeModule "write", [VText text]) -> writeConsole text
-  (SymbolId RuntimeModule "console", SymbolId RuntimeModule "read", [VData identity []]) | identity == nullConstructorId -> VText <$> liftIO readConsoleLine
-  (SymbolId RuntimeModule "random", SymbolId RuntimeModule "random", [VData identity []]) | identity == nullConstructorId -> VFloat <$> liftIO nextRandomFloat
+  (SymbolId RuntimeModule "console", SymbolId RuntimeModule "read", [VData identity []]) | identity == onlyConstructorId -> VText <$> liftIO readConsoleLine
+  (SymbolId RuntimeModule "random", SymbolId RuntimeModule "random", [VData identity []]) | identity == onlyConstructorId -> VFloat <$> liftIO nextRandomFloat
   (SymbolId RuntimeModule "async", SymbolId RuntimeModule "sleep", [VInteger ms]) -> sleepMilliseconds ms
   (SymbolId RuntimeModule "async", SymbolId RuntimeModule "fork", [work]) -> forkConcurrent work
   (SymbolId RuntimeModule "async", SymbolId RuntimeModule "wait", [VTask task]) -> waitTask task
   (SymbolId RuntimeModule "async", SymbolId RuntimeModule "fordo", [VTask task]) -> cancelTask task
   (SymbolId RuntimeModule "async", SymbolId RuntimeModule "wait-for", [VTask task, VInteger milliseconds]) -> waitForTask task milliseconds
   (SymbolId RuntimeModule "file", SymbolId RuntimeModule "read-file", [VText path]) -> ioRuntime (VText <$> TextIO.readFile (Text.unpack path))
-  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "write-file", [VText path, VText text]) -> ioRuntime (TextIO.writeFile (Text.unpack path) text >> pure runtimeNull)
-  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "append-file", [VText path, VText text]) -> ioRuntime (TextIO.appendFile (Text.unpack path) text >> pure runtimeNull)
-  (SymbolId RuntimeModule "system", SymbolId RuntimeModule "arguments", [VData identity []]) | identity == nullConstructorId -> runtimeList . map (VText . Text.pack) <$> readHostArguments
+  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "write-file", [VText path, VText text]) -> ioRuntime (TextIO.writeFile (Text.unpack path) text >> pure runtimeOnly)
+  (SymbolId RuntimeModule "file", SymbolId RuntimeModule "append-file", [VText path, VText text]) -> ioRuntime (TextIO.appendFile (Text.unpack path) text >> pure runtimeOnly)
+  (SymbolId RuntimeModule "system", SymbolId RuntimeModule "arguments", [VData identity []]) | identity == onlyConstructorId -> runtimeList . map (VText . Text.pack) <$> readHostArguments
   (SymbolId RuntimeModule "system", SymbolId RuntimeModule "environment", [VText name]) -> runtimeOption . fmap (VText . Text.pack) <$> liftIO (Environment.lookupEnv (Text.unpack name))
   (SymbolId RuntimeModule "system", SymbolId RuntimeModule "exit", [VInteger status]) -> liftIO (exitWith (if status == 0 then ExitSuccess else ExitFailure (boundedInt status)))
-  (SymbolId RuntimeModule "clock", SymbolId RuntimeModule "unix-time", [VData identity []]) | identity == nullConstructorId -> VInteger . floor <$> liftIO getPOSIXTime
+  (SymbolId RuntimeModule "clock", SymbolId RuntimeModule "unix-time", [VData identity []]) | identity == onlyConstructorId -> VInteger . floor <$> liftIO getPOSIXTime
   (SymbolId RuntimeModule "process", SymbolId RuntimeModule "run-process", [VText command, arguments]) -> runProcessRuntime command arguments
   (SymbolId RuntimeModule "web", SymbolId RuntimeModule "serve", [VInteger port, handler]) -> serveWeb port handler
   _ -> performRuntime effect operation args
@@ -795,13 +798,13 @@ exitStatus ExitSuccess = 0
 exitStatus (ExitFailure status) = toInteger status
 
 writeConsole :: Text.Text -> Eval RuntimeValue
-writeConsole text = liftIO (TextIO.putStr text >> hFlush stdout) >> pure runtimeNull
+writeConsole text = liftIO (TextIO.putStr text >> hFlush stdout) >> pure runtimeOnly
 
 readConsoleLine :: IO Text.Text
 readConsoleLine = hFlush stdout >> TextIO.getLine
 
 sleepMilliseconds :: Integer -> Eval RuntimeValue
-sleepMilliseconds ms = liftIO (sleepMicroseconds (max 0 ms * 1000)) >> pure runtimeNull
+sleepMilliseconds ms = liftIO (sleepMicroseconds (max 0 ms * 1000)) >> pure runtimeOnly
 
 sleepMicroseconds :: Integer -> IO ()
 sleepMicroseconds remaining
@@ -846,7 +849,7 @@ forkConcurrent work = Eval $ \host@RuntimeHost{hostTaskSlots, hostNextTask, host
 
 runTask :: RuntimeHost -> RuntimeValue -> IO TaskResult
 runTask host work = do
-  outcome <- try (runEval (applyOne work runtimeNull) host)
+  outcome <- try (runEval (applyOne work runtimeOnly) host)
   pure $ case outcome of
     Left exception
       | Just ThreadKilled <- fromException exception -> TaskCancelled
@@ -869,7 +872,7 @@ waitForTask task milliseconds = do
   maybe (pure (runtimeOption Nothing)) (fmap (runtimeOption . Just) . taskResult) result
 
 cancelTask :: RuntimeTask -> Eval RuntimeValue
-cancelTask task = liftIO (cancelTaskIO task) >> pure runtimeNull
+cancelTask task = liftIO (cancelTaskIO task) >> pure runtimeOnly
 
 cancelTaskIO :: RuntimeTask -> IO ()
 cancelTaskIO task = readMVar (runtimeTaskThread task) >>= mapM_ killThread
@@ -883,8 +886,8 @@ taskResult = \case
 boundedMicroseconds :: Integer -> Int
 boundedMicroseconds milliseconds = fromInteger (min (toInteger (maxBound :: Int)) (max 0 milliseconds * 1000))
 
-runtimeNull :: RuntimeValue
-runtimeNull = VData nullConstructorId []
+runtimeOnly :: RuntimeValue
+runtimeOnly = VData onlyConstructorId []
 
 runtimeList :: [RuntimeValue] -> RuntimeValue
 runtimeList = foldr (\value rest -> VData consConstructorId [value, rest]) (VData emptyConstructorId [])

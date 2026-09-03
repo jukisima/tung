@@ -1,9 +1,12 @@
 use ground.tung
 
 let fibonacci: integer → integer = {
-  0 | 0,
-  1 | 1,
-  n | ((n - 1) fibonacci) + ((n - 2) fibonacci)
+  0 @ 0,
+  1 @ 1,
+  n @ match 0 ≤ n {
+    yea @ (n - 1 $ fibonacci) + (n - 2 $ fibonacci),
+    nay @ (n + 2 $ fibonacci) - (n + 1 $ fibonacci)
+  }
 }
 
 let _ main: 𝟙 ! console =

@@ -17,7 +17,7 @@ module Tung.Primitive (
   hostTypeId,
   dataDeclarationRef,
   primitiveFillSpecs,
-  nullConstructorId,
+  onlyConstructorId,
   yeaConstructorId,
   nayConstructorId,
   emptyConstructorId,
@@ -100,12 +100,12 @@ data PrimitiveShape = PrimitiveShape
 data SchemaOrdering = SourceOrdering | StructuralOrdering
 
 oneData, twoData, listData, optionData, productData, tableData :: HostData
-oneData = HostData "data/one.tung" "𝟙" [] [Ctor "null" []]
-twoData = HostData "data/two.tung" "𝟚" [] [Ctor "yea" [], Ctor "nay" []]
-listData = HostData "data/list.tung" "list" ["a"] [Ctor "empty" [], Ctor ".*" [TypeName "a", TypeApply "list" [TypeName "a"]]]
-optionData = HostData "data/option.tung" "option" ["a"] [Ctor "none" [], Ctor "some" [TypeName "a"]]
-productData = HostData "data/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName "a", TypeName "b"]]
-tableData = HostData "data/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]]]
+oneData = HostData "ilk/one.tung" "𝟙" [] [Ctor "only" []]
+twoData = HostData "ilk/two.tung" "𝟚" [] [Ctor "yea" [], Ctor "nay" []]
+listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [], Ctor ".*" [TypeName "a", TypeApply "list" [TypeName "a"]]]
+optionData = HostData "ilk/option.tung" "option" ["a"] [Ctor "none" [], Ctor "some" [TypeName "a"]]
+productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName "a", TypeName "b"]]
+tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]]]
 
 processResultData, requestData, responseData :: HostData
 processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [TypeName "integer", TypeName "text", TypeName "text"]]
@@ -234,7 +234,7 @@ renderEffectId SymbolId{symbolModule = RuntimeModule, symbolName} = symbolName
 renderEffectId SymbolId{symbolModule = RootModule, symbolName}
   | symbolName `elem` hostEffectNames = "$root@" ++ symbolName
   | otherwise = symbolName
-renderEffectId SymbolId{symbolModule = SourceModule path, symbolName} = importNamespace path ++ "@" ++ symbolName
+renderEffectId SymbolId{symbolModule = SourceModule path, symbolName} = importNamespace path ++ "." ++ symbolName
 
 findHostEffect :: String -> Maybe HostEffect
 findHostEffect name = find ((== name) . hostEffectName) hostEffectSchemas
@@ -373,8 +373,8 @@ normaliseConstructor parameters (Ctor name fields) = Ctor name (map normaliseTyp
  where
   normaliseType = normaliseSchemaType SourceOrdering (numberedVariables "$" parameters)
 
-nullConstructorId, yeaConstructorId, nayConstructorId :: SymbolId
-nullConstructorId = constructorId oneData "null"
+onlyConstructorId, yeaConstructorId, nayConstructorId :: SymbolId
+onlyConstructorId = constructorId oneData "only"
 yeaConstructorId = constructorId twoData "yea"
 nayConstructorId = constructorId twoData "nay"
 
@@ -396,7 +396,7 @@ responseConstructorId = constructorId responseData "response"
 tableConstructorId = constructorId tableData "from-list"
 
 canonicalDataTypeName :: HostData -> String
-canonicalDataTypeName HostData{hostDataSource, hostDataName} = importNamespace hostDataSource ++ "@" ++ hostDataName
+canonicalDataTypeName HostData{hostDataSource, hostDataName} = importNamespace hostDataSource ++ "." ++ hostDataName
 
 constructorId :: HostData -> String -> SymbolId
 constructorId HostData{hostDataSource, hostDataName} name = SymbolId (SourceModule hostDataSource) (hostDataName ++ "@" ++ name)

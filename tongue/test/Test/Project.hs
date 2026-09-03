@@ -38,12 +38,12 @@ nestedImports = withProject files "main.tung" \result ->
   expectEq "loadeþ nested relative imports" (Right expected) (projectContents <$> result)
  where
   files =
-    [ ("main.tung", "use lib/a.tung let _ main = null")
+    [ ("main.tung", "use lib/a.tung let _ main = only")
     , ("lib/a.tung", "use b.tung show let a = b")
     , ("lib/b.tung", "show let b = 1")
     ]
   expected =
-    ( "use lib/a.tung let _ main = null"
+    ( "use lib/a.tung let _ main = only"
     , Map.fromList
         [ ("lib/a.tung", "use b.tung show let a = b")
         , ("b.tung", "show let b = 1")

@@ -1,4 +1,4 @@
-use data/two.tung
+use ilk/two.tung
 use collection/functor.tung
 
 graiþ f functor

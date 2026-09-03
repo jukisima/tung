@@ -42,7 +42,7 @@ test("analysis recordeþ foreign import paths", () => {
 });
 test("analysis recordeþ an optional import alias separately from its path", () => {
   const model = analyzeDocument(
-    "use data/list.tung list yield list@empty",
+    "use ilk/list.tung list yield list.empty",
     "file:///imports.tung",
   );
   assert.deepEqual(
@@ -53,7 +53,7 @@ test("analysis recordeþ an optional import alias separately from its path", () 
     })),
     [
       {
-        path: "data/list.tung",
+        path: "ilk/list.tung",
         namespace: "list",
         alias: "list",
       },
@@ -62,7 +62,7 @@ test("analysis recordeþ an optional import alias separately from its path", () 
 });
 test("analysis defaulteþ an import namespace to its last path segment", () => {
   const model = analyzeDocument(
-    "use data/list.tung yield list@empty",
+    "use ilk/list.tung yield list.empty",
     "file:///imports.tung",
   );
   assert.deepEqual(
@@ -77,7 +77,7 @@ test("analysis defaulteþ an import namespace to its last path segment", () => {
 });
 test("analysis ignoreþ dots in directories when defaulting a namespace", () => {
   const model = analyzeDocument(
-    "use pkg.one/query.tung yield query@answer",
+    "use pkg.one/query.tung yield query.answer",
     "file:///imports.tung",
   );
   assert.equal(model.imports[0].namespace, "query");
@@ -115,7 +115,7 @@ test("analysis attacheþ doc comments to following shown declarations", () => {
   );
 });
 test("local resolution preferreþ the narrowest binder scope", () => {
-  const source = "let (x: integer) keep: integer = match x { x | x }";
+  const source = "let (x: integer) keep: integer = match x { x @ x }";
   const model = analyzeDocument(source, "file:///scope.tung");
   const use = model.tokens.filter(({ text }) => text === "x").at(-1);
   const definition = findDefinition(model, use, use.offset);
@@ -126,7 +126,7 @@ test("local resolution preferreþ the narrowest binder scope", () => {
   );
 });
 test("malformed pattern scope recovereþ through the end of the buffer", () => {
-  const source = "let choose = { (left, right | right";
+  const source = "let choose = { (left, right @ right";
   const model = analyzeDocument(source, "file:///incomplete-pattern.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "right");
   const use = occurrences.at(-1);
@@ -135,7 +135,7 @@ test("malformed pattern scope recovereþ through the end of the buffer", () => {
   assert.equal(definition.scopeEnd, source.length);
 });
 test("an unmatched inner delimiter doth not leak a pattern scope", () => {
-  const source = "let choose = { (left, right | right } let outside = right";
+  const source = "let choose = { (left, right @ right } let outside = right";
   const model = analyzeDocument(source, "file:///recovered-pattern.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "right");
   const innerDefinition = findDefinition(

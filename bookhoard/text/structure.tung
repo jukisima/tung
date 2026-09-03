@@ -1,8 +1,8 @@
 use _foreign.tung
-use data/list.tung
-use data/option.tung
-use data/product.tung
-use data/two.tung
+use ilk/list.tung
+use ilk/option.tung
+use ilk/product.tung
+use ilk/two.tung
 use equal.tung
 use order.tung
 use order/lattice.tung

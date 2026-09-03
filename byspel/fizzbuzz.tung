@@ -1,12 +1,12 @@
 use ground.tung
-use data/list.tung
-use data/product.tung
+use ilk/list.tung
+use ilk/product.tung
 use algebra/partial/semigroupoid.tung
 
 graiþ a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =
   try ((dividend % divisor) project₁) ≡ zero {
-    _ fail | nay
+    _ fail @ nay
   }
 
 ilk fizzbuzz {
@@ -18,19 +18,19 @@ ilk fizzbuzz {
 
 fill fizzbuzz to-text {
   let to-text = {
-    fizz | 'fizz',
-    buzz | 'buzz',
-    fizzbuzz | 'fizzbuzz',
-    i raw | i to-text
+    fizz @ 'fizz',
+    buzz @ 'buzz',
+    fizzbuzz @ 'fizzbuzz',
+    i raw @ i to-text
   }
 }
 
 let (integer: integer) to-fizzbuzz: fizzbuzz =
   match 3 can-divide integer, 5 can-divide integer {
-    yea, yea | fizzbuzz,
-    yea, nay | fizz,
-    nay, yea | buzz,
-    nay, nay | integer raw
+    yea, yea @ fizzbuzz,
+    yea, nay @ fizz,
+    nay, yea @ buzz,
+    nay, nay @ integer raw
   }
 
 let _ main: 𝟙 ! console =

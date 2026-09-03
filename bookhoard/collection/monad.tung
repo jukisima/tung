@@ -1,4 +1,4 @@
-use data/one.tung
+use ilk/one.tung
 use combinator.tung
 use collection/functor.tung
 use collection/applicative.tung
@@ -23,4 +23,4 @@ show let (a: a f, b: b f) þen: b f =
 
 graiþ f monad
 show let (a: a f) void: 𝟙 f =
-  a map (null constant)
+  a map (only constant)

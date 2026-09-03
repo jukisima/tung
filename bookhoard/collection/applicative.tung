@@ -34,8 +34,8 @@ show let (a: a f, b: b f, c: c f, f: a → b → c → d ! e) lift₃: d f ! e =
 
 graiþ f applicative
 show let (a: a f, b: b f) keep-left: a f =
-  b apply (a map { x, _ | x })
+  b apply (a map { c, _ @ c })
 
 graiþ f applicative
 show let (a: a f, b: b f) keep-right: b f =
-  b apply (a map { _, y | y })
+  b apply (a map { _, c @ c })

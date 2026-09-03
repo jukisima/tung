@@ -11,7 +11,6 @@ where
 
 import Control.Monad (foldM)
 import Data.Either (fromRight)
-import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (isNothing, mapMaybe)
@@ -161,20 +160,13 @@ parseLetDecl needs = \case
   _ -> Left "expected let binding"
 
 parseImport :: P Decl
-parseImport ts = do
-  (parts, rest) <- parseImportPath ts
+parseImport (TIdent path : rest) =
   case rest of
     TIdent alias : remaining -> do
       checkImportAlias alias
-      pure (Import (intercalate "." parts) (Just alias), remaining)
-    _ -> pure (Import (intercalate "." parts) Nothing, rest)
-
-parseImportPath :: P [String]
-parseImportPath (TIdent part : TDot : TIdent next : rest) = do
-  (parts, rest2) <- parseImportPath (TIdent next : rest)
-  pure (part : parts, rest2)
-parseImportPath (TIdent part : rest) = pure ([part], rest)
-parseImportPath _ = Left "expected use path"
+      pure (Import path (Just alias), remaining)
+    _ -> pure (Import path Nothing, rest)
+parseImport _ = Left "expected use path"
 
 parseTypeAlias :: P Decl
 parseTypeAlias ts = do
@@ -642,7 +634,7 @@ parseExprParts stopBrace = go []
         | otherwise -> Right (reverse acc, ts)
 
 exprStop :: Token -> Bool
-exprStop token = startsFileDeclaration token || token `elem` [TComma, TDot, TMapsTo, TRParen, TRBrace, TYield, TLaw]
+exprStop token = startsFileDeclaration token || token `elem` [TComma, TMapsTo, TRParen, TRBrace, TYield, TLaw]
 
 parseExprAtom :: P Expr
 parseExprAtom = locateParsed parseExprAtomRaw
@@ -721,7 +713,7 @@ parseHandlerCases ts = do
 
 parseHandlerItem :: P HandlerItem
 parseHandlerItem ts = do
-  (header, rest) <- takeTopLevelUntil ts (\case TMapsTo -> True; _ -> False) "expected '|' in handler case"
+  (header, rest) <- takeTopLevelUntil ts (\case TMapsTo -> True; _ -> False) "expected '@' in handler case"
   case rest of
     TMapsTo : bodyTokens -> case returnCaseHeader header of
       Just returnPattern -> do
@@ -811,16 +803,29 @@ applyBinary :: Expr -> Expr -> Expr -> Expr
 applyBinary function left right = applyArgs function [left, right]
 
 parseMatchCases :: P [MatchCase]
-parseMatchCases = parseCommaListUntil isRightBrace parseMatchCase
+parseMatchCases ts = do
+  (grouped, rest) <- parseCommaListUntil isRightBrace parseMatchCase ts
+  pure (concat grouped, rest)
 
-parseMatchCase :: P MatchCase
+parseMatchCase :: P [MatchCase]
 parseMatchCase ts = do
-  (ps, rest) <- parseMatchCasePatterns ts
+  (rows, rest) <- parseMatchCaseAlternatives ts
   case rest of
     TMapsTo : bodyTokens -> do
       (e, rest2) <- parseExpr bodyTokens
-      pure (MatchCase ps e, rest2)
-    _ -> Left "expected '|' in match case"
+      pure (map (`MatchCase` e) rows, rest2)
+    _ -> Left "expected '@' in match case"
+
+parseMatchCaseAlternatives :: P [NonEmpty Pattern]
+parseMatchCaseAlternatives ts = do
+  (first, rest) <- parseMatchCasePatterns ts
+  go [first] rest
+ where
+  go acc (TIdent "|" : rest) = do
+    (row, remaining) <- parseMatchCasePatterns rest
+    go (row : acc) remaining
+  go acc rest@(TMapsTo : _) = Right (reverse acc, rest)
+  go _ _ = Left "expected '|' or '@' after match pattern row"
 
 parseMatchCasePatterns :: P (NonEmpty Pattern)
 parseMatchCasePatterns ts = do
@@ -831,8 +836,9 @@ parseMatchCasePatterns ts = do
     TComma : rest2 -> do
       (p, rest3) <- parsePattern rest2
       go (acc <> (p :| [])) rest3
+    TIdent "|" : _ -> Right (acc, rest)
     TMapsTo : _ -> Right (acc, rest)
-    _ -> Left "expected ',' or '|' after match pattern"
+    _ -> Left "expected ',', '|', or '@' after match pattern"
 
 parsePattern :: P Pattern
 parsePattern ts = do
@@ -855,6 +861,7 @@ parsePatternParts = go []
 patternStop :: Token -> Bool
 patternStop = \case
   TComma -> True
+  TIdent "|" -> True
   TMapsTo -> True
   TRParen -> True
   TRBrace -> True
@@ -874,6 +881,7 @@ patternFromParts parts rest = case defaultHeader parts of
 patternFromTerm :: [Token] -> Maybe Pattern
 patternFromTerm [TIdent name] = Just (PVar name)
 patternFromTerm [TInteger value] = Just (PInteger value)
+patternFromTerm [TText value] = Just (PText value)
 patternFromTerm (TLParen : rest) = case takeBalanced rest of
   Right (inner, []) -> parseWholeMaybe parsePattern inner
   _ -> Nothing
@@ -1083,6 +1091,7 @@ headerParts = go []
 readHeaderTerm :: [Token] -> Maybe ([Token], [Token])
 readHeaderTerm (TIdent name : rest) = Just ([TIdent name], rest)
 readHeaderTerm (TInteger value : rest) = Just ([TInteger value], rest)
+readHeaderTerm (TText value : rest) = Just ([TText value], rest)
 readHeaderTerm (TLParen : rest) = do
   (inner, rest2) <- either (const Nothing) Just (takeBalanced rest)
   Just (TLParen : inner ++ [TRParen], rest2)

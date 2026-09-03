@@ -1,22 +1,22 @@
 use ground.tung
 use system.tung
-use data/list.tung
-use data/option.tung
-use data/product.tung
-use data/table.tung
+use ilk/list.tung
+use ilk/option.tung
+use ilk/product.tung
+use ilk/table.tung
 use text/operation.tung
 use algebra/total/magma.tung
 use collection/catamorphism.tung
 
 let (counts: text table integer, word: text) count-word: text table integer =
   match counts lookup word {
-    none | counts put word 1,
-    count some | counts put word (count + 1)
+    none @ counts put word 1,
+    count some @ counts put word (count + 1)
   }
 
 let (content: text) count-words: text table integer = (
   let words = content words-text
-  yield words foldl table@empty count-word
+  yield words fold₁ table.empty count-word
 )
 
 let (entry: text ∏ integer) write-count: 𝟙 ! console = (
@@ -26,13 +26,13 @@ let (entry: text ∏ integer) write-count: 𝟙 ! console = (
 )
 
 let (_: 𝟙) main: 𝟙 ! console, file, system =
-  match null arguments {
-    list@empty | 'usage: tung word-count.tung <file>' write-line,
-    paþ .* _ | try (
+  match only arguments {
+    list.empty @ 'usage: tung word-count.tung <file>' write-line,
+    paþ .* _ @ try (
       let content = paþ read-file
       let counts = content count-words
       yield (counts entries) each write-count
     ) {
-      message fail | 'error: ' * message $ write-line
+      message fail @ 'error: ' * message $ write-line
     }
   }

@@ -1,4 +1,4 @@
-use data/two.tung
+use ilk/two.tung
 
 show frame a add {
   let a + a: a
@@ -49,9 +49,8 @@ fill (a func b) semiring {
 
 fill 𝟚 add {
   let + = {
-    yea, nay | yea,
-    nay, yea | yea,
-    _, _ | nay
+    yea, nay | nay, yea @ yea,
+    _, _ @ nay
   }
 }
 
@@ -63,8 +62,8 @@ fill 𝟚 monoid-additive {}
 
 fill 𝟚 multiply {
   let × = {
-    yea, yea | yea,
-    _, _ | nay
+    yea, yea @ yea,
+    _, _ @ nay
   }
 }
 

@@ -21,17 +21,17 @@ checkedImportGraph = case parse source >>= (\program -> elaborateInteractiveProg
   Left message -> pure (Just ("checked import graph: elaboration failed: " ++ message))
   Right program -> evaluateCoreProgram program >>= Harness.expectEq "checked import graph evaluateþ without source imports" "eval ok: 7"
  where
-  source = "use middle.tung yield middle@value"
+  source = "use middle.tung yield middle.value"
   imports =
     Map.fromList
-      [ ("middle.tung", "use leaf.tung show let value = leaf@value + 1")
+      [ ("middle.tung", "use leaf.tung show let value = leaf.value + 1")
       , ("leaf.tung", "show let value = 6")
       ]
 
 checkedAliasedShapeNeed :: Test
 checkedAliasedShapeNeed = checkedShapeNeed "checked frame need retaineþ a custom use alias" "child" (SymbolId (SourceModule "dep.tung") "parent") source imports
  where
-  source = "use dep.tung d graiþ a d@parent frame a child { let a child: a }"
+  source = "use dep.tung d graiþ a d.parent frame a child { let a child: a }"
   imports = Map.singleton "dep.tung" "show frame a parent { let a parent: a }"
 
 checkedVisibleShapeNeed :: Test
@@ -56,9 +56,9 @@ checkedShapeNeed name shapeName parent source imports = case parse source >>= (\
 checkedMainCore :: Test
 checkedMainCore = case parse source >>= (\program -> elaborateProgramWithImports program Map.empty True) of
   Left message -> pure (Just ("checked main core: elaboration failed: " ++ message))
-  Right program -> evaluateMainCoreProgram program >>= Harness.expectEq "checked main core evaluateþ without surface syntax" "eval ok: null"
+  Right program -> evaluateMainCoreProgram program >>= Harness.expectEq "checked main core evaluateþ without surface syntax" "eval ok: only"
  where
-  source = "ilk 𝟙 { null } let (_: 𝟙) main: 𝟙 = null"
+  source = "ilk 𝟙 { only } let (_: 𝟙) main: 𝟙 = only"
 
 checkedModuleInterface :: Test
 checkedModuleInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program Map.empty) of
@@ -97,7 +97,7 @@ checkedImportInterface = case parse source >>= (\program -> elaborateInteractive
           expected = (SourceModule "dep.tung", expectedTerms)
        in Harness.expectEq "checked import interface retaineþ its resolved module identity" expected importedSummary
  where
-  source = "use dep.tung let same: dep@box = dep@value dep@identity"
+  source = "use dep.tung let same: dep.box = dep.value dep.identity"
   imports = Map.singleton "dep.tung" "show ilk box { box } show frame a identity { let a identity: a } fill box identity { let x identity = x } show let value = box"
 
 checkedReExportInterface :: Test
@@ -115,11 +115,11 @@ checkedReExportInterface = case parse source >>= (\program -> elaborateInteracti
               ]
        in Harness.expectEq "checked re-exports retain defining term identities" expected (interfaceTerms imported)
  where
-  source = "use middle.tung yield middle@value"
+  source = "use middle.tung yield middle.value"
   imports =
     Map.fromList
       [ ("base.tung", "show ilk bit { off } show let value = 7")
-      , ("middle.tung", "use base.tung show base@off show base@value")
+      , ("middle.tung", "use base.tung show base.off show base.value")
       ]
 
 checkedReservedDataInterface :: Test
@@ -132,8 +132,8 @@ checkedReservedDataInterface = case parse source >>= (\program -> elaborateInter
           expected = Just (TermExport (symbol "$nominal@𝟚@yea") (ConstructorTerm 0))
        in Harness.expectEq "checked incompatible reserved data retaineþ a nominal constructor identity" expected (Map.lookup (symbol "yea") (interfaceTerms imported))
  where
-  path = "data/two.tung"
-  source = "use data/two.tung let value: two@𝟚 = two@yea"
+  path = "ilk/two.tung"
+  source = "use ilk/two.tung let value: two.𝟚 = two.yea"
   imports = Map.singleton path "show ilk 𝟚 { yea, maybe }"
 
 integerCase :: Map.Map String String -> (String, Integer) -> Test
@@ -168,13 +168,13 @@ languagePrograms :: [(String, String, String)]
 languagePrograms =
   [ ("checked record access", "let value = r(left = 1, right = 2) yield value@right", "eval ok: 2")
   , ("checked record update", "let value = r(left = 1, right = 2) yield r(= value, right = 3, - left)", "eval ok: r(right = 3)")
-  , ("checked exhaustive match", "ilk 𝟚 { yea, nay } yield match nay { yea | 1, nay | 2 }", "eval ok: 2")
-  , ("checked integer match", "yield match 1 { 0 | 10, 1 | 20, _ | 30 }", "eval ok: 20")
+  , ("checked exhaustive match", "ilk 𝟚 { yea, nay } yield match nay { yea @ 1, nay @ 2 }", "eval ok: 2")
+  , ("checked integer match", "yield match 1 { 0 @ 10, 1 @ 20, _ @ 30 }", "eval ok: 20")
   , ("checked class evidence", "frame a identity { let a identity: a } fill integer identity { let x identity = x } yield 7 identity", "eval ok: 7")
   , ("checked fill member calleþ sibling", "frame a linked { let a first: a let a second: a } fill integer linked { let x first = x let x second = x first } yield 7 second", "eval ok: 7")
   , ("checked empty effect", "deed marker {} yield 1", "eval ok: 1")
-  , ("checked multi-shot handler", "ilk 𝟙 { null } deed choice { 𝟙 choose: integer } yield try null choose { choose | (1 eftgin) + (2 eftgin) }", "eval ok: 3")
-  , ("checked non-finite floor failure", "use ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail | 0 }", "eval ok: 0")
+  , ("checked multi-shot handler", "ilk 𝟙 { only } deed choice { 𝟙 choose: integer } yield try only choose { choose @ (1 eftgin) + (2 eftgin) }", "eval ok: 3")
+  , ("checked non-finite floor failure", "use ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail @ 0 }", "eval ok: 0")
   ]
 
 booleanProductPrograms :: [(String, String, String)]
@@ -187,7 +187,7 @@ booleanProductPrograms =
   , input <- booleanRows arity
   , let rows = booleanRows arity
         expected = fromMaybe 0 (lookup input (zip rows [0 :: Int ..]))
-        cases = intercalate ", " [intercalate ", " row ++ " | " ++ show result | (row, result) <- zip rows [0 :: Int ..]]
+        cases = intercalate ", " [intercalate ", " row ++ " @ " ++ show result | (row, result) <- zip rows [0 :: Int ..]]
   ]
  where
   boolData = "ilk 𝟚 { yea, nay } "

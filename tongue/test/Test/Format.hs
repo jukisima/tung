@@ -25,8 +25,8 @@ generatedIdempotence = expect "formatter is idempotent for generated structural 
     ]
   declarations =
     [ ["show ilk a box {", "a box", "}"]
-    , ["let result =", "match value {", "yea | 1,", "nay | 0", "}"]
-    , ["let handled =", "try risky {", "message fail | 0", "}"]
+    , ["let result =", "match value {", "yea | nay @ 1", "}"]
+    , ["let handled =", "try risky {", "message fail @ 0", "}"]
     , ["frame a identity {", "let a identity: a", "law (x: a):", "x identity ~ x", "}"]
     ]
 
@@ -40,11 +40,11 @@ cases =
   [
     ( "use alias"
     , """
-      use data/list.tung list
+      use ilk/list.tung list
 
       """
     , """
-      use data/list.tung list
+      use ilk/list.tung list
 
       """
     )
@@ -69,15 +69,15 @@ cases =
     ( "current application syntax"
     , """
       show let (x: a option, f: a → 𝟚) filter: a option = x match {
-      a some | a f $ if (a some) none
-      none | none
+      a some @ a f $ if (a some) none
+      none @ none
       }
 
       """
     , """
       show let (x: a option, f: a → 𝟚) filter: a option = x match {
-        a some | a f $ if (a some) none
-        none | none
+        a some @ a f $ if (a some) none
+        none @ none
       }
 
       """
@@ -87,31 +87,31 @@ cases =
     , """
       let picked =
       match value {
-      yea | 1,
-      nay | 0
+      yea @ 1,
+      nay @ 0
       }
       let handled =
       try risky {
-      yield value | value,
-      message fail | 0
+      yield value @ value,
+      message fail @ 0
       }
       let identity =
-      { x | x }
+      { x @ x }
 
       """
     , """
       let picked =
         match value {
-          yea | 1,
-          nay | 0
+          yea @ 1,
+          nay @ 0
         }
       let handled =
         try risky {
-          yield value | value,
-          message fail | 0
+          yield value @ value,
+          message fail @ 0
         }
       let identity =
-        { x | x }
+        { x @ x }
 
       """
     )
@@ -183,13 +183,13 @@ cases =
     , """
       show let (f0: a → b ! e0, f1: b → c ! e1) compose
       : a → c ! e0, e1
-      = { a | a f0 $ f1 }
+      = { a @ a f0 $ f1 }
 
       """
     , """
       show let (f0: a → b ! e0, f1: b → c ! e1) compose
         : a → c ! e0, e1
-        = { a | a f0 $ f1 }
+        = { a @ a f0 $ f1 }
 
       """
     )
@@ -285,8 +285,8 @@ cases =
     , """
       let result =
       match character {
-      `\\32; | 1,
-      _ | 0
+      `\\32; @ 1,
+      _ @ 0
       }
       /*
         {
@@ -297,8 +297,8 @@ cases =
     , """
       let result =
         match character {
-          `\\32; | 1,
-          _ | 0
+          `\\32; @ 1,
+          _ @ 0
         }
       /*
         {

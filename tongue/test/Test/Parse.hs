@@ -20,7 +20,7 @@ group =
 accepted :: [(String, String)]
 accepted =
   [ ("last let declaration", "let answer = 42")
-  , ("use accepteþ an optional alias", "use data/list.tung list yield list@empty")
+  , ("use accepteþ an optional alias", "use ilk/list.tung list yield list.empty")
   , ("use accepteþ a dotted filename", "use a.extra.tung extra")
   , ("use accepteþ a dotted directory", "use pkg.one/query.tung query")
   , ("adjacent top-level declarations", "let x = 1 let y = 2")
@@ -50,19 +50,20 @@ accepted =
   , ("exported fremmed let", "show let plus: integer → integer → integer = 'add-integer' fremmed")
   , ("exported frame", "show frame a equal { let a ≡ a: 𝟚 }")
   , ("exported graiþ frame", "graiþ a equal show frame a order-partial { let a ≤ a: 𝟚 }")
-  , ("name re-export", "use file.tung show file@value")
-  , ("grouped name re-export", "use file.tung show file@first, file@second")
-  , ("type re-export", "use file.tung show-ilk file@value")
-  , ("grouped type re-export", "use file.tung show-ilk file@first, file@second")
+  , ("name re-export", "use file.tung show file.value")
+  , ("grouped name re-export", "use file.tung show file.first, file.second")
+  , ("type re-export", "use file.tung show-ilk file.value")
+  , ("grouped type re-export", "use file.tung show-ilk file.first, file.second")
   , ("closed record and update", "let person = r(name = 'n', age = 1) yield r(= person, age = 2, - name)")
   , ("record removal needeþ space", "yield r(= person, - age)")
-  , ("multi-scrutinee match", "yield match 1, 2 { a, b | a }")
-  , ("integer patterns in a match", "yield match 1 { 0 | 0, 1 | 1, _ | 2 }")
+  , ("multi-scrutinee match", "yield match 1, 2 { a, b @ a }")
+  , ("integer patterns in a match", "yield match 1 { 0 @ 0, 1 @ 1, _ @ 2 }")
+  , ("text patterns in a match", "yield match 'yes' { 'yes' @ 1, _ @ 0 }")
   , ("integer pattern in a function header", "let 0 zero-only = 0")
-  , ("bare brace unary function", "yield { x | x }")
-  , ("bare brace curried function", "yield { x, y, z | z }")
+  , ("bare brace unary function", "yield { x @ x }")
+  , ("bare brace curried function", "yield { x, y, z @ z }")
   , ("empty consuming match", "yield match x {}")
-  , ("handler yield and operation cases", "yield try action { yield x | x, message fail | message }")
+  , ("handler yield and operation cases", "yield try action { yield x @ x, message fail @ message }")
   , ("parenthesised local block", "yield (let x = 1 yield x + 2)")
   , ("adjacent local lets", "yield (let x = 1 let y = 2 yield x + y)")
   , ("term type ascription", "let answer = (1 + 2: integer)")
@@ -73,9 +74,9 @@ rejected :: [(String, String)]
 rejected =
   [ ("bare final expression requireþ yield", "42")
   , ("use requireþ a path", "use")
-  , ("use alias must be unqualified", "use data/list.tung list@short")
-  , ("use alias must be slash-free", "use data/list.tung sequence/list")
-  , ("qualified namespace must be slash-free", "use data/list.tung yield data/list@empty")
+  , ("use alias must be unqualified", "use ilk/list.tung list.short")
+  , ("use alias must be slash-free", "use ilk/list.tung sequence/list")
+  , ("qualified namespace must be slash-free", "use ilk/list.tung yield ilk/list.empty")
   , ("show requireþ a name", "show")
   , ("show cannot prefix use", "show use ground.tung")
   , ("show-ilk requireþ a name", "show-ilk")
@@ -110,7 +111,7 @@ rejected =
   , ("effects require a function type", "let bad: integer ! fail = 1")
   , ("deed members use commas", "deed e { 𝟙 one: 𝟙 𝟙 two: 𝟙 }")
   , ("fill members reject commas", "fill integer equal { let x ≡ y = x, let x ≢ y = y }")
-  , ("handler hath at most one yield clause", "try 1 { yield x | x, yield y | y }")
+  , ("handler hath at most one yield clause", "try 1 { yield x @ x, yield y @ y }")
   ]
 
 importCases :: [Test]
@@ -134,7 +135,9 @@ expressions =
   , ("right-associated sequence", ">(.*, a, b, c, d)", apply (EVar ".*") [EVar "a", apply (EVar ".*") [EVar "b", apply (EVar ".*") [EVar "c", EVar "d"]]])
   , ("separated left marker remaineþ an ordinary name", "1 < (2)", apply (EVar "<") [EInteger 1, EInteger 2])
   , ("separated right marker remaineþ an ordinary name", "1 > (2)", apply (EVar ">") [EInteger 1, EInteger 2])
-  , ("integer match pattern", "match 1 { 0 | 2, _ | 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])
+  , ("integer match pattern", "match 1 { 0 @ 2, _ @ 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])
+  , ("alternative match patterns", "match 1 { 0 | 1 @ 2, _ @ 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PInteger 1 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])
+  , ("text match pattern", "match 'yes' { 'yes' @ 1, _ @ 0 }", EMatch [EText "yes"] [MatchCase (PText "yes" :| []) (EInteger 1), MatchCase (PVar "_" :| []) (EInteger 0)])
   , ("second term is function", "1 + 2", apply (EVar "+") [EInteger 1, EInteger 2])
   , ("unmarked sequence sendeþ every argument", "a f b g", apply (EVar "f") [EVar "a", EVar "b", EVar "g"])
   , ("dollar bare segment", "a f $h b g", apply (EVar "h") [apply (EVar "f") [EVar "a"], EVar "b", EVar "g"])
@@ -143,7 +146,7 @@ expressions =
   , ("dollar bare tail is function first", "a f $g b c $h d", apply (EVar "h") [apply (EVar "g") [apply (EVar "f") [EVar "a"], EVar "b", EVar "c"], EVar "d"])
   , ("dollar parens are function first", "a f $(g b c) $h d", apply (EVar "h") [apply (EVar "g") [apply (EVar "f") [EVar "a"], EVar "b", EVar "c"], EVar "d"])
   , ("dollar keepeþ multiple parenthesised arguments separate", "a f $ if (a some) none", apply (EVar "if") [apply (EVar "f") [EVar "a"], apply (EVar "some") [EVar "a"], EVar "none"])
-  , ("anonymous function argument", "l foldl natural@zero { n, _ | n suc }", apply (EVar "foldl") [EVar "l", EVar "natural@zero", EMatch [] [MatchCase (PVar "n" :| [PVar "_"]) (apply (EVar "suc") [EVar "n"])]])
+  , ("anonymous function argument", "l fold₁ natural.zero { n, _ @ n suc }", apply (EVar "fold₁") [EVar "l", EVar "natural.zero", EMatch [] [MatchCase (PVar "n" :| [PVar "_"]) (apply (EVar "suc") [EVar "n"])]])
   ]
 
 expressionCase :: (String, String, Expr) -> Test
@@ -186,7 +189,7 @@ parserProperties =
             let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second
              in QuickCheck.counterexample source (isRight (parse source))
   , Harness.propertyTest "property: complete use declaration" $
-      QuickCheck.forAll (QuickCheck.elements ["ground.tung", "data/list.tung", "nested/deep.tung"]) \path ->
+      QuickCheck.forAll (QuickCheck.elements ["ground.tung", "ilk/list.tung", "nested/deep.tung"]) \path ->
         let source = "use " ++ path
          in QuickCheck.counterexample source (isRight (parse source))
   ]

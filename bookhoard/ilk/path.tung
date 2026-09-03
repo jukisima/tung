@@ -1,5 +1,5 @@
 use _foreign.tung
-use data/one.tung
+use ilk/one.tung
 use algebra/total/magma.tung
 use text/to-text.tung
 use text/structure.tung

@@ -103,11 +103,11 @@ groundEffectExportsCase imports =
  where
   source =
     "use ground.tung "
-      ++ "show-ilk ground@fail, ground@console, ground@random, ground@state, ground@async, ground@file"
+      ++ "show-ilk ground.fail, ground.console, ground.random, ground.state, ground.async, ground.file"
 
 systemExplicitCase :: Map.Map String String -> Test
 systemExplicitCase imports =
-  pure $ case checkWithImports "use ground.tung show-ilk ground@system" imports of
+  pure $ case checkWithImports "use ground.tung show-ilk ground.system" imports of
     actual | "type error:" `isPrefixOf` actual -> Nothing
     actual -> Just ("ground unexpectedly exports system: " ++ actual)
 
@@ -118,13 +118,13 @@ runnerEffectsCase imports =
     actual -> Just ("runner effects: " ++ actual)
  where
   source =
-    "use ground.tung use clock.tung use process.tung use system.tung use web/server.tung use data/list.tung use data/option.tung "
+    "use ground.tung use clock.tung use process.tung use system.tung use web/server.tung use ilk/list.tung use ilk/option.tung "
       ++ "let (_: request) route: response = 'ok' ok "
       ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process, web = ("
-      ++ "let args = null arguments "
+      ++ "let args = only arguments "
       ++ "let setting = 'TUNG_SETTING' environment "
-      ++ "let stamp = null unix-time "
-      ++ "yield try 8080 serve route { _ fail | null })"
+      ++ "let stamp = only unix-time "
+      ++ "yield try 8080 serve route { _ fail @ only })"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
 primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) of

@@ -1,5 +1,5 @@
-use data/list.tung
-use data/option.tung
+use ilk/list.tung
+use ilk/option.tung
 
 ## host arguments, settings, and process ending.
 show deed system {

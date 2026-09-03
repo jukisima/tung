@@ -1,4 +1,4 @@
-use data/two.tung
+use ilk/two.tung
 use equal.tung
 use order.tung
 use order/lattice.tung
@@ -11,17 +11,17 @@ show ilk natural {
 
 fill natural equal {
   let ≡ = {
-    zero, zero | yea,
-    a suc, b suc | a ≡ b,
-    _, _ | nay
+    zero, zero @ yea,
+    a suc, b suc @ a ≡ b,
+    _, _ @ nay
   }
 }
 
 fill natural less-equal {
   let ≤ = {
-    zero, _ | yea,
-    _, zero | nay,
-    a suc, b suc | a ≤ b
+    zero, _ @ yea,
+    _, zero @ nay,
+    a suc, b suc @ a ≤ b
   }
 }
 
@@ -35,21 +35,21 @@ fill natural semilattice-supremal-bounded {
 
 fill natural semiring {
   let + = {
-    a, zero | a,
-    a, b suc | (a + b) suc
+    a, zero @ a,
+    a, b suc @ (a + b) suc
   }
 
   let zero = zero
 
   let × = {
-    _, zero | zero,
-    a, b suc | a + (a × b)
+    _, zero @ zero,
+    a, b suc @ a + (a × b)
   }
 
   let one = zero suc
 }
 
 show let to-integer: natural → integer = {
-  zero | 0,
-  a suc | 1 + (a to-integer)
+  zero @ 0,
+  a suc @ 1 + (a to-integer)
 }

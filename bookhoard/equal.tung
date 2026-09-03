@@ -1,4 +1,4 @@
-use data/two.tung
+use ilk/two.tung
 
 show frame a equal {
   let a ≡ a: 𝟚
@@ -9,8 +9,7 @@ show let (a: a, b: a) ≢: 𝟚 = (a ≡ b) if nay yea
 
 fill 𝟚 equal {
   let ≡ = {
-    yea, yea | yea,
-    nay, nay | yea,
-    _, _ | nay
+    yea, yea | nay, nay @ yea,
+    _, _ @ nay
   }
 }

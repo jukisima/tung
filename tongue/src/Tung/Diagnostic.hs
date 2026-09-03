@@ -108,7 +108,7 @@ diagnosticNames message = case mapMaybe (`quotedAfter` message) prefixes of
   prefixes = ["type error: in '", "while checking let '", "unknown name '", "ambiguous name '", "unknown type '", "ambiguous type '", "handler case '"]
 
 matchesAny :: [String] -> Token -> Bool
-matchesAny names (TIdent name) = name `elem` names || any ((`isSuffixOf` name) . ('@' :)) names
+matchesAny names (TIdent name) = name `elem` names || any ((`isSuffixOf` name) . ('.' :)) names
 matchesAny _ _ = False
 
 quotedAfter :: String -> String -> Maybe String

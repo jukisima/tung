@@ -1,5 +1,5 @@
-use data/two.tung
-use data/three.tung
+use ilk/two.tung
+use ilk/three.tung
 use equal.tung
 
 ## a decidable less-þan-or-equal operation, wiþout order laws.
@@ -13,8 +13,8 @@ show let (a: a, b: a) <: 𝟚 = (a ≤ b) if (a ≢ b) nay
 
 fill 𝟚 less-equal {
   let ≤ = {
-    nay, _ | yea,
-    yea, b | b
+    nay, _ @ yea,
+    yea, b @ b
   }
 }
 
@@ -48,20 +48,20 @@ fill 𝟚 order-total {}
 
 fill 𝟛 equal {
   let ≡ = {
-    fore, fore | yea,
-    mid, mid | yea,
-    aft, aft | yea,
-    _, _ | nay
+    fore, fore @ yea,
+    mid, mid @ yea,
+    aft, aft @ yea,
+    _, _ @ nay
   }
 }
 
 fill 𝟛 less-equal {
   let ≤ = {
-    fore, _ | yea,
-    mid, fore | nay,
-    mid, _ | yea,
-    aft, aft | yea,
-    aft, _ | nay
+    fore, _ @ yea,
+    mid, fore @ nay,
+    mid, _ @ yea,
+    aft, aft @ yea,
+    aft, _ @ nay
   }
 }
 

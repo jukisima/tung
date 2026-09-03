@@ -125,6 +125,7 @@ data RecordUpdate = RecordSet String Expr | RecordRemove String deriving (Eq, Sh
 data Pattern
   = PVar String
   | PInteger Integer
+  | PText String
   | PCon String [Pattern]
   | PConstructor SymbolId [Pattern]
   deriving (Eq, Show)

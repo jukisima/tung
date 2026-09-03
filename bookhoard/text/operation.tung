@@ -1,8 +1,8 @@
 use _foreign.tung
-use data/list.tung
-use data/natural.tung
-use data/option.tung
-use data/two.tung
+use ilk/list.tung
+use ilk/natural.tung
+use ilk/option.tung
+use ilk/two.tung
 use collection/size.tung
 use collection/catamorphism.tung
 use collection/functor.tung
@@ -17,8 +17,8 @@ use text/structure.tung
 ## true when text haþ no unicode code points.
 show let (text: text) is-empty-text: 𝟚 =
   match text behead-text {
-    none | yea,
-    _ some | nay
+    none @ yea,
+    _ some @ nay
   }
 
 ## count unicode code points, not bytes or utf-16 units.
@@ -43,18 +43,18 @@ show let (text: text, character: unicode) append-text: text =
 
 let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
   match list {
-    empty | empty .* empty,
-    character .* rest | match rest split-unicode-by separates {
-      empty | (character .* empty) .* empty,
-      current .* previous | match character separates {
-        yea | empty .* (current .* previous),
-        nay | (character .* current) .* previous
+    empty @ empty .* empty,
+    character .* rest @ match rest split-unicode-by separates {
+      empty @ (character .* empty) .* empty,
+      current .* previous @ match character separates {
+        yea @ empty .* (current .* previous),
+        nay @ (character .* current) .* previous
       }
     }
   }
 
 let (list: unicode list, separator: unicode) split-unicode: (unicode list) list =
-  list split-unicode-by { character |
+  list split-unicode-by { character @
     character ≡ separator
   }
 
@@ -72,8 +72,8 @@ show let (text: text) words-text: text list =
 
 ## join text values wiþ a separator between neighbours.
 show let join-wiþ-text: text list → text → text = {
-  empty, _ | '',
-  text .* texts, separator | texts foldl text {
-    joined, next | (joined * separator) * next
+  empty, _ @ '',
+  text .* texts, separator @ texts fold₁ text {
+    joined, next @ (joined * separator) * next
   }
 }

@@ -1,8 +1,8 @@
 use _foreign.tung
-use data/zero.tung
-use data/one.tung
-use data/two.tung
-use data/three.tung
+use ilk/zero.tung
+use ilk/one.tung
+use ilk/two.tung
+use ilk/three.tung
 use equal.tung
 use order.tung
 use order/lattice.tung
@@ -33,7 +33,7 @@ show-ilk 𝟘
 show initial
 
 show-ilk 𝟙
-show null
+show only
 show terminal
 
 show-ilk 𝟚

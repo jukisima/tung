@@ -1,0 +1,20 @@
+use _foreign.tung
+use ilk/one.tung
+
+## a non-normalised span measured in milliseconds.
+show ilk milliseconds {
+  integer milliseconds
+}
+
+show let (t: integer) seconds: milliseconds =
+  t × 1000 $ milliseconds
+
+show let (t: integer) minutes: milliseconds =
+  t × 60 $ seconds
+
+
+show let (t: integer) hours: milliseconds =
+  t × 60 $ minutes
+
+show let (t milliseconds: milliseconds) sleep-for: 𝟙 ! async =
+  t sleep

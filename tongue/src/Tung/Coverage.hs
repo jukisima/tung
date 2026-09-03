@@ -51,6 +51,7 @@ usefulPatterns constructors = go
   go [] rows [] = not (any null rows)
   go (ty : restTys) rows (pattern : restPatterns) = case pattern of
     PInteger value -> go restTys (specialiseIntegerRows value rows) restPatterns
+    PText value -> go restTys (specialiseTextRows value rows) restPatterns
     PCon{} -> False
     PConstructor target arguments -> usefulResolvedConstructor ty target arguments restTys rows restPatterns
     PVar _ -> case constructors ty of
@@ -69,6 +70,12 @@ usefulPatterns constructors = go
 specialiseIntegerRows :: Integer -> [[Pattern]] -> [[Pattern]]
 specialiseIntegerRows value = mapMaybe $ \case
   PInteger other : rest | value == other -> Just rest
+  PVar _ : rest -> Just rest
+  _ -> Nothing
+
+specialiseTextRows :: String -> [[Pattern]] -> [[Pattern]]
+specialiseTextRows value = mapMaybe $ \case
+  PText other : rest | value == other -> Just rest
   PVar _ : rest -> Just rest
   _ -> Nothing
 
@@ -95,7 +102,17 @@ showPattern :: Pattern -> String
 showPattern = \case
   PVar name -> name
   PInteger value -> show value
+  PText value -> "'" ++ concatMap escapeTextCharacter value ++ "'"
   PCon name [] -> name
   PCon name arguments -> "$" ++ name ++ " " ++ showPatternList arguments
   PConstructor target [] -> lastQualifiedSegment (symbolName target)
   PConstructor target arguments -> "$" ++ lastQualifiedSegment (symbolName target) ++ " " ++ showPatternList arguments
+
+escapeTextCharacter :: Char -> String
+escapeTextCharacter = \case
+  '\n' -> "\\n"
+  '\r' -> "\\r"
+  '\t' -> "\\t"
+  '\'' -> "\\'"
+  '\\' -> "\\\\"
+  character -> [character]

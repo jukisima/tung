@@ -1,4 +1,4 @@
-use data/list.tung
+use ilk/list.tung
 use process/result.tung
 
 ## run a child process and capture its status, standard output, and standard error.

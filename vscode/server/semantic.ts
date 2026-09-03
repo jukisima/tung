@@ -43,7 +43,7 @@ const applicationStartTexts = new Set([
   "{",
   ":",
   ",",
-  "|",
+  "@",
   "=",
   "~",
 ]);
@@ -52,6 +52,7 @@ const typeRoles = new Set(["type", "typeParameter", "frame"]);
 const callableRoles = new Set(["function", "method", "operator"]);
 const separators = {
   comma: new Set([","]),
+  pattern: new Set([",", "|"]),
 };
 const buildSemanticRanges = (
   text,
@@ -76,7 +77,7 @@ const buildAnalyzedSemanticRanges = (
     if (!semantic) {
       continue;
     }
-    emitted.push(...semanticRanges(token, semantic, info));
+    emitted.push(...semanticRanges(token, semantic));
   }
   return emitted
     .filter((item) => item.length > 0)
@@ -470,12 +471,15 @@ const declarationCollectors = {
 };
 const collectPatternBindings = (tokens, info) => {
   for (const { patternStart, pipe } of patternArmRegions(tokens)) {
+    for (const token of tokens.slice(patternStart, pipe.index)) {
+      if (token.text === "|") mark(info, token.index, "operator", [], 100);
+    }
     for (
       const segment of splitTopLevel(
         tokens,
         patternStart,
         pipe.index,
-        separators.comma,
+        separators.pattern,
       )
     ) {
       markPatternSegment(tokens, segment, info);
@@ -533,8 +537,12 @@ const inferredSemantic = (token, tokens, info) => {
   if (info.functions.has(name)) {
     return { type: "variable", modifiers: [] };
   }
-  const qualifier = token.text.slice(0, token.text.lastIndexOf("@"));
-  if (qualifier && info.imports.has(qualifier.split("@")[0])) {
+  const namespaceSplit = token.text.indexOf(".");
+  const qualifier = namespaceSplit > 0
+    ? token.text.slice(0, namespaceSplit)
+    : "";
+  const member = namespaceSplit > 0 ? token.text.slice(namespaceSplit + 1) : "";
+  if (qualifier && member && !qualifier.includes("/")) {
     return {
       type: isTypePosition(tokens, token.index)
         ? "type"
@@ -549,8 +557,25 @@ const inferredSemantic = (token, tokens, info) => {
   }
   return undefined;
 };
-const semanticRanges = (token, semantic, info) => {
+const semanticRanges = (token, semantic) => {
   const type = semantic.type;
+  const namespaceSplit = token.text.indexOf(".");
+  if (namespaceSplit > 0) {
+    const qualifier = token.text.slice(0, namespaceSplit);
+    const name = token.text.slice(namespaceSplit + 1);
+    if (name && !qualifier.includes("/")) {
+      return [
+        rangeFor(token, 0, qualifier.length, "namespace", []),
+        rangeFor(
+          token,
+          namespaceSplit + 1,
+          name.length,
+          type,
+          semantic.modifiers,
+        ),
+      ];
+    }
+  }
   if (!token.text.includes("@")) {
     return [rangeFor(token, 0, token.text.length, type, semantic.modifiers)];
   }
@@ -559,12 +584,6 @@ const semanticRanges = (token, semantic, info) => {
   const name = token.text.slice(split + 1);
   if (!qualifier || !name) {
     return [rangeFor(token, 0, token.text.length, type, semantic.modifiers)];
-  }
-  if (info.imports.has(qualifier.split("@")[0])) {
-    return [
-      rangeFor(token, 0, qualifier.length, "namespace", []),
-      rangeFor(token, split + 1, name.length, type, semantic.modifiers),
-    ];
   }
   return [
     rangeFor(token, 0, qualifier.length, "variable", []),
@@ -681,7 +700,7 @@ const markPatternParameters = (tokens, start, end, info) => {
       markPatternParameters(tokens, term.start + 1, term.end - 1, info);
     } else if (
       token?.kind === "name" && token.text !== "_" &&
-      !token.text.includes("@")
+      !token.text.includes(".")
     ) {
       mark(info, token.index, "parameter", ["declaration"], 90);
     }

@@ -51,7 +51,7 @@ direct counterparts for its central families:
 
 | `foldable`
 | `cata`
-| `foldr`, `foldl`, `fold`, `fold-map`, `…∧`, `…∨`, `…+`, and `…×` cover the basic reductions
+| `fold₀`, `fold₁`, `fold`, `fold-map`, `…∧`, `…∨`, `…+`, and `…×` cover the basic reductions
 
 | `traversable`
 | `traverse`
@@ -96,9 +96,9 @@ powerset in `infimal` for the intersection monoid or `supremal` for the union
 monoid.
 `set` and `table` expose list-backed `from-list` constructors; operations
 built through `empty`, `singleton`, and `put` preserve finite-set uniqueness,
-but direct `set@from-list` use may build a noncanonical value. the shared
-constructor name is deliberate: `set@from-list` and
-`table@from-list` remain distinct through ordinary qualification.
+but direct `set.from-list` use may build a noncanonical value. the shared
+constructor name is deliberate: `set.from-list` and
+`table.from-list` remain distinct through ordinary qualification.
 
 the planned order-insensitive bag needeþ not wait for quotient types. its
 representation boundary and implementation work are tracked in

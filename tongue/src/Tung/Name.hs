@@ -27,16 +27,22 @@ importAlias :: String -> Maybe String -> String
 importAlias path = fromMaybe (takeWhile (/= '.') (takeFileName path))
 
 hasPathNamespace :: String -> Bool
-hasPathNamespace name = isQualifiedName name && '/' `elem` takeWhile (/= '@') name
+hasPathNamespace name = isQualifiedName name && '/' `elem` name
 
 isQualifiedName :: String -> Bool
-isQualifiedName = elem '@'
+isQualifiedName name = case break (== '.') name of
+  (namespace, '.' : member) -> not (null namespace) && not (null member)
+  _ -> False
 
 lastQualifiedSegment :: String -> String
-lastQualifiedSegment = reverse . takeWhile (/= '@') . reverse
+lastQualifiedSegment name = case break (== '@') (reverse name) of
+  (member, '@' : _) | not (null member) -> reverse member
+  _ -> case break (== '.') name of
+    (namespace, '.' : member) | not (null namespace) && not (null member) -> member
+    _ -> name
 
 replaceNamespace :: String -> String -> String -> String
-replaceNamespace old new name = maybe name (\rest -> new ++ "@" ++ rest) (stripPrefix (old ++ "@") name)
+replaceNamespace old new name = maybe name (\rest -> new ++ "." ++ rest) (stripPrefix (old ++ ".") name)
 
 splitFieldAccessName :: String -> Maybe (String, String)
 splitFieldAccessName name = case break (== '@') (reverse name) of

@@ -4,6 +4,6 @@ show ilk 𝟚 {
 }
 
 show let if: 𝟚 → a → a → a = {
-  yea, þen, _ | þen,
-  nay, _, else | else
+  yea, þen, _ @ þen,
+  nay, _, else @ else
 }

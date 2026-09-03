@@ -1,15 +1,15 @@
 use _foreign.tung
-use data/natural.tung
-use data/two.tung
+use ilk/natural.tung
+use ilk/two.tung
 use order.tung
 use order/lattice.tung
 
 ## convert a nonnegative integer to a natural.
 show let (integer: integer) to-natural: natural ! text fail =
   match 0 ≤ integer {
-    yea | match integer {
-      0 | zero,
-      n | (n - 1) to-natural $ suc
+    yea @ match integer {
+      0 @ zero,
+      n @ (n - 1) to-natural $ suc
     },
-    nay | 'negative cannot be a natural' fail
+    nay @ 'negative cannot be a natural' fail
   }

@@ -709,7 +709,7 @@ canonicalShapeName name ctx
   | otherwise = case findShapeInfo name ctx of
       Just ShapeInfo{shapeTarget = SymbolId owner targetName}
         | owner == tcModule ctx -> name
-        | SourceModule path <- owner -> importNamespace path ++ "@" ++ targetName
+        | SourceModule path <- owner -> importNamespace path ++ "." ++ targetName
         | otherwise -> targetName
       Nothing -> name
 
@@ -1014,11 +1014,11 @@ aliasImportContext canonical alias ctx@TcContext{..}
       , envOrigin = replaceNamespace canonical alias envOrigin
       }
   aliasBinding binding@EnvBinding{envName} =
-    (\rest -> binding{envName = alias ++ "@" ++ rest}) <$> stripPrefix (canonical ++ "@") envName
+    (\rest -> binding{envName = alias ++ "." ++ rest}) <$> stripPrefix (canonical ++ ".") envName
   aliasMap transform entries = Map.union (Map.map transform aliased) entries
    where
     aliased = Map.mapKeys (replaceNamespace canonical alias) (Map.filterWithKey (\name _ -> canonicalPrefix name) entries)
-  canonicalPrefix = isJust . stripPrefix (canonical ++ "@")
+  canonicalPrefix = isJust . stripPrefix (canonical ++ ".")
 
 namespaceImportEnv :: String -> DisplayNames -> [EnvBinding] -> [EnvBinding]
 namespaceImportEnv ns preferredNames env = concatMap one env
@@ -1028,7 +1028,7 @@ namespaceImportEnv ns preferredNames env = concatMap one env
     | rank /= exportEnvRank || not (isShownOrigin origin) = []
     | otherwise =
         let scheme2 = relabelSchemeTypeRefs preferredNames (namespaceDisplayName ns) scheme
-            origin2 = ns ++ "@" ++ lastQualifiedSegment origin
+            origin2 = ns ++ "." ++ lastQualifiedSegment origin
             imported visibleName visibleRank =
               binding
                 { envName = visibleName
@@ -1036,7 +1036,7 @@ namespaceImportEnv ns preferredNames env = concatMap one env
                 , envRank = visibleRank
                 , envOrigin = origin2
                 }
-         in imported (lastQualifiedSegment name) aliasEnvRank : [imported (ns ++ "@" ++ name) importEnvRank]
+         in imported (lastQualifiedSegment name) aliasEnvRank : [imported (ns ++ "." ++ name) importEnvRank]
 
 isShownOrigin :: String -> Bool
 isShownOrigin origin = "show@" `isPrefixOf` origin
@@ -1049,7 +1049,7 @@ namespaceImportTypes ns =
  where
   step acc name info =
     let info2 = unshownTypeInfo (relabelTypeInfoDisplays (namespaceTypeName ns) info)
-        withExact = Map.insert (ns ++ "@" ++ name) info2 acc
+        withExact = Map.insert (ns ++ "." ++ name) info2 acc
      in if typeInfoIsShown info && not (isQualifiedName name)
           then Map.insert (lastQualifiedSegment name) info2 withExact
           else acc
@@ -1076,7 +1076,7 @@ namespaceTypeName ns name
 namespaceDisplayName :: String -> String -> String
 namespaceDisplayName ns name
   | isQualifiedName name = name
-  | otherwise = ns ++ "@" ++ name
+  | otherwise = ns ++ "." ++ name
 
 typeInfoIsShown :: TypeInfo -> Bool
 typeInfoIsShown = \case
@@ -1090,7 +1090,7 @@ namespaceImportShapes ns preferredNames =
   step acc name ShapeInfo{..} =
     let info = relabelShapeInfoRefs preferredNames (namespaceDisplayName ns) ShapeInfo{shapeExported = False, ..}
      in if shapeExported
-          then Map.insert (lastQualifiedSegment name) info (Map.insert (ns ++ "@" ++ lastQualifiedSegment name) info acc)
+          then Map.insert (lastQualifiedSegment name) info (Map.insert (ns ++ "." ++ lastQualifiedSegment name) info acc)
           else acc
 
 relabelShapeInfoRefs :: DisplayNames -> (String -> String) -> ShapeInfo -> ShapeInfo
@@ -1301,7 +1301,7 @@ dataHeaderNode names header@DataHeader{..} =
   excluded = Set.fromList (dataHeaderName : dataHeaderParams)
 
 -- raw host schemas are deliberately order-insensitive, but every known
--- reserved spelling must resolve to its data/effect ABI rather than a lookalike.
+-- reserved spelling must resolve to its ilk/effect ABI rather than a lookalike.
 hostNominalsMatchResolvedTypes :: [String] -> [TypeExpr] -> TcContext -> Bool
 hostNominalsMatchResolvedTypes bound expressions ctx = all typeMatches expressions
  where
@@ -1540,11 +1540,11 @@ projectFillNeeds wanted FillInfo{fillShape} = map (relabelNeedRefs emptyDisplayN
  where
   sourceNamespace = displayNamespace (shapeDisplayName fillShape)
   wantedNamespace = displayNamespace (shapeDisplayName wanted)
-  project name = case sourceNamespace >>= (\source -> stripPrefix (source ++ "@") name) of
-    Just rest -> maybe rest (\target -> target ++ "@" ++ rest) wantedNamespace
+  project name = case sourceNamespace >>= (\source -> stripPrefix (source ++ ".") name) of
+    Just rest -> maybe rest (\target -> target ++ "." ++ rest) wantedNamespace
     Nothing -> name
-  displayNamespace name = case break (== '@') name of
-    (prefix, '@' : _) -> Just prefix
+  displayNamespace name = case break (== '.') name of
+    (prefix, '.' : _) -> Just prefix
     _ -> Nothing
 
 fillParentNeeds :: String -> [TypeExpr] -> TcContext -> [Need]
@@ -1804,6 +1804,7 @@ bindPatternLinearM (PVar name) expected ctx bound = case lookupConstructorBindin
     Just _ -> failTc ("constructor pattern '" ++ name ++ "' needeþ arguments")
     Nothing -> failTc ("internal missing constructor arity for '" ++ name ++ "'")
 bindPatternLinearM (PInteger _) expected ctx bound = unifyM (TyCon "integer") expected >> pure (ctx, bound)
+bindPatternLinearM (PText _) expected ctx bound = unifyM (TyCon "text") expected >> pure (ctx, bound)
 bindPatternLinearM (PCon name args) expected ctx bound = do
   binding <- either failTc (maybe (failTc ("unknown constructor pattern '" ++ name ++ "'")) pure) (lookupConstructorBinding name ctx)
   conTy <- instantiateBindingTypeM binding
@@ -1872,6 +1873,7 @@ resolvePatternM ctx = \case
     | isJust (knownConstructorArity name ctx) -> PConstructor <$> constructorTargetM name ctx <*> pure []
     | otherwise -> pure (PVar name)
   PInteger value -> pure (PInteger value)
+  PText value -> pure (PText value)
   PCon name arguments -> PConstructor <$> constructorTargetM name ctx <*> traverse (resolvePatternM ctx) arguments
   PConstructor{} -> failTc "internal resolved constructor appeareþ before elaboration"
 
@@ -2106,6 +2108,7 @@ ensureIrrefutablePatternM owner pattern ctx = case pattern of
     | isJust (knownConstructorArity name ctx) -> refutable
     | otherwise -> pure ()
   PInteger{} -> refutable
+  PText{} -> refutable
   PCon{} -> refutable
   PConstructor{} -> refutable
  where
@@ -2516,10 +2519,10 @@ checkEffectDeclM :: [String] -> String -> [EffectOp] -> TcContext -> Tc ()
 checkEffectDeclM params effectName ops ctx = mapM_ checkOp ops
  where
   checkOp (EffectOp opName t) = do
-    checkTypeExprNamesWithM params ("effect operation '" ++ effectName ++ "@" ++ opName ++ "'") t ctx
+    checkTypeExprNamesWithM params ("effect operation '" ++ effectName ++ "." ++ opName ++ "'") t ctx
     case normalizeFun (convertTypeExprWith params ctx t) of
       TyFun{} -> pure ()
-      _ -> failTc ("effect operation '" ++ effectName ++ "@" ++ opName ++ "' must have a function type")
+      _ -> failTc ("effect operation '" ++ effectName ++ "." ++ opName ++ "' must have a function type")
 
 checkShapeDeclM :: [String] -> String -> [ShapeNeed] -> [ShapeMember] -> TcContext -> Tc ()
 checkShapeDeclM shapeParams shapeName needs members ctx = do
@@ -2546,7 +2549,7 @@ checkShapeNeedsWithM bound owner needs ctx = mapM_ checkNeed needs
 checkShapeMemberNeedsM :: [String] -> String -> [ShapeMember] -> TcContext -> Tc ()
 checkShapeMemberNeedsM bound shapeName members ctx = mapM_ checkMember (mapMaybe shapeMemberSignature members)
  where
-  checkMember (name, annotation) = checkTypeAnnNeedsWithM bound ("frame member '" ++ shapeName ++ "@" ++ name ++ "'") annotation ctx
+  checkMember (name, annotation) = checkTypeAnnNeedsWithM bound ("frame member '" ++ shapeName ++ "." ++ name ++ "'") annotation ctx
 
 checkTypeAnnNeedsM :: String -> TypeAnn -> TcContext -> Tc ()
 checkTypeAnnNeedsM = checkTypeAnnNeedsWithM []
@@ -2731,7 +2734,7 @@ checkFillMemberM tyArgs shapeName needs specs ctx = \case
           (expected, expectedNeeds) <- instantiateResolvedAnnotationM memberAnn
           void (checkExprAgainstM name expected [] expectedNeeds expr ctx)
       )
-      (\msg -> "in fill member '" ++ shapeDisplayName fillSpecShape ++ "@" ++ name ++ "': " ++ msg)
+      (\msg -> "in fill member '" ++ shapeDisplayName fillSpecShape ++ "." ++ name ++ "': " ++ msg)
   _ -> failTc "fill member must be a let"
 
 checkRedundantFillNeedsM :: String -> [TypeExpr] -> [ShapeNeed] -> [Decl] -> [FillSpec] -> TcContext -> Tc ()

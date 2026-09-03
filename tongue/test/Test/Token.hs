@@ -19,9 +19,12 @@ languageMetadataCase = do
 lexCases :: [(String, String, [Token])]
 lexCases =
   [ ("field access stayeþ one name", "person@age", [TIdent "person@age"])
+  , ("case separator is syntax", "@", [TMapsTo])
+  , ("pipe is an ordinary name", "|", [TIdent "|"])
   , ("retired bring spelling is an ordinary name", "bring", [TIdent "bring"])
   , ("retired shape spelling is an ordinary name", "shape", [TIdent "shape"])
-  , ("qualified operator stayeþ one name", "list@.*", [TIdent "list@.*"])
+  , ("qualified operator stayeþ one name", "list..*", [TIdent "list..*"])
+  , ("qualified name stayeþ one name", "list.empty", [TIdent "list.empty"])
   , ("unicode operator is a name", "≡", [TIdent "≡"])
   , ("minus signs an integer", "-1", [TInteger (-1)])
   , ("integer literals are arbitrary precision", "123456789012345678901234567890", [TInteger 123456789012345678901234567890])
@@ -29,7 +32,7 @@ lexCases =
   , ("plus remaineþ a name", "+1", [TIdent "+1"])
   , ("double minus remaineþ a name", "--1", [TIdent "--1"])
   , ("dot prepend is one name", ".*", [TIdent ".*"])
-  , ("standalone dot is syntax", ".", [TDot])
+  , ("standalone dot is a name", ".", [TIdent "."])
   , ("backslash is an ordinary name", "\\\\", [TIdent "\\\\"])
   , ("record opener stayeþ one token", "r(", [TParenKeyword "r"])
   , ("left association opener stayeþ one token", "<(", [TParenKeyword "<"])
@@ -49,7 +52,7 @@ lexCases =
 
 lexErrors :: [(String, String)]
 lexErrors =
-  [ ("path-qualified namespace", "data/list@empty")
+  [ ("path-qualified namespace", "ilk/list.empty")
   , ("unterminated text", "'no")
   , ("unknown text escape", "'\\q'")
   , ("unicode escape above range", "`\\1114112;")

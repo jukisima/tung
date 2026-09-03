@@ -1,4 +1,4 @@
-use data/two.tung
+use ilk/two.tung
 use order.tung
 use algebra/arithmetic/ring.tung
 

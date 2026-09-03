@@ -33,12 +33,24 @@ test("textmate fallback scopeþ use paths as one import string", () => {
 });
 test("textmate fallback scopeþ a use alias as a namespace", () => {
   const pattern = grammar.repository["import-path"].patterns[0];
-  const match = "use data/list.tung list".match(
+  const match = "use ilk/list.tung list".match(
     new RegExp(pattern.match, "u"),
   );
-  assert.equal(match[3], "data/list.tung");
+  assert.equal(match[3], "ilk/list.tung");
   assert.equal(match[5], "list");
   assert.equal(pattern.captures["5"].name, "entity.name.namespace.tung");
+});
+test("textmate fallback scopeþ a dotted qualifier as a namespace", async () => {
+  const line = "let value = list.empty";
+  const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
+  const scopesOf = (name) => {
+    const start = line.indexOf(name);
+    return tokens.find(({ startIndex, endIndex }) =>
+      startIndex <= start && start < endIndex
+    ).scopes;
+  };
+  assert(scopesOf("list").includes("entity.name.namespace.tung"));
+  assert(scopesOf("empty").includes("variable.other.tung"));
 });
 test("textmate giveþ a whole use path one scope", async () => {
   const loaded = await loadGrammar();

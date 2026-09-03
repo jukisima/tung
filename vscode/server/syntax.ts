@@ -157,7 +157,7 @@ const tokenize = (text) => {
       consumeName();
     } else if (isNumberStart(text, offset)) {
       consumeNumber();
-    } else if (specialNameChars.has(ch)) {
+    } else if (ch === "@" || specialNameChars.has(ch)) {
       const [startOffset, startLine, startChar] = position();
       advance();
       push("punctuation", startOffset, startLine, startChar);
@@ -255,7 +255,7 @@ const patternArmRegions = (tokens) => {
       continue;
     }
     const frame = frames.at(-1);
-    if (token.text === "|") {
+    if (token.text === "@") {
       const arm = {
         patternStart: frame.patternStart,
         pipe: token,
@@ -352,7 +352,10 @@ const useParts = (tokens, useIndex, depths = tokenDepths(tokens)) => {
 };
 
 const lastQualifiedSegment = (name) => {
-  return name.slice(name.lastIndexOf("@") + 1);
+  const separator = name.indexOf(".");
+  return separator > 0 && separator + 1 < name.length
+    ? name.slice(separator + 1)
+    : name.slice(name.lastIndexOf("@") + 1);
 };
 
 const useNamespace = (path, alias) => {

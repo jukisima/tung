@@ -5,8 +5,8 @@ deed pick {
 }
 
 let branch-sum: integer =
-  try (null pick) + (null pick) {
-    pick | (2 eftgin) + (3 eftgin)
+  try (only pick) + (only pick) {
+    pick @ (2 eftgin) + (3 eftgin)
   }
 
 let (_: 𝟙) main: 𝟙 ! console = (

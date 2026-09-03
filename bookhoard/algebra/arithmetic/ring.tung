@@ -1,5 +1,5 @@
 use algebra/arithmetic/semiring.tung
-use data/two.tung
+use ilk/two.tung
 use _foreign.tung
 
 graiþ a add
