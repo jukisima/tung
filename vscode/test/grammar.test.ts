@@ -41,16 +41,19 @@ test("textmate fallback scopeþ a use alias as a namespace", () => {
   assert.equal(pattern.captures["5"].name, "entity.name.namespace.tung");
 });
 test("textmate fallback scopeþ a dotted qualifier as a namespace", async () => {
-  const line = "let value = list.empty";
-  const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
-  const scopesOf = (name) => {
-    const start = line.indexOf(name);
-    return tokens.find(({ startIndex, endIndex }) =>
-      startIndex <= start && start < endIndex
-    ).scopes;
-  };
-  assert(scopesOf("list").includes("entity.name.namespace.tung"));
-  assert(scopesOf("empty").includes("variable.other.tung"));
+  const loaded = await loadGrammar();
+  for (const member of ["empty", "_*"]) {
+    const line = `let value = list.${member}`;
+    const tokens = loaded.tokenizeLine(line).tokens;
+    const scopesOf = (name) => {
+      const start = line.indexOf(name);
+      return tokens.find(({ startIndex, endIndex }) =>
+        startIndex <= start && start < endIndex
+      ).scopes;
+    };
+    assert(scopesOf("list").includes("entity.name.namespace.tung"));
+    assert(scopesOf(member).includes("variable.other.tung"));
+  }
 });
 test("textmate giveþ a whole use path one scope", async () => {
   const loaded = await loadGrammar();

@@ -17,7 +17,7 @@ show ilk k table v {
 show let empty: k table v = list.empty from-list
 
 show let (key: k, value: v) singleton: k table v =
-  key ∏ value $ .* list.empty $ from-list
+  key ∏ value $ _* list.empty $ from-list
 
 show let (entries from-list: k table v) entries: (k ∏ v) list =
   entries
@@ -30,14 +30,14 @@ show let (entries from-list: k table v, key: k) lookup: v option =
 
 graiþ k equal
 show let (entries from-list: k table v, key: k, value: v) put: k table v =
-  (key ∏ value) .* (entries fold₀ list.empty {
-      pair, rest @ (key ≡ (pair project₀)) if rest (pair .* rest)
+  (key ∏ value) _* (entries fold₀ list.empty {
+      pair, rest @ (key ≡ (pair project₀)) if rest (pair _* rest)
   }) $ from-list
 
 graiþ k equal
 show let (entries from-list: k table v, key: k) rid: k table v =
   entries fold₀ list.empty {
-    pair, rest @ key ≡ (pair project₀) $ if rest (pair .* rest)
+    pair, rest @ key ≡ (pair project₀) $ if rest (pair _* rest)
   } $ from-list
 
 show let (entries from-list: k table v) keys: k list =
@@ -79,7 +79,7 @@ graiþ k equal
 show let (entries from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
   entries fold₀ list.empty {
     pair, changed @ match key ≡ (pair project₀) {
-      nay @ pair .* changed,
-      yea @ ((pair project₀) ∏ (pair project₁ $ change)) .* changed
+      nay @ pair _* changed,
+      yea @ ((pair project₀) ∏ (pair project₁ $ change)) _* changed
     }
   } $ from-list

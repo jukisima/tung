@@ -805,14 +805,16 @@ test("semantic analysis markeþ a use alias as a namespace", () => {
   );
 });
 test("semantic analysis markeþ a default basename alias as a namespace", () => {
-  const source = "use ilk/list.tung yield list.empty";
-  const ranges = buildSemanticRanges(source);
-  const use = source.lastIndexOf("list.empty");
-  assert(
-    ranges.some(({ char, length, type }) =>
-      char === use && length === "list".length && type === "namespace"
-    ),
-  );
+  for (const member of ["empty", "_*"]) {
+    const source = `use ilk/list.tung yield list.${member}`;
+    const ranges = buildSemanticRanges(source);
+    const use = source.lastIndexOf(`list.${member}`);
+    assert(
+      ranges.some(({ char, length, type }) =>
+        char === use && length === "list".length && type === "namespace"
+      ),
+    );
+  }
 });
 test("semantic analysis markeþ a dotted qualifier before import resolution", () => {
   const source = "let value = list.empty";

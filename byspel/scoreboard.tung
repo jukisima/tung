@@ -151,7 +151,7 @@ let (standing: standing) print-standing: 𝟙 ! console = (
 )
 
 let fixtures: game list =
-  >(.*,
+  >(_*,
     r(home = norþ, home-score = 3, away = souþ, away-score = 1),
     r(home = east, home-score = 2, away = west, away-score = 2),
     r(home = souþ, home-score = -1, away = east, away-score = 4),
@@ -160,7 +160,7 @@ let fixtures: game list =
   )
 
 let initial-standings: standing list =
-  >(.*,
+  >(_*,
     r(team = norþ, played = 0, points = 0),
     r(team = souþ, played = 0, points = 0),
     r(team = east, played = 0, points = 0),

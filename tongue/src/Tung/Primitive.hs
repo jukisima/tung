@@ -102,7 +102,7 @@ data SchemaOrdering = SourceOrdering | StructuralOrdering
 oneData, twoData, listData, optionData, productData, tableData :: HostData
 oneData = HostData "ilk/one.tung" "𝟙" [] [Ctor "only" []]
 twoData = HostData "ilk/two.tung" "𝟚" [] [Ctor "yea" [], Ctor "nay" []]
-listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [], Ctor ".*" [TypeName "a", TypeApply "list" [TypeName "a"]]]
+listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [], Ctor "_*" [TypeName "a", TypeApply "list" [TypeName "a"]]]
 optionData = HostData "ilk/option.tung" "option" ["a"] [Ctor "none" [], Ctor "some" [TypeName "a"]]
 productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName "a", TypeName "b"]]
 tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]]]
@@ -380,7 +380,7 @@ nayConstructorId = constructorId twoData "nay"
 
 emptyConstructorId, consConstructorId :: SymbolId
 emptyConstructorId = constructorId listData "empty"
-consConstructorId = constructorId listData ".*"
+consConstructorId = constructorId listData "_*"
 
 noneConstructorId, someConstructorId :: SymbolId
 noneConstructorId = constructorId optionData "none"

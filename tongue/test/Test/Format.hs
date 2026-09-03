@@ -140,9 +140,9 @@ cases =
     ( "nested continuation"
     , """
       let fixtures =
-      first .*
-      (second .*
-      (third .* empty))
+      first _*
+      (second _*
+      (third _* empty))
 
       let next =
       value
@@ -150,9 +150,9 @@ cases =
       """
     , """
       let fixtures =
-        first .*
-          (second .*
-            (third .* empty))
+        first _*
+          (second _*
+            (third _* empty))
 
       let next =
         value
@@ -231,7 +231,7 @@ cases =
     ( "associative sequence"
     , """
       let list = >(
-      .*,
+      _*,
       a,
       b,
       empty
@@ -240,7 +240,7 @@ cases =
       """
     , """
       let list = >(
-        .*,
+        _*,
         a,
         b,
         empty

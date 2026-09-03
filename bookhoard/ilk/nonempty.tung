@@ -20,12 +20,12 @@ show let (a: a) singleton: a nonempty =
 
 ## expose a non-empty list as an ordinary list.
 show let (head nonempty tail: a nonempty) to-list: a list =
-  head .* tail
+  head _* tail
 
 ## make a non-empty list when þe input haþ a first element.
 show let from-list: a list → (a nonempty) option = {
   empty @ none,
-  first .* rest @ (first nonempty rest) some
+  first _* rest @ (first nonempty rest) some
 }
 
 show let (first nonempty _: a nonempty) head: a = first
@@ -34,7 +34,7 @@ show let (_ nonempty rest: a nonempty) tail: a list = rest
 
 graiþ (a list) inhold a
 fill (a nonempty) inhold a {
-  let (first nonempty rest) ∋ a = (first .* rest) ∋ a
+  let (first nonempty rest) ∋ a = (first _* rest) ∋ a
 }
 
 fill nonempty functor {
@@ -50,7 +50,7 @@ fill nonempty applicative {
   let pure = singleton
   let (first nonempty rest) apply (f nonempty fs) =
     (first f) nonempty (
-      (rest map f) * ((first .* rest) apply fs)
+      (rest map f) * ((first _* rest) apply fs)
     )
 }
 

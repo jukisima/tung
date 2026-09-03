@@ -72,10 +72,6 @@ const tokenize = (text) => {
   };
   const consumeName = () => {
     const [startOffset, startLine, startChar] = position();
-    if (current() === "." && next() === "*") {
-      advance();
-      advance();
-    }
     while (!atEnd() && isNameChar(current())) advance();
     const value = text.slice(startOffset, offset);
     push(
@@ -352,7 +348,7 @@ const useParts = (tokens, useIndex, depths = tokenDepths(tokens)) => {
 };
 
 const lastQualifiedSegment = (name) => {
-  const separator = name.indexOf(".");
+  const separator = name.lastIndexOf(".");
   return separator > 0 && separator + 1 < name.length
     ? name.slice(separator + 1)
     : name.slice(name.lastIndexOf("@") + 1);

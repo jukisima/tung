@@ -132,7 +132,7 @@ expressions =
   , ("record expression", "r(left = 1, right = 2)", ERecord [("left", EInteger 1), ("right", EInteger 2)])
   , ("record update expression", "r(= value, right = 3, - left)", EUpdate (EVar "value") [RecordSet "right" (EInteger 3), RecordRemove "left"])
   , ("left-associated sequence", "<(+, a, b, c, d)", apply (EVar "+") [apply (EVar "+") [apply (EVar "+") [EVar "a", EVar "b"], EVar "c"], EVar "d"])
-  , ("right-associated sequence", ">(.*, a, b, c, d)", apply (EVar ".*") [EVar "a", apply (EVar ".*") [EVar "b", apply (EVar ".*") [EVar "c", EVar "d"]]])
+  , ("right-associated sequence", ">(_*, a, b, c, d)", apply (EVar "_*") [EVar "a", apply (EVar "_*") [EVar "b", apply (EVar "_*") [EVar "c", EVar "d"]]])
   , ("separated left marker remaineþ an ordinary name", "1 < (2)", apply (EVar "<") [EInteger 1, EInteger 2])
   , ("separated right marker remaineþ an ordinary name", "1 > (2)", apply (EVar ">") [EInteger 1, EInteger 2])
   , ("integer match pattern", "match 1 { 0 @ 2, _ @ 3 }", EMatch [EInteger 1] [MatchCase (PInteger 0 :| []) (EInteger 2), MatchCase (PVar "_" :| []) (EInteger 3)])

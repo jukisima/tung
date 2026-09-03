@@ -350,9 +350,9 @@ orderCases imports =
 boundCases :: Map.Map String String -> [Test]
 boundCases imports =
   [ typeOkWith "finite orders provide both endpoints" (prefix ++ "let low: 𝟚 = ⟂ let high: 𝟛 = ⊤") imports
-  , typeOkWith "natural supporteþ the lower-bound fold" (prefix ++ "let value: natural = (natural.zero .* list.empty) …∨") imports
-  , typeErrWith "natural doth not claim an upper bound" (prefix ++ "let value: natural = (natural.zero .* list.empty) …∧") imports
-  , typeOkWith "powerset is a bounded lattice without total order" (powersetPrefix ++ "let joined: integer powerset = (empty-set .* (full-set .* list.empty)) …∨") imports
+  , typeOkWith "natural supporteþ the lower-bound fold" (prefix ++ "let value: natural = (natural.zero _* list.empty) …∨") imports
+  , typeErrWith "natural doth not claim an upper bound" (prefix ++ "let value: natural = (natural.zero _* list.empty) …∧") imports
+  , typeOkWith "powerset is a bounded lattice without total order" (powersetPrefix ++ "let joined: integer powerset = (empty-set _* (full-set _* list.empty)) …∨") imports
   , typeErrWith "lattice doth not imply total order" (powersetPrefix ++ "let bad = empty-set ≤ full-set") imports
   , typeErrWith "float doth not claim a lawful lattice" "use ground.tung let bad: float = 1.0 ∧ 2.0" imports
   , typeOkWith "infimum semilattice stands without supremum" (semilatticePrefix ++ "let good = item ∧ item") imports
@@ -577,7 +577,7 @@ reorderedWebSource =
     ++ "let (_: 𝟙) main: 𝟙 ! web = try 8080 serve route { _ fail @ only }"
 webData =
   unitData
-    ++ "ilk a list { empty, a .* (a list) } "
+    ++ "ilk a list { empty, a _* (a list) } "
     ++ "ilk k table v { ((k ∏ v) list) from-list } "
     ++ "ilk request { text request text (text table text) text } "
     ++ "ilk response { integer response (text table text) text } "

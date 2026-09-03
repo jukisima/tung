@@ -44,7 +44,7 @@ import Tung.Core (CoreProgram, ModuleInterface (..), makeCoreProgramWithImports)
 import Tung.Coverage qualified as Coverage
 import Tung.Identity (EffectRef (..), FillId (..), FillType (..), ModuleId (..), ShapeRef (..), SymbolId (..), TermExport (..), TermKind (..), TypeRef (..), isPrimitiveFillId, renderFillId)
 import Tung.Import (ImportStack, enterImport)
-import Tung.Name (importAlias, importNamespace, isQualifiedName, lastQualifiedSegment, replaceNamespace, splitFieldAccessName)
+import Tung.Name (importAlias, importNamespace, isQualifiedName, lastQualifiedSegment, replaceNamespace, splitFieldAccessName, splitQualifiedName)
 import Tung.Parse (ParsedSource (..), parse, parseLocated)
 import Tung.Primitive
 import Tung.Syntax
@@ -1543,9 +1543,7 @@ projectFillNeeds wanted FillInfo{fillShape} = map (relabelNeedRefs emptyDisplayN
   project name = case sourceNamespace >>= (\source -> stripPrefix (source ++ ".") name) of
     Just rest -> maybe rest (\target -> target ++ "." ++ rest) wantedNamespace
     Nothing -> name
-  displayNamespace name = case break (== '.') name of
-    (prefix, '.' : _) -> Just prefix
-    _ -> Nothing
+  displayNamespace = fmap fst . splitQualifiedName
 
 fillParentNeeds :: String -> [TypeExpr] -> TcContext -> [Need]
 fillParentNeeds shapeName types ctx = case findShapeInfo shapeName ctx of

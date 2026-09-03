@@ -28,7 +28,6 @@ import Text.Megaparsec (Parsec)
 import Text.Megaparsec qualified as M
 import Text.Megaparsec.Char qualified as C
 import Text.Megaparsec.Char.Lexer qualified as L
-import Tung.Name (hasPathNamespace)
 
 data SourceSpan = SourceSpan
   { spanStart :: !Int
@@ -279,16 +278,25 @@ unicodeScalar value
 
 nameParser :: Lexer Token
 nameParser = do
-  name <- concat <$> some nameChunk
+  name <- some (M.satisfy isNameChar)
   if name == "@"
     then fail "standalone '@' is syntax"
     else
-      if hasPathNamespace name && not (".tung" `isSuffixOf` name)
-        then fail "namespace must not contain '/'"
+      if not (validNameDots name)
+        then fail "'.' must separate one slash-free namespace and member"
         else pure (keywordOrIdent name)
 
-nameChunk :: Lexer String
-nameChunk = M.try (C.string ".*") M.<|> ((: []) <$> M.satisfy isNameChar)
+validNameDots :: String -> Bool
+validNameDots name
+  | ".tung" `isSuffixOf` name = True
+  | otherwise = case break (== '.') name of
+      (_, []) -> True
+      (namespace, '.' : member) ->
+        not (null namespace)
+          && not (null member)
+          && '.' `notElem` member
+          && '/' `notElem` name
+      _ -> False
 
 spaceConsumer :: Lexer ()
 spaceConsumer = L.space C.space1 (L.skipLineComment "#") (L.skipBlockComment "/*" "*/")

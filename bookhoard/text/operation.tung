@@ -36,19 +36,19 @@ show let (text: text) reverse-text: text =
   text text-to-list $ reverse $ list-to-text
 
 show let (character: unicode, text: text) prepend-text: text =
-  character .* (text text-to-list) $ list-to-text
+  character _* (text text-to-list) $ list-to-text
 
 show let (text: text, character: unicode) append-text: text =
-  text text-to-list $ * (character .* empty) $ list-to-text
+  text text-to-list $ * (character _* empty) $ list-to-text
 
 let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
   match list {
-    empty @ empty .* empty,
-    character .* rest @ match rest split-unicode-by separates {
-      empty @ (character .* empty) .* empty,
-      current .* previous @ match character separates {
-        yea @ empty .* (current .* previous),
-        nay @ (character .* current) .* previous
+    empty @ empty _* empty,
+    character _* rest @ match rest split-unicode-by separates {
+      empty @ (character _* empty) _* empty,
+      current _* previous @ match character separates {
+        yea @ empty _* (current _* previous),
+        nay @ (character _* current) _* previous
       }
     }
   }
@@ -73,7 +73,7 @@ show let (text: text) words-text: text list =
 ## join text values wiþ a separator between neighbours.
 show let join-wiþ-text: text list → text → text = {
   empty, _ @ '',
-  text .* texts, separator @ texts fold₁ text {
+  text _* texts, separator @ texts fold₁ text {
     joined, next @ (joined * separator) * next
   }
 }

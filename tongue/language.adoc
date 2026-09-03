@@ -38,8 +38,9 @@ most non-space characters not reserved by syntax may occur in a name. `.`
 qualifieþ an imported name; `@`, when embedded in a name, selecteþ a record
 field when no exact name existeþ. type alias, data, effect, and frame names and
 þeir owned constructor, operation, or member names are therefore unqualified.
-`.*` is one ordinary name; there is no general infix escape. `_` discardeþ a
-binding or match value.
+outside a `.tung` import paþ, a name may have at most one `.`, wiþ a nonempty,
+slash-free namespace and member. `_*` is one ordinary name; there is no general
+infix escape. `_` discardeþ a binding or match value.
 
 `#` starteþ a line comment, and `/* ... */` formeþ a non-nested block
 comment. `##` and `/** ... */` are doc comments attached to the following
