@@ -468,8 +468,7 @@ const tokenRange = (first, last = first) => {
   };
 };
 const nameRange = (token) => {
-  const namespace = token.text.indexOf(".");
-  const split = namespace > 0 ? namespace : token.text.lastIndexOf("@");
+  const split = token.text.indexOf("~");
   const delta = split < 0 ? 0 : split + 1;
   return {
     start: { line: token.line, character: token.char + delta },

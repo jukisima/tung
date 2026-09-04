@@ -17,7 +17,7 @@ fill (a func b) ring {
   let f - g a = (a f) - (a g)
 }
 
-fill integer subtract {
+fill ℤ subtract {
   let - = subtract-integer
 }
 
@@ -25,7 +25,7 @@ fill float subtract {
   let - = subtract-float
 }
 
-fill integer ring {}
+fill ℤ ring {}
 
 fill 𝟚 subtract {
   let - = +

@@ -81,7 +81,9 @@ effects follow `!` on a function arrow, and
 `(term: type)` constraineþ any term.
 
 closed record types use `r(field: type)`, and values use `r(field = value)`;
-`r(= record, field = value)` updateþ a record, and `r(= record, - field)` removeþ a field.
+`r(= record, field = value)` updateþ a record, `r(= record, - field)` removeþ a
+field, and `record.field.nested` chaineþ field access. imported names use
+`namespace~member`.
 
 == keywords
 
@@ -144,8 +146,8 @@ closed record types use `r(field: type)`, and values use `r(field = value)`;
 use ilk/list.tung
 use ilk/table.tung hashmap
 
-let mine-list-empty = list.empty
-let mine-table-empty = hashmap.empty
+let mine-list-empty = list~empty
+let mine-table-empty = hashmap~empty
 ----
 
 imported names may stay bare when unambiguous.
@@ -159,7 +161,7 @@ partial application is pure; an effect operation runneþ only when fully applied
 use ground.tung
 
 deed ask {
-  integer ask: integer
+  ℤ ask: ℤ
 }
 
 let answer: text = try 10 ask {

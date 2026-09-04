@@ -1,4 +1,4 @@
--- | pure helpers for import namespaces, qualification, and record-field fallback.
+-- | pure helpers for import namespaces and qualification.
 module Tung.Name (
   checkImportAlias,
   importAlias,
@@ -7,7 +7,6 @@ module Tung.Name (
   lastQualifiedSegment,
   splitQualifiedName,
   replaceNamespace,
-  splitFieldAccessName,
 )
 where
 
@@ -30,8 +29,8 @@ isQualifiedName :: String -> Bool
 isQualifiedName = isJust . splitQualifiedName
 
 splitQualifiedName :: String -> Maybe (String, String)
-splitQualifiedName name = case break (== '.') (reverse name) of
-  (member, '.' : namespace)
+splitQualifiedName name = case break (== '~') (reverse name) of
+  (member, '~' : namespace)
     | not (null namespace) && not (null member) ->
         Just (reverse namespace, reverse member)
   _ -> Nothing
@@ -42,9 +41,4 @@ lastQualifiedSegment name = case break (== '@') (reverse name) of
   _ -> maybe name snd (splitQualifiedName name)
 
 replaceNamespace :: String -> String -> String -> String
-replaceNamespace old new name = maybe name (\rest -> new ++ "." ++ rest) (stripPrefix (old ++ ".") name)
-
-splitFieldAccessName :: String -> Maybe (String, String)
-splitFieldAccessName name = case break (== '@') (reverse name) of
-  (field, '@' : base) | not (null field) && not (null base) -> Just (reverse base, reverse field)
-  _ -> Nothing
+replaceNamespace old new name = maybe name (\rest -> new ++ "~" ++ rest) (stripPrefix (old ++ "~") name)

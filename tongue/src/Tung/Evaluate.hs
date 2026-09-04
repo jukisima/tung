@@ -562,9 +562,9 @@ primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
 primitiveDictionaryValue frame typeName member = do
   _ <- find matches primitiveFillSpecs
   case (typeName, member) of
-    ("integer", "zero") -> pure (VInteger 0)
+    ("ℤ", "zero") -> pure (VInteger 0)
     ("float", "zero") -> pure (VFloat 0)
-    ("integer", "one") -> pure (VInteger 1)
+    ("ℤ", "one") -> pure (VInteger 1)
     ("float", "one") -> pure (VFloat 1)
     _ -> nativeValue member . hostArity <$> find ((== member) . hostName) baseNativeBindings
  where
@@ -838,7 +838,7 @@ forkConcurrent work = Eval $ \host@RuntimeHost{hostTaskSlots, hostNextTask, host
         started <- newEmptyMVar
         thread <- forkIO $ mask $ \restore -> do
           putMVar started ()
-          finishTask host True task =<< restore (runTask host work)
+          finishTask host True task =<< runTaskWith restore host work
         readMVar started
         putMVar runtimeTaskThread (Just thread)
       else do
@@ -848,8 +848,11 @@ forkConcurrent work = Eval $ \host@RuntimeHost{hostTaskSlots, hostNextTask, host
   pure (RuntimeOk (VTask task))
 
 runTask :: RuntimeHost -> RuntimeValue -> IO TaskResult
-runTask host work = do
-  outcome <- try (runEval (applyOne work runtimeOnly) host)
+runTask = runTaskWith id
+
+runTaskWith :: (IO (RuntimeResult RuntimeValue) -> IO (RuntimeResult RuntimeValue)) -> RuntimeHost -> RuntimeValue -> IO TaskResult
+runTaskWith restore host work = do
+  outcome <- try (restore (runEval (applyOne work runtimeOnly) host))
   pure $ case outcome of
     Left exception
       | Just ThreadKilled <- fromException exception -> TaskCancelled

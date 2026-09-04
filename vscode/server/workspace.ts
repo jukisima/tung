@@ -180,7 +180,7 @@ class WorkspaceIndex {
   }
   resolveVisible(model, name, seen = new Set(), role = undefined) {
     const visibleRole = (definition) => !role || definition.role === role;
-    const split = name.indexOf(".");
+    const split = name.indexOf("~");
     if (split >= 0) {
       const qualifier = name.slice(0, split);
       const bare = name.slice(split + 1);
@@ -239,8 +239,11 @@ class WorkspaceIndex {
         candidates: visibleShapes,
       };
     }
+    if (model.roles.get(token.index)?.type === "property") {
+      return { model, token, definition: undefined };
+    }
     const local = findDefinition(model, token, token.offset);
-    if (local && !token.text.includes(".") && !token.text.includes("@")) {
+    if (local && !token.text.includes("~")) {
       return { model, token, definition: local };
     }
     const visible = this.resolveVisible(model, token.text);
@@ -337,7 +340,7 @@ class WorkspaceIndex {
         definition,
         {
           ...definition,
-          completionName: `${entry.namespace}.${definition.bareName}`,
+          completionName: `${entry.namespace}~${definition.bareName}`,
         },
       ]);
     });

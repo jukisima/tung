@@ -18,16 +18,16 @@ languageMetadataCase = do
 
 lexCases :: [(String, String, [Token])]
 lexCases =
-  [ ("field access stayeþ one name", "person@age", [TIdent "person@age"])
+  [ ("record access separateþ member names", "person.age", [TIdent "person", TDot, TIdent "age"])
   , ("case separator is syntax", "@", [TMapsTo])
   , ("pipe is an ordinary name", "|", [TIdent "|"])
   , ("retired bring spelling is an ordinary name", "bring", [TIdent "bring"])
   , ("retired shape spelling is an ordinary name", "shape", [TIdent "shape"])
-  , ("qualified operator stayeþ one name", "list._*", [TIdent "list._*"])
-  , ("qualified name stayeþ one name", "list.empty", [TIdent "list.empty"])
+  , ("qualified operator stayeþ one name", "list~_*", [TIdent "list~_*"])
+  , ("qualified name stayeþ one name", "list~empty", [TIdent "list~empty"])
   , ("unicode operator is a name", "≡", [TIdent "≡"])
-  , ("minus signs an integer", "-1", [TInteger (-1)])
-  , ("integer literals are arbitrary precision", "123456789012345678901234567890", [TInteger 123456789012345678901234567890])
+  , ("minus signs an ℤ", "-1", [TInteger (-1)])
+  , ("ℤ literals are arbitrary precision", "123456789012345678901234567890", [TInteger 123456789012345678901234567890])
   , ("minus signs a float", "-1.25", [TFloat (-1.25)])
   , ("plus remaineþ a name", "+1", [TIdent "+1"])
   , ("double minus remaineþ a name", "--1", [TIdent "--1"])
@@ -51,7 +51,7 @@ lexCases =
 
 lexErrors :: [(String, String)]
 lexErrors =
-  [ ("path-qualified namespace", "ilk/list.empty")
+  [ ("path-qualified namespace", "ilk/list~empty")
   , ("unterminated text", "'no")
   , ("unknown text escape", "'\\q'")
   , ("unicode escape above range", "`\\1114112;")

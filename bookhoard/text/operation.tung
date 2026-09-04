@@ -26,10 +26,10 @@ fill text size {
   let text size = text text-to-list $ size
 }
 
-show let (text: text, count: integer) take-text: text =
+show let (text: text, count: ℤ) take-text: text =
   text text-to-list $ take count $ list-to-text
 
-show let (text: text, count: integer) drop-text: text =
+show let (text: text, count: ℤ) drop-text: text =
   text text-to-list $ drop count $ list-to-text
 
 show let (text: text) reverse-text: text =

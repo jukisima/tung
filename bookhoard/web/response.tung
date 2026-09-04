@@ -3,11 +3,11 @@ use text/structure.tung
 
 ## an http response wiþ its status, headers, and utf-8 body.
 show ilk response {
-  integer response (text table text) text
+  ℤ response (text table text) text
 }
 
 show let (status response _ _: response)
-  response-status: integer = status
+  response-status: ℤ = status
 
 show let (_ response headers _: response)
   response-headers: text table text = headers
@@ -15,7 +15,7 @@ show let (_ response headers _: response)
 show let (_ response _ body: response)
   response-body: text = body
 
-show let (status: integer, body: text)
+show let (status: ℤ, body: text)
   respond: response = status response empty body
 
 show let (body: text) ok: response = 200 respond body

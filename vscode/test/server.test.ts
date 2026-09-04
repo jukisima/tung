@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show ilk natural { zero }\nshow ilk a parcel { a wrap }\nshow let (x: integer) identity: integer = x\nshow let answer: integer = 42\nshow frame a convert { let a convert: a }\n";
+    "show ilk ℕ { zero }\nshow ilk a parcel { a wrap }\nshow let (x: ℤ) identity: ℤ = x\nshow let answer: ℤ = 42\nshow frame a convert { let a convert: a }\n";
   const mainText =
-    'use dep.tung\nlet value: integer = answer\nlet count: natural = zero\nlet ratio: float = 1.5\nlet shipment: integer parcel = 1 wrap\nlet same: integer = 1 identity # "unicode 𝟙\\n"\nlet (left: integer, middle: integer, right: integer) select: integer = middle\nlet picker = { first, second, third @ second }\nfill integer convert { let x convert = x }\nshow ilk a box {\na box\n}\n';
+    'use dep.tung\nlet value: ℤ = answer\nlet count: ℕ = zero\nlet ratio: float = 1.5\nlet shipment: ℤ parcel = 1 wrap\nlet same: ℤ = 1 identity # "unicode 𝟙\\n"\nlet (left: ℤ, middle: ℤ, right: ℤ) select: ℤ = middle\nlet picker = { first, second, third @ second }\nfill ℤ convert { let x convert = x }\nshow ilk a box {\na box\n}\n';
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -107,7 +107,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     contentChanges: [
       {
         text: depText.replace(
-          "answer: integer = 42",
+          "answer: ℤ = 42",
           "answer: text = 'changed'",
         ),
       },
@@ -139,7 +139,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     semantic.data,
     capabilities.semanticTokensProvider.legend.tokenTypes,
   );
-  for (const typeName of ["integer", "float", "natural", "parcel"]) {
+  for (const typeName of ["ℤ", "float", "ℕ", "parcel"]) {
     assert.equal(
       semanticAt.get(positionKey(positionOf(mainText, typeName))),
       "type",
@@ -155,7 +155,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     undefined,
   );
   assert.notEqual(
-    semanticAt.get(positionKey(positionOf(mainText, "natural"))),
+    semanticAt.get(positionKey(positionOf(mainText, "ℕ"))),
     semanticAt.get(positionKey(positionOf(mainText, "identity"))),
   );
   assert.equal(
@@ -201,7 +201,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     position: answerPosition,
   });
   assert(completion.some(({ label }) => label === "answer"));
-  assert(completion.some(({ label }) => label === "dep.answer"));
+  assert(completion.some(({ label }) => label === "dep~answer"));
   const definition = await request("textDocument/definition", {
     textDocument: { uri: mainUri },
     position: answerPosition,
@@ -211,7 +211,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: mainUri },
     position: answerPosition,
   });
-  assert.match(hover.contents.value, /let answer: integer/);
+  assert.match(hover.contents.value, /let answer: ℤ/);
   assert.match(hover.contents.value, /inferred type/);
   const references = await request("textDocument/references", {
     textDocument: { uri: mainUri },
@@ -239,7 +239,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   );
   const primitiveRename = await request("textDocument/prepareRename", {
     textDocument: { uri: mainUri },
-    position: positionOf(mainText, "integer"),
+    position: positionOf(mainText, "ℤ"),
   });
   assert.equal(primitiveRename, null);
   const symbols = await request("textDocument/documentSymbol", {
@@ -304,8 +304,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: depUri },
   });
   const importedSource = depText.replace(
-    "answer: integer = 42",
-    "answer: integer = 'wrong'",
+    "answer: ℤ = 42",
+    "answer: ℤ = 'wrong'",
   );
   const importedDiagnostics = nextDiagnostics(
     connection,
@@ -338,7 +338,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     ({ diagnostics }) => diagnostics.length > 0,
   );
   const badText = mainText.replace(
-    "let value: integer = answer",
+    "let value: ℤ = answer",
     "let value: text = answer",
   );
   connection.sendNotification("textDocument/didChange", {

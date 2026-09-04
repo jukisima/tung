@@ -34,6 +34,8 @@ const tokenModifiers = [
   "declaration",
   "defaultLibrary",
   "effect",
+  "applied",
+  "typeFunction",
 ];
 const applicationStartTexts = new Set([
   "(",
@@ -89,9 +91,7 @@ const classifyToken = (token, tokens, info, definition) => {
   }
   const analyzed = info.semantic.get(token.index);
   const semantic = (analyzed?.modifiers.includes("declaration") && analyzed) ||
-    (typeRoles.has(definition?.role) &&
-      isAnalyzedTypeRole(analyzed) &&
-      semanticFromDefinition(definition)) ||
+    refinedTypeSemantic(analyzed, definition) ||
     analyzed ||
     functionPositionSemantic(token, tokens, info, definition) ||
     callableConstructorSemantic(token, tokens, info, definition) ||
@@ -110,6 +110,17 @@ const classifyToken = (token, tokens, info, definition) => {
 const isAnalyzedTypeRole = (semantic) => {
   return semantic && typeRoles.has(semantic.type);
 };
+const refinedTypeSemantic = (analyzed, definition) => {
+  if (!typeRoles.has(definition?.role) || !isAnalyzedTypeRole(analyzed)) {
+    return undefined;
+  }
+  const refined = semanticFromDefinition(definition);
+  if (!refined) return undefined;
+  return {
+    ...refined,
+    modifiers: [...new Set([...refined.modifiers, ...analyzed.modifiers])],
+  };
+};
 const functionPositionSemantic = (token, tokens, info, definition) => {
   if (!isFunctionPosition(tokens, token.index)) return undefined;
   const name = lastQualifiedSegment(token.text);
@@ -124,8 +135,8 @@ const functionPositionSemantic = (token, tokens, info, definition) => {
   }
   const modifiers =
     definition?.modifiers?.includes("effect") || info.effectOps.has(name)
-      ? ["effect"]
-      : [];
+      ? ["effect", "applied"]
+      : ["applied"];
   return { type: "call", modifiers };
 };
 const callableConstructorSemantic = (token, tokens, info, definition) => {
@@ -133,7 +144,7 @@ const callableConstructorSemantic = (token, tokens, info, definition) => {
   if (definition?.role !== "enumMember") return undefined;
   const name = lastQualifiedSegment(token.text);
   if (info.callableConstructors.has(name) || definition.callableConstructor) {
-    return { type: "call", modifiers: [] };
+    return { type: "call", modifiers: ["applied"] };
   }
   return undefined;
 };
@@ -155,7 +166,7 @@ const semanticFromDefinition = (definition) => {
   return {
     type,
     modifiers: (definition.modifiers || []).filter(
-      (modifier) => modifier !== "declaration",
+      (modifier) => !["declaration", "typeFunction"].includes(modifier),
     ),
   };
 };
@@ -191,7 +202,20 @@ const analyze = (tokens) => {
   collectTermAscriptions(tokens, info);
   collectExportLists(tokens, info);
   collectPatternBindings(tokens, info);
+  collectRecordAccesses(tokens, info);
   return info;
+};
+const collectRecordAccesses = (tokens, info) => {
+  for (const accessor of tokens) {
+    const field = tokens[accessor.index + 1];
+    if (
+      accessor.text === "." &&
+      !info.importTokens.has(accessor.index) &&
+      field?.kind === "name"
+    ) {
+      mark(info, field.index, "property", [], 105);
+    }
+  }
 };
 const collectTermAscriptions = (tokens, info) => {
   for (const token of tokens) {
@@ -255,7 +279,15 @@ const collectGraith = (tokens, index, info) => {
       info,
       new Set(requirement.name ? [requirement.name.index] : []),
     );
-    if (requirement.name) mark(info, requirement.name.index, "frame", [], 85);
+    if (requirement.name) {
+      mark(
+        info,
+        requirement.name.index,
+        "frame",
+        terms.length > 1 ? ["applied"] : [],
+        85,
+      );
+    }
   }
 };
 const collectTypeAlias = (tokens, index, info) => {
@@ -364,7 +396,15 @@ const collectFill = (tokens, index, info) => {
     info,
     new Set(header.name ? [header.name.index] : []),
   );
-  if (header.name) mark(info, header.name.index, "frame", [], 70);
+  if (header.name) {
+    mark(
+      info,
+      header.name.index,
+      "frame",
+      terms.length > 1 ? ["applied"] : [],
+      70,
+    );
+  }
   for (const segment of splitDeclarations(tokens, open + 1, close)) {
     if (tokens[segment.start] && tokens[segment.start].text === "let") {
       collectMemberLet(tokens, segment, info);
@@ -395,7 +435,13 @@ const markOwnerHeader = (
 ) => {
   if (header.name) {
     names.add(header.name.text);
-    mark(info, header.name.index, role, modifiers, 100);
+    mark(
+      info,
+      header.name.index,
+      role,
+      header.params.length > 0 ? [...modifiers, "typeFunction"] : modifiers,
+      100,
+    );
   }
   for (const param of header.params) {
     mark(info, param.index, "typeParameter", ["declaration"], 100);
@@ -517,7 +563,7 @@ const inferredSemantic = (token, tokens, info) => {
     info.callableConstructors.has(name) &&
     isFunctionPosition(tokens, token.index)
   ) {
-    return { type: "call", modifiers: [] };
+    return { type: "call", modifiers: ["applied"] };
   }
   if (info.constructors.has(name)) {
     return { type: "enumMember", modifiers: [] };
@@ -537,7 +583,7 @@ const inferredSemantic = (token, tokens, info) => {
   if (info.functions.has(name)) {
     return { type: "variable", modifiers: [] };
   }
-  const namespaceSplit = token.text.indexOf(".");
+  const namespaceSplit = token.text.indexOf("~");
   const qualifier = namespaceSplit > 0
     ? token.text.slice(0, namespaceSplit)
     : "";
@@ -549,17 +595,17 @@ const inferredSemantic = (token, tokens, info) => {
         : isFunctionPosition(tokens, token.index)
         ? "call"
         : "variable",
-      modifiers: [],
+      modifiers: isFunctionPosition(tokens, token.index) ? ["applied"] : [],
     };
   }
   if (isFunctionPosition(tokens, token.index)) {
-    return { type: "call", modifiers: [] };
+    return { type: "call", modifiers: ["applied"] };
   }
   return undefined;
 };
 const semanticRanges = (token, semantic) => {
   const type = semantic.type;
-  const namespaceSplit = token.text.indexOf(".");
+  const namespaceSplit = token.text.indexOf("~");
   if (namespaceSplit > 0) {
     const qualifier = token.text.slice(0, namespaceSplit);
     const name = token.text.slice(namespaceSplit + 1);
@@ -576,25 +622,7 @@ const semanticRanges = (token, semantic) => {
       ];
     }
   }
-  if (!token.text.includes("@")) {
-    return [rangeFor(token, 0, token.text.length, type, semantic.modifiers)];
-  }
-  const split = token.text.lastIndexOf("@");
-  const qualifier = token.text.slice(0, split);
-  const name = token.text.slice(split + 1);
-  if (!qualifier || !name) {
-    return [rangeFor(token, 0, token.text.length, type, semantic.modifiers)];
-  }
-  return [
-    rangeFor(token, 0, qualifier.length, "variable", []),
-    rangeFor(
-      token,
-      split + 1,
-      name.length,
-      type === "call" ? "call" : "property",
-      [],
-    ),
-  ];
+  return [rangeFor(token, 0, token.text.length, type, semantic.modifiers)];
 };
 const rangeFor = (token, startDelta, length, type, modifiers) => {
   return {
@@ -700,7 +728,7 @@ const markPatternParameters = (tokens, start, end, info) => {
       markPatternParameters(tokens, term.start + 1, term.end - 1, info);
     } else if (
       token?.kind === "name" && token.text !== "_" &&
-      !token.text.includes(".")
+      !token.text.includes("~")
     ) {
       mark(info, token.index, "parameter", ["declaration"], 90);
     }
@@ -743,22 +771,60 @@ const markTypeTokens = (tokens, start, end, info, skip = new Set()) => {
       continue;
     }
     const name = lastQualifiedSegment(token.text);
+    const applied = isTypeFunctionPosition(tokens, i, start);
     if (
       primitiveTypes.has(name) || info.types.has(name) || info.effects.has(name)
     ) {
+      const modifiers = [
+        ...(info.effects.has(name) ? ["effect"] : []),
+        ...(applied ? ["applied"] : []),
+      ];
       mark(
         info,
         token.index,
         "type",
-        info.effects.has(name) ? ["effect"] : [],
+        modifiers,
         80,
       );
     } else if (info.frames.has(name)) {
-      mark(info, token.index, "frame", [], 80);
+      mark(info, token.index, "frame", applied ? ["applied"] : [], 80);
     } else {
-      mark(info, token.index, "typeParameter", [], 80);
+      mark(
+        info,
+        token.index,
+        "typeParameter",
+        applied ? ["applied"] : [],
+        80,
+      );
     }
   }
+};
+const isTypeFunctionPosition = (tokens, index, start) => {
+  const token = tokens[index];
+  if (!token || token.kind !== "name") return false;
+  const firstAtom = previousTypeAtomStart(tokens, index);
+  if (firstAtom < start) return false;
+  if (firstAtom === start) return true;
+  const boundary = tokens[firstAtom - 1];
+  return boundary && (
+    applicationStartTexts.has(boundary.text) ||
+    ["!", "→"].includes(boundary.text) ||
+    boundary.kind === "keyword"
+  );
+};
+const previousTypeAtomStart = (tokens, before) => {
+  const end = before - 1;
+  const token = tokens[end];
+  if (!token) return -1;
+  if (isClose(token.text)) {
+    let depth = 1;
+    for (let index = end - 1; index >= 0; index -= 1) {
+      if (isClose(tokens[index].text)) depth += 1;
+      if (isOpen(tokens[index].text) && --depth === 0) return index;
+    }
+    return -1;
+  }
+  return isSimpleAtom(token) ? end : -1;
 };
 const isAnonymousFunctionValue = (tokens, start, end) => {
   let expressionEnd = end;

@@ -160,13 +160,20 @@ parseLetDecl needs = \case
   _ -> Left "expected let binding"
 
 parseImport :: P Decl
-parseImport (TIdent path : rest) =
+parseImport ts = do
+  (path, rest) <- parseImportPath ts
   case rest of
     TIdent alias : remaining -> do
       checkImportAlias alias
       pure (Import path (Just alias), remaining)
     _ -> pure (Import path Nothing, rest)
-parseImport _ = Left "expected use path"
+
+parseImportPath :: P String
+parseImportPath (TIdent first : rest) = go first rest
+ where
+  go path (TDot : TIdent segment : remaining) = go (path ++ "." ++ segment) remaining
+  go path remaining = Right (path, remaining)
+parseImportPath _ = Left "expected use path"
 
 parseTypeAlias :: P Decl
 parseTypeAlias ts = do
@@ -637,7 +644,20 @@ exprStop :: Token -> Bool
 exprStop token = startsFileDeclaration token || token `elem` [TComma, TMapsTo, TRParen, TRBrace, TYield, TLaw]
 
 parseExprAtom :: P Expr
-parseExprAtom = locateParsed parseExprAtomRaw
+parseExprAtom = locateParsed parseExprAtomWithFields
+
+parseExprAtomWithFields :: P Expr
+parseExprAtomWithFields ts = do
+  (base, rest) <- parseExprAtomRaw ts
+  parseRecordFieldSuffixes base rest
+
+parseRecordFieldSuffixes :: Expr -> P Expr
+parseRecordFieldSuffixes base = \case
+  TDot : TIdent field : rest
+    | not (isQualifiedName field) -> parseRecordFieldSuffixes (EField base field) rest
+  TDot : TIdent _ : _ -> Left "record field name must be unqualified"
+  TDot : _ -> Left "expected record field name after '.'"
+  rest -> Right (base, rest)
 
 parseExprAtomRaw :: P Expr
 parseExprAtomRaw = \case

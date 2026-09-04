@@ -196,11 +196,11 @@ cases =
   ,
     ( "term type ascription"
     , """
-      let answer = (1 + 2: integer)
+      let answer = (1 + 2: ℤ)
 
       """
     , """
-      let answer = (1 + 2: integer)
+      let answer = (1 + 2: ℤ)
 
       """
     )
@@ -209,7 +209,7 @@ cases =
     , """
       let person: r(
       name: text,
-      age: integer
+      age: ℤ
       ) = r(
       name = 'naoki',
       age = 35
@@ -219,7 +219,7 @@ cases =
     , """
       let person: r(
         name: text,
-        age: integer
+        age: ℤ
       ) = r(
         name = 'naoki',
         age = 35

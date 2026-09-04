@@ -71,6 +71,16 @@ test("semantic lexer keepeþ special openers as single delimiters", () => {
   );
   assert(opens.every(({ kind }) => kind === "punctuation"));
 });
+test("semantic analysis distinguishþ a record term from field symbols", () => {
+  const source =
+    "let record = r(child = r(value = 1)) yield record.child.value";
+  assert.deepEqual(semanticLabelsOf(source, "record"), [
+    "variable:declaration",
+    "variable:",
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "child"), [undefined, "property:"]);
+  assert.deepEqual(semanticLabelsOf(source, "value"), [undefined, "property:"]);
+});
 test("semantic analysis leaveþ the record opener unclassified", () => {
   const source =
     "let r = value let record = r(field = r) let applied = r (field)";
@@ -84,14 +94,14 @@ test("semantic analysis leaveþ the record opener unclassified", () => {
 test("semantic analysis leaveþ association openers unclassified", () => {
   const source =
     "let left = <(+, 1, 2) let less = 1 < 2 let right = >(-, 3, 2) let greater = 3 > 2";
-  assert.deepEqual(semanticLabelsOf(source, "<"), ["call:"]);
-  assert.deepEqual(semanticLabelsOf(source, ">"), ["call:"]);
+  assert.deepEqual(semanticLabelsOf(source, "<"), ["call:applied"]);
+  assert.deepEqual(semanticLabelsOf(source, ">"), ["call:applied"]);
   assert.deepEqual(semanticLabelsOf(source, "<("), [undefined]);
   assert.deepEqual(semanticLabelsOf(source, ">("), [undefined]);
 });
 test("semantic analysis markeþ declarations and function position", () => {
   const ranges = buildSemanticRanges(
-    "let-ilk count = integer graiþ a equal show let value map: count = value",
+    "let-ilk count = ℤ graiþ a equal show let value map: count = value",
   );
   assert(
     ranges.some(({ type, modifiers }) =>
@@ -137,21 +147,23 @@ test("semantic analysis treateþ graiþ heads as types", () => {
     "type:",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "list"), [
-    "type:",
+    "type:applied",
     "parameter:declaration",
-    "type:",
-    "type:",
+    "type:applied",
+    "type:applied",
     undefined,
   ]);
-  assert.deepEqual(semanticLabelsOf(source, "equal"), ["frame:"]);
-  assert.deepEqual(semanticLabelsOf(source, "monoid"), ["frame:"]);
+  assert.deepEqual(semanticLabelsOf(source, "equal"), ["frame:applied"]);
+  assert.deepEqual(semanticLabelsOf(source, "monoid"), ["frame:applied"]);
 });
 test("semantic analysis separateþ a required frame from its member", () => {
   const source =
     "frame f traverse { graiþ m applicative let (a f) traverse (a → b m): (b f) m }";
-  assert.deepEqual(semanticLabelsOf(source, "applicative"), ["frame:"]);
+  assert.deepEqual(semanticLabelsOf(source, "applicative"), [
+    "frame:applied",
+  ]);
   assert.deepEqual(semanticLabelsOf(source, "traverse"), [
-    "frame:declaration",
+    "frame:declaration.typeFunction",
     "method:declaration",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "a"), ["type:", "type:"]);
@@ -191,33 +203,45 @@ test("semantic analysis highlighteþ law binders, types, calls, and equation mar
   assert.deepEqual(labelsOf("a"), ["type:", "type:", "type:", "type:"]);
   assert.deepEqual(labelsOf("b"), ["type:", "type:", "type:"]);
   assert.deepEqual(labelsOf("e"), ["type:", "type:", "type:"]);
-  assert.deepEqual(labelsOf("map"), ["method:declaration", "call:", "call:"]);
+  assert.deepEqual(labelsOf("map"), [
+    "method:declaration",
+    "call:applied",
+    "call:applied",
+  ]);
   assert.deepEqual(labelsOf("id"), [undefined]);
   assert.deepEqual(labelsOf("~"), ["operator:"]);
 });
 test("semantic analysis treateþ a type alias body as type syntax", () => {
   const source = "show let-ilk code-points = unicode list";
   assert.deepEqual(semanticLabelsOf(source, "unicode"), ["type:"]);
-  assert.deepEqual(semanticLabelsOf(source, "list"), ["type:"]);
+  assert.deepEqual(semanticLabelsOf(source, "list"), ["type:applied"]);
 });
 test("semantic analysis treateþ a term ascription tail as type syntax", () => {
-  const source = "ilk a box { a box } let value = (1 box: integer box)";
-  assert.deepEqual(semanticLabelsOf(source, "integer"), ["type:"]);
+  const source = "ilk a box { a box } let value = (1 box: ℤ box)";
+  assert.deepEqual(semanticLabelsOf(source, "ℤ"), ["type:"]);
   assert.deepEqual(semanticLabelsOf(source, "box"), [
-    "type:declaration",
+    "type:declaration.typeFunction",
     "function:declaration",
-    "call:",
-    "type:",
+    "call:applied",
+    "type:applied",
   ]);
 });
 test("semantic analysis markeþ parameterised type alias headers", () => {
   const source = "show let-ilk a powerset = a func 𝟚";
-  assert.deepEqual(semanticLabelsOf(source, "powerset"), ["type:declaration"]);
+  assert.deepEqual(semanticLabelsOf(source, "powerset"), [
+    "type:declaration.typeFunction",
+  ]);
   assert.deepEqual(semanticLabelsOf(source, "a"), [
     "type:declaration",
     "type:",
   ]);
-  assert.deepEqual(semanticLabelsOf(source, "func"), ["type:"]);
+  assert.deepEqual(semanticLabelsOf(source, "func"), ["type:applied"]);
+});
+test("parameterised ilk heads are type functions", () => {
+  const source = "ilk a list { empty }";
+  assert.deepEqual(semanticLabelsOf(source, "list"), [
+    "type:declaration.typeFunction",
+  ]);
 });
 test("semantic analysis keepeþ ilk names apart and normaliseþ callable declarations", () => {
   const source =
@@ -237,10 +261,10 @@ test("semantic analysis keepeþ ilk names apart and normaliseþ callable declara
   assert.equal(at("plain").type, "function");
 });
 test("semantic analysis coloureþ data type names and constructor argument types", () => {
-  const source = "ilk a option { none, a some } let x: integer option = 1 some";
+  const source = "ilk a option { none, a some } let x: ℤ option = 1 some";
   assert.deepEqual(semanticLabelsOf(source, "option"), [
-    "type:declaration",
-    "type:",
+    "type:declaration.typeFunction",
+    "type:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "a"), [
     "type:declaration",
@@ -248,17 +272,17 @@ test("semantic analysis coloureþ data type names and constructor argument types
   ]);
   assert.deepEqual(semanticLabelsOf(source, "some"), [
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
 });
 test("semantic analysis keepeþ defined types distinct from functions", () => {
   const source =
-    "ilk natural { zero } let (x: natural) identity: natural = x let value = zero identity";
+    "ilk ℕ { zero } let (x: ℕ) identity: ℕ = x let value = zero identity";
   const typesOf = (name) =>
     semanticTypesOf(source, name).map((token) => token?.type);
-  assert.deepEqual(typesOf("natural"), ["type", "type", "type"]);
+  assert.deepEqual(typesOf("ℕ"), ["type", "type", "type"]);
   assert.deepEqual(typesOf("identity"), ["function", "call"]);
-  assert.notEqual(typesOf("natural").at(-1), typesOf("identity").at(-1));
+  assert.notEqual(typesOf("ℕ").at(-1), typesOf("identity").at(-1));
 });
 test("semantic analysis doth not colour term occurrences as types by name alone", () => {
   const source = [
@@ -270,32 +294,48 @@ test("semantic analysis doth not colour term occurrences as types by name alone"
   ].join("\n");
   const resolve = workspaceResolver(source);
   assert.deepEqual(semanticLabelsOf(source, "list", resolve), [
-    "type:declaration",
-    "type:",
+    "type:declaration.typeFunction",
+    "type:applied",
     "parameter:declaration",
-    "type:",
-    "type:",
+    "type:applied",
+    "type:applied",
     undefined,
     undefined,
   ]);
 });
 test("defined data types and type constructors share the primitive type role", () => {
   const source = [
-    "ilk natural { zero }",
+    "ilk ℕ { zero }",
     "ilk a box { a box }",
-    "let whole: integer = 1",
+    "let whole: ℤ = 1",
     "let ratio: float = 1.0",
-    "let count: natural = zero",
-    "let wrapped: integer box = 1 box",
+    "let count: ℕ = zero",
+    "let wrapped: ℤ box = 1 box",
   ].join("\n");
   const resolve = workspaceResolver(source);
   const typesOf = (name) =>
     semanticTypesOf(source, name, resolve).map((token) => token?.type);
-  assert.deepEqual(typesOf("integer"), ["type", "type"]);
+  assert.deepEqual(typesOf("ℤ"), ["type", "type"]);
   assert.deepEqual(typesOf("float"), ["type"]);
-  assert.deepEqual(typesOf("natural"), ["type", "type"]);
+  assert.deepEqual(typesOf("ℕ"), ["type", "type"]);
   assert.equal(typesOf("box")[0], "type", "data type declaration");
   assert.equal(typesOf("box")[2], "type", "type constructor in an annotation");
+});
+test("workspace refinement preserveþ applied type modifiers", () => {
+  const source = [
+    "ilk a list { empty }",
+    "frame a inhold b {}",
+    "graiþ (a list) inhold a",
+  ].join("\n");
+  const resolve = workspaceResolver(source);
+  assert.deepEqual(semanticLabelsOf(source, "list", resolve), [
+    "type:declaration.typeFunction",
+    "type:applied",
+  ]);
+  assert.deepEqual(semanticLabelsOf(source, "inhold", resolve), [
+    "frame:declaration.typeFunction",
+    "frame:applied",
+  ]);
 });
 test("semantic analysis giveþ function positions a distinct call token", () => {
   const source =
@@ -369,13 +409,13 @@ test("semantic analysis coloureþ frame and fill methods", () => {
 });
 test("semantic analysis coloureþ every fill target as a type", () => {
   const source = [
-    "ilk natural { zero, natural suc }",
+    "ilk ℕ { zero, ℕ suc }",
     "ilk a list { empty, (a, a list) cons }",
     "frame a semiring {}",
-    "fill natural semiring {}",
+    "fill ℕ semiring {}",
     "fill (a list) semiring {}",
   ].join("\n");
-  assert.deepEqual(semanticLabelsOf(source, "natural"), [
+  assert.deepEqual(semanticLabelsOf(source, "ℕ"), [
     "type:declaration",
     "type:",
     "type:",
@@ -388,14 +428,14 @@ test("semantic analysis coloureþ every fill target as a type", () => {
     "type:",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "list"), [
-    "type:declaration",
-    "type:",
-    "type:",
+    "type:declaration.typeFunction",
+    "type:applied",
+    "type:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "semiring"), [
-    "frame:declaration",
-    "frame:",
-    "frame:",
+    "frame:declaration.typeFunction",
+    "frame:applied",
+    "frame:applied",
   ]);
 });
 test("lsp presents type variables and concrete types as one theme category", () => {
@@ -437,7 +477,7 @@ test("anonymous function patterns distinguish constructors, binders, and wildcar
 });
 test("semantic analysis coloureþ bound names in match and anonymous functions", () => {
   const source =
-    "ilk option { none, integer some } let picked = match value { x some @ x, y @ y } let anon = { a, b some @ a }";
+    "ilk option { none, ℤ some } let picked = match value { x some @ x, y @ y } let anon = { a, b some @ a }";
   assert.deepEqual(semanticLabelsOf(source, "x"), [
     "parameter:declaration",
     undefined,
@@ -453,8 +493,8 @@ test("semantic analysis coloureþ bound names in match and anonymous functions",
   assert.deepEqual(semanticLabelsOf(source, "b"), ["parameter:declaration"]);
   assert.deepEqual(semanticLabelsOf(source, "some"), [
     "function:declaration",
-    "call:",
-    "call:",
+    "call:applied",
+    "call:applied",
   ]);
 });
 test("handler operations in function position are calls rather than binders", () => {
@@ -463,12 +503,14 @@ test("handler operations in function position are calls rather than binders", ()
     token.text === "fail"
       ? { role: "method", modifiers: ["declaration", "effect"] }
       : undefined;
-  assert.deepEqual(semanticLabelsOf(source, "fail"), ["call:"]);
-  assert.deepEqual(semanticLabelsOf(source, "fail", resolve), ["call:effect"]);
+  assert.deepEqual(semanticLabelsOf(source, "fail"), ["call:applied"]);
+  assert.deepEqual(semanticLabelsOf(source, "fail", resolve), [
+    "call:effect.applied",
+  ]);
 });
 test("semantic analysis coloureþ every argument in multi-arm anonymous functions", () => {
   const source =
-    "ilk option { none, integer some } let f = { a, b, c @ a, d some, e, f @ d }";
+    "ilk option { none, ℤ some } let f = { a, b, c @ a, d some, e, f @ d }";
   assert.deepEqual(semanticLabelsOf(source, "a"), [
     "parameter:declaration",
     undefined,
@@ -486,7 +528,7 @@ test("semantic analysis coloureþ every argument in multi-arm anonymous function
   ]);
   assert.deepEqual(semanticLabelsOf(source, "some"), [
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
 });
 test("semantic analysis coloureþ alternative pattern binders and separator", () => {
@@ -534,8 +576,8 @@ test("semantic analysis skippeþ nested constructor-pattern delimiters", () => {
   ]);
   assert.deepEqual(semanticLabelsOf(source, "some"), [
     "function:declaration",
-    "call:",
-    "call:",
+    "call:applied",
+    "call:applied",
   ]);
 });
 test("semantic analysis localiseþ an unmatched inner delimiter", () => {
@@ -557,15 +599,15 @@ test("application position, not callable identity, selecteþ the function theme 
   const resolve = workspaceResolver(source);
   assert.deepEqual(semanticLabelsOf(source, "f", resolve), [
     "parameter:declaration",
-    "call:",
+    "call:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "if", resolve), [
     "parameter:declaration",
-    "call:",
+    "call:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "some", resolve), [
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "in", resolve), [
     "parameter:declaration",
@@ -591,18 +633,18 @@ test("bound names are plain in bodies unless they are applied", () => {
     undefined,
   ]);
   assert.deepEqual(semanticLabelsOf(source, "f", resolve), [
-    "call:",
+    "call:applied",
     "parameter:declaration",
-    "call:",
+    "call:applied",
   ]);
-  assert.deepEqual(semanticLabelsOf(source, "if", resolve), ["call:"]);
+  assert.deepEqual(semanticLabelsOf(source, "if", resolve), ["call:applied"]);
   assert.deepEqual(semanticLabelsOf(source, "some", resolve), [
     "function:declaration",
-    "call:",
-    "call:",
-    "call:",
-    "call:",
-    "call:",
+    "call:applied",
+    "call:applied",
+    "call:applied",
+    "call:applied",
+    "call:applied",
   ]);
 });
 test("callable constructor declarations use the function role", () => {
@@ -610,16 +652,16 @@ test("callable constructor declarations use the function role", () => {
     "show ilk a ∐ b { a inject₀, b inject₁ } show ilk a ∏ b { a ∏ b } show ilk 𝟚 { yea, nay } let left = 1 inject₀ let pair = 1 ∏ 2 let held = inject₁";
   assert.deepEqual(semanticLabelsOf(source, "inject₀"), [
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "inject₁"), [
     "function:declaration",
     "enumMember:",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "∏"), [
-    "type:declaration",
+    "type:declaration.typeFunction",
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "yea"), ["enumMember:declaration"]);
   assert.deepEqual(semanticLabelsOf(source, "nay"), ["enumMember:declaration"]);
@@ -629,9 +671,9 @@ test("workspace highlighting keepeþ callable constructors coloured as calls", (
     "show ilk a ∏ b { a ∏ b } let pair = (a f) ∏ (b g) let held = ∏";
   const resolve = workspaceResolver(source);
   assert.deepEqual(semanticLabelsOf(source, "∏", resolve), [
-    "type:declaration",
+    "type:declaration.typeFunction",
     "function:declaration",
-    "call:",
+    "call:applied",
     "enumMember:",
   ]);
 });
@@ -666,14 +708,14 @@ test("workspace highlighting coloureþ every anonymous-function argument and use
 });
 test("workspace highlighting coloureþ every binder in each form of function", () => {
   const source = [
-    "ilk natural { zero }",
+    "ilk ℕ { zero }",
     "frame a chooser {",
     "  let (frame-first: a, frame-middle, frame-last: a) select: a = frame-middle",
     "}",
-    "fill natural chooser {",
-    "  let fill-first select fill-middle fill-last: natural = fill-last",
+    "fill ℕ chooser {",
+    "  let fill-first select fill-middle fill-last: ℕ = fill-last",
     "}",
-    "let (group-first: natural, group-middle, group-last: natural) group-pick: natural = group-middle",
+    "let (group-first: ℕ, group-middle, group-last: ℕ) group-pick: ℕ = group-middle",
     "let plain-first plain-pick plain-middle plain-last = plain-last",
     "let anonymous = { arm-first, arm-middle, arm-last @ arm-middle }",
     "let selected = match anonymous { case-first, case-middle, case-last @ case-last }",
@@ -716,7 +758,7 @@ test("workspace highlighting coloureþ every binder in each form of function", (
 });
 test("semantic analysis coloureþ destructured let-header binders", () => {
   const source =
-    "ilk a ∏ b { a ∏ b } let (left ∏ right: integer ∏ text) swap: text ∏ integer = right ∏ left";
+    "ilk a ∏ b { a ∏ b } let (left ∏ right: ℤ ∏ text) swap: text ∏ ℤ = right ∏ left";
   const resolve = workspaceResolver(source);
   assert.deepEqual(semanticLabelsOf(source, "left", resolve), [
     "parameter:declaration",
@@ -729,7 +771,7 @@ test("semantic analysis coloureþ destructured let-header binders", () => {
 });
 test("semantic analysis keepeþ effects distinct from ordinary calls and values", () => {
   const source =
-    "deed ask { 𝟙 ask: integer } deed send { integer send: integer } let run = only ask let held = ask let sent = 1 $send let ordinary x = x let out = 1 $ordinary ask";
+    "deed ask { 𝟙 ask: ℤ } deed send { ℤ send: ℤ } let run = only ask let held = ask let sent = 1 $send let ordinary x = x let out = 1 $ordinary ask";
   const ranges = buildSemanticRanges(source);
   const tokenAt = (name, occurrence = 0) => {
     const matches = [...source.matchAll(new RegExp(`\\b${name}\\b`, "gu"))];
@@ -742,29 +784,29 @@ test("semantic analysis keepeþ effects distinct from ordinary calls and values"
   assert.equal(tokenAt("ask", 0).type, "type");
   assert.deepEqual(tokenAt("ask", 0).modifiers, ["declaration", "effect"]);
   assert.equal(tokenAt("ask", 1).type, "method");
-  assert.deepEqual(tokenAt("ask", 2).modifiers, ["effect"]);
+  assert.deepEqual(tokenAt("ask", 2).modifiers, ["effect", "applied"]);
   assert.equal(tokenAt("ask", 2).type, "call");
   assert.equal(tokenAt("ask", 3).type, "variable");
   assert.equal(tokenAt("send", 1).type, "method");
-  assert.deepEqual(tokenAt("send", 2).modifiers, ["effect"]);
+  assert.deepEqual(tokenAt("send", 2).modifiers, ["effect", "applied"]);
   assert.equal(tokenAt("send", 2).type, "call");
   assert.equal(tokenAt("ordinary", 1).type, "call");
   assert.equal(tokenAt("ask", 4).type, "variable");
 });
 test("n-ary fold names use ordinary function and call roles", () => {
   const source = [
-    "show let (integer: integer) …+: integer = integer",
-    "show let (integer: integer) …×: integer = integer",
+    "show let (integer: ℤ) …+: ℤ = integer",
+    "show let (integer: ℤ) …×: ℤ = integer",
     "let sum = 1 …+",
     "let product = 2 …×",
   ].join("\n");
   assert.deepEqual(semanticLabelsOf(source, "…+"), [
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "…×"), [
     "function:declaration",
-    "call:",
+    "call:applied",
   ]);
 });
 test("semantic analysis leaveþ use paths to the textmate import scope", () => {
@@ -792,12 +834,12 @@ test("semantic analysis leaveþ use paths to the textmate import scope", () => {
   }
 });
 test("semantic analysis markeþ a use alias as a namespace", () => {
-  const source = "use ilk/list.tung list yield list.empty";
+  const source = "use ilk/list.tung list yield list~empty";
   assert.deepEqual(semanticLabelsOf(source, "list"), [
     "namespace:declaration",
   ]);
   const ranges = buildSemanticRanges(source);
-  const use = source.lastIndexOf("list.empty");
+  const use = source.lastIndexOf("list~empty");
   assert(
     ranges.some(({ char, length, type }) =>
       char === use && length === "list".length && type === "namespace"
@@ -806,9 +848,9 @@ test("semantic analysis markeþ a use alias as a namespace", () => {
 });
 test("semantic analysis markeþ a default basename alias as a namespace", () => {
   for (const member of ["empty", "_*"]) {
-    const source = `use ilk/list.tung yield list.${member}`;
+    const source = `use ilk/list.tung yield list~${member}`;
     const ranges = buildSemanticRanges(source);
-    const use = source.lastIndexOf(`list.${member}`);
+    const use = source.lastIndexOf(`list~${member}`);
     assert(
       ranges.some(({ char, length, type }) =>
         char === use && length === "list".length && type === "namespace"
@@ -816,10 +858,10 @@ test("semantic analysis markeþ a default basename alias as a namespace", () => 
     );
   }
 });
-test("semantic analysis markeþ a dotted qualifier before import resolution", () => {
-  const source = "let value = list.empty";
+test("semantic analysis markeþ a qualified name before import resolution", () => {
+  const source = "let value = list~empty";
   const ranges = buildSemanticRanges(source);
-  const use = source.indexOf("list.empty");
+  const use = source.indexOf("list~empty");
   assert(
     ranges.some(({ char, length, type }) =>
       char === use && length === "list".length && type === "namespace"
@@ -827,15 +869,15 @@ test("semantic analysis markeþ a dotted qualifier before import resolution", ()
   );
   assert(
     ranges.some(({ char, length, type }) =>
-      char === use + "list.".length && length === "empty".length &&
+      char === use + "list~".length && length === "empty".length &&
       type === "variable"
     ),
   );
 });
 test("semantic analysis doth not expose a path-qualified namespace", () => {
-  const source = "use ilk/list.tung yield ilk/list.empty";
+  const source = "use ilk/list.tung yield ilk/list~empty";
   const ranges = buildSemanticRanges(source);
-  const use = source.lastIndexOf("ilk/list.empty");
+  const use = source.lastIndexOf("ilk/list~empty");
   assert.equal(
     ranges.some(({ char, type }) => char === use && type === "namespace"),
     false,
@@ -845,7 +887,7 @@ test("semantic analysis leaveþ standalone export names plain", () => {
   const source = [
     "show write, write-line, read",
     "show +, zero, ×, one, -, ÷, %",
-    "show-ilk integer, float",
+    "show-ilk ℤ, float",
     "show let (text: text) write-line: 𝟙 ! console = text",
   ].join("\n");
   const ranges = buildSemanticRanges(source);

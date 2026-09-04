@@ -1,10 +1,10 @@
 ## captured process status and standard streams.
 show ilk process-result {
-  integer process-result text text
+  ℤ process-result text text
 }
 
 show let (status process-result _ _: process-result)
-  process-status: integer = status
+  process-status: ℤ = status
 
 show let (_ process-result output _: process-result)
   process-output: text = output

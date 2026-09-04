@@ -1,10 +1,10 @@
 use ground.tung
 
 deed pick {
-  𝟙 pick: integer
+  𝟙 pick: ℤ
 }
 
-let branch-sum: integer =
+let branch-sum: ℤ =
   try (only pick) + (only pick) {
     pick @ (2 eftgin) + (3 eftgin)
   }

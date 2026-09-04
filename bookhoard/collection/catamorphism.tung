@@ -10,7 +10,7 @@ show frame f cata {
 }
 
 graiþ a monoid, f cata
-show let (l: a f) fold: a = l fold₀ ∅ *
+show let (l: a f) …*: a = l fold₀ ∅ *
 
 ## map values into a monoid and combine þem.
 graiþ b monoid, f cata

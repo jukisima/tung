@@ -182,8 +182,8 @@ generatedBundle size =
   SourceBundle
     { bundleSource =
         unlines
-          ( ["let value0: integer = 0"]
-              ++ ["let value" ++ show index ++ ": integer = " ++ show index | index <- [1 .. size - 1]]
+          ( ["let value0: ℤ = 0"]
+              ++ ["let value" ++ show index ++ ": ℤ = " ++ show index | index <- [1 .. size - 1]]
               ++ ["yield value" ++ show (size - 1)]
           )
     , bundleImports = Map.empty

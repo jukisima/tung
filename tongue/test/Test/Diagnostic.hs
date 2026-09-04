@@ -18,7 +18,7 @@ locatedForeign = case checkEditorDiagnosticWithImports source Map.empty of
   Nothing -> pure Nothing
   Just diagnostic -> pure (Just ("located fremmed declaration: " ++ show diagnostic))
  where
-  source = "let plus: integer → integer → integer = 'add-integer' fremmed"
+  source = "let plus: ℤ → ℤ → ℤ = 'add-integer' fremmed"
 
 namedTypeError :: Test
 namedTypeError =
@@ -30,7 +30,7 @@ repeatedName =
 
 precedingTypeAlias :: Test
 precedingTypeAlias =
-  expectDiagnostic "term after type alias" "let-ilk count = integer let value: text = integer" TypeDiagnostic (SourceSpan 42 49)
+  expectDiagnostic "term after type alias" "let-ilk count = ℤ let value: text = ℤ" TypeDiagnostic (SourceSpan 36 37)
 
 precedingData :: Test
 precedingData =
@@ -38,7 +38,7 @@ precedingData =
 
 finalExpression :: Test
 finalExpression =
-  expectDiagnostic "final expression after type alias" "let-ilk count = integer yield integer" TypeDiagnostic (SourceSpan 30 37)
+  expectDiagnostic "final expression after type alias" "let-ilk count = ℤ yield ℤ" TypeDiagnostic (SourceSpan 24 25)
 
 unicodeOffset :: Test
 unicodeOffset =
@@ -58,8 +58,8 @@ adjacentDeclarationEvidence =
     unlines
       [ "ilk truth { yea, nay }"
       , "frame a less { let a < a: truth }"
-      , "fill integer less { let x < y = yea }"
-      , "let (score: integer) checked: integer = match score < 0 { yea @ score, nay @ score }"
+      , "fill ℤ less { let x < y = yea }"
+      , "let (score: ℤ) checked: ℤ = match score < 0 { yea @ score, nay @ score }"
       ]
 
 adjacentImportedEvidence :: Test
@@ -74,7 +74,7 @@ adjacentImportedEvidence =
       [ "show ilk truth { yea, nay }"
       , "show frame a less { let a ≤ a: truth }"
       , "graiþ a less show let (a: a, b: a) <: truth = a ≤ b"
-      , "fill integer less { let x ≤ y = yea }"
+      , "fill ℤ less { let x ≤ y = yea }"
       ]
 
 renderedProtocol :: Test

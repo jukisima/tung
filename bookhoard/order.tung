@@ -69,6 +69,6 @@ fill 𝟛 order-partial {}
 
 fill 𝟛 order-total {}
 
-fill integer order-partial {}
+fill ℤ order-partial {}
 
-fill integer order-total {}
+fill ℤ order-total {}

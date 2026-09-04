@@ -5,5 +5,5 @@ use ilk/option.tung
 show deed system {
   𝟙 arguments: text list,
   text environment: text option,
-  integer exit: a
+  ℤ exit: a
 }

@@ -73,11 +73,19 @@
       },
       {
         "id": "call",
-        "superType": "function",
+        "superType": "variable",
         "description": "term used in tung function position"
       }
     ],
     "semanticTokenModifiers": [
+      {
+        "id": "applied",
+        "description": "term or type used in function position"
+      },
+      {
+        "id": "typeFunction",
+        "description": "parameterised type or frame declaration"
+      },
       {
         "id": "effect",
         "description": "effect operation or effect type"
@@ -90,6 +98,10 @@
           "keyword": [
             "keyword.control.tung",
             "keyword.control"
+          ],
+          "namespace": [
+            "entity.name.namespace.tung",
+            "entity.name.namespace"
           ],
           "type": [
             "support.type.tung",
@@ -117,12 +129,12 @@
             "entity.name.function.member"
           ],
           "call": [
-            "entity.name.function.tung",
-            "entity.name.function"
+            "variable.other.tung",
+            "variable.other"
           ],
           "call.effect": [
-            "entity.name.function.tung",
-            "entity.name.function"
+            "variable.other.tung",
+            "variable.other"
           ],
           "variable": [
             "variable.other.tung",
@@ -146,6 +158,37 @@
     "configurationDefaults": {
       "[tung]": {
         "editor.semanticHighlighting.enabled": true
+      },
+      "editor.semanticTokenColorCustomizations": {
+        "rules": {
+          "parameter:tung": {
+            "italic": false
+          },
+          "type:tung": {
+            "italic": false
+          },
+          "frame:tung": {
+            "italic": false
+          },
+          "call.applied:tung": {
+            "italic": true
+          },
+          "type.applied:tung": {
+            "italic": true
+          },
+          "frame.applied:tung": {
+            "italic": true
+          },
+          "typeParameter.applied:tung": {
+            "italic": true
+          },
+          "type.typeFunction:tung": {
+            "italic": true
+          },
+          "frame.typeFunction:tung": {
+            "italic": true
+          }
+        }
       }
     },
     "configuration": {

@@ -10,15 +10,15 @@ test("workspace resolveþ only shown names across an import", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "dep.tung");
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(dep, "show let answer: integer = 42 let hidden = 0");
-  fs.writeFileSync(main, "use dep.tung let value: integer = answer");
+  fs.writeFileSync(dep, "show let answer: ℤ = 42 let hidden = 0");
+  fs.writeFileSync(main, "use dep.tung let value: ℤ = answer");
   const documents = { get: () => undefined, all: () => [] };
   const workspace = new WorkspaceIndex(documents);
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
   assert.equal(workspace.resolveVisible(model, "answer").length, 1);
   assert.equal(workspace.resolveVisible(model, "hidden").length, 0);
-  assert.equal(workspace.resolveVisible(model, "dep.answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "dep~answer").length, 1);
   assert.equal(
     workspace.importModel(model, "dep.tung")?.uri,
     pathToFileURL(dep).href,
@@ -30,20 +30,20 @@ test("workspace explicit import alias replaceeþ the default namespace", (contex
   const dep = path.join(root, "data", "dep.tung");
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
-  fs.writeFileSync(dep, "show let answer: integer = 42");
-  fs.writeFileSync(main, "use ilk/dep.tung d yield d.answer");
+  fs.writeFileSync(dep, "show let answer: ℤ = 42");
+  fs.writeFileSync(main, "use ilk/dep.tung d yield d~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
-  assert.equal(workspace.resolveVisible(model, "d.answer").length, 1);
-  assert.equal(workspace.resolveVisible(model, "dep.answer").length, 0);
+  assert.equal(workspace.resolveVisible(model, "d~answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "dep~answer").length, 0);
   const labels = new Set(
     workspace.completions(model.uri, { line: 0, character: 40 }).map(
       ({ completionName, bareName }) => completionName || bareName,
     ),
   );
-  assert(labels.has("d.answer"));
-  assert(!labels.has("dep.answer"));
+  assert(labels.has("d~answer"));
+  assert(!labels.has("dep~answer"));
 });
 test("workspace resolveþ and completeþ a default basename alias", (context) => {
   const root = fs.mkdtempSync(
@@ -53,20 +53,20 @@ test("workspace resolveþ and completeþ a default basename alias", (context) =>
   const dep = path.join(root, "data", "dep.tung");
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
-  fs.writeFileSync(dep, "show let answer: integer = 42");
-  fs.writeFileSync(main, "use ilk/dep.tung yield dep.answer");
+  fs.writeFileSync(dep, "show let answer: ℤ = 42");
+  fs.writeFileSync(main, "use ilk/dep.tung yield dep~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
-  assert.equal(workspace.resolveVisible(model, "dep.answer").length, 1);
-  assert.equal(workspace.resolveVisible(model, "ilk/dep.answer").length, 0);
+  assert.equal(workspace.resolveVisible(model, "dep~answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "ilk/dep~answer").length, 0);
   const labels = new Set(
     workspace.completions(model.uri, { line: 0, character: 40 }).map(
       ({ completionName, bareName }) => completionName || bareName,
     ),
   );
-  assert(labels.has("dep.answer"));
-  assert(!labels.has("ilk/dep.answer"));
+  assert(labels.has("dep~answer"));
+  assert(!labels.has("ilk/dep~answer"));
 });
 test("workspace default alias ignoreþ dots in import directories", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-dotted-use-"));
@@ -74,13 +74,13 @@ test("workspace default alias ignoreþ dots in import directories", (context) =>
   const dep = path.join(root, "pkg.one", "query.tung");
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
-  fs.writeFileSync(dep, "show let answer: integer = 42");
-  fs.writeFileSync(main, "use pkg.one/query.tung yield query.answer");
+  fs.writeFileSync(dep, "show let answer: ℤ = 42");
+  fs.writeFileSync(main, "use pkg.one/query.tung yield query~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
-  assert.equal(workspace.resolveVisible(model, "query.answer").length, 1);
-  assert.equal(workspace.resolveVisible(model, "pkg.answer").length, 0);
+  assert.equal(workspace.resolveVisible(model, "query~answer").length, 1);
+  assert.equal(workspace.resolveVisible(model, "pkg~answer").length, 0);
 });
 test("workspace leaveþ duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
@@ -96,18 +96,18 @@ test("workspace leaveþ duplicate imported bare names ambiguous", (context) => {
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
   assert.equal(workspace.resolveVisible(model, "value").length, 2);
-  assert.equal(workspace.resolveVisible(model, "left.value").length, 1);
+  assert.equal(workspace.resolveVisible(model, "left~value").length, 1);
 });
 test("workspace re-exports same-spelled terms and types separately", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-namespaces-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "type-only.tung"),
-    "let-ilk token = integer let token = 1 show-ilk token",
+    "let-ilk token = ℤ let token = 1 show-ilk token",
   );
   fs.writeFileSync(
     path.join(root, "term-only.tung"),
-    "let-ilk token = integer let token = 1 show token",
+    "let-ilk token = ℤ let token = 1 show token",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -129,16 +129,16 @@ test("workspace re-exports deeds through the type namespace", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "ask-base.tung"),
-    "show deed ask { integer ask: integer }",
+    "show deed ask { ℤ ask: ℤ }",
   );
   fs.writeFileSync(
     path.join(root, "ask-middle.tung"),
-    "use ask-base.tung show-ilk ask-base.ask show ask-base.ask",
+    "use ask-base.tung show-ilk ask-base~ask show ask-base~ask",
   );
   const main = path.join(root, "main.tung");
   fs.writeFileSync(
     main,
-    "use ask-middle.tung let run: integer → integer ! ask = { x @ x ask }",
+    "use ask-middle.tung let run: ℤ → ℤ ! ask = { x @ x ask }",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);

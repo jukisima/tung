@@ -13,7 +13,7 @@ ilk fizzbuzz {
   fizz,
   buzz,
   fizzbuzz,
-  integer raw
+  ℤ raw
 }
 
 fill fizzbuzz to-text {
@@ -25,7 +25,7 @@ fill fizzbuzz to-text {
   }
 }
 
-let (integer: integer) to-fizzbuzz: fizzbuzz =
+let (integer: ℤ) to-fizzbuzz: fizzbuzz =
   match 3 can-divide integer, 5 can-divide integer {
     yea, yea @ fizzbuzz,
     yea, nay @ fizz,

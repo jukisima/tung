@@ -103,11 +103,11 @@ groundEffectExportsCase imports =
  where
   source =
     "use ground.tung "
-      ++ "show-ilk ground.fail, ground.console, ground.random, ground.state, ground.async, ground.file"
+      ++ "show-ilk ground~fail, ground~console, ground~random, ground~state, ground~async, ground~file"
 
 systemExplicitCase :: Map.Map String String -> Test
 systemExplicitCase imports =
-  pure $ case checkWithImports "use ground.tung show-ilk ground.system" imports of
+  pure $ case checkWithImports "use ground.tung show-ilk ground~system" imports of
     actual | "type error:" `isPrefixOf` actual -> Nothing
     actual -> Just ("ground unexpectedly exports system: " ++ actual)
 

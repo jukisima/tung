@@ -22,5 +22,5 @@ show wiþ-header
 
 ## serve http/1.1 over ipv4 wiþ one request per connection.
 show deed web {
-  integer serve (request → response ! e): 𝟙 ! e, text fail
+  ℤ serve (request → response ! e): 𝟙 ! e, text fail
 }

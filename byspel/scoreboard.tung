@@ -18,15 +18,15 @@ fill team to-text {
   }
 }
 
-let-ilk game = r(away: team, away-score: integer, home: team, home-score: integer)
+let-ilk game = r(away: team, away-score: ℤ, home: team, home-score: ℤ)
 
 let-ilk scoreline = r(
   away: team,
-  away-points: integer,
-  away-score: integer,
+  away-points: ℤ,
+  away-score: ℤ,
   home: team,
-  home-points: integer,
-  home-score: integer
+  home-points: ℤ,
+  home-score: ℤ
 )
 
 let-ilk cancelled-game = r(away: team, home: team, reason: text)
@@ -36,7 +36,7 @@ ilk match-result {
   cancelled-game cancelled
 }
 
-let-ilk standing = r(played: integer, points: integer, team: team)
+let-ilk standing = r(played: ℤ, points: ℤ, team: team)
 
 let (left: team, right: team) same-team: 𝟚 = match left, right {
   norþ, norþ @ yea,
@@ -46,37 +46,37 @@ let (left: team, right: team) same-team: 𝟚 = match left, right {
   _, _ @ nay
 }
 
-let (score: integer) checked-score: integer ! text fail =
+let (score: ℤ) checked-score: ℤ ! text fail =
   match score < 0 {
     yea @ 'a score cannot be negative' fail,
     nay @ score
   }
 
 let (game: game) scoreline-of: scoreline ! text fail = (
-  let home-score = game@home-score checked-score
-  let away-score = game@away-score checked-score
+  let home-score = game.home-score checked-score
+  let away-score = game.away-score checked-score
   yield match home-score ≤ away-score, away-score ≤ home-score {
     yea, yea @ r(
-      away = game@away,
+      away = game.away,
       away-points = 1,
       away-score = away-score,
-      home = game@home,
+      home = game.home,
       home-points = 1,
       home-score = home-score
     ),
     nay, yea @ r(
-      away = game@away,
+      away = game.away,
       away-points = 0,
       away-score = away-score,
-      home = game@home,
+      home = game.home,
       home-points = 3,
       home-score = home-score
     ),
     yea, nay @ r(
-      away = game@away,
+      away = game.away,
       away-points = 3,
       away-score = away-score,
-      home = game@home,
+      home = game.home,
       home-points = 0,
       home-score = home-score
     ),
@@ -86,7 +86,7 @@ let (game: game) scoreline-of: scoreline ! text fail = (
 
 let (game: game) settle: match-result =
   try game scoreline-of $ finished {
-    reason fail @ r(away = game@away, home = game@home, reason = reason) cancelled
+    reason fail @ r(away = game.away, home = game.home, reason = reason) cancelled
   }
 
 let (game: game) start: match-result task ! random, async = (
@@ -100,16 +100,16 @@ let (game: game) start: match-result task ! random, async = (
 let (standing: standing, outcome: match-result) add-result: standing =
   match outcome {
     _ cancelled @ standing,
-    scoreline finished @ match standing@team same-team scoreline@home, standing@team same-team scoreline@away {
+    scoreline finished @ match standing.team same-team scoreline.home, standing.team same-team scoreline.away {
       yea, _ @ r(
         = standing,
-        played = standing@played + 1,
-        points = standing@points + scoreline@home-points
+        played = standing.played + 1,
+        points = standing.points + scoreline.home-points
       ),
       nay, yea @ r(
         = standing,
-        played = standing@played + 1,
-        points = standing@points + scoreline@away-points
+        played = standing.played + 1,
+        points = standing.points + scoreline.away-points
       ),
       nay, nay @ standing
     }
@@ -121,30 +121,30 @@ let (standings: standing list, outcome: match-result) apply-result: standing lis
 let (outcome: match-result) print-result: 𝟙 ! console =
   match outcome {
     scoreline finished @ (
-      let _ = (scoreline@home to-text) write
+      let _ = scoreline.home to-text $ write
       let _ = ' ' write
-      let _ = (scoreline@home-score to-text) write
+      let _ = scoreline.home-score to-text $ write
       let _ = ' - ' write
-      let _ = (scoreline@away-score to-text) write
+      let _ = scoreline.away-score to-text $ write
       let _ = ' ' write
-      yield (scoreline@away to-text) write-line
+      yield scoreline.away to-text $ write-line
     ),
     cancelled-game cancelled @ (
-      let _ = (cancelled-game@home to-text) write
+      let _ = cancelled-game.home to-text $ write
       let _ = ' - ' write
-      let _ = (cancelled-game@away to-text) write
+      let _ = cancelled-game.away to-text $ write
       let _ = ': cancelled: ' write
-      yield cancelled-game@reason write-line
+      yield cancelled-game.reason write-line
     )
   }
 
 let (standing: standing) print-standing: 𝟙 ! console = (
-  let _ = (standing@team to-text) write
+  let _ = standing.team to-text $ write
   let _ = ': ' write
-  let _ = (standing@points to-text) write
+  let _ = standing.points to-text $ write
   let _ = ' points from ' write
-  let _ = (standing@played to-text) write
-  yield match standing@played ≤ 1 {
+  let _ = (standing.played to-text) write
+  yield match standing.played ≤ 1 {
     yea @ ' game' write-line,
     nay @ ' games' write-line
   }

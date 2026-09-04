@@ -149,11 +149,9 @@ const tokenize = (text) => {
       consumeCharacter();
     } else if (closeForOpen.has(ch + next())) {
       consumeSpecialOpen();
-    } else if (ch === "." && next() === "*") {
-      consumeName();
     } else if (isNumberStart(text, offset)) {
       consumeNumber();
-    } else if (ch === "@" || specialNameChars.has(ch)) {
+    } else if (specialNameChars.has(ch)) {
       const [startOffset, startLine, startChar] = position();
       advance();
       push("punctuation", startOffset, startLine, startChar);
@@ -348,10 +346,10 @@ const useParts = (tokens, useIndex, depths = tokenDepths(tokens)) => {
 };
 
 const lastQualifiedSegment = (name) => {
-  const separator = name.lastIndexOf(".");
+  const separator = name.lastIndexOf("~");
   return separator > 0 && separator + 1 < name.length
     ? name.slice(separator + 1)
-    : name.slice(name.lastIndexOf("@") + 1);
+    : name;
 };
 
 const useNamespace = (path, alias) => {

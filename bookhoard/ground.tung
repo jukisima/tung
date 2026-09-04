@@ -21,7 +21,7 @@ use collection/monad.tung
 use collection/inhold.tung
 use text/structure.tung
 use numeric/elementary.tung
-use numeric/integer.tung
+use ilk/integer.tung
 
 ## write text followed by a newline.
 show let (text: text) write-line: 𝟙 ! console = (
@@ -71,7 +71,7 @@ show ∋
 
 show +, zero, ×, one, -, ÷, %
 show sine, cosine, tangent, exponent, logariþm, ⌊
-show to-natural
+show to-ℕ
 
 show to-text
 show from-text

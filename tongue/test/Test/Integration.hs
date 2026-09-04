@@ -64,7 +64,7 @@ fibonacciSampleResult imports = do
 fileRoundTrip :: Imports -> Test
 fileRoundTrip imports = do
   directory <- getTemporaryDirectory
-  let path = directory ++ "/tung-file-effect-test.txt"
+  let path = directory ++ "/tung-file-effect-test~txt"
       source = "use ground.tung let _ = '" ++ path ++ "' write-file 'hello' let _ = '" ++ path ++ "' append-file ' world' yield '" ++ path ++ "' read-file"
   removeIfPresent path
   actual <- evaluateWithImports source imports
@@ -85,8 +85,8 @@ webServerRoundTrip imports = do
         let (incoming: request) route: response ! clock = (
           let stamp = only unix-time
           yield match ((incoming request-meþod) ≡ 'POST') ∧ ((incoming request-target) ≡ '/echo') {
-            yea @ match ((incoming request-headers) table.lookup 'Host') {
-              host option.some @ match host ≡ 'localhost' {
+            yea @ match ((incoming request-headers) table~lookup 'Host') {
+              host option~some @ match host ≡ 'localhost' {
                 yea @ ((((incoming request-body) ok) wiþ-header 'Transfer-Encoding' 'chunked') wiþ-header 'X-Tung' 'old') wiþ-header 'X-Tung' 'yea',
                 nay @ 'not found\\n' not-found
               },

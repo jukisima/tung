@@ -18,8 +18,8 @@ namespace, and an optional final name replaceþ that namespace.
 use ilk/list.tung
 use ilk/table.tung hashmap
 
-let xs = list.empty
-let entries = hashmap.empty
+let xs = list~empty
+let entries = hashmap~empty
 ----
 
 visible imported names may remain bare when unambiguous. two different direct
@@ -34,11 +34,11 @@ re-export anything.
 
 == names, comments, and literals
 
-most non-space characters not reserved by syntax may occur in a name. `.`
-qualifieþ an imported name; `@`, when embedded in a name, selecteþ a record
-field when no exact name existeþ. type alias, data, effect, and frame names and
-þeir owned constructor, operation, or member names are therefore unqualified.
-outside a `.tung` import paþ, a name may have at most one `.`, wiþ a nonempty,
+most non-space characters not reserved by syntax may occur in a name. `~`
+qualifieþ an imported name, while `.` selecteþ a record field and `@`
+separateþ a match or handler case. type alias, data, effect, and frame names
+and þeir owned constructor, operation, or member names are unqualified.
+outside a `.tung` import paþ, a name may have at most one `~`, wiþ a nonempty,
 slash-free namespace and member. `_*` is one ordinary name; there is no general
 infix escape. `_` discardeþ a binding or match value.
 
@@ -83,7 +83,7 @@ or group typed arguments before the function name.
 [source,tung]
 ----
 let x add-two y = x + y
-let (x: integer, y: integer) add: integer = x + y
+let (x: ℤ, y: ℤ) add: ℤ = x + y
 ----
 
 local blocks are parenthesised and end with `yield`.
@@ -97,7 +97,7 @@ local blocks are parenthesised and end with `yield`.
 ----
 
 type variables are implicit. type application followeþ second-is-function
-syntax: `integer list` applieþ `list` to `integer`, and `a ∏ b` applieþ the
+syntax: `ℤ list` applieþ `list` to `ℤ`, and `a ∏ b` applieþ the
 binary product type. `let-ilk` defineþ a transparent type alias.
 
 functions use `→`. immediate effect rows follow `!` on a function arrow; a
@@ -108,7 +108,7 @@ pure-function type constructor, so `a func b` and `a → b` agree.
 ----
 let-ilk a powerset = a func 𝟚
 let (f: a → b ! e, x: a) call: b ! e = x f
-let answer = (1 + 2: integer)
+let answer = (1 + 2: ℤ)
 ----
 
 pure inferred lets are generalised. immediately effectful right-hand sides
@@ -148,7 +148,7 @@ let not: 𝟚 → 𝟚 = {
   nay @ yea
 }
 
-let classify: text → integer = {
+let classify: text → ℤ = {
   'yes' @ 1,
   _ @ 0
 }
@@ -167,15 +167,17 @@ later entries set or remove fields.
 
 [source,tung]
 ----
-let person: r(name: text, age: integer) =
+let person: r(name: text, age: ℤ) =
   r(name = 'naoki', age = 35)
 let older = r(= person, age = 36)
 let public = r(= person, - age)
-let age = older@age
+let age = older.age
 ----
 
-field sets must match an annotated record type. duplicate labels, removal of
-an unknown field, and update of a non-record are errors.
+in `record.field`, `record` is a term and `field` is an unqualified field name.
+access chaineþ leftward, so `record.outer.inner` first selecteþ `outer`, then
+`inner`. field sets must match an annotated record type. duplicate labels,
+removal of an unknown field, and update of a non-record are errors.
 
 == frames, fills, and laws
 
@@ -240,7 +242,7 @@ one, or many times.
 [source,tung]
 ----
 deed ask {
-  integer ask: integer
+  ℤ ask: ℤ
 }
 
 let answer: text = try 10 ask {

@@ -33,8 +33,8 @@ show deed async {
   (𝟙 → a ! e) fork: a task ! e,
   (a task) wait: a ! text fail,
   (a task) fordo: 𝟙,
-  (a task) wait-for integer: a option ! text fail,
-  integer sleep: 𝟙
+  (a task) wait-for ℤ: a option ! text fail,
+  ℤ sleep: 𝟙
 }
 
 show deed file {
@@ -43,10 +43,10 @@ show deed file {
   text append-file text: 𝟙 ! text fail
 }
 
-show let add-integer: integer → integer → integer = 'add-integer' fremmed
-show let subtract-integer: integer → integer → integer = 'subtract-integer' fremmed
-show let multiply-integer: integer → integer → integer = 'multiply-integer' fremmed
-show let divide-remainder-integer: integer → integer → integer ∏ integer ! text fail = 'divide-remainder-integer' fremmed
+show let add-integer: ℤ → ℤ → ℤ = 'add-integer' fremmed
+show let subtract-integer: ℤ → ℤ → ℤ = 'subtract-integer' fremmed
+show let multiply-integer: ℤ → ℤ → ℤ = 'multiply-integer' fremmed
+show let divide-remainder-integer: ℤ → ℤ → ℤ ∏ ℤ ! text fail = 'divide-remainder-integer' fremmed
 show let add-float: float → float → float = 'add-float' fremmed
 show let subtract-float: float → float → float = 'subtract-float' fremmed
 show let multiply-float: float → float → float = 'multiply-float' fremmed
@@ -55,12 +55,12 @@ show let sine-float: float → float = 'sine-float' fremmed
 show let arctan-float: float → float → float = 'arctan-float' fremmed
 show let exponent-float: float → float = 'exponent-float' fremmed
 show let logariþm-float: float → float = 'logariþm-float' fremmed
-show let ⌊: float → integer ! text fail = '⌊' fremmed
-show let equal-integer: integer → integer → 𝟚 = 'equal-integer' fremmed
-show let integer-to-text: integer → text = 'integer-to-text' fremmed
+show let ⌊: float → ℤ ! text fail = '⌊' fremmed
+show let equal-integer: ℤ → ℤ → 𝟚 = 'equal-integer' fremmed
+show let integer-to-text: ℤ → text = 'integer-to-text' fremmed
 show let float-to-text: float → text = 'float-to-text' fremmed
-show let unicode-to-integer: unicode → integer = 'unicode-to-integer' fremmed
-show let integer-to-unicode: integer → unicode ! text fail = 'integer-to-unicode' fremmed
+show let unicode-to-integer: unicode → ℤ = 'unicode-to-integer' fremmed
+show let integer-to-unicode: ℤ → unicode ! text fail = 'integer-to-unicode' fremmed
 show let behead-text: text → (unicode ∏ text) option = 'behead-text' fremmed
 show let text-to-list: text → unicode list = 'text-to-list' fremmed
 show let list-to-text: unicode list → text = 'list-to-text' fremmed

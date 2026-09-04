@@ -1,27 +1,27 @@
 use _foreign.tung
 use algebra/arithmetic/semiring.tung
 
-fill integer add {
+fill ℤ add {
   let + = add-integer
 }
 
-fill integer zero {
+fill ℤ zero {
   let zero = 0
 }
 
-fill integer multiply {
+fill ℤ multiply {
   let × = multiply-integer
 }
 
-fill integer one {
+fill ℤ one {
   let one = 1
 }
 
-fill integer monoid-additive {}
+fill ℤ monoid-additive {}
 
-fill integer monoid-multiplicative {}
+fill ℤ monoid-multiplicative {}
 
-fill integer semiring {}
+fill ℤ semiring {}
 
 ## ieee floats keep þeir useful operations wiþout claiming exact semiring laws.
 fill float add {

@@ -108,9 +108,9 @@ productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName
 tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]]]
 
 processResultData, requestData, responseData :: HostData
-processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [TypeName "integer", TypeName "text", TypeName "text"]]
+processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [TypeName "ℤ", TypeName "text", TypeName "text"]]
 requestData = HostData "web/request.tung" "request" [] [Ctor "request" [TypeName "text", TypeName "text", textTable, TypeName "text"]]
-responseData = HostData "web/response.tung" "response" [] [Ctor "response" [TypeName "integer", textTable, TypeName "text"]]
+responseData = HostData "web/response.tung" "response" [] [Ctor "response" [TypeName "ℤ", textTable, TypeName "text"]]
 
 textTable :: TypeExpr
 textTable = TypeApply "table" [TypeName "text", TypeName "text"]
@@ -132,7 +132,7 @@ primitiveFillSpecs :: [PrimitiveFillSpec]
 primitiveFillSpecs =
   [ fill typeName frame
   | (typeName, supported) <-
-      [ ("integer", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide-remainder", "to-text"])
+      [ ("ℤ", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide-remainder", "to-text"])
       , ("float", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide", "from-text", "to-text"])
       ]
   , frame@PrimitiveShape{primitiveShapeName} <- primitiveShapes
@@ -234,7 +234,7 @@ renderEffectId SymbolId{symbolModule = RuntimeModule, symbolName} = symbolName
 renderEffectId SymbolId{symbolModule = RootModule, symbolName}
   | symbolName `elem` hostEffectNames = "$root@" ++ symbolName
   | otherwise = symbolName
-renderEffectId SymbolId{symbolModule = SourceModule path, symbolName} = importNamespace path ++ "." ++ symbolName
+renderEffectId SymbolId{symbolModule = SourceModule path, symbolName} = importNamespace path ++ "~" ++ symbolName
 
 findHostEffect :: String -> Maybe HostEffect
 findHostEffect name = find ((== name) . hostEffectName) hostEffectSchemas
@@ -285,11 +285,11 @@ operationVariables isConcrete (EffectOp _ signature) = nub (typeVariables signat
   isEffectVariable _ = False
 
 hostConcreteTypeNames :: [String]
-hostConcreteTypeNames = ["integer", "float", "unicode", "text", "𝟙", "list", "option", "task", "process-result", "request", "response", "fail"]
+hostConcreteTypeNames = ["ℤ", "float", "unicode", "text", "𝟙", "list", "option", "task", "process-result", "request", "response", "fail"]
 
 -- literal-backed types are available before bookhoard loading.
 primitiveTypeNames :: [String]
-primitiveTypeNames = ["integer", "float", "unicode", "text", "func"]
+primitiveTypeNames = ["ℤ", "float", "unicode", "text", "func"]
 
 hostEffectSchemas :: [HostEffect]
 hostEffectSchemas =
@@ -329,7 +329,7 @@ hostEffectSchemas =
   arrow (argument : arguments) effects result = TypeArrow (argument :| arguments) effects result
   arrow [] _ _ = error "internal host effect operation without an argument"
   variable = TypeName
-  integer = TypeName "integer"
+  integer = TypeName "ℤ"
   float = TypeName "float"
   text = TypeName "text"
   one = TypeName "𝟙"
@@ -396,7 +396,7 @@ responseConstructorId = constructorId responseData "response"
 tableConstructorId = constructorId tableData "from-list"
 
 canonicalDataTypeName :: HostData -> String
-canonicalDataTypeName HostData{hostDataSource, hostDataName} = importNamespace hostDataSource ++ "." ++ hostDataName
+canonicalDataTypeName HostData{hostDataSource, hostDataName} = importNamespace hostDataSource ++ "~" ++ hostDataName
 
 constructorId :: HostData -> String -> SymbolId
 constructorId HostData{hostDataSource, hostDataName} name = SymbolId (SourceModule hostDataSource) (hostDataName ++ "@" ++ name)
@@ -484,7 +484,7 @@ hostBindings =
   , sourceEffect "web" "serve"
   ]
  where
-  integer = HostCon "integer"
+  integer = HostCon "ℤ"
   float = HostCon "float"
   unicode = HostCon "unicode"
   text = HostCon "text"

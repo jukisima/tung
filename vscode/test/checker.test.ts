@@ -64,7 +64,7 @@ test("checker reuseþ one versioned session and cancellable requests", async (co
   const bridge = new CompilerBridge();
   bridge.configure(path.join(root, "tongue"));
   context.after(() => bridge.dispose());
-  const model = { text: "let value: integer = 1" };
+  const model = { text: "let value: ℤ = 1" };
   const checked = bridge.check(model, [], 3);
   const typed = bridge.typeOf(model, [], "value", 3);
   const formatted = bridge.format("show ilk a box {\nbox\n}\n", 3);
@@ -72,7 +72,7 @@ test("checker reuseþ one versioned session and cancellable requests", async (co
   assert.equal(checked.process, formatted.process);
   assert.equal(checked.version, 3);
   assert.equal((await checked.result).trim(), "tung-ok");
-  assert.equal((await typed.result).trim(), "type: integer");
+  assert.equal((await typed.result).trim(), "type: ℤ");
   assert.equal(await formatted.result, "show ilk a box {\n  box\n}\n");
   const cancelled = bridge.check(model, [], 4);
   cancelled.cancel();

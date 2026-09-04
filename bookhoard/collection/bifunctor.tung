@@ -5,9 +5,9 @@ use algebra/partial/semigroupoid.tung
 show frame f bifunctor {
   let (a f b) bimap (a → c ! e₀) (b → d ! e₁): c f d ! e₀, e₁
 
-  law (value: a f b):
-    value bimap (identity: a → a) (identity: b → b) ~ value
+  law (þing: a f b):
+    þing bimap (identity: a → a) (identity: b → b) ~ þing
 
-  law (value: a₀ f a₁, f₀: a₀ → b₀, f₁: a₁ → b₁, g₀: b₀ → c₀, g₁: b₁ → c₁):
-    (value bimap f₀ f₁) bimap g₀ g₁ ~ value bimap (f₀ ∘ g₀) (f₁ ∘ g₁)
+  law (þing: a₀ f a₁, f₀: a₀ → b₀, f₁: a₁ → b₁, g₀: b₀ → c₀, g₁: b₁ → c₁):
+    (þing bimap f₀ f₁) bimap g₀ g₁ ~ þing bimap (f₀ ∘ g₀) (f₁ ∘ g₁)
 }

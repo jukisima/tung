@@ -6,7 +6,7 @@ show frame a absolute b {
   let a absolute: b
 }
 
-fill integer absolute integer {
+fill ℤ absolute ℤ {
   let integer absolute = (0 ≤ integer) if integer (0 - integer)
 }
 

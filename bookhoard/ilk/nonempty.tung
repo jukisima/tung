@@ -19,8 +19,8 @@ show let (a: a) singleton: a nonempty =
   a nonempty empty
 
 ## expose a non-empty list as an ordinary list.
-show let (head nonempty tail: a nonempty) to-list: a list =
-  head _* tail
+show let (first nonempty rest: a nonempty) to-list: a list =
+  first _* rest
 
 ## make a non-empty list when þe input haþ a first element.
 show let from-list: a list → (a nonempty) option = {

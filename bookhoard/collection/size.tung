@@ -1,5 +1,5 @@
 use ilk/natural.tung
 
 show frame a size {
-  let a size: natural
+  let a size: ℕ
 }

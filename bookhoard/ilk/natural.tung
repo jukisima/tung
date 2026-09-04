@@ -4,12 +4,12 @@ use order.tung
 use order/lattice.tung
 use algebra/arithmetic/semiring.tung
 
-show ilk natural {
+show ilk ℕ {
   zero,
-  natural suc
+  ℕ suc
 }
 
-fill natural equal {
+fill ℕ equal {
   let ≡ = {
     zero, zero @ yea,
     a suc, b suc @ a ≡ b,
@@ -17,7 +17,7 @@ fill natural equal {
   }
 }
 
-fill natural less-equal {
+fill ℕ less-equal {
   let ≤ = {
     zero, _ @ yea,
     _, zero @ nay,
@@ -25,15 +25,15 @@ fill natural less-equal {
   }
 }
 
-fill natural order-partial {}
+fill ℕ order-partial {}
 
-fill natural order-total {}
+fill ℕ order-total {}
 
-fill natural semilattice-supremal-bounded {
+fill ℕ semilattice-supremal-bounded {
   let ⟂ = zero
 }
 
-fill natural semiring {
+fill ℕ semiring {
   let + = {
     a, zero @ a,
     a, b suc @ (a + b) suc
@@ -49,7 +49,7 @@ fill natural semiring {
   let one = zero suc
 }
 
-show let to-integer: natural → integer = {
+show let to-ℤ: ℕ → ℤ = {
   zero @ 0,
-  a suc @ 1 + (a to-integer)
+  a suc @ 1 + (a to-ℤ)
 }

@@ -8,18 +8,18 @@ use text/operation.tung
 use algebra/total/magma.tung
 use collection/catamorphism.tung
 
-let (counts: text table integer, word: text) count-word: text table integer =
+let (counts: text table ℤ, word: text) count-word: text table ℤ =
   match counts lookup word {
     none @ counts put word 1,
     count some @ counts put word (count + 1)
   }
 
-let (content: text) count-words: text table integer = (
+let (content: text) count-words: text table ℤ = (
   let words = content words-text
-  yield words fold₁ table.empty count-word
+  yield words fold₁ table~empty count-word
 )
 
-let (entry: text ∏ integer) write-count: 𝟙 ! console = (
+let (entry: text ∏ ℤ) write-count: 𝟙 ! console = (
   let _ = (entry project₀) write
   let _ = ': ' write
   yield (entry project₁) to-text $ write-line
@@ -27,7 +27,7 @@ let (entry: text ∏ integer) write-count: 𝟙 ! console = (
 
 let (_: 𝟙) main: 𝟙 ! console, file, system =
   match only arguments {
-    list.empty @ 'usage: tung word-count.tung <file>' write-line,
+    list~empty @ 'usage: tung word-count.tung <file>' write-line,
     paþ _* _ @ try (
       let content = paþ read-file
       let counts = content count-words

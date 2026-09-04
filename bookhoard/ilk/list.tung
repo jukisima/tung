@@ -19,6 +19,10 @@ use collection/filter.tung
 use collection/inhold.tung
 use collection/traverse.tung
 
+deed e fail {
+  e fail: a
+}
+
 ## finite linked lists.
 show ilk a list {
   empty,
@@ -34,10 +38,11 @@ fill (a list) inhold a {
 }
 
 ## integer range from start to stop, inclusive.
-show let (start: integer, stop: integer) till: integer list = match start ≤ stop {
-  yea @ start _* (start + 1 $ till stop),
-  nay @ empty
-}
+show let (start: ℤ, stop: ℤ) till: ℤ list =
+  match start ≤ stop {
+    yea @ start _* (start + 1 $ till stop),
+    nay @ empty
+  }
 
 ## build a one-element list.
 show let (a: a) singleton: a list = a _* empty
@@ -108,7 +113,7 @@ show let behead: a list → (a ∏ (a list)) option = {
 }
 
 ## first count elements.
-show let (list: a list, count: integer) take: a list =
+show let (list: a list, count: ℤ) take: a list =
   match count ≤ 0 {
     yea @ empty,
     nay @ match list {
@@ -118,7 +123,7 @@ show let (list: a list, count: integer) take: a list =
   }
 
 ## list after removing count elements.
-show let (list: a list, count: integer) drop: a list =
+show let (list: a list, count: ℤ) drop: a list =
   match count ≤ 0 {
     yea @ list,
     nay @ match list {
@@ -155,7 +160,7 @@ fill list traverse {
 }
 
 fill (a list) size {
-  let list size = list fold₁ natural.zero { n, _ @ n suc }
+  let list size = list fold₁ natural~zero { n, _ @ n suc }
 }
 
 show let (list: a list) reverse: a list =
@@ -167,9 +172,12 @@ show let zip: a list → b list → (a ∏ b) list = {
 }
 
 ## element at a zero-based index.
-show let (list: a list, index: integer) at: a option = match index ≤ -1 {
-  yea @ none,
-  nay @ (list drop index) head
+show let (list: a list, index: ℤ) at: a ! text fail = match index ≤ -1 {
+  yea @ 'list index out of range' fail,
+  nay @ match list drop index {
+    empty @ 'list index out of range' fail,
+    first _* _ @ first
+  }
 }
 
 ## final element, if present.
@@ -177,7 +185,7 @@ show let (list: a list) last: a option =
   (list reverse) head
 
 ## repeat a value count times.
-show let (a: a, count: integer) replicate: a list =
+show let (a: a, count: ℤ) replicate: a list =
   match count ≤ 0 {
     yea @ empty,
     nay @ a _* (a replicate (count - 1))
