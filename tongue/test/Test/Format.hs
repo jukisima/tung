@@ -38,13 +38,23 @@ isIdempotent source = formatSource formatted == formatted
 cases :: [(String, String, String)]
 cases =
   [
-    ( "use alias"
+    ( "sort use declarations"
     , """
-      use ilk/list.tung list
+      use zebra.tung zebra
+      use alpha.tung
+
+      ## a separate use block.
+      use delta.tung
+      use beta.tung beta
 
       """
     , """
-      use ilk/list.tung list
+      use alpha.tung
+      use zebra.tung zebra
+
+      ## a separate use block.
+      use beta.tung beta
+      use delta.tung
 
       """
     )

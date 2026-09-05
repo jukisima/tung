@@ -15,8 +15,8 @@ algebra/total/semigroup/supremal.tung	d83f51da50c275b2a2b6645245bd2853
 algebra/total/semigroup.tung	c48766faee411bbed6cfa20eece2afd1
 clock.tung	240e499d5b0d154ac2693a91a57776f2
 collection/applicative.tung	8de699148fe8b8428ca95596eff845f7
-collection/bifunctor.tung	b160d7806b7f3aea22730c3d5aee4ca2
-collection/catamorphism.tung	be43826b6552014e2926f813540442be
+collection/bifunctor.tung	8354ebb2aa8283fc3aead3f6f3ef0f22
+collection/catamorphism.tung	abfc324e1f62933549da76e4601e2ab5
 collection/filter.tung	5fddfca4156ab7c31662719b0fa385e9
 collection/functor.tung	063322474bbaea627ba11a7d439d07c9
 collection/inhold.tung	ebaf3697ad4a9441a9b2a8c5b8bdcbe5
@@ -27,11 +27,11 @@ combinator.tung	1f42e9a5e53834cb027e68f77221a2ed
 control.tung	76a06c59a50bc73f6fbbfe64d0ad7755
 equal.tung	eaa53fa0117f84732b34e81acdd40ade
 ground.tung	8f70d24b9bf20e096433b54da5dd7be9
-ilk/duration.tung	2b2ea71572b587571d72ad2b1ad910ae
 ilk/integer.tung	c4d39a605e170439ebb8c2b59760c4d6
 ilk/list.tung	d142008de02dc197744be5c3c4b9c2ea
+ilk/milliseconds.tung	2b2ea71572b587571d72ad2b1ad910ae
 ilk/natural.tung	9c481210843266770a5408d4aa289184
-ilk/nonempty.tung	14c548f1ce1962bbd2606c9afa4e7ce4
+ilk/nonempty.tung	139c5cd039e0720dbaec8b10e88bc721
 ilk/one.tung	93e84b18a0b8c53fde02e4687cb7e6f8
 ilk/option.tung	3f986f9e68f4d47a9d0f537ce3c3272a
 ilk/path.tung	1fb154ff9e2efa94e4596b5c9e32e738

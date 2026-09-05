@@ -31,6 +31,8 @@ group = do
 accepted :: [(String, String)]
 accepted =
   [ ("literal annotation", "let answer: ℤ = 42")
+  , ("annotated global function may call itself", "let factorial: ℤ → ℤ = { 0 @ 1, n @ n × ((n - 1) factorial) } let answer: ℤ = 5 factorial")
+  , ("annotated local initializer seeþ its preceding binding", "let answer: text = (let value = 1 let value: text = match value { 0 @ 'zero', _ @ 'other' } yield value)")
   , ("arbitrary term type ascription", "let answer = (1 + 2: ℤ)")
   , ("polymorphic term type ascription is reusable", "let identity = ({ x @ x }: a → a) let number: ℤ = 1 identity let word: text = 'x' identity")
   , ("ascribed anonymous function remaineþ recursive", "let factorial = ({ 0 @ 1, n @ n × ((n - 1) factorial) }: ℤ → ℤ) let answer: ℤ = 5 factorial")
@@ -59,6 +61,7 @@ accepted =
   , ("curried triple function", "let (x: ℤ, _: text, _: float) pick: ℤ = x")
   , ("constructor application is curried", "ilk a option { none, a some } let make = some let value: ℤ option = 1 make")
   , ("empty type eliminator", "ilk 𝟘 {} let initial: 𝟘 → a = {} let eliminate: 𝟘 → ℤ = initial")
+  , ("empty explicit match preserveþ its scrutinee effect", "ilk 𝟘 {} deed source { ℤ obtain: 𝟘 } let (x: ℤ) eliminate: a ! source = match (x obtain) {}")
   , ("multi-scrutinee exhaustive match", boolData ++ "let ok: ℤ = match yea, nay { yea, yea @ 1, yea, nay @ 2, nay, yea @ 3, nay, nay @ 4 }")
   , ("alternative rows contribute to coverage", boolData ++ "let ok: ℤ = match yea, nay { yea, _ | _, yea @ 1, nay, nay @ 0 }")
   , ("overlapping wildcards cover a product", boolData ++ "let ok: ℤ = match yea, nay { yea, _ @ 1, _, yea @ 2, nay, nay @ 3 }")

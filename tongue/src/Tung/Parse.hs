@@ -208,16 +208,14 @@ startsFileDeclaration = \case
 
 parseLet :: [ShapeNeed] -> String -> P Decl
 parseLet needs name = \case
-  TEquals : rest -> parseUntypedLet needs name [] rest
+  TEquals : rest -> parseLetBody name (implicitLetAnn needs []) [] rest
   TColon : rest -> parseColonLet needs name rest
   ts -> parseLetHeader needs name ts
 
 parseColonLet :: [ShapeNeed] -> String -> P Decl
 parseColonLet needs name ts =
   case parseTypeAnnUntilEquals ts of
-    Right (ann, TEquals : rest) -> do
-      (e, rest2) <- parseExpr rest
-      pure (Let name (Just (withGraithNeeds needs ann)) e, rest2)
+    Right (ann, TEquals : rest) -> parseLetBody name (Just (withGraithNeeds needs ann)) [] rest
     _ -> Left "expected '=' after let type"
 
 parseLetHeader :: [ShapeNeed] -> String -> P Decl
@@ -237,21 +235,16 @@ parseLetHeaderDefinitionWithNeeds needs ts =
               Just (params, name) -> do
                 result <- parseFunctionResultTokens right
                 ann <- functionLetAnn needs (replicate (length params) Nothing) result
-                parseLetHeaderTypedBody name params ann rest
+                parseLetBody name (Just ann) params rest
             Nothing -> case functionHeader header of
-              Just (params, name) -> Just (parseLetHeaderBody needs name params rest)
+              Just (params, name) -> Just (parseLetBody name (implicitLetAnn needs (replicate (length params) Nothing)) params rest)
               Nothing -> Nothing
     _ -> Nothing
 
-parseLetHeaderBody :: [ShapeNeed] -> String -> [Pattern] -> P Decl
-parseLetHeaderBody needs name params ts = do
+parseLetBody :: String -> Maybe TypeAnn -> [Pattern] -> P Decl
+parseLetBody name ann params ts = do
   (e, rest) <- parseExpr ts
-  pure (letWithParams name (replicate (length params) Nothing) needs Nothing params e, rest)
-
-parseLetHeaderTypedBody :: String -> [Pattern] -> TypeAnn -> P Decl
-parseLetHeaderTypedBody name params ann ts = do
-  (e, rest) <- parseExpr ts
-  pure (Let name (Just ann) (lambdaIfParams params e), rest)
+  pure (Let name ann (lambdaIfParams params e), rest)
 
 parseTypedArgumentLet :: [ShapeNeed] -> P Decl
 parseTypedArgumentLet graithNeeds ts = do
@@ -264,9 +257,8 @@ parseTypedArgumentLet graithNeeds ts = do
           ann <- functionLetAnn graithNeeds argTypes result
           pure (Let name (Just ann) (lambdaIfParams params body), rest3)
         _ -> Left "expected '=' after let result type"
-    ((params, argTypes), TIdent name : TEquals : bodyTokens) -> do
-      (body, rest3) <- parseExpr bodyTokens
-      pure (letWithParams name argTypes graithNeeds Nothing params body, rest3)
+    ((params, argTypes), TIdent name : TEquals : bodyTokens) ->
+      parseLetBody name (implicitLetAnn graithNeeds argTypes) params bodyTokens
     _ -> Left "expected function name and result type after typed arguments"
 
 parseTypedLetParams :: P ([Pattern], [Maybe TypeExpr])
@@ -306,14 +298,6 @@ implicitLetAnn needs argTypes = Just (TypeAnn ty needs)
     [] -> implicitTypeAt 0
     _ -> fromRight (implicitTypeAt (length argTypes)) (makeArrowType (fillMissingTypes argTypes) [] (implicitTypeAt (length argTypes)))
 
-letWithParams :: String -> [Maybe TypeExpr] -> [ShapeNeed] -> Maybe TypeAnn -> [Pattern] -> Expr -> Decl
-letWithParams name paramTypes needs resultAnn params body =
-  Let name ann (lambdaIfParams params body)
- where
-  ann = case resultAnn of
-    Just result -> Just (withGraithNeeds needs result)
-    Nothing -> implicitLetAnn needs paramTypes
-
 fillMissingTypes :: [Maybe TypeExpr] -> [TypeExpr]
 fillMissingTypes = zipWith fill [0 :: Int ..]
  where
@@ -325,11 +309,6 @@ implicitTypeAt n = TypeName ("t" ++ show n)
 
 withGraithNeeds :: [ShapeNeed] -> TypeAnn -> TypeAnn
 withGraithNeeds needs (TypeAnn t annNeeds) = TypeAnn t (needs ++ annNeeds)
-
-parseUntypedLet :: [ShapeNeed] -> String -> [Maybe TypeExpr] -> P Decl
-parseUntypedLet needs name argTypes ts = do
-  (e, rest) <- parseExpr ts
-  pure (Let name (implicitLetAnn needs argTypes) e, rest)
 
 parseData :: P Decl
 parseData ts = do
@@ -368,7 +347,7 @@ parseEffectOps = parseCommaListUntil isRightBrace parseEffectOp
 parseEffectOp :: P EffectOp
 parseEffectOp ts =
   case takeUntilColon ts of
-    Right (parts, TColon : rest) -> case shapeMemberHeader parts of
+    Right (parts, TColon : rest) -> case typedHeader parts of
       Nothing -> Left "expected effect operation name"
       Just (argTypes, name) -> do
         (result, rest2) <- parseFunctionResultUntilCommaOrBrace rest
@@ -379,9 +358,7 @@ parseEffectOp ts =
 
 parseShape :: [ShapeNeed] -> P Decl
 parseShape needs ts = do
-  (header, body) <- parseHeaderBody "frame" ts
-  (paramTerms, name) <- maybeToEither "frame declaration requireþ a name" (headerFromTokens header)
-  params <- maybeToEither "frame parameters must be names" (namesFromHeaderTerms paramTerms)
+  (params, name, body) <- parseParamHeaderBody "frame" ts
   (members, rest) <- parseShapeMembers body
   case rest of
     TRBrace : following -> pure (ShapeDecl params name needs members, following)
@@ -501,7 +478,7 @@ parseShapeSignature :: [ShapeNeed] -> [Token] -> Either String ShapeMember
 parseShapeSignature needs ts = case splitTopLevelColon ts of
   Nothing -> Left "expected ':' in required frame member"
   Just (header, resultTokens) -> do
-    (argTypes, name) <- maybe (Left "expected frame member name") Right (shapeMemberHeader header)
+    (argTypes, name) <- maybe (Left "expected frame member name") Right (typedHeader header)
     result <- parseFunctionResultTokens resultTokens
     ann <- functionLetAnn needs (map Just argTypes) result
     pure (ShapeSpec name ann)
@@ -514,8 +491,8 @@ isShapeMemberBoundary = \case
   TRBrace -> True
   _ -> False
 
-shapeMemberHeader :: [Token] -> Maybe ([TypeExpr], String)
-shapeMemberHeader ts = do
+typedHeader :: [Token] -> Maybe ([TypeExpr], String)
+typedHeader ts = do
   (argTerms, name) <- headerFromTokens ts
   argTypes <- typesFromHeaderTerms argTerms
   pure (argTypes, name)
@@ -574,24 +551,10 @@ parseDollarSegment stopBrace value = \case
 
 parseDollarBareSegment :: Bool -> Expr -> P Expr
 parseDollarBareSegment stopBrace value ts = do
-  (terms, rest) <- parseDollarBareTerms stopBrace ts
+  (terms, rest) <- parseExprParts "expected function after '$'" stopBrace ts
   case terms of
     fn : args -> Right (applyArgs fn (value : args), rest)
     [] -> Left "expected function after '$'"
-
-parseDollarBareTerms :: Bool -> P [Expr]
-parseDollarBareTerms stopBrace = go []
- where
-  go acc ts = case ts of
-    [] -> Right (reverse acc, [])
-    TLBrace : _ | stopBrace && not (null acc) -> Right (reverse acc, ts)
-    TDollar : _ -> Right (reverse acc, ts)
-    t : _ | exprStop t -> Right (reverse acc, ts)
-    _ -> case parseExprAtom ts of
-      Right (arg, rest) -> go (arg : acc) rest
-      Left _
-        | null acc -> Left "expected function after '$'"
-        | otherwise -> Right (reverse acc, ts)
 
 parseDollarParenSegment :: Expr -> P Expr
 parseDollarParenSegment value ts = do
@@ -613,7 +576,7 @@ parseFunctionFirstTerms = go []
 
 parsePostfixExprWith :: Bool -> P Expr
 parsePostfixExprWith stopBrace ts = do
-  (parts, rest) <- parseExprParts stopBrace ts
+  (parts, rest) <- parseExprParts "expected expression atom" stopBrace ts
   defaultApplication parts rest
 
 applyArgs :: Expr -> [Expr] -> Expr
@@ -626,8 +589,8 @@ defaultApplication parts rest = case parts of
   [x] -> Right (x, rest)
   arg : f : args -> Right (applyArgs f (arg : args), rest)
 
-parseExprParts :: Bool -> P [Expr]
-parseExprParts stopBrace = go []
+parseExprParts :: String -> Bool -> P [Expr]
+parseExprParts emptyMessage stopBrace = go []
  where
   go acc ts = case ts of
     [] -> Right (reverse acc, [])
@@ -637,7 +600,7 @@ parseExprParts stopBrace = go []
     _ -> case parseExprAtom ts of
       Right (e, rest) -> go (e : acc) rest
       Left _
-        | null acc -> Left "expected expression atom"
+        | null acc -> Left emptyMessage
         | otherwise -> Right (reverse acc, ts)
 
 exprStop :: Token -> Bool
@@ -937,7 +900,7 @@ parseFunctionResultUntilCommaOrBrace = collect []
       _ -> Left "unterminated type"
 
   startsEffectOperation ts = case takeTopLevelUntil ts (\case TColon -> True; TComma -> True; TRBrace -> True; _ -> False) "expected effect operation" of
-    Right (header, TColon : _) -> case shapeMemberHeader header of
+    Right (header, TColon : _) -> case typedHeader header of
       Just _ -> True
       Nothing -> False
     _ -> False
@@ -1085,8 +1048,7 @@ typeApplication name args = TypeApply name args
 
 ctorFromTokens :: [Token] -> Maybe Ctor
 ctorFromTokens ts = do
-  (args, name) <- headerFromTokens ts
-  argTypes <- typesFromHeaderTerms args
+  (argTypes, name) <- typedHeader ts
   pure (Ctor name argTypes)
 
 -- declaration headers share sequence application: the second term names the

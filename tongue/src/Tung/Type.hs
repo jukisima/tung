@@ -2240,32 +2240,26 @@ inferMatchM :: [Expr] -> [MatchCase] -> TcContext -> Tc Inferred
 inferMatchM [] cases ctx = do
   arity <- maybe (failTc "empty anonymous match") pure (matchCaseArity cases)
   scrutTys <- freshManyM arity
-  Inferred branchTy branchEffects branchNeeds core <- inferMatchCasesM cases scrutTys ctx
+  (branchTy, branchEffects, branchNeeds, cases2) <- inferMatchCasesM cases scrutTys ctx
   st <- getTc
-  pure (Inferred (curriedFunction (applyStateAll scrutTys st) branchEffects branchTy) [] (applyStateNeeds branchNeeds st) core)
+  pure (Inferred (curriedFunction (applyStateAll scrutTys st) branchEffects branchTy) [] (applyStateNeeds branchNeeds st) (EMatch [] cases2))
 inferMatchM scrutinees cases ctx = do
   inferred <- inferExprListM scrutinees ctx
   let scrutTys = [t | Inferred t _ _ _ <- inferred]
       scrutEffects = foldl' unionEffects [] [effects | Inferred _ effects _ _ <- inferred]
       scrutNeeds = foldl' unionNeeds [] [needs | Inferred _ _ needs _ <- inferred]
       scrutinees2 = map inferredExpr inferred
-  Inferred branchTy branchEffects branchNeeds core <- inferMatchCasesM cases scrutTys ctx
-  let cases2 = case core of
-        EMatch _ transformed -> transformed
-        _ -> []
+  (branchTy, branchEffects, branchNeeds, cases2) <- inferMatchCasesM cases scrutTys ctx
   st <- getTc
   pure (Inferred branchTy (unionEffects (applyStateEffects scrutEffects st) branchEffects) (unionNeeds (applyStateNeeds scrutNeeds st) branchNeeds) (EMatch scrutinees2 cases2))
 
-inferMatchCasesM :: [MatchCase] -> [Ty] -> TcContext -> Tc Inferred
+inferMatchCasesM :: [MatchCase] -> [Ty] -> TcContext -> Tc (Ty, [Ty], [Need], [MatchCase])
 inferMatchCasesM cases scrutTys ctx = do
   ((branchTy, _, effects, needs), cases2) <- mapAccumM step (Nothing, scrutTys, [], []) cases
   st <- getTc
   checkExhaustiveM (applyStateAll scrutTys st) cases2 ctx
-  case branchTy of
-    Just t -> pure (Inferred (applyState t st) effects (applyStateNeeds needs st) (EMatch [] cases2))
-    Nothing -> do
-      t <- freshM
-      pure (Inferred (applyState t st) [] [] (EMatch [] []))
+  t <- maybe freshM pure branchTy
+  pure (applyState t st, effects, applyStateNeeds needs st, cases2)
  where
   step (branchTy, currentScrutTys, effects, needs) (MatchCase ps e) = do
     ctx2 <- bindPatternsM (NE.toList ps) currentScrutTys ctx
@@ -2317,21 +2311,15 @@ elaborateSequentialDeclM GlobalDeclarations declaration@(Let name (Just ann) (EF
   pure (declaration, addElaboratedBinding GlobalDeclarations name (typeAnnScheme ann ctx) ctx, [])
 elaborateSequentialDeclM scope (Let name annotation expr) ctx = do
   case annotation of
-    Just ann | scope == GlobalDeclarations -> do
-      checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann ctx
-      let scheme = typeAnnScheme ann ctx
-          ctx2 = addElaboratedBinding scope name scheme ctx
-      (_, effects, checkedNeeds, core) <- checkAnnotatedExprM name ann expr ctx2
-      expr2 <- resolveInferredBindingM ctx2 checkedNeeds core
-      pure (Let name annotation expr2, ctx2, effects)
     Just ann -> do
       checkTypeAnnNeedsM ("let '" ++ name ++ "'") ann ctx
-      (_, effects, checkedNeeds, core) <- checkAnnotatedExprM name ann expr ctx
-      let ctx2 = addEnv name (typeAnnScheme ann ctx) ctx
+      let ctx2 = addElaboratedBinding scope name (typeAnnScheme ann ctx) ctx
+          checkingCtx = if scope == GlobalDeclarations then ctx2 else ctx
+      (_, effects, checkedNeeds, core) <- checkAnnotatedExprM name ann expr checkingCtx
       expr2 <- resolveInferredBindingM ctx2 checkedNeeds core
       pure (Let name annotation expr2, ctx2, effects)
     Nothing | isAnonymousMatchExpr expr -> do
-      (localCtx, effects) <- inferUnannotatedBindingM name expr ctx
+      (localCtx, effects) <- inferRecursiveBindingM name expr ctx
       inferredCtx <- case scope of
         GlobalDeclarations -> globalizeBindingM name localCtx
         LocalDeclarations -> pure localCtx
@@ -2803,17 +2791,12 @@ inferLocalDeclsM declarations ctx = do
     (declaration2, ctx2, declarationEffects) <- elaborateSequentialDeclM LocalDeclarations declaration currentCtx
     pure ((ctx2, unionEffects currentEffects declarationEffects), declaration2)
 
-inferUnannotatedBindingM :: String -> Expr -> TcContext -> Tc (TcContext, [Ty])
-inferUnannotatedBindingM name expr ctx | isAnonymousMatchExpr expr = do
+inferRecursiveBindingM :: String -> Expr -> TcContext -> Tc (TcContext, [Ty])
+inferRecursiveBindingM name expr ctx = do
   selfTy <- freshM
   let ctxSelf = addEnv name (Forall [] [] selfTy) ctx
   Inferred t effects needs _ <- inferNamedM name expr ctxSelf
   mapTcError (unifyM selfTy t) (\msg -> "in '" ++ name ++ "': " ++ msg)
-  st <- getTc
-  normalizedNeeds <- normalizeNeedsM ctx needs
-  pure (addEnv name (bindingScheme t normalizedNeeds effects st) ctx, effects)
-inferUnannotatedBindingM name expr ctx = do
-  Inferred t effects needs _ <- inferNamedM name expr ctx
   st <- getTc
   normalizedNeeds <- normalizeNeedsM ctx needs
   pure (addEnv name (bindingScheme t normalizedNeeds effects st) ctx, effects)

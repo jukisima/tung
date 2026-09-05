@@ -5,7 +5,7 @@ type checking; formatting is idempotent.
 module Tung.Format (formatSource) where
 
 import Data.Char (isDigit, isSpace)
-import Data.List (dropWhileEnd, intercalate, isPrefixOf, isSuffixOf, mapAccumL, stripPrefix)
+import Data.List (dropWhileEnd, intercalate, isPrefixOf, isSuffixOf, mapAccumL, sortOn, stripPrefix)
 
 data FormatState = FormatState
   { formatDepth :: !Int
@@ -18,7 +18,7 @@ data LexicalState = Code | Text | BlockComment
 
 formatSource :: String -> String
 formatSource source =
-  let (_, formatted) = mapAccumL formatLine initialState (sourceLines source)
+  let (_, formatted) = mapAccumL formatLine initialState (sortUseBlocks (sourceLines source))
       result = intercalate "\n" formatted
    in if "\n" `isSuffixOf` source
         then dropWhileEnd (== '\n') result ++ "\n"
@@ -26,6 +26,28 @@ formatSource source =
 
 initialState :: FormatState
 initialState = FormatState 0 Code 0 []
+
+sortUseBlocks :: [String] -> [String]
+sortUseBlocks = go Code
+ where
+  go _ [] = []
+  go Code lines'@(line : rest)
+    | sortableUseLine line =
+        let (uses, remaining) = span sortableUseLine lines'
+         in sortOn trim uses ++ go Code remaining
+    | otherwise = line : go (lineLexicalState Code line) rest
+  go lexicalState (line : rest) = line : go (lineLexicalState lexicalState line) rest
+
+  sortableUseLine line =
+    let content = trim line
+     in startsWord "use" content && case lineLexicalState Code content of
+          Code -> True
+          _ -> False
+
+lineLexicalState :: LexicalState -> String -> LexicalState
+lineLexicalState lexicalState line =
+  let (_, next, _) = scanLine lexicalState line
+   in next
 
 formatLine :: FormatState -> String -> (FormatState, String)
 formatLine state@FormatState{formatLexicalState = BlockComment} line =

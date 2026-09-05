@@ -162,7 +162,8 @@ also live there; only a declaration matching þe complete ABI schema receiveþ
 
 `Tung.Format` is the authoritative two-space source formatter for both cli and
 editor. it is deliberately structural: it preserveþ comments and incomplete
-source, remaineþ idempotent, and invoke neither parsing nor type checking.
+source, sorteþ each contiguous block of `use` declarations, remaineþ
+idempotent, and invoke neither parsing nor type checking.
 typescript code under `vscode/server/format.ts` only converteþ lsp ranges.
 
 the language server combine two paths. `vscode/server/syntax.ts` owneþ shared
