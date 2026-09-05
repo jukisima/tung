@@ -29,6 +29,10 @@ module Tung (
   FillType (..),
   FillId (..),
   Project (..),
+  projectSource,
+  projectImports,
+  ParsedBundle,
+  prepareBundle,
   Scheme (..),
   EnvLookup (..),
   TcContext,
@@ -50,6 +54,7 @@ module Tung (
   check,
   checkWithImports,
   checkDiagnosticWithImports,
+  checkBundleDiagnostic,
   checkEditorDiagnosticWithImports,
   renderFileDiagnostic,
   renderDiagnostic,
@@ -57,6 +62,7 @@ module Tung (
   elaborateProgramWithImports,
   elaborateInteractiveProgramWithImports,
   typeOfWithImports,
+  typeOfBundle,
   baseContext,
   inferProgramContext,
   lookupEnv,
@@ -69,6 +75,7 @@ module Tung (
   evaluateMainCoreProgram,
   evaluateMainWithImports,
   evaluateMainWithArgsAndImports,
+  evaluateMainBundleWithArgs,
   bookhoardImportFiles,
   readBookhoardImports,
   loadProjectFile,
@@ -79,12 +86,12 @@ module Tung (
 import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
 import Tung.Core (CoreProgram, ModuleInterface (..), coreImportInterface, coreInterface)
 import Tung.Diagnostic
-import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainCoreProgram, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
+import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainBundleWithArgs, evaluateMainCoreProgram, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
 import Tung.Format (formatSource)
 import Tung.Identity
 import Tung.Import (enterImport)
 import Tung.Metadata (languageMetadata)
-import Tung.Parse (parse)
+import Tung.Parse (ParsedBundle, parse, prepareBundle)
 import Tung.Primitive
 import Tung.Project
 import Tung.Syntax

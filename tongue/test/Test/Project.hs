@@ -16,13 +16,14 @@ import System.Directory (
 import System.FilePath (takeDirectory, (</>))
 import Test.Harness (Group, Test, expect, expectEq)
 import Test.Harness qualified as Harness
-import Tung (Project (..), loadProjectFile, loadProjectFileWithRoots)
+import Tung (Project (..), checkBundleDiagnostic, loadProjectFile, loadProjectFileWithRoots, projectImports, projectSource, typeOfBundle)
 
 group :: IO Group
 group =
   Harness.group
     "project"
     [ nestedImports
+    , preparedProject
     , localImportPaths
     , moduleRootImport
     , ambiguousModuleRoots
@@ -50,7 +51,15 @@ nestedImports = withProject files "main.tung" \result ->
         ]
     )
 
-  projectContents Project{projectSource, projectImports} = (projectSource, projectImports)
+  projectContents project = (projectSource project, projectImports project)
+
+preparedProject :: Test
+preparedProject = withProject [("main.tung", "use dep.tung let answer = value + 1"), ("dep.tung", "show let value = 41")] "main.tung" \case
+  Left message -> pure (Just message)
+  Right Project{projectBundle} -> do
+    checked <- expectEq "prepared project check" Nothing (checkBundleDiagnostic False projectBundle)
+    inspected <- expectEq "prepared project type inspection" (Right "ℤ") (typeOfBundle projectBundle "answer")
+    pure (checked <> inspected)
 
 localImportPaths :: Test
 localImportPaths = withDirectory \root -> do

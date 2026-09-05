@@ -31,6 +31,9 @@ group = do
 accepted :: [(String, String)]
 accepted =
   [ ("literal annotation", "let answer: ℤ = 42")
+  , ("local alias constraineþ its captured parameter", "let x add-one = (let y = x let number: ℤ = y yield number + 1) let result: ℤ = 2 add-one")
+  , ("independent local function remaineþ polymorphic", "let x keep = (let y identity = y let number: ℤ = 1 identity let word: text = 'x' identity yield x)")
+  , ("constructor variables remain linked through composition", "ilk a box { a box } let (x: a f) lift: a f = x let x twice = (x lift) lift let good: ℤ box = (1 box) twice")
   , ("annotated global function may call itself", "let factorial: ℤ → ℤ = { 0 @ 1, n @ n × ((n - 1) factorial) } let answer: ℤ = 5 factorial")
   , ("annotated local initializer seeþ its preceding binding", "let answer: text = (let value = 1 let value: text = match value { 0 @ 'zero', _ @ 'other' } yield value)")
   , ("arbitrary term type ascription", "let answer = (1 + 2: ℤ)")
@@ -58,6 +61,7 @@ accepted =
   , ("unresolved raw primitive frame dependency stayeþ ABI-compatible", "frame a equal { let a ≡ a: 𝟚 } let result = 1 ≡ 1")
   , ("parameterised type alias is transparent", boolData ++ "let (_: ℤ) member: 𝟚 = yea let answer: 𝟚 = 1 member")
   , ("func equaleþ pure unary arrow", "let (x: ℤ) id: ℤ = x")
+  , ("a pure func may return an effectful function", "deed ask { ℤ ask: ℤ } let (value: a f) relay: a f = value let maker = { x @ { y @ (x + y) ask } } let result: ℤ → (ℤ → ℤ ! ask) = maker relay")
   , ("curried triple function", "let (x: ℤ, _: text, _: float) pick: ℤ = x")
   , ("constructor application is curried", "ilk a option { none, a some } let make = some let value: ℤ option = 1 make")
   , ("empty type eliminator", "ilk 𝟘 {} let initial: 𝟘 → a = {} let eliminate: 𝟘 → ℤ = initial")
@@ -101,6 +105,10 @@ accepted =
 rejected :: [(String, String)]
 rejected =
   [ ("literal type mismatch", "let bad: ℤ = 'wrong'")
+  , ("captured local alias cannot become polymorphic", "let x bad = (let y = x let number: ℤ = y yield number + 1) yield 'oops' bad")
+  , ("nested function cannot generalise a captured variable", "let x bad = (let _ capture = x let number: ℤ = 0 capture let word: text = 0 capture yield number)")
+  , ("constructor unification cannot change a nominal head", "ilk a box { a box } ilk a option { a some } let (x: a f) lift: a f = x let x twice = (x lift) lift let bad: ℤ option = (1 box) twice")
+  , ("an effectful outer arrow cannot be func", "deed ask { ℤ ask: ℤ } let (value: a f) relay: a f = value let maker = { x @ (let value = x ask yield { y @ value + y }) } let result = maker relay")
   , ("term type ascription rejecteþ a mismatch", "let bad = ('wrong': ℤ)")
   , ("parameterised type alias needeþ its argument", "let _ bad: predicate = 1")
   , ("parameterised type alias rejecteþ extra arguments", "let _ bad: ℤ ℤ predicate = 1")
@@ -233,6 +241,7 @@ importCases =
   , runnableErr "parameterised runner-looking effect is rejected" (unitData ++ "deed a console { 𝟙 fake: 𝟙 } let (_: 𝟙) main: 𝟙 ! 𝟙 console = only fake")
   , runnableErr "effects cannot run before main" (unitData ++ "let _ = 'early' write let (_: 𝟙) main: 𝟙 = only")
   , expectEq "reporteþ an inferred source type" (Right "m1 → m1") (typeOfWithImports "show let x identity = x" Map.empty "identity")
+  , expectEq "type display preserveþ the effectful arrow boundary" (Right "ℤ → (ℤ → ℤ) ! ask") (typeOfWithImports "deed ask { ℤ ask: ℤ } let maker = { x @ (let value = x ask yield { y @ value + y }) }" Map.empty "maker")
   , expectEq "reporteþ an unknown inspected name" (Left "unknown name 'missing'") (typeOfWithImports "let answer = 42" Map.empty "missing")
   , expect "elaboration resolveþ every type-class evidence hole" evidenceIsResolved
   , typeOkWith "shared diamond imports" "use left.tung use right.tung yield left~left + right~right" sharedImports

@@ -40,24 +40,25 @@ formatFile path = do
   unless (formatted == source) (writeFile path formatted)
 
 runFile :: FilePath -> [String] -> IO ()
-runFile path programArgs = withProject path \Project{projectSource, projectImports} -> do
-  result <- evaluateMainWithArgsAndImports programArgs projectSource projectImports
+runFile path programArgs = withProject path \Project{projectBundle} -> do
+  result <- evaluateMainBundleWithArgs programArgs projectBundle
   putStrLn result
   unless ("eval ok:" `isPrefixOf` result) exitFailure
 
 checkFile :: Bool -> FilePath -> IO ()
-checkFile runnable path = withProject path \Project{projectPath, projectSource, projectImports, projectImportPaths} ->
-  case checkDiagnosticWithImports runnable projectSource projectImports of
+checkFile runnable path = withProject path \project@Project{projectPath, projectImportPaths, projectBundle} ->
+  case checkBundleDiagnostic runnable projectBundle of
     Nothing -> putStrLn "type ok"
     Just diagnostic@Diagnostic{diagnosticPath} -> do
       let ownerPath = maybe projectPath (\owner -> Map.findWithDefault owner owner projectImportPaths) diagnosticPath
-          ownerSource = maybe projectSource (\owner -> Map.findWithDefault projectSource owner projectImports) diagnosticPath
+          source = projectSource project
+          ownerSource = maybe source (\owner -> Map.findWithDefault source owner (projectImports project)) diagnosticPath
       putStrLn (renderFileDiagnostic ownerPath ownerSource diagnostic)
       exitFailure
 
 typeOfFile :: String -> FilePath -> IO ()
-typeOfFile name path = withProject path \Project{projectSource, projectImports} ->
-  case typeOfWithImports projectSource projectImports name of
+typeOfFile name path = withProject path \Project{projectBundle} ->
+  case typeOfBundle projectBundle name of
     Right ty -> putStrLn ("type: " ++ ty)
     Left message -> putStrLn ("type error: " ++ message) >> exitFailure
 

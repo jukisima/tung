@@ -6,7 +6,7 @@ import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
-group = Harness.group "diagnostic" [locatedTokens, locatedForeign, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, adjacentDeclarationEvidence, adjacentImportedEvidence, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
+group = Harness.group "diagnostic" [locatedTokens, locatedForeign, namedTypeError, repeatedName, precedingTypeAlias, precedingData, finalExpression, unicodeOffset, parsePosition, laterParsePosition, eofExpressionSpan, importedParsePosition, adjacentDeclarationEvidence, adjacentImportedEvidence, importedTypeError, nestedImportedTypeError, renderedProtocol, renderedFile]
 
 locatedTokens :: Test
 locatedTokens = case lexLocatedTokens "  answer + 1" of
@@ -47,6 +47,15 @@ unicodeOffset =
 parsePosition :: Test
 parsePosition =
   expectDiagnostic "parse position" "\n  'unterminated" ParseDiagnostic (SourceSpan 16 16)
+
+laterParsePosition :: Test
+laterParsePosition = expectDiagnostic "parser retaineþ the later failure position" "let value = 1 let other = )" ParseDiagnostic (SourceSpan 26 27)
+
+eofExpressionSpan :: Test
+eofExpressionSpan = expectDiagnostic "last expression span excludeþ trailing whitespace" "let 😀 = 1 let value: text = 😀   \n" TypeDiagnostic (SourceSpan 29 31)
+
+importedParsePosition :: Test
+importedParsePosition = expectImportedDiagnostic "imported parse failure retaineþ its own position" "use dep.tung" (Map.singleton "dep.tung" "let value = 1 let other = )") "dep.tung" (SourceSpan 26 27)
 
 adjacentDeclarationEvidence :: Test
 adjacentDeclarationEvidence =

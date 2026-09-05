@@ -3,6 +3,7 @@ module Tung.Diagnostic (
   Diagnostic (..),
   DiagnosticKind (..),
   checkDiagnosticWithImports,
+  checkBundleDiagnostic,
   checkEditorDiagnosticWithImports,
   diagnoseResult,
   renderFileDiagnostic,
@@ -14,9 +15,10 @@ import Data.Char (isSpace)
 import Data.List (find, intercalate, isInfixOf, isPrefixOf, isSuffixOf, tails)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
-import Tung.Parse (ParsedSource (..), parseLocated)
+import Tung.Parse (ParsedBundle (..), ParsedSource (..), SourceUnit (..), prepareBundle)
+import Tung.Syntax qualified
 import Tung.Token
-import Tung.Type (TypeFailure (..), checkEditorProgramWithImportsDetailed, checkProgramWithImportsDetailed)
+import Tung.Type (TypeFailure (..), checkEditorProgramPrepared, checkProgramPrepared)
 
 data DiagnosticKind = ParseDiagnostic | TypeDiagnostic
   deriving (Eq, Show)
@@ -30,14 +32,22 @@ data Diagnostic = Diagnostic
   deriving (Eq, Show)
 
 checkEditorDiagnosticWithImports :: String -> Map.Map String String -> Maybe Diagnostic
-checkEditorDiagnosticWithImports source imports = case parseLocated source of
-  Left message -> Just (diagnoseResult source ("parse error: " ++ message))
-  Right ParsedSource{parsedProgram} -> diagnosticFromFailure source imports (checkEditorProgramWithImportsDetailed parsedProgram imports)
+checkEditorDiagnosticWithImports source imports = checkPreparedDiagnostic checkEditorProgramPrepared (prepareBundle source imports)
 
 checkDiagnosticWithImports :: Bool -> String -> Map.Map String String -> Maybe Diagnostic
-checkDiagnosticWithImports runnable source imports = case parseLocated source of
-  Left message -> Just (diagnoseResult source ("parse error: " ++ message))
-  Right ParsedSource{parsedProgram} -> diagnosticFromFailure source imports (checkProgramWithImportsDetailed parsedProgram imports runnable)
+checkDiagnosticWithImports runnable source imports = checkBundleDiagnostic runnable (prepareBundle source imports)
+
+checkBundleDiagnostic :: Bool -> ParsedBundle -> Maybe Diagnostic
+checkBundleDiagnostic runnable = checkPreparedDiagnostic (\program imports -> checkProgramPrepared program imports runnable)
+
+checkPreparedDiagnostic :: (Tung.Syntax.Program -> Map.Map String SourceUnit -> Maybe TypeFailure) -> ParsedBundle -> Maybe Diagnostic
+checkPreparedDiagnostic checkProgram ParsedBundle{bundleRoot = SourceUnit{unitSource = source, unitParsed}, bundleImports} = case unitParsed of
+  Left failure -> Just (parseDiagnostic source failure)
+  Right ParsedSource{parsedProgram} -> diagnosticFromFailure source (unitSource <$> bundleImports) (checkProgram parsedProgram bundleImports)
+
+parseDiagnostic :: String -> SourceFailure -> Diagnostic
+parseDiagnostic source SourceFailure{failureSpan, failureMessage} =
+  Diagnostic ParseDiagnostic Nothing (fromMaybe (pointSpan source (firstCodeOffset source)) failureSpan) ("parse error: " ++ failureMessage)
 
 diagnosticFromFailure :: String -> Map.Map String String -> Maybe TypeFailure -> Maybe Diagnostic
 diagnosticFromFailure source imports = fmap \TypeFailure{typeFailureMessage, typeFailureSpan, typeFailurePath} ->

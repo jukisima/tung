@@ -8,8 +8,11 @@ module Tung.Token (
   SourceSpan (..),
   LocatedToken (..),
   tokenSpan,
+  consumedSpan,
+  SourceFailure (..),
   lexTokens,
   lexLocatedTokens,
+  lexLocatedTokensDetailed,
   keywordNames,
   languageKeywordNames,
   specialNameChars,
@@ -21,6 +24,7 @@ where
 import Control.Applicative (many, some)
 import Data.Char (chr, isSpace, ord)
 import Data.IntMap.Strict qualified as IntMap
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe, isJust)
 import Data.Void (Void)
 import Text.Megaparsec (Parsec)
@@ -34,7 +38,17 @@ data SourceSpan = SourceSpan
   }
   deriving (Eq, Show)
 
-data Token = Token !(Maybe SourceSpan) !TokenKind
+data SourceFailure = SourceFailure
+  { failureSpan :: Maybe SourceSpan
+  , failureMessage :: String
+  }
+  deriving (Eq, Show)
+
+-- every suffix of the token stream carrieþ its cursor boundary. span recovery
+-- never walks the remaining input, including at end of input.
+data TokenCursor = TokenCursor SourceSpan Int Int
+
+data Token = Token !(Maybe TokenCursor) !TokenKind
 
 data TokenKind
   = KTIdent String
@@ -140,10 +154,18 @@ pattern TDollar <- Token _ KTDollar where TDollar = Token Nothing KTDollar
 {-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar #-}
 
 tokenSpan :: Token -> Maybe SourceSpan
-tokenSpan (Token span _) = span
+tokenSpan (Token cursor _) = (\(TokenCursor span _ _) -> span) <$> cursor
+
+consumedSpan :: [Token] -> [Token] -> Maybe SourceSpan
+consumedSpan (Token (Just (TokenCursor (SourceSpan start _) _ finalEnd)) _ : _) rest =
+  let end = case rest of
+        Token (Just (TokenCursor _ previousEnd _)) _ : _ -> previousEnd
+        _ -> finalEnd
+   in Just (SourceSpan start end)
+consumedSpan _ _ = Nothing
 
 withTokenSpan :: SourceSpan -> Token -> Token
-withTokenSpan span (Token _ kind) = Token (Just span) kind
+withTokenSpan span@(SourceSpan start end) (Token _ kind) = Token (Just (TokenCursor span start end)) kind
 
 withoutTokenSpan :: Token -> Token
 withoutTokenSpan (Token _ kind) = Token Nothing kind
@@ -160,15 +182,26 @@ lexTokens :: String -> Either String [Token]
 lexTokens = fmap (map (withoutTokenSpan . locatedToken)) . lexLocatedTokens
 
 lexLocatedTokens :: String -> Either String [LocatedToken]
-lexLocatedTokens source =
+lexLocatedTokens = either (Left . failureMessage) Right . lexLocatedTokensDetailed
+
+lexLocatedTokensDetailed :: String -> Either SourceFailure [LocatedToken]
+lexLocatedTokensDetailed source =
   case M.parse (spaceConsumer *> many locatedTokenParser <* M.eof) "source" source of
-    Left err -> Left (M.errorBundlePretty err)
-    Right toks -> Right (map convertSpan toks)
+    Left err ->
+      let offset = offsets IntMap.! M.errorOffset (NE.head (M.bundleErrors err))
+       in Left (SourceFailure (Just (SourceSpan offset offset)) (M.errorBundlePretty err))
+    Right toks -> Right (withCursors 0 (map convertSpan toks))
  where
   offsets = IntMap.fromList (zip [0 ..] (scanl (+) 0 (map utf16Width source)))
   convertSpan LocatedToken{locatedSpan = SourceSpan start end, locatedToken} =
     let span = SourceSpan (offsets IntMap.! start) (offsets IntMap.! end)
      in LocatedToken span (withTokenSpan span locatedToken)
+  withCursors previous tokens = case tokens of
+    [] -> []
+    _ -> attach previous (spanEnd (locatedSpan (last tokens))) tokens
+  attach _ _ [] = []
+  attach previous finalEnd (LocatedToken span (Token _ kind) : rest) =
+    LocatedToken span (Token (Just (TokenCursor span previous finalEnd)) kind) : attach (spanEnd span) finalEnd rest
 
 utf16Width :: Char -> Int
 utf16Width character = if ord character > 0xffff then 2 else 1

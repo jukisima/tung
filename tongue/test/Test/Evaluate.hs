@@ -15,7 +15,24 @@ import Tung
 group :: IO Group
 group = do
   imports <- readBookhoardImports
-  Harness.group "evaluate" (map evalCase deterministic ++ map runtimeErrorCase runtimeErrors ++ map typeErrorCase typeErrors ++ importedCases imports ++ handlerProperties)
+  Harness.group "evaluate" (map evalCase deterministic ++ map runtimeErrorCase runtimeErrors ++ map typeErrorCase typeErrors ++ importedCases imports ++ effectRowCases ++ handlerProperties)
+
+effectRowCases :: [Test]
+effectRowCases =
+  [ evalOk "unifying a row with itself preserveþ latent effects" (rowPrelude ++ "let f twice = f chain f yield try 1 (request twice) { x ask @ (x + 1) eftgin }") "eval ok: 3"
+  , evalOk "generalised union constraints allow overlapping rows" (rowPrelude ++ combined ++ "yield try 1 (request combined request) { x ask @ (x + 1) eftgin }") "eval ok: 4"
+  , evalOk "union constraints allow a pure component" (rowPrelude ++ combined ++ "let x identity = x yield try 1 (request combined identity) { x ask @ (x + 1) eftgin }") "eval ok: 3"
+  , evalOk "union constraints instantiate independently" (rowPrelude ++ combined ++ "let first = request combined request let second = report combined report yield try (1 first) + (1 second) { x ask @ (x + 1) eftgin, x tell @ (x + 1) eftgin }") "eval ok: 8"
+  , evalTypeErr "union constraints reject an incompatible later argument" (rowPrelude ++ combined ++ "yield try 1 (request combined report) { x ask @ x eftgin, x tell @ x eftgin }")
+  , evalOkWith "union constraints survive a module boundary" ("use rows.tung " ++ rowEffects ++ "yield try 1 (request rows~combined request) { x ask @ (x + 1) eftgin }") rowImports "eval ok: 4"
+  , evalTypeErrWith "imported union constraints reject incompatible rows" ("use rows.tung " ++ rowEffects ++ "yield try 1 (request rows~combined report) { x ask @ x eftgin, x tell @ x eftgin }") rowImports
+  ]
+ where
+  combined = "let f combined g = f chain (f compose g) "
+  rowImports = Map.singleton "rows.tung" (rowFunctions ++ "show " ++ combined)
+  rowPrelude = rowEffects ++ rowFunctions
+  rowEffects = "deed ask { ℤ ask: ℤ } deed tell { ℤ tell: ℤ } let (x: ℤ) request: ℤ ! ask = x ask let (x: ℤ) report: ℤ ! tell = x tell "
+  rowFunctions = "let (f: a → b ! e, g: b → c ! e, x: a) chain: c ! e = (x f) g let (f: a → b ! e0, g: b → c ! e1, x: a) compose: c ! e0, e1 = (x f) g "
 
 handlerProperties :: [Test]
 handlerProperties =
@@ -66,6 +83,8 @@ deterministic =
   , ("three curried arguments", "let a add b c = (a + b) + c yield 1 add 2 3", "eval ok: 6")
   , ("local recursive function", "ilk ℕ { zero, ℕ suc } let count = (let loop = { zero @ 0, n suc @ 1 + (n loop) } yield loop) yield ((zero suc) suc) count", "eval ok: 2")
   , ("evidence abstraction preserveþ local recursive capture", "frame a ident { let a ident: a } yield (let loop = { x @ (x loop) ident } yield 1)", "eval ok: 1")
+  , ("recursive calls retain inferred evidence", "frame a identity { let a identity: a } fill ℤ identity { let x identity = x + 1 } let loop = { 0, x @ x identity, n, x @ (n - 1) loop x } yield 2 loop 3", "eval ok: 4")
+  , ("recursive evidence surviveþ a nested polymorphic binding", "frame a identity { let a identity: a } fill ℤ identity { let x identity = x + 1 } let loop = { 0, x @ x identity, n, x @ (let y echo = y identity yield ((n - 1) loop x) echo) } yield 2 loop 3", "eval ok: 6")
   , ("second-position function header", "let a add b = a + b yield 1 add 2", "eval ok: 3")
   , ("dollar function segment", "let x f = x + 1 let x h y z = (x + y) × z yield 1 f $h 2 3", "eval ok: 12")
   , ("lexical closure", "let x = 1 let _ f = x yield (let x = 2 yield 0 f)", "eval ok: 1")
@@ -133,6 +152,7 @@ runtimeErrors =
 typeErrors :: [(String, String)]
 typeErrors =
   [ ("unknown value", "yield missing")
+  , ("captured alias mismatch is rejected before evaluation", "let x bad = (let y = x let number: ℤ = y yield number + 1) yield 'oops' bad")
   , ("non-function application", "yield 1 2")
   , ("constructor overapplication", "ilk a box { a box } yield 1 box 2")
   , ("missing record field", "let value = r(x = 1) yield value.y")

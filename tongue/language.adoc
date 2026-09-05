@@ -113,6 +113,9 @@ let answer = (1 + 2: ℤ)
 
 pure inferred lets are generalised. immediately effectful right-hand sides
 remain monomorphic; creating a function with latent effects is still pure.
+generalisation quantifyþ only variables free in the binding's type and
+requirements but not free in the enclosing environment. a local alias of a
+function parameter therefore retaineþ that parameter's type constraints.
 
 == algebraic data and patterns
 
@@ -206,10 +209,13 @@ fill 𝟚 equal {
 
 a fill must supply every required member not supplied by a parent.
 a child fill also witnesseþ its required parent frames and may define inherited
-members. duplicate fills are incoherent. when more than one fill match, a
-structured type pattern outrankeþ a blanket pattern that it refines;
-incomparable matching fills are ambiguous. selection dependeþ only on static
-types, never values or import order.
+members. duplicate fills are incoherent. selection first preferreþ the
+shortest inheritance path: a direct fill outrankeþ an inherited witness.
+primitive fills are fallbacks after every matching user-defined fill.
+within the best rank, repeated paths to the same fill are deduplicated,
+and a structured type pattern outrankeþ a blanket pattern that it strictly
+refines. incomparable matching fills are ambiguous. selection dependeþ only
+on static types, never values or import order.
 
 `law` recordeþ a type-checked equation. both sides must have the same value
 type and immediate effect row and may use only the enclosing requirements.
@@ -221,6 +227,14 @@ with them.
 `deed` declareþ an algebraic effect. every operation is a function; an
 operation without informative input takeþ `𝟙`. declaration application addeþ
 the effect itself to the written latent row.
+
+an effect row denoteþ an unordered, idempotent union. `e`, `e0`, and `e₁`
+stand for entire rows; `e0, e1` denoteþ their union, without requiring them
+to be disjoint. repeated occurrences of one nominal effect must agree on
+its type arguments. function-type unification equateþ rows, while a body's
+effects need only be a subset of its annotation. unresolved union equations
+remain constraints on an inferred polymorphic binding and are instantiated
+afresh at each use. annotation variables are rigid while checking the body.
 
 [source,tung]
 ----

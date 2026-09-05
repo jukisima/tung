@@ -11,6 +11,7 @@ module Tung.Evaluate (
   evaluateMainCoreProgramWithArgs,
   evaluateMainWithImports,
   evaluateMainWithArgsAndImports,
+  evaluateMainBundleWithArgs,
 )
 where
 
@@ -59,7 +60,7 @@ import Tung.Core (
 import Tung.Identity (FillId (..), HandlerTarget (..), ModuleId (RuntimeModule), SymbolId (..), TermExport (..), TermKind (..), renderFillId)
 import Tung.Import (ImportStack, enterImport)
 import Tung.Name (lastQualifiedSegment)
-import Tung.Parse (parse)
+import Tung.Parse (ParsedBundle (..), ParsedSource (..), SourceUnit (..), prepareBundle)
 import Tung.Primitive (
   HostBinding (..),
   HostRole (..),
@@ -82,8 +83,8 @@ import Tung.Primitive (
   tableConstructorId,
   yeaConstructorId,
  )
-import Tung.Token (unicodeScalar)
-import Tung.Type (elaborateInteractiveProgramWithImports, elaborateProgramWithImports)
+import Tung.Token (SourceFailure (..), unicodeScalar)
+import Tung.Type (elaboratePrepared)
 import Tung.Web qualified as Web
 
 -- callable values retain supplied arguments, making partial application a pure
@@ -207,7 +208,7 @@ evaluateWithImports :: String -> Map.Map String String -> IO String
 evaluateWithImports = evaluateWithArgsAndImports []
 
 evaluateWithArgsAndImports :: [String] -> String -> Map.Map String String -> IO String
-evaluateWithArgsAndImports args source imports = evaluateParsedWith False args source imports evalProgram
+evaluateWithArgsAndImports args source imports = evaluateParsedWith False args (prepareBundle source imports) evalProgram
 
 evaluateCoreProgram :: CoreProgram -> IO String
 evaluateCoreProgram program = runCoreProgram [] program evalProgram
@@ -222,22 +223,19 @@ evaluateMainWithImports :: String -> Map.Map String String -> IO String
 evaluateMainWithImports = evaluateMainWithArgsAndImports []
 
 evaluateMainWithArgsAndImports :: [String] -> String -> Map.Map String String -> IO String
-evaluateMainWithArgsAndImports args source imports = evaluateParsedWith True args source imports runMain
+evaluateMainWithArgsAndImports args source imports = evaluateMainBundleWithArgs args (prepareBundle source imports)
+
+evaluateMainBundleWithArgs :: [String] -> ParsedBundle -> IO String
+evaluateMainBundleWithArgs args bundle = evaluateParsedWith True args bundle runMain
 
 -- evaluation never accepteþ surface syntax directly: this function first askeþ
 -- the type checker for a mode-appropriate 'CoreProgram'.
-evaluateParsedWith :: Bool -> [String] -> String -> Map.Map String String -> (CoreProgram -> Eval RuntimeValue) -> IO String
-evaluateParsedWith runnable arguments source imports action = case parse source of
-  Left msg -> pure ("parse error: " ++ msg)
-  Right parsed -> case elaborate parsed of
+evaluateParsedWith :: Bool -> [String] -> ParsedBundle -> (CoreProgram -> Eval RuntimeValue) -> IO String
+evaluateParsedWith runnable arguments ParsedBundle{bundleRoot, bundleImports} action = case unitParsed bundleRoot of
+  Left failure -> pure ("parse error: " ++ failureMessage failure)
+  Right ParsedSource{parsedProgram} -> case elaboratePrepared parsedProgram bundleImports runnable of
     Left msg -> pure ((if runnable then "type error: " else "eval error: type error: ") ++ msg)
     Right program -> runCoreProgram arguments program action
- where
-  -- interactive evaluation alloweþ top-level computation, but still checkeþ and
-  -- elaborateþ it. runnable evaluation additionally checkeþ the main boundary.
-  elaborate program
-    | runnable = elaborateProgramWithImports program imports True
-    | otherwise = elaborateInteractiveProgramWithImports program imports
 
 runCoreProgram :: [String] -> CoreProgram -> (CoreProgram -> Eval RuntimeValue) -> IO String
 runCoreProgram arguments program action = do

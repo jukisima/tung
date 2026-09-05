@@ -99,6 +99,11 @@ relative imports declared with `use` from their owner, then platform-separated
 import path resolving
 to different canonical files is rejected.
 
+each source unit retaineþ its text and located parse result, including a
+structured parse failure. project discovery, checking, execution, and type
+inspection share this result through a `ParsedBundle`. the string-based api
+prepareþ the same bundle for callers without a filesystem project.
+
 þe checker cacheþ each imported static context and lowered Core module while it
 walkeþ one acyclic graph. resolved runtime names have a canonical `ModuleId`
 and module-qualified `SymbolId` values. after checking, a `ModuleInterface`
@@ -120,7 +125,25 @@ rows and frame requirements remain separate outputs þroughout inference and
 checking; an effect is never used as dictionary evidence, nor a frame need as
 an effect.
 
-fill selection is static: inheritance depth is considered first, þen a type
+function types contain one input and one latent row per arrow. source headers
+and pattern rows may group consecutive pure arrows; partial application need
+not split an internal argument array. type applications carry an explicit
+variable or constructor head, and constructor unification shareþ prefix
+capture with the binary pure-function constructor.
+
+effect labels and row variables have distinct representations. unresolved
+union equalities are retained with generalised schemes; the solver propagateþ
+upper bounds and rejecteþ incompatible labels without choosing an arbitrary
+variable to absorb a union. generalisation excludeþ free variables of the
+enclosing environment, including those in retained row constraints.
+
+an inferred recursive function is checked once against a monomorphic self
+type. elaboration bindeþ its self-reference inside each function case,
+where the final evidence parameters are available. this also preserveþ
+dictionary capture through nested polymorphic bindings.
+
+fill selection is static: user-defined fills outrank primitive fallbacks;
+inheritance depth is considered next, þen a type
 pattern may outrank a broader pattern it strictly refines. equivalent imported
 candidates are deduplicated before þis comparison, while incomparable best
 candidates are rejected. elaboration replaceþ each selected evidence tree wiþ

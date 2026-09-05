@@ -196,7 +196,7 @@ loadByspel relativePath = do
   loaded <- loadProjectFile bookhoard (root </> relativePath)
   case loaded of
     Left message -> die ("could not load " ++ relativePath ++ ": " ++ message)
-    Right Project{projectSource, projectImports} -> pure (SourceBundle projectSource projectImports)
+    Right project -> pure (SourceBundle (projectSource project) (projectImports project))
 
 findRepositoryRoot :: IO FilePath
 findRepositoryRoot = getCurrentDirectory >>= search

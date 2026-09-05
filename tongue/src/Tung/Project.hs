@@ -4,6 +4,8 @@ checker, and rejecteþ path collisions instead of silently choosing one file.
 -}
 module Tung.Project (
   Project (..),
+  projectSource,
+  projectImports,
   loadProjectFile,
   loadProjectFileWithRoots,
 ) where
@@ -20,18 +22,23 @@ import Data.Text.IO qualified as Text
 import System.Directory (canonicalizePath, doesFileExist, makeAbsolute)
 import System.FilePath (normalise, takeDirectory, (</>))
 import System.IO.Error (tryIOError)
-import Tung.Parse (parse)
+import Tung.Parse (ParsedBundle (..), ParsedSource (..), SourceUnit (..), prepareSource)
 import Tung.Syntax (Decl (..), Program (..))
 
 data Project = Project
   { projectPath :: FilePath
-  , projectSource :: String
-  , projectImports :: Map.Map String String
   , projectImportPaths :: Map.Map String FilePath
+  , projectBundle :: ParsedBundle
   }
   deriving stock (Eq, Show)
 
-type Loaded = Map.Map String (FilePath, String)
+projectSource :: Project -> String
+projectSource = unitSource . bundleRoot . projectBundle
+
+projectImports :: Project -> Map.Map String String
+projectImports = fmap unitSource . bundleImports . projectBundle
+
+type Loaded = Map.Map String (FilePath, SourceUnit)
 
 type Loader = StateT Loaded (ExceptT String IO)
 
@@ -47,12 +54,14 @@ loadProjectFileWithRoots builtins roots path = runExceptT do
 
 loadProjectSourceM :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> String -> ExceptT String IO Project
 loadProjectSourceM builtins roots owner base source = do
-  loaded <- execStateT (discover builtins roots owner base source) Map.empty
+  let root = prepareSource source
+  loaded <- execStateT (discover builtins roots owner base root) Map.empty
   let locals = snd <$> loaded
       paths = fst <$> loaded
-  pure (Project owner source (Map.union locals builtins) paths)
+      imports = Map.union locals (prepareSource <$> builtins)
+  pure (Project owner paths (ParsedBundle root imports))
 
-discover :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> String -> Loader ()
+discover :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> SourceUnit -> Loader ()
 discover builtins roots owner base source = mapM_ (loadImport builtins roots owner base) (sourceImports source)
 
 loadImport :: Map.Map String String -> [FilePath] -> FilePath -> FilePath -> FilePath -> Loader ()
@@ -102,7 +111,7 @@ loadImport builtins roots owner base importPath = do
               )
       Just _ -> pure ()
       Nothing -> do
-        imported <- readSourceL absolute
+        imported <- prepareSource <$> readSourceL absolute
         modify' (Map.insert importPath (absolute, imported))
         discover builtins roots absolute (takeDirectory absolute) imported
 
@@ -117,8 +126,8 @@ importCandidates roots base importPath = do
 absoluteRoot :: FilePath -> ExceptT String IO FilePath
 absoluteRoot root = liftIOError "resolve module root" root (normalise <$> makeAbsolute root)
 
-sourceImports :: String -> [FilePath]
-sourceImports source = case parse source of
+sourceImports :: SourceUnit -> [FilePath]
+sourceImports source = case parsedProgram <$> unitParsed source of
   Left _ -> []
   Right (Program declarations) -> concatMap declarationImports declarations
 
