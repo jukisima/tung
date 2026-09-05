@@ -21,8 +21,6 @@ accepted :: [(String, String)]
 accepted =
   [ ("last let declaration", "let answer = 42")
   , ("use accepteþ an optional alias", "use ilk/list.tung list yield list~empty")
-  , ("use accepteþ a dotted filename", "use a.extra.tung extra")
-  , ("use accepteþ a dotted directory", "use pkg.one/query.tung query")
   , ("adjacent top-level declarations", "let x = 1 let y = 2")
   , ("type alias declaration boundary", "let-ilk count = ℤ let answer: count = 42")
   , ("yield introduceþ the final file expression", "let answer = 42 yield answer")
@@ -92,12 +90,12 @@ rejected =
   , ("required frame member needeþ let", "frame a bad { a bad: a }")
   , ("graiþ frame member needeþ let", "frame f bad { graiþ m applicative (a f) bad: a }")
   , ("frame members reject definitions", "frame a bad { let (x: a) same: a = x }")
-  , ("match arm requireþ bar", "match 1 { _ 1 }")
-  , ("try requireþ handler cases", "try action")
-  , ("dollar requireþ a left expression", "$ + 1 2")
-  , ("dollar requireþ a function", "a f $")
-  , ("record removal without space is a name", "r(= person, -age)")
-  , ("record update requireþ a base", "r(= , value = 1)")
+  , ("match arm requireþ @", "yield match 1 { _ 1 }")
+  , ("try requireþ handler cases", "yield try action")
+  , ("dollar requireþ a left expression", "yield $ + 1 2")
+  , ("dollar requireþ a function", "yield a f $")
+  , ("record removal without space is a name", "yield r(= person, -age)")
+  , ("record update requireþ a base", "yield r(= , value = 1)")
   , ("record marker must touch its body", "yield r (value = 1)")
   , ("record type marker must touch its body", "let value: r (field: ℤ) = r(field = 1)")
   , ("left association marker must touch its body", "yield < (+, 1, 2)")
@@ -111,19 +109,15 @@ rejected =
   , ("effects require a function type", "let bad: ℤ ! fail = 1")
   , ("deed members use commas", "deed e { 𝟙 one: 𝟙 𝟙 two: 𝟙 }")
   , ("fill members reject commas", "fill ℤ equal { let x ≡ y = x, let x ≢ y = y }")
-  , ("handler hath at most one yield clause", "try 1 { yield x @ x, yield y @ y }")
+  , ("handler hath at most one yield clause", "yield try 1 { yield x @ x, yield y @ y }")
   ]
 
 importCases :: [Test]
 importCases =
-  [ expectEq
-      "dotted filename remaineþ whole in the use ast"
-      (Right (Program [Import "a.extra.tung" (Just "extra")]))
-      (parse "use a.extra.tung extra")
-  , expectEq
-      "dotted directory remaineþ whole in the use ast"
-      (Right (Program [Import "pkg.one/query.tung" (Just "query")]))
-      (parse "use pkg.one/query.tung query")
+  [ expectEq ("complete use ast " ++ source) (Right (Program [Import path alias])) (parse source)
+  | path <- ["ground.tung", "ilk/list.tung", "a.extra.tung", "pkg.one/query.tung"]
+  , alias <- [Nothing, Just "chosen"]
+  , let source = "use " ++ path ++ maybe "" (" " ++) alias
   ]
 
 expressions :: [(String, String, Expr)]
@@ -184,19 +178,11 @@ definitionForms =
 
 parserProperties :: [Test]
 parserProperties =
-  [ Harness.propertyTest "property: top-level let boundaries" $
-      QuickCheck.forAll boundarySeparator \separator ->
-        QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \first ->
-          QuickCheck.forAll (QuickCheck.chooseInt (0, 999)) \second ->
-            let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second
-             in QuickCheck.counterexample source (isRight (parse source))
-  , Harness.propertyTest "property: complete use declaration" $
-      QuickCheck.forAll (QuickCheck.elements ["ground.tung", "ilk/list.tung", "nested/deep.tung"]) \path ->
-        let source = "use " ++ path
-         in QuickCheck.counterexample source (isRight (parse source))
+  [ Harness.propertyTest ("property: top-level let boundary " ++ show separator) $
+      QuickCheck.forAll (QuickCheck.chooseInteger (-999, 999)) \first ->
+        QuickCheck.forAll (QuickCheck.chooseInteger (-999, 999)) \second ->
+          let source = "let first = " ++ show first ++ separator ++ "let second = " ++ show second
+              expected = Program [Let "first" Nothing (EInteger first), Let "second" Nothing (EInteger second)]
+           in QuickCheck.counterexample source (parse source QuickCheck.=== Right expected)
+  | separator <- [" ", "\n", "\t", " # boundary\n", " /* boundary */ "]
   ]
- where
-  boundarySeparator = QuickCheck.elements [" ", "\n", "\t", " # boundary\n", " /* boundary */ "]
-
-isRight :: Either a b -> Bool
-isRight = either (const False) (const True)

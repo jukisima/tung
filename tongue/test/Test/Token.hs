@@ -1,6 +1,7 @@
 -- literal, escape, comment, keyword, broad-name, and lexical failure coverage.
 module Test.Token (group) where
 
+import Data.Char (chr)
 import System.FilePath ((</>))
 import Test.Harness (Group, Test, expectEq, expectPrefix)
 import Test.Harness qualified as Harness
@@ -9,7 +10,7 @@ import Tung
 group :: IO Group
 group = do
   metadata <- languageMetadataCase
-  Harness.group "token" (metadata : map lexCase lexCases ++ map lexError lexErrors)
+  Harness.group "token" (metadata : map lexCase lexCases ++ map lexError lexErrors ++ scalarCases)
 
 languageMetadataCase :: IO Test
 languageMetadataCase = do
@@ -54,13 +55,22 @@ lexErrors =
   [ ("path-qualified namespace", "ilk/list~empty")
   , ("unterminated text", "'no")
   , ("unknown text escape", "'\\q'")
-  , ("unicode escape above range", "`\\1114112;")
-  , ("unicode surrogate escape", "`\\55296;")
   , ("empty unicode escape", "`\\;")
   , ("unterminated decimal unicode escape", "`\\65")
   , ("braced unicode escape", "`\\{65}")
   , ("bare unicode marker", "`")
   , ("unterminated block comment", "1 /* no")
+  ]
+
+scalarCases :: [Test]
+scalarCases =
+  [ let source = wrap ("\\" ++ show value ++ ";")
+        name = "unicode scalar boundary " ++ source
+     in if valid
+          then lexCase (name, source, [token (chr value)])
+          else lexError (name, source)
+  | (value, valid) <- [(0, True), (55295, True), (55296, False), (57343, False), (57344, True), (65535, True), (65536, True), (1114111, True), (1114112, False)]
+  , (wrap, token) <- [(('`' :), TUnicode), (\escape -> "'" ++ escape ++ "'", TText . (: []))]
   ]
 
 lexCase :: (String, String, [Token]) -> Test

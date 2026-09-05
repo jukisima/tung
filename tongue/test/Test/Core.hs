@@ -6,7 +6,6 @@ import Control.Exception qualified as Exception
 import Control.Monad (replicateM)
 import Data.List (intercalate, isInfixOf)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe)
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
 import Tung
@@ -144,7 +143,10 @@ languageCase imports (name, source, expected) = safeResult imports name source e
 
 safeResult :: Map.Map String String -> String -> String -> String -> Test
 safeResult imports name source expected = do
-  outcome <- Exception.try (evaluateWithImports source imports) :: IO (Either Exception.SomeException String)
+  let run = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
+        Left message -> pure ("elaboration failed: " ++ message)
+        Right program -> evaluateCoreProgram program
+  outcome <- Exception.try run :: IO (Either Exception.SomeException String)
   pure $ case outcome of
     Left exception -> Just (name ++ ": host exception: " ++ Exception.displayException exception)
     Right actual
@@ -152,17 +154,20 @@ safeResult imports name source expected = do
       | otherwise -> Just (name ++ ": expected " ++ expected ++ ", got " ++ actual)
 
 integerTerms :: [(String, Integer)]
-integerTerms = atoms ++ take 90 firstLevel ++ take 90 secondLevel
+integerTerms = atoms ++ binary ++ nested
  where
-  atoms = [(show value, value) | value <- [-4 .. 4]]
-  firstLevel = combine atoms atoms
-  secondLevel = combine (take 18 firstLevel) atoms
-  combine leftTerms rightTerms =
-    [ ("(" ++ leftSource ++ " " ++ operator ++ " " ++ rightSource ++ ")", operation left right)
-    | (operator, operation) <- [("+", (+)), ("-", (-)), ("×", (*))]
-    , (leftSource, left) <- leftTerms
-    , (rightSource, right) <- rightTerms
+  atom value = (show value, value)
+  atoms = map atom [-3, 0, 4, 2 ^ (80 :: Int)]
+  operators = [("+", (+)), ("-", (-)), ("×", (*))]
+  binary = [combine op left right | op <- operators, left <- atoms, right <- atoms]
+  nested =
+    [ term
+    | outer <- operators
+    , inner <- operators
+    , term <- [combine outer (combine inner (atom 7) (atom 2)) (atom 3), combine outer (atom 7) (combine inner (atom 2) (atom 3))]
     ]
+  combine (operator, operation) (leftSource, left) (rightSource, right) =
+    ("(" ++ leftSource ++ " " ++ operator ++ " " ++ rightSource ++ ")", operation left right)
 
 languagePrograms :: [(String, String, String)]
 languagePrograms =
@@ -186,7 +191,7 @@ booleanProductPrograms =
   | arity <- [1 .. 3]
   , input <- booleanRows arity
   , let rows = booleanRows arity
-        expected = fromMaybe 0 (lookup input (zip rows [0 :: Int ..]))
+        expected = foldl (\index value -> 2 * index + if value == "nay" then 1 else 0) (0 :: Int) input
         cases = intercalate ", " [intercalate ", " row ++ " @ " ++ show result | (row, result) <- zip rows [0 :: Int ..]]
   ]
  where

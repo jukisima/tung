@@ -6,7 +6,7 @@ import Data.List (stripPrefix)
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import System.Environment qualified as Environment
-import Test.Harness (Group, Test, evalErr, evalOk, evalOkWith, evalTypeErr, evalTypeErrWith)
+import Test.Harness (Group, Test, evalOk, evalOkWith, evalTypeErr, evalTypeErrWith)
 import Test.Harness qualified as Harness
 import Test.QuickCheck qualified as QuickCheck
 import Text.Read (readMaybe)
@@ -15,7 +15,7 @@ import Tung
 group :: IO Group
 group = do
   imports <- readBookhoardImports
-  Harness.group "evaluate" (map evalCase deterministic ++ map runtimeErrorCase runtimeErrors ++ map typeErrorCase typeErrors ++ importedCases imports ++ effectRowCases ++ handlerProperties)
+  Harness.group "evaluate" (map evalCase (deterministic ++ runtimeErrors) ++ map typeErrorCase typeErrors ++ importedCases imports ++ effectRowCases ++ handlerProperties)
 
 effectRowCases :: [Test]
 effectRowCases =
@@ -141,12 +141,12 @@ deterministic =
   , ("fill graiþ remaineþ an external dictionary", "frame a combine { let a combine a: a } fill ℤ combine { let x combine y = x + y } ilk a box { a box } graiþ a combine fill (a box) combine { let (x box) combine (y box) = (x combine y) box } yield (1 box) combine (2 box)", "eval ok: (3 box)")
   ]
 
-runtimeErrors :: [(String, String)]
+runtimeErrors :: [(String, String, String)]
 runtimeErrors =
-  [ ("division failure is unhandled", "yield 1 % 0")
-  , ("from-text failure is unhandled", "yield 'not a float' from-text")
-  , ("handler clause is outside its own handler", unitData ++ "deed pulse { 𝟙 pulse: 𝟙 } yield try only pulse { pulse @ only pulse }")
-  , ("unhandled sibling operation escapeþ", duoEffect ++ "yield try only second { first @ only }")
+  [ ("division failure is unhandled", "yield 1 % 0", "eval error: unhandled effect 'fail' operation 'fail'")
+  , ("from-text failure is unhandled", "yield 'not a float' from-text", "eval error: unhandled effect 'fail' operation 'fail'")
+  , ("handler clause is outside its own handler", unitData ++ "deed pulse { 𝟙 pulse: 𝟙 } yield try only pulse { pulse @ only pulse }", "eval error: unhandled effect 'pulse' operation 'pulse'")
+  , ("unhandled sibling operation escapeþ", duoEffect ++ "yield try only second { first @ only }", "eval error: unhandled effect 'duo' operation 'second'")
   ]
 
 typeErrors :: [(String, String)]
@@ -458,9 +458,6 @@ unixTime imports = do
 
 evalCase :: (String, String, String) -> Test
 evalCase (name, source, expected) = evalOk name source expected
-
-runtimeErrorCase :: (String, String) -> Test
-runtimeErrorCase = uncurry evalErr
 
 typeErrorCase :: (String, String) -> Test
 typeErrorCase = uncurry evalTypeErr

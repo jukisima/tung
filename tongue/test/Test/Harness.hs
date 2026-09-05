@@ -20,8 +20,6 @@ module Test.Harness (
   runnableErr,
   evalOk,
   evalOkWith,
-  evalErr,
-  evalErrWith,
   evalTypeErr,
   evalTypeErrWith,
 )
@@ -99,12 +97,6 @@ evalOk name source expected = evaluate source >>= expectEq name expected
 
 evalOkWith :: String -> String -> Map.Map String String -> String -> Test
 evalOkWith name source imports expected = evaluateWithImports source imports >>= expectEq name expected
-
-evalErr :: String -> String -> Test
-evalErr name source = evaluate source >>= expectPrefix name "eval error:"
-
-evalErrWith :: String -> String -> Map.Map String String -> Test
-evalErrWith name source imports = evaluateWithImports source imports >>= expectPrefix name "eval error:"
 
 evalTypeErr :: String -> String -> Test
 evalTypeErr name source = evaluate source >>= expectPrefix name "eval error: type error:"

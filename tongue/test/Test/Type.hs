@@ -2,7 +2,7 @@
 module Test.Type (group) where
 
 import Control.Monad (replicateM)
-import Data.List (intercalate, isInfixOf, isPrefixOf, permutations)
+import Data.List (intercalate, isInfixOf, isPrefixOf, permutations, subsequences)
 import Data.Map.Strict qualified as Map
 import Test.Harness (Group, Test, expect, expectEq, runnableErr, runnableOk, typeErr, typeErrContaining, typeErrWith, typeOk, typeOkWith)
 import Test.Harness qualified as Harness
@@ -59,8 +59,8 @@ accepted =
   , ("frame parameters shadow type aliases", "let-ilk a = ℤ frame a identity { let a identity: a } fill text identity { let x identity = x } let good: text = 'x' identity")
   , ("effect operation type may be a transparent function alias", "let-ilk binary = ℤ → ℤ → ℤ deed addition { add: binary }")
   , ("unresolved raw primitive frame dependency stayeþ ABI-compatible", "frame a equal { let a ≡ a: 𝟚 } let result = 1 ≡ 1")
-  , ("parameterised type alias is transparent", boolData ++ "let (_: ℤ) member: 𝟚 = yea let answer: 𝟚 = 1 member")
-  , ("func equaleþ pure unary arrow", "let (x: ℤ) id: ℤ = x")
+  , ("parameterised type alias is transparent", boolData ++ "let-ilk a predicate = a → 𝟚 let member: ℤ predicate = { _ @ yea } let answer: 𝟚 = 1 member")
+  , ("func equaleþ pure unary arrow", "let (x: ℤ) id: ℤ = x let same: ℤ func ℤ = id")
   , ("a pure func may return an effectful function", "deed ask { ℤ ask: ℤ } let (value: a f) relay: a f = value let maker = { x @ { y @ (x + y) ask } } let result: ℤ → (ℤ → ℤ ! ask) = maker relay")
   , ("curried triple function", "let (x: ℤ, _: text, _: float) pick: ℤ = x")
   , ("constructor application is curried", "ilk a option { none, a some } let make = some let value: ℤ option = 1 make")
@@ -110,14 +110,14 @@ rejected =
   , ("constructor unification cannot change a nominal head", "ilk a box { a box } ilk a option { a some } let (x: a f) lift: a f = x let x twice = (x lift) lift let bad: ℤ option = (1 box) twice")
   , ("an effectful outer arrow cannot be func", "deed ask { ℤ ask: ℤ } let (value: a f) relay: a f = value let maker = { x @ (let value = x ask yield { y @ value + y }) } let result = maker relay")
   , ("term type ascription rejecteþ a mismatch", "let bad = ('wrong': ℤ)")
-  , ("parameterised type alias needeþ its argument", "let _ bad: predicate = 1")
-  , ("parameterised type alias rejecteþ extra arguments", "let _ bad: ℤ ℤ predicate = 1")
+  , ("parameterised type alias needeþ its argument", "let-ilk a predicate = a → ℤ let _ bad: predicate = 1")
+  , ("parameterised type alias rejecteþ extra arguments", "let-ilk a predicate = a → ℤ let _ bad: ℤ predicate ℤ = 1")
   , ("recursive type aliases are rejected", "let-ilk first = second let-ilk second = first")
   , ("local type declarations cannot share a name", "let-ilk token = ℤ ilk token { token }")
   , ("occurs check rejecteþ self application", "let x omega = x x")
   , ("occurs check followeþ nested records", "let x omega = r(value = x) x")
   , ("annotation cannot claim false polymorphism", "let (_: a) bad: a = 1")
-  , ("function branches must agree", "let bad = { yea @ 1, nay @ 'no' }")
+  , ("function branches must agree", boolData ++ "let bad = { yea @ 1, nay @ 'no' }")
   , ("function cases share arity", "let bad = { x @ x, x, y @ x }")
   , ("pattern binders are linear", "let bad = { x, x @ x }")
   , ("inhabited empty function", "let bad: ℤ → ℤ = {}")
@@ -454,31 +454,67 @@ booleanRows :: Int -> [[String]]
 booleanRows arity = replicateM arity ["yea", "nay"]
 
 generatedEffectCases :: [Test]
-generatedEffectCases = reordered ++ omitted
+generatedEffectCases = reordered ++ closed ++ unions
  where
   effects = ["pulse", "spark", "glow"]
+  rows = subsequences ["pulse", "spark"]
+  declarations = unitData ++ concatMap (\name -> "deed " ++ name ++ " { 𝟙 " ++ name ++ ": 𝟙 } ") effects
   reordered =
-    [ typeOk
-        ("generated effect row order " ++ intercalate "," row)
-        (effectSource effects row)
-    | row <- permutations effects
+    [ typeOk ("effect row order and duplication " ++ show row) (declarations ++ effectFunction "run" effects row)
+    | row <- permutations effects ++ [effects ++ effects]
     ]
-  omitted =
-    [ typeErr
-        ("generated effect row misses " ++ missing)
-        (effectSource effects (filter (/= missing) effects))
-    | missing <- effects
+  closed =
+    [ checkRow (rule ++ show (left, right)) permitted (declarations ++ body) Map.empty
+    | left <- rows
+    , right <- rows
+    , (rule, permitted, body) <-
+        [ ("body effects are a subset ", all (`elem` right) left, effectFunction "run" left right)
+        , ("function rows are equal ", left == right, effectFunction "first" left left ++ "let second: 𝟙 → 𝟙" ++ effectAnnotation right ++ " = first")
+        ]
     ]
+  -- chain equateþ the first row with the union: right must be a subset of left.
+  -- reversing the chain also checkeþ that solving doth not depend on equation order.
+  unions =
+    [ checkRow ("inferred union " ++ show (body, imported, left, right)) (all (`elem` left) right) source imports
+    | body <- ["f chain (f compose g)", "(f compose g) chain f"]
+    , let functions =
+            "let (f: a → b ! e, g: b → c ! e, x: a) chain: c ! e = (x f) g "
+              ++ "let (f: a → b ! e0, g: b → c ! e1, x: a) compose: c ! e0, e1 = (x f) g "
+              ++ "show let f combined g = "
+              ++ body
+              ++ " "
+    , imported <- [False, True]
+    , left <- rows
+    , right <- rows
+    , let imports = if imported then Map.singleton "rows.tung" functions else Map.empty
+          source =
+            (if imported then "use rows.tung " else functions)
+              ++ declarations
+              ++ effectFunction "first" left left
+              ++ effectFunction "second" right right
+              ++ "let result = first "
+              ++ (if imported then "rows~combined" else "combined")
+              ++ " second"
+    ]
+  checkRow name permitted source imports =
+    let actual = checkWithImports source imports
+     in if permitted
+          then expectEq name "type ok" actual
+          else expect (name ++ ": " ++ actual) ("type error:" `isPrefixOf` actual && "cannot unify effects" `isInfixOf` actual)
 
-effectSource :: [String] -> [String] -> String
-effectSource performed annotated =
-  unitData
-    ++ concatMap (\name -> "deed " ++ name ++ " { 𝟙 " ++ name ++ ": 𝟙 } ") performed
-    ++ "let run: 𝟙 → 𝟙 ! "
-    ++ intercalate ", " annotated
+effectFunction :: String -> [String] -> [String] -> String
+effectFunction name performed annotated =
+  "let "
+    ++ name
+    ++ ": 𝟙 → 𝟙"
+    ++ effectAnnotation annotated
     ++ " = { _ @ "
     ++ foldr (\name body -> "(let _ = only " ++ name ++ " yield " ++ body ++ ")") "only" performed
-    ++ " }"
+    ++ " } "
+
+effectAnnotation :: [String] -> String
+effectAnnotation [] = ""
+effectAnnotation row = " ! " ++ intercalate ", " row
 
 inferenceProperties :: [Test]
 inferenceProperties =
