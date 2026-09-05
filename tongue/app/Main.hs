@@ -5,6 +5,7 @@ module Main where
 import Control.Concurrent (MVar, ThreadId, forkIO, killThread, modifyMVar, modifyMVar_, newEmptyMVar, newMVar, putMVar, takeMVar, withMVar)
 import Control.Exception qualified as Exception
 import Control.Monad (unless)
+import Data.Foldable (for_)
 import Data.List (intercalate, isPrefixOf)
 import Data.Map.Strict qualified as Map
 import System.Environment (getArgs)
@@ -89,9 +90,7 @@ sessionLoop bookhoard workers outputLock = do
   eof <- isEOF
   unless eof do
     line <- getLine
-    case readMaybe line of
-      Nothing -> pure ()
-      Just request -> dispatchEditorRequest bookhoard workers outputLock request
+    for_ (readMaybe line) (dispatchEditorRequest bookhoard workers outputLock)
     sessionLoop bookhoard workers outputLock
 
 dispatchEditorRequest :: Map.Map String String -> MVar (Map.Map Int ThreadId) -> MVar () -> EditorRequest -> IO ()

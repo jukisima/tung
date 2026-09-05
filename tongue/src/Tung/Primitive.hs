@@ -37,6 +37,7 @@ module Tung.Primitive (
 import Data.Char (isAscii, isDigit, isLower)
 import Data.List (find, nub, sortOn)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Maybe (fromMaybe)
 import Tung.Identity (ModuleId (..), SymbolId (..), TypeRef (..))
 import Tung.Name (importNamespace)
 import Tung.Syntax (Ctor (..), EffectOp (..), ShapeMember (..), TypeAnn (..), TypeExpr (..))
@@ -201,7 +202,7 @@ normaliseShapeType parameters = normaliseSchemaType StructuralOrdering (numbered
 normaliseSchemaType :: SchemaOrdering -> [(String, String)] -> TypeExpr -> TypeExpr
 normaliseSchemaType ordering variables = go
  where
-  normaliseName name = maybe name id (lookup name variables)
+  normaliseName name = fromMaybe name (lookup name variables)
   go = \case
     TypeName name -> TypeName (normaliseName name)
     TypeApply name arguments -> TypeApply (normaliseName name) (map go arguments)
@@ -523,7 +524,7 @@ firstOrderHostType variables = \case
   TypeApply name arguments -> HostApp (canonical name) (map (firstOrderHostType variables) arguments)
   unsupported -> error ("internal non-first-order base effect type " ++ show unsupported)
  where
-  canonical name = maybe name id (canonicalHostTypeName name)
+  canonical name = fromMaybe name (canonicalHostTypeName name)
 
 sourceEffect :: String -> String -> HostBinding
 sourceEffect owner name =

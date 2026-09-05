@@ -22,10 +22,11 @@ module Tung.Core (
 where
 
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, put)
+import Control.Monad.Trans.State.Strict (StateT, evalStateT, state)
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict qualified as Map
+import Data.Traversable (mapAccumM)
 import Tung.Identity (FillId, ModuleId (..), SymbolId (..), TermExport (..), TermKind (..))
 import Tung.Name (lastQualifiedSegment)
 import Tung.Primitive (findForeignBinding, hostArity)
@@ -135,10 +136,7 @@ lowerFailure :: String -> Lower a
 lowerFailure = lift . Left
 
 freshLocal :: String -> Lower LocalId
-freshLocal name = do
-  index <- get
-  put (index + 1)
-  pure (BoundLocal index name)
+freshLocal name = state (\index -> (BoundLocal index name, index + 1))
 
 -- lowering allocateþ unique locals and eraseþ source-only syntax. þe checker
 -- hath already disambiguated imports, overloads, constructors, and frames;
@@ -242,16 +240,15 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
     RecordSet name value -> CoreRecordSet name <$> lowerExpr locals value
     RecordRemove name -> pure (CoreRecordRemove name)
 
-  lowerLocalDecls locals [] = pure (locals, [])
-  lowerLocalDecls locals (declaration : rest) = case declaration of
+  lowerLocalDecls = mapAccumM lowerLocalDecl
+  lowerLocalDecl locals declaration = case declaration of
     Let name _ EForeign{} -> lowerFailure ("internal fremmed local let '" ++ name ++ "'")
     Let name _ body -> do
       local <- freshLocal name
       let locals2 = (name, local) : locals
-          recursiveLocals = if isAnonymousMatchExpr body then (name, local) : locals else locals
+          recursiveLocals = if isAnonymousMatchExpr body then locals2 else locals
       declaration2 <- CoreLocalLet local <$> lowerExpr recursiveLocals body
-      (locals3, rest2) <- lowerLocalDecls locals2 rest
-      pure (locals3, declaration2 : rest2)
+      pure (locals2, declaration2)
     _ -> lowerFailure "internal non-let local declaration"
 
   lowerReturn locals (ReturnCase pattern body) = do

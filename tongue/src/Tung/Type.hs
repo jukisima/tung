@@ -34,15 +34,17 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Monad (foldM, replicateM, unless, void, when, zipWithM, zipWithM_)
-import Control.Monad.Trans.State.Strict (StateT (..), get, put, runStateT)
+import Control.Monad.Trans.State.Strict (StateT (..), get, mapStateT, put, runStateT, state)
+import Data.Bifunctor (first)
 import Data.Char (isAscii, isDigit, isLower)
+import Data.Either (fromRight, isRight)
 import Data.Graph (SCC (..), stronglyConnComp)
 import Data.IntMap.Strict qualified as IntMap
 import Data.List (find, intercalate, isPrefixOf, nub, partition, stripPrefix)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Set qualified as Set
 import Data.Traversable (mapAccumM)
 import Tung.Core (CoreProgram, ModuleInterface (..), makeCoreProgramWithImports)
@@ -317,9 +319,7 @@ putTc :: TcState -> Tc ()
 putTc = Tc . put
 
 mapTcError :: Tc a -> (String -> String) -> Tc a
-mapTcError computation f = Tc $ StateT $ \st -> case runStateT (unTc computation) st of
-  Left failure -> Left failure{typeFailureMessage = f (typeFailureMessage failure)}
-  ok -> ok
+mapTcError computation f = Tc $ mapStateT (first (\failure -> failure{typeFailureMessage = f (typeFailureMessage failure)})) (unTc computation)
 
 recoverTc :: Tc a -> (String -> Tc a) -> Tc a
 recoverTc computation f = Tc $ StateT $ \st -> case runStateT (unTc computation) st of
@@ -328,7 +328,7 @@ recoverTc computation f = Tc $ StateT $ \st -> case runStateT (unTc computation)
 
 succeedsTc :: Tc a -> Tc Bool
 succeedsTc computation = Tc $ StateT $ \st ->
-  Right (either (const False) (const True) (runStateT (unTc computation) st), st)
+  Right (isRight (runStateT (unTc computation) st), st)
 
 withTcSpan :: SourceSpan -> Tc a -> Tc a
 withTcSpan span computation = Tc $ StateT $ \state ->
@@ -688,13 +688,10 @@ applyStateAll :: [Ty] -> TcState -> [Ty]
 applyStateAll tys st = map (`applyState` st) tys
 
 freshM :: Tc Ty
-freshM = do
-  st@TcState{tcNextMeta} <- getTc
-  putTc st{tcNextMeta = tcNextMeta + 1}
-  pure (TyMeta tcNextMeta)
+freshM = TyMeta <$> freshIdM
 
-freshManyM :: Int -> Tc [Ty]
-freshManyM n = replicateM n freshM
+freshIdM :: Tc Int
+freshIdM = Tc $ state (\st@TcState{tcNextMeta} -> (tcNextMeta, st{tcNextMeta = tcNextMeta + 1}))
 
 schemeEffectOwner :: Scheme -> Maybe EffectRef
 schemeEffectOwner = \case
@@ -740,27 +737,12 @@ freshForNamesM headVars rowVars vars =
   Map.fromList <$> traverse freshPair vars
  where
   freshPair v
-    | v `elem` rowVars = do
-        name <- freshEffectVarNameM
-        pure (v, TyRowVariable (RowVariable name))
-    | v `elem` headVars = do
-        name <- freshTypeHeadNameM
-        pure (v, TyVar name)
-    | otherwise = do
-        t <- freshM
-        pure (v, t)
+    | v `elem` rowVars = (v,) . TyRowVariable . RowVariable <$> freshNameM "e"
+    | v `elem` headVars = (v,) . TyVar <$> freshNameM "h"
+    | otherwise = (v,) <$> freshM
 
-freshTypeHeadNameM :: Tc String
-freshTypeHeadNameM = do
-  st@TcState{tcNextMeta} <- getTc
-  putTc st{tcNextMeta = tcNextMeta + 1}
-  pure ("h" ++ show tcNextMeta)
-
-freshEffectVarNameM :: Tc String
-freshEffectVarNameM = do
-  st@TcState{tcNextMeta} <- getTc
-  putTc st{tcNextMeta = tcNextMeta + 1}
-  pure ("e" ++ show tcNextMeta)
+freshNameM :: String -> Tc String
+freshNameM prefix = (prefix ++) . show <$> freshIdM
 
 replaceVars :: Ty -> Map.Map String Ty -> Ty
 replaceVars ty replacements = replaceTypeVariables True replacements ty
@@ -1476,8 +1458,8 @@ exportDeclContext :: Decl -> TcContext -> TcContext
 exportDeclContext declaration ctx = case declaration of
   Import _ _ -> ctx
   Export nested -> exportDeclContext nested ctx
-  ReExport name -> either (const ctx) id (reExportName name ctx)
-  ReExportType name -> either (const ctx) id (reExportTypeName name ctx)
+  ReExport name -> fromRight ctx (reExportName name ctx)
+  ReExportType name -> fromRight ctx (reExportTypeName name ctx)
   Let name _ _ -> addShownEnv name ctx
   TypeAlias _ name _ -> addShownType name ctx
   DataDecl _ name constructors -> foldl' (flip addShownEnv) (addShownType name ctx) [ctorName | Ctor ctorName _ <- constructors]
@@ -2319,7 +2301,7 @@ removeEffects handled effects = foldl' (flip removeEffect) effects handled
 inferMatchM :: [Expr] -> [MatchCase] -> TcContext -> Tc Inferred
 inferMatchM [] cases ctx = do
   arity <- maybe (failTc "empty anonymous match") pure (matchCaseArity cases)
-  scrutTys <- freshManyM arity
+  scrutTys <- replicateM arity freshM
   (branchTy, branchEffects, branchNeeds, cases2) <- inferMatchCasesM cases scrutTys ctx
   st <- getTc
   pure (Inferred (curriedFunction (applyStateAll scrutTys st) branchEffects branchTy) [] (applyStateNeeds branchNeeds st) (EMatch [] cases2))
@@ -2448,7 +2430,7 @@ elaborateDeclM declaration ctx = case declaration of
   ShapeDecl _ shapeName needs members -> do
     target <- resolveShapeTargetM shapeName ctx
     parents <- traverse (\(ShapeNeed _ name) -> resolveShapeTargetM name ctx) needs
-    members2 <- mapMaybe id <$> traverse (elaborateShapeMemberEntryM target shapeName ctx) members
+    members2 <- catMaybes <$> traverse (elaborateShapeMemberEntryM target shapeName ctx) members
     pure (ElaboratedShape target parents members2)
   ElaboratedShape{} -> pure declaration
   FillDecl types shapeName needs members -> do
@@ -2682,7 +2664,7 @@ checkShapeLawsM shapeParams shapeName shapeNeeds members ctx = zipWithM_ checkLa
     addParameter current (name, ty) = addEnv name (Forall [] [] ty) current
 
   freshLawVariable rowVariables variable
-    | variable `elem` rowVariables = (variable,) . TyVar <$> freshEffectVarNameM
+    | variable `elem` rowVariables = (variable,) . TyVar <$> freshNameM "e"
     | otherwise = freshSkolem [] variable
 
 checkForeignLetM :: String -> String -> TypeAnn -> TcContext -> Tc ()
@@ -2820,7 +2802,7 @@ checkRedundantFillNeedsM shapeName tyArgs needs members specs ctx = do
     (_, instantiated) <- skolemizeM scheme
     let (external2, parents2) = splitAt (length external) instantiated
         bindings = evidenceBindings external2
-    mapM_ (void . resolveNeedEvidenceSeenM ctx bindings [ownKey]) parents2
+    mapM_ (resolveNeedEvidenceSeenM ctx bindings [ownKey]) parents2
   findRedundant [] = pure Nothing
   findRedundant ((index, need) : rest) = do
     redundant <- succeedsTc (checkWithout index)

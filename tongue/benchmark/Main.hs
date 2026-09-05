@@ -1,8 +1,9 @@
 module Main (main) where
 
 import Control.Exception qualified as Exception
-import Control.Monad (forM, replicateM, unless)
-import Data.List (find, intercalate, sort)
+import Control.Monad (forM, replicateM, unless, void)
+import Data.Foldable (asum)
+import Data.List (find, intercalate, isPrefixOf, sort)
 import Data.Map.Strict qualified as Map
 import Data.Word (Word64)
 import GHC.Clock (getMonotonicTimeNSec)
@@ -105,12 +106,7 @@ readChild executable benchmarkCase size = do
         )
 
 findSample :: BenchmarkCase -> String -> Maybe Sample
-findSample benchmarkCase output = findParsed (lines output)
- where
-  findParsed [] = Nothing
-  findParsed (line : rest) = case parseSample benchmarkCase line of
-    Just sample -> Just sample
-    Nothing -> findParsed rest
+findSample benchmarkCase = asum . map (parseSample benchmarkCase) . lines
 
 parseSample :: BenchmarkCase -> String -> Maybe Sample
 parseSample benchmarkCase line = case splitTabs line of
@@ -171,10 +167,10 @@ prepareAction :: BenchmarkCase -> Int -> IO (IO ())
 prepareAction benchmarkCase size = case benchmarkCase of
   GeneratedCompile -> pure (compileAndForce False (generatedBundle size))
   GeneratedEvaluate -> evaluateAction False (generatedBundle size)
-  FibonacciCompile -> loadByspel "benchmark/fibonacci.tung" >>= pure . compileAndForce True
-  FizzbuzzCompile -> loadByspel "byspel/fizzbuzz.tung" >>= pure . compileAndForce True
+  FibonacciCompile -> compileAndForce True <$> loadByspel "benchmark/fibonacci.tung"
+  FizzbuzzCompile -> compileAndForce True <$> loadByspel "byspel/fizzbuzz.tung"
   FizzbuzzEvaluate -> loadByspel "byspel/fizzbuzz.tung" >>= evaluateAction True
-  MultishotCompile -> loadByspel "byspel/multishot.tung" >>= pure . compileAndForce True
+  MultishotCompile -> compileAndForce True <$> loadByspel "byspel/multishot.tung"
   MultishotEvaluate -> loadByspel "byspel/multishot.tung" >>= evaluateAction True
 
 generatedBundle :: Int -> SourceBundle
@@ -225,7 +221,7 @@ evaluateAction runnable bundle = do
         then evaluateMainCoreProgram program
         else evaluateCoreProgram program
     Exception.evaluate (length result)
-    unless ("eval ok: " `prefixOf` result) (die result)
+    unless ("eval ok: " `isPrefixOf` result) (die result)
 
 compileBundle :: Bool -> SourceBundle -> IO CoreProgram
 compileBundle runnable SourceBundle{bundleSource, bundleImports} =
@@ -238,10 +234,7 @@ compileBundle runnable SourceBundle{bundleSource, bundleImports} =
     | otherwise = elaborateInteractiveProgramWithImports program bundleImports
 
 forceCore :: CoreProgram -> IO ()
-forceCore program = Exception.evaluate (length (show program)) >> pure ()
-
-prefixOf :: String -> String -> Bool
-prefixOf prefix value = take (length prefix) value == prefix
+forceCore program = void (Exception.evaluate (length (show program)))
 
 caseName :: BenchmarkCase -> String
 caseName benchmarkCase = case benchmarkCase of

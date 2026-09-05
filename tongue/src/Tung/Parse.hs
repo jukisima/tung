@@ -16,6 +16,7 @@ module Tung.Parse (
 where
 
 import Control.Monad (foldM)
+import Data.Bifunctor (first)
 import Data.Either (fromRight)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
@@ -168,7 +169,7 @@ parseGraithDecl ts = do
     _ -> Failed "expected 'let', 'frame' or 'fill' after graiþ"
 
 exportParsed :: Either SourceFailure (Decl, [Token]) -> Either SourceFailure (Decl, [Token])
-exportParsed = fmap (\(decl, rest) -> (Export decl, rest))
+exportParsed = fmap (first Export)
 
 isGraithEnd :: Token -> Bool
 isGraithEnd = \case

@@ -19,7 +19,7 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (MVar, ThreadId, forkIO, getNumCapabilities, killThread, newEmptyMVar, putMVar, readMVar, threadDelay)
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO, readTVar, readTVarIO, writeTVar)
 import Control.Exception (AsyncException (ThreadKilled), IOException, SomeException, displayException, finally, fromException, mask, try)
-import Control.Monad (ap, foldM, unless, when, (>=>))
+import Control.Monad (ap, foldM, liftM, unless, when, (>=>))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isControl, ord)
 import Data.Foldable (asum)
@@ -167,7 +167,7 @@ data RuntimeHost = RuntimeHost
 type RuntimeCache = Map.Map String RuntimeEnv
 
 instance Functor Eval where
-  fmap f action = action >>= pure . f
+  fmap = liftM
 
 instance Applicative Eval where
   pure = EvalPure . RuntimeOk
@@ -177,11 +177,7 @@ instance Monad Eval where
   EvalPure result >>= next = bindRuntimeResult result next
   Eval action >>= next =
     Eval $ \host ->
-      action host >>= \case
-        RuntimeOk value -> runEval (next value) host
-        RuntimeErr err -> pure (RuntimeErr err)
-        RuntimeOp effectName opName args resume ->
-          pure (RuntimeOp effectName opName args (resume >=> next))
+      action host >>= \result -> runEval (bindRuntimeResult result next) host
 
 bindRuntimeResult :: RuntimeResult a -> (a -> Eval b) -> Eval b
 bindRuntimeResult result next = case result of
