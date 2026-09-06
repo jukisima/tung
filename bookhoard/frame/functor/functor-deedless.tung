@@ -1,0 +1,7 @@
+use frame/algebra/partial/category.tung
+
+show frame f functor-deedless {
+  let (a f) remap (a → b): b f
+
+  law (af: a f): af remap (sameness: a → a) ~ af
+}

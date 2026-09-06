@@ -1,6 +1,6 @@
+use frame/functor/cata.tung
 use ground.tung
 use ilk/list.tung
-use collection/catamorphism.tung
 
 ilk team {
   norþ,

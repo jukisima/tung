@@ -1,7 +1,0 @@
-use ilk/two.tung
-use collection/functor.tung
-
-graiþ f functor
-show frame f filter {
-  let (a f) filter (a → 𝟚 ! e): a f ! e
-}

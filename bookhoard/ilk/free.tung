@@ -1,0 +1,34 @@
+use frame/algebra/partial/category.tung
+use frame/algebra/partial/semigroupoid.tung
+use frame/functor/functor-deedless.tung
+
+## representeþ a computation as either a result or one suspended request.
+show ilk f free a {
+  a done,
+  ((f free a) f) more
+}
+
+show let bind = {
+  þing done, next @ þing next,
+  layer more, next @ (layer remap { child @ child bind next }) more
+}
+
+graiþ f functor-deedless
+show let (af: a f) lift: f free a =
+  (af remap done) more
+
+show let þing map-free change =
+  þing bind (change ∘ done)
+
+graiþ f functor-deedless
+fill (f free) functor-deedless {
+  let þing remap change = þing map-free change
+}
+
+show let þing flat-free =
+  þing bind sameness
+
+show let node fold leaf program = match program {
+  þing done @ þing leaf,
+  layer more @ (layer remap { child @ node fold leaf child }) node
+}

@@ -33,11 +33,11 @@ test("analysis recordeþ shown owners, members, parameters, and imports", () => 
   );
 });
 test("analysis recordeþ foreign import paths", () => {
-  const source = "use _foreign.tung\nuse algebra/arithmetic/field.tung";
+  const source = "use _foreign.tung\nuse frame/algebra/arithmetic/field.tung";
   const model = analyzeDocument(source, "file:///imports.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
-    ["_foreign.tung", "algebra/arithmetic/field.tung"],
+    ["_foreign.tung", "frame/algebra/arithmetic/field.tung"],
   );
 });
 test("analysis recordeþ an optional import alias separately from its path", () => {

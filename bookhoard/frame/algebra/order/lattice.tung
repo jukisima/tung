@@ -1,0 +1,16 @@
+use frame/algebra/order/order-total.tung
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal.tung
+
+## a carrier wiþ compatible infimum and supremum semilattices.
+graiþ a semilattice-infimal, a semilattice-supremal
+show frame a lattice {
+  law (a: a, b: a): a ∧ (a ∨ b) ~ a
+  law (a: a, b: a): a ∨ (a ∧ b) ~ a
+}
+
+graiþ b lattice
+fill (a func b) lattice {}
+
+graiþ a order-total
+fill a lattice {}

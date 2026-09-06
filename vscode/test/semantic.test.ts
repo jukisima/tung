@@ -812,9 +812,9 @@ test("n-ary fold names use ordinary function and call roles", () => {
 test("semantic analysis leaveþ use paths to the textmate import scope", () => {
   const source = [
     "use _foreign.tung",
-    "use equal.tung",
-    "use order.tung",
-    "use algebra/arithmetic/field.tung",
+    "use frame/equal.tung",
+    "use frame/algebra/order/order-total.tung",
+    "use frame/algebra/arithmetic/field.tung",
     "use integer.tung",
     "use table.tung",
   ].join("\n");

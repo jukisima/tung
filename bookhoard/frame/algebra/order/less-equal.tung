@@ -1,0 +1,29 @@
+use frame/equal.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a decidable less-þan-or-equal operation, wiþout order laws.
+graiþ a equal
+show frame a less-equal {
+  let a ≤ a: 𝟚
+}
+
+graiþ a less-equal, a equal
+show let (a: a, b: a) <: 𝟚 = (a ≤ b) if (a ≢ b) nay
+
+fill 𝟚 less-equal {
+  let ≤ = {
+    nay, _ @ yea,
+    yea, b @ b
+  }
+}
+
+fill 𝟛 less-equal {
+  let ≤ = {
+    fore, _ @ yea,
+    mid, fore @ nay,
+    mid, _ @ yea,
+    aft, aft @ yea,
+    aft, _ @ nay
+  }
+}

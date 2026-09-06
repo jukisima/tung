@@ -1,12 +1,12 @@
+use deed/system.tung
+use frame/algebra/total/magma.tung
+use frame/functor/cata.tung
 use ground.tung
-use system.tung
 use ilk/list.tung
 use ilk/option.tung
 use ilk/product.tung
 use ilk/table.tung
-use text/operation.tung
-use algebra/total/magma.tung
-use collection/catamorphism.tung
+use ilk/text/operation.tung
 
 let (counts: text table ℤ, word: text) count-word: text table ℤ =
   match counts lookup word {

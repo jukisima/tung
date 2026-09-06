@@ -1,4 +1,4 @@
-use text/to-text.tung
+use frame/to-text.tung
 
 show ilk 𝟙 {
   only

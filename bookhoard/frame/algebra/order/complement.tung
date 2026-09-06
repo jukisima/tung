@@ -1,0 +1,21 @@
+use frame/algebra/order/lattice-bounded.tung
+use frame/algebra/order/semilattice-infimal-bounded.tung
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal-bounded.tung
+use frame/algebra/order/semilattice-supremal.tung
+use ilk/two.tung
+
+## a bounded lattice wiþ a chosen complement for every value.
+graiþ a lattice-bounded
+show frame a complement {
+  let a ¬: a
+  law (a: a): a ∧ (a ¬) ~ ⟂
+  law (a: a): a ∨ (a ¬) ~ ⊤
+}
+
+fill 𝟚 complement {
+  let ¬ = {
+    yea @ nay,
+    nay @ yea
+  }
+}

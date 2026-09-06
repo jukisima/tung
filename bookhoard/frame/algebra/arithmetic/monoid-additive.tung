@@ -1,0 +1,12 @@
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/zero.tung
+use ilk/two.tung
+
+graiþ a add, a zero
+show frame a monoid-additive {
+  law (a: a, b: a, c: a): a + (b + c) ~ (a + b) + c
+  law (a: a): zero + a ~ a
+  law (a: a): a + zero ~ a
+}
+
+fill 𝟚 monoid-additive {}

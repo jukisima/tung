@@ -1,6 +1,6 @@
+use frame/algebra/total/magma.tung
 use ground.tung
 use web/server.tung
-use algebra/total/magma.tung
 
 let (r: request) route: response ! console = (
   let _ = ('request: ' * (r request-target)) write-line

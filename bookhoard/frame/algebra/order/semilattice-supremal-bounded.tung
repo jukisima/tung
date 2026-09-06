@@ -1,0 +1,23 @@
+use frame/algebra/order/semilattice-supremal.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a supremum semilattice wiþ a least value.
+graiþ a semilattice-supremal
+show frame a semilattice-supremal-bounded {
+  let ⟂: a
+  law (a: a): ⟂ ∨ a ~ a
+}
+
+graiþ b semilattice-supremal-bounded
+fill (a func b) semilattice-supremal-bounded {
+  let _ ⟂ = ⟂
+}
+
+fill 𝟚 semilattice-supremal-bounded {
+  let ⟂ = nay
+}
+
+fill 𝟛 semilattice-supremal-bounded {
+  let ⟂ = fore
+}

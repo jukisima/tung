@@ -1,0 +1,11 @@
+use _foreign.tung
+
+show frame a divide {
+  let a ÷ a: a
+}
+
+## ieee floats provide division, but rounding, infinities, and nan prevent a
+## lawful field fill.
+fill float divide {
+  let ÷ = divide-float
+}

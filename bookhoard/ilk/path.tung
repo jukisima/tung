@@ -1,8 +1,8 @@
 use _foreign.tung
+use frame/algebra/total/magma.tung
+use frame/to-text.tung
 use ilk/one.tung
-use algebra/total/magma.tung
-use text/to-text.tung
-use text/structure.tung
+use ilk/text/structure.tung
 
 ## a paþ kept distinct from arbitrary text at api boundaries.
 show ilk paþ {

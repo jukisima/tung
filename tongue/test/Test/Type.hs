@@ -211,7 +211,7 @@ importCases =
   , typeErrWith "default use aliases cannot collide" "use ilk/item.tung use syntax/item.tung" defaultAliasCollisionImports
   , typeOkWith "explicit use aliases override colliding defaults" "use ilk/item.tung ilk-item use syntax/item.tung syntax-item let result = ilk-item~value + syntax-item~value" defaultAliasCollisionImports
   , expect "ambiguous imports suggest surface namespaces" $
-      let message = checkWithImports "use ilk/natural.tung use algebra/arithmetic/semiring.tung let bad = zero" ambiguousZeros
+      let message = checkWithImports "use ilk/natural.tung use frame/algebra/arithmetic/semiring.tung let bad = zero" ambiguousZeros
        in "natural~zero" `isInfixOf` message && "semiring~zero" `isInfixOf` message && not ("/" `isInfixOf` message)
   , typeErrWith "unshown value stayeþ hidden" "use file.tung let bad = hidden" shown
   , typeErrWith "a transitive frame requireþ an explicit re-export" "use middle.tung graiþ a hidden frame a child { let a child: a }" privateShapeImports
@@ -302,7 +302,7 @@ importCases =
       ]
   duplicateAliases = Map.fromList [("left.tung", "show let left = 1"), ("right.tung", "show let right = 2")]
   defaultAliasCollisionImports = Map.fromList [("ilk/item.tung", "show let value = 1"), ("syntax/item.tung", "show let value = 2")]
-  ambiguousZeros = Map.fromList [("ilk/natural.tung", "show let zero = 0"), ("algebra/arithmetic/semiring.tung", "show let zero = 1")]
+  ambiguousZeros = Map.fromList [("ilk/natural.tung", "show let zero = 0"), ("frame/algebra/arithmetic/semiring.tung", "show let zero = 1")]
   privateShapeImports = Map.fromList [("leaf.tung", "show frame a hidden { let a hidden: a }"), ("middle.tung", "use leaf.tung")]
   reservedTwoLookalike = Map.singleton "ilk/two.tung" "show ilk 𝟚 { yea, maybe }"
   rawTableImport = Map.singleton "ilk/table.tung" "show ilk k table v { ((k ∏ v) list) from-list }"
@@ -348,7 +348,7 @@ orderCases imports =
   ]
  where
   rankPrefix =
-    "use ilk/two.tung use equal.tung use order.tung "
+    "use ilk/two.tung use frame/equal.tung use frame/algebra/order/less-equal.tung use frame/algebra/order/order-partial.tung use frame/algebra/order/order-total.tung "
       ++ "ilk rank { lesser, greater } "
       ++ "fill rank equal { let ≡ = { lesser, lesser @ yea, greater, greater @ yea, _, _ @ nay } } "
   partialPrefix =
@@ -374,10 +374,10 @@ boundCases imports =
   , typeErrWith "supremum semilattice doth not supply infimum" (supremumPrefix ++ "let bad = item ∧ item") imports
   ]
  where
-  prefix = "use ground.tung use ilk/list.tung use ilk/natural.tung use collection/catamorphism.tung "
-  powersetPrefix = "use ground.tung use ilk/list.tung use ilk/powerset.tung use collection/catamorphism.tung let empty-set: ℤ powerset = powerset~empty let full-set: ℤ powerset = universe "
-  semilatticePrefix = "use order/lattice.tung ilk one-sided { item } fill one-sided semilattice-infimal { let _ ∧ _ = item } "
-  supremumPrefix = "use order/lattice.tung ilk one-sided { item } fill one-sided semilattice-supremal { let _ ∨ _ = item } "
+  prefix = "use ground.tung use ilk/list.tung use ilk/natural.tung use frame/functor/cata.tung "
+  powersetPrefix = "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/functor/cata.tung let empty-set: ℤ powerset = powerset~empty let full-set: ℤ powerset = universe "
+  semilatticePrefix = "use frame/algebra/order/semilattice-infimal.tung ilk one-sided { item } fill one-sided semilattice-infimal { let _ ∧ _ = item } "
+  supremumPrefix = "use frame/algebra/order/semilattice-supremal.tung ilk one-sided { item } fill one-sided semilattice-supremal { let _ ∨ _ = item } "
 
 numericHierarchyCases :: Map.Map String String -> [Test]
 numericHierarchyCases imports =

@@ -180,8 +180,8 @@ importedCases imports =
   , evalOkWith "an imported module handleþ its whole effect identity" "use query.tung yield value" (Map.insert "query.tung" "show deed query { ℤ ask: ℤ } show let value: ℤ = try 3 ask { query @ 7 }" imports) "eval ok: 7"
   , evalOkWith
       "an incompatible primitive-frame lookalike retaineþ its declared selector"
-      "use algebra/arithmetic/semiring.tung yield 1 magic"
-      (Map.insert "algebra/arithmetic/semiring.tung" "show frame a add { let a magic: a } fill ℤ add { let x magic = x }" imports)
+      "use frame/algebra/arithmetic/semiring.tung yield 1 magic"
+      (Map.insert "frame/algebra/arithmetic/semiring.tung" "show frame a add { let a magic: a } fill ℤ add { let x magic = x }" imports)
       "eval ok: 1"
   , evalTypeErrWith "same-spelled effects in extension-sharing paths stay distinct" "use a.tung one use a.extra.tung two yield try 3 two~ask { x one~ask @ x }" samePrefixEffectImports
   , evalTypeErrWith "same-spelled effects beneath dotted directories stay distinct" "use pkg.one/query.tung one use pkg.two/query.tung two yield try 3 two~ask { x one~ask @ x }" dottedDirectoryEffectImports
@@ -205,7 +205,7 @@ importedCases imports =
   , evalOkWith "an exported alias retaineth its private nominal fill" "use opaque.tung opaque yield opaque~value opaque~label" privateAliasFillImports "eval ok: 7"
   , evalOkWith "a local frame and fill shadow an imported namesake" "use left.tung frame a identity { let a identity: a } fill ℤ identity { let x identity = x + 2 } yield (1 identity) + (1 left~identity)" distinctShapeImports "eval ok: 5"
   , evalTypeErrWith "local evidence cannot satisfy an imported namesake frame" "use left.tung frame a identity { let a identity: a } fill ℤ identity { let x identity = x } graiþ a left~identity let (x: a) imported-use: a = x left~identity graiþ a identity let (x: a) local-use: a = x imported-use yield 1 local-use" distinctShapeImports
-  , evalTypeErrWith "an incompatible declaration at a primitive path cannot claim its host fill" "use algebra/arithmetic/semiring.tung yield 1 magic" (Map.insert "algebra/arithmetic/semiring.tung" "show frame a add { let a magic: a }" imports)
+  , evalTypeErrWith "an incompatible declaration at a primitive path cannot claim its host fill" "use frame/algebra/arithmetic/semiring.tung yield 1 magic" (Map.insert "frame/algebra/arithmetic/semiring.tung" "show frame a add { let a magic: a }" imports)
   , evalOkWith "value survives a named re-export" "use middle.tung yield value" reexportImports "eval ok: 7"
   , evalOkWith "qualified re-export outrankeþ a shadowing local" "use middle.tung let value = 3 yield middle~value + value" reexportImports "eval ok: 10"
   , evalOkWith "frame fill survives an import" "use identity.tung yield 3 identity" identityImports "eval ok: 3"
@@ -224,26 +224,26 @@ importedCases imports =
   , evalOkWith "negative ℤ cannot become unicode" "use ground.tung yield try -1 integer-to-unicode { yield _ @ 'valid', message fail @ message }" imports "eval ok: 'invalid unicode scalar value'"
   , evalOkWith "surrogate ℤ cannot become unicode" "use ground.tung yield try 55296 integer-to-unicode { yield _ @ 'valid', message fail @ message }" imports "eval ok: 'invalid unicode scalar value'"
   , evalOkWith "out-of-range ℤ cannot become unicode" "use ground.tung yield try 1114112 integer-to-unicode { yield _ @ 'valid', message fail @ message }" imports "eval ok: 'invalid unicode scalar value'"
-  , evalOkWith "text behead exposeþ one code point" "use ground.tung use ilk/list.tung use ilk/option.tung use ilk/product.tung use algebra/total/magma.tung yield match 'λ字' behead-text { (c ∏ rest) option~some @ ((c _* empty) list-to-text) * rest, option~none @ '' }" imports "eval ok: 'λ字'"
+  , evalOkWith "text behead exposeþ one code point" "use ground.tung use ilk/list.tung use ilk/option.tung use ilk/product.tung use frame/algebra/total/magma.tung yield match 'λ字' behead-text { (c ∏ rest) option~some @ ((c _* empty) list-to-text) * rest, option~none @ '' }" imports "eval ok: 'λ字'"
   , evalOkWith "empty text hath no head" "use ground.tung use ilk/option.tung yield match '' behead-text { none @ 1, _ some @ 0 }" imports "eval ok: 1"
-  , evalOkWith "generic text fold" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield ('north' _* ('南' _* empty)) …*" imports "eval ok: 'north南'"
-  , evalOkWith "text frames dispatch" "use ground.tung use algebra/total/magma.tung yield (('a' * 'β') ≡ 'aβ') ∧ ('a' ≤ 'b')" imports "eval ok: yea"
+  , evalOkWith "generic text fold" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield ('north' _* ('南' _* empty)) …*" imports "eval ok: 'north南'"
+  , evalOkWith "text frames dispatch" "use ground.tung use frame/algebra/total/magma.tung yield (('a' * 'β') ≡ 'aβ') ∧ ('a' ≤ 'b')" imports "eval ok: yea"
   , evalOkWith "unicode frames dispatch" "use ground.tung yield (`a ≡ `a) ∧ (`a ≤ `b)" imports "eval ok: yea"
   , evalOkWith "imported fill doth not shadow native ℤ order" "use ilk/list.tung yield 0 till 2" imports "eval ok: (0 (1 (2 empty _*) _*) _*)"
   , evalOkWith "list map pipeline keepeþ the list functor" "use ground.tung use ilk/list.tung yield 0 till 2 $ map { x @ x + 1 } $ map to-text" imports "eval ok: ('1' ('2' ('3' empty _*) _*) _*)"
   , evalOkWith "list apply calleþ its separately filled map" "use ground.tung use ilk/list.tung let values = 1 _* (2 _* empty) let functions = { x @ x + 10 } _* ({ x @ x × 2 } _* empty) yield values apply functions" imports "eval ok: (11 (12 (2 (4 empty _*) _*) _*) _*)"
-  , evalOkWith "list traversal sequences option values" "use ground.tung use ilk/list.tung use ilk/option.tung use collection/traverse.tung yield (1 _* (2 _* empty)) traverse { x @ x option~some }" imports "eval ok: ((1 (2 empty _*) _*) some)"
-  , evalOkWith "fold-map combineþ mapped list values" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield (0 till 2) fold-map to-text" imports "eval ok: '012'"
-  , evalOkWith "bounded conjunction folds values" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield yea _* (nay _* empty) $ …∧" imports "eval ok: nay"
-  , evalOkWith "bounded disjunction folds values" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield nay _* (yea _* empty) $ …∨" imports "eval ok: yea"
-  , evalOkWith "empty bounded conjunction useþ the upper endpoint" "use ground.tung use ilk/list.tung use collection/catamorphism.tung let values: 𝟚 list = empty yield values …∧" imports "eval ok: yea"
-  , evalOkWith "empty bounded disjunction useþ the lower endpoint" "use ground.tung use ilk/list.tung use collection/catamorphism.tung let values: 𝟚 list = empty yield values …∨" imports "eval ok: nay"
+  , evalOkWith "list traversal sequences option values" "use ground.tung use ilk/list.tung use ilk/option.tung use frame/functor/traverse.tung yield (1 _* (2 _* empty)) traverse { x @ x option~some }" imports "eval ok: ((1 (2 empty _*) _*) some)"
+  , evalOkWith "fold-map combineþ mapped list values" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield (0 till 2) fold-map to-text" imports "eval ok: '012'"
+  , evalOkWith "bounded conjunction folds values" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield yea _* (nay _* empty) $ …∧" imports "eval ok: nay"
+  , evalOkWith "bounded disjunction folds values" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield nay _* (yea _* empty) $ …∨" imports "eval ok: yea"
+  , evalOkWith "empty bounded conjunction useþ the upper endpoint" "use ground.tung use ilk/list.tung use frame/functor/cata.tung let values: 𝟚 list = empty yield values …∧" imports "eval ok: yea"
+  , evalOkWith "empty bounded disjunction useþ the lower endpoint" "use ground.tung use ilk/list.tung use frame/functor/cata.tung let values: 𝟚 list = empty yield values …∨" imports "eval ok: nay"
   , evalOkWith "boolean complement negateþ" "use ground.tung yield yea ¬" imports "eval ok: nay"
   , evalTypeErrWith "bounded lattice need not have a complement" "use ground.tung yield mid ¬" imports
   , evalOkWith "ℤ lattice chooseþ the lesser value" "use ground.tung yield 3 ∧ 2" imports "eval ok: 2"
   , evalOkWith "total order supplieþ a distributive lattice" "use ground.tung graiþ a lattice-distributive let (x: a, y: a, z: a) distribute: a = x ∧ (y ∨ z) yield 3 distribute 2 4" imports "eval ok: 3"
-  , evalOkWith "non-total powerset lattice joineþ predicates" "use ground.tung use ilk/list.tung use ilk/powerset.tung use collection/catamorphism.tung let one: ℤ powerset = { x @ x ≡ 1 } let two: ℤ powerset = { x @ x ≡ 2 } let joined = one _* (two _* list~empty) $ …∨ yield joined ∋ 2" imports "eval ok: yea"
-  , evalOkWith "empty powerset meet yieldeþ the universal set" "use ground.tung use ilk/list.tung use ilk/powerset.tung use collection/catamorphism.tung let values: (ℤ powerset) list = list~empty let all = values …∧ yield all ∋ 42" imports "eval ok: yea"
+  , evalOkWith "non-total powerset lattice joineþ predicates" "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/functor/cata.tung let one: ℤ powerset = { x @ x ≡ 1 } let two: ℤ powerset = { x @ x ≡ 2 } let joined = one _* (two _* list~empty) $ …∨ yield joined ∋ 2" imports "eval ok: yea"
+  , evalOkWith "empty powerset meet yieldeþ the universal set" "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/functor/cata.tung let values: (ℤ powerset) list = list~empty let all = values …∧ yield all ∋ 42" imports "eval ok: yea"
   , evalOkWith "pattern binders do not become constructor patterns" "use ground.tung use ilk/list.tung ilk bit { off } yield 0 till 2 $ map { _ @ off } $ map { _ @ 1 }" imports "eval ok: (1 (1 (1 empty _*) _*) _*)"
   , evalOkWith "control branch suspends actions" "use ground.tung yield nay branch { _ @ 1 } { _ @ 2 }" imports "eval ok: 2"
   , evalOkWith "option maybe mapeþ present value" "use ground.tung use ilk/option.tung yield (3 some) maybe 0 { x @ x + 1 }" imports "eval ok: 4"
@@ -252,15 +252,20 @@ importedCases imports =
   , evalOkWith "sum functor mapeþ the right side" "use ground.tung use ilk/sum.tung let value: text ∐ ℤ = 2 inject₁ yield match (value map { x @ x + 1 }) { _ inject₀ @ 0, x inject₁ @ x }" imports "eval ok: 3"
   , evalOkWith "sum applicative applieþ the right side" "use ground.tung use ilk/sum.tung let value: text ∐ ℤ = 2 inject₁ let f: text ∐ (ℤ → ℤ) = { x @ x + 3 } inject₁ yield match value apply f { _ inject₀ @ 0, x inject₁ @ x }" imports "eval ok: 5"
   , evalOkWith "sum monad preserveþ a left value" "use ground.tung use ilk/sum.tung let value: text ∐ ℤ = 'left' inject₀ yield match (value map-flat { x @ (x + 1) inject₁ }) { message inject₀ @ message, x inject₁ @ x to-text }" imports "eval ok: 'left'"
-  , evalOkWith "sum catamorphism foldeþ the right side" "use ground.tung use ilk/sum.tung use collection/catamorphism.tung let value: text ∐ ℤ = 3 inject₁ yield value fold₁ 1 +" imports "eval ok: 4"
-  , evalOkWith "sum traversal preserveþ its side" "use ground.tung use ilk/sum.tung use ilk/option.tung use collection/traverse.tung let value: text ∐ ℤ = 3 inject₁ yield value traverse { x @ (x + 1) some }" imports "eval ok: ((4 inject₁) some)"
+  , evalOkWith "sum catamorphism foldeþ the right side" "use ground.tung use ilk/sum.tung use frame/functor/cata.tung let value: text ∐ ℤ = 3 inject₁ yield value fold₁ 1 +" imports "eval ok: 4"
+  , evalOkWith "sum traversal preserveþ its side" "use ground.tung use ilk/sum.tung use ilk/option.tung use frame/functor/traverse.tung let value: text ∐ ℤ = 3 inject₁ yield value traverse { x @ (x + 1) some }" imports "eval ok: ((4 inject₁) some)"
   , evalOkWith "product bimap mapeþ both fields" "use ground.tung use ilk/product.tung yield (1 ∏ 2) bimap { x @ x + 1 } { y @ y × 3 }" imports "eval ok: (2 6 ∏)"
   , evalOkWith "product applicative accumulateþ value context first" "use ground.tung use ilk/product.tung let value = 'value:' ∏ 2 let f = 'function:' ∏ { x @ x + 1 } yield value apply f" imports "eval ok: ('value:function:' 3 ∏)"
   , evalOkWith "product monad accumulateþ outer context first" "use ground.tung use ilk/product.tung yield ('outer:' ∏ 2) map-flat { x @ 'inner:' ∏ (x + 1) }" imports "eval ok: ('outer:inner:' 3 ∏)"
-  , evalOkWith "product catamorphism foldeþ the second field" "use ground.tung use ilk/product.tung use collection/catamorphism.tung yield ('ignored' ∏ 3) fold₁ 1 +" imports "eval ok: 4"
-  , evalOkWith "product traversal preserveþ the first field" "use ground.tung use ilk/product.tung use ilk/option.tung use collection/traverse.tung yield ('context' ∏ 3) traverse { x @ (x + 1) some }" imports "eval ok: (('context' 4 ∏) some)"
+  , evalOkWith "product catamorphism foldeþ the second field" "use ground.tung use ilk/product.tung use frame/functor/cata.tung yield ('ignored' ∏ 3) fold₁ 1 +" imports "eval ok: 4"
+  , evalOkWith "product traversal preserveþ the first field" "use ground.tung use ilk/product.tung use ilk/option.tung use frame/functor/traverse.tung yield ('context' ∏ 3) traverse { x @ (x + 1) some }" imports "eval ok: (('context' 4 ∏) some)"
   , evalOkWith "applicative lift2 for option" "use ground.tung use ilk/option.tung yield (1 some) lift₂ (2 some) +" imports "eval ok: (3 some)"
-  , evalOkWith "monad void for option" "use ilk/option.tung use collection/monad.tung yield (1 some) void" imports "eval ok: (only some)"
+  , evalOkWith "applicative keep-other preserveþ context order" "use ground.tung use ilk/product.tung yield ('left:' ∏ 1) keep-other ('right:' ∏ 2)" imports "eval ok: ('right:left:' 2 ∏)"
+  , evalOkWith "monad void for option" "use ilk/option.tung use frame/functor/monad.tung yield (1 some) void" imports "eval ok: (only some)"
+  , evalOkWith "free bind transformeth a completed value" (freePrelude ++ "yield ((3 done) bind { value @ (value + 1) done }) run-free") imports "eval ok: 4"
+  , evalOkWith "free lift and fold may repeat a request continuation" (freePrelude ++ "yield ask-free run-free") imports "eval ok: 3"
+  , evalOkWith "free bind may discard a request continuation" (freePrelude ++ "yield (ask-free bind { _ @ stop more }) run-free") imports "eval ok: 0"
+  , evalOkWith "free mapping and flattening preserve suspended structure" (freePrelude ++ "yield (ask-free remap { value @ value + 10 } $ map-free { value @ value done } $ flat-free) run-free") imports "eval ok: 23"
   , evalOkWith "list behead exposeþ the head and tail" "use ilk/list.tung use ilk/option.tung use ilk/product.tung yield match (1 _* empty) behead { (head product~∏ _) option~some @ head, option~none @ 0 }" imports "eval ok: 1"
   , evalOkWith "list take after drop" "use ilk/list.tung yield ((0 till 5) drop 2) take 2" imports "eval ok: (2 (3 empty _*) _*)"
   , evalOkWith "list find returneþ first match" "use ground.tung use ilk/list.tung yield (0 till 5) find { x @ 3 ≤ x }" imports "eval ok: (3 some)"
@@ -269,23 +274,25 @@ importedCases imports =
   , evalOkWith "list index past þe end faileþ" "use ground.tung use ilk/list.tung yield try ((10 _* (20 _* empty)) at 2) { yield _ @ 'valid', message fail @ message }" imports "eval ok: 'list index out of range'"
   , evalOkWith "negative list index faileþ" "use ground.tung use ilk/list.tung let index = 0 - 1 yield try ((10 _* (20 _* empty)) at index) { yield _ @ 'valid', message fail @ message }" imports "eval ok: 'list index out of range'"
   , evalOkWith "list last returneþ the final value" "use ilk/list.tung yield (1 _* (2 _* empty)) last" imports "eval ok: (2 some)"
+  , evalOkWith "empty list hath no last value" "use ilk/list.tung let values: ℤ list = empty yield values last" imports "eval ok: none"
+  , evalOkWith "list each preserveþ action order" "use ground.tung use ilk/list.tung deed log { ℤ mark: 𝟙 } yield try ((1 _* (2 _* empty)) each mark) { yield _ @ 0, x mark @ x + ((only eftgin) × 10) }" imports "eval ok: 21"
   , evalOkWith "list membership findeþ a value" "use ground.tung use ilk/list.tung yield (1 _* (2 _* empty)) ∋ 2" imports "eval ok: yea"
   , evalOkWith "list membership rejecteþ a missing value" "use ground.tung use ilk/list.tung yield (1 _* (2 _* empty)) ∋ 3" imports "eval ok: nay"
   , evalOkWith "list replicate useþ a nonnegative count" "use ilk/list.tung yield 'x' replicate 3" imports "eval ok: ('x' ('x' ('x' empty _*) _*) _*)"
   , evalOkWith "list partition preserveþ order" "use ground.tung use ilk/list.tung yield (0 till 4) partition { x @ 2 ≤ x }" imports "eval ok: ((2 (3 (4 empty _*) _*) _*) (0 (1 empty _*) _*) ∏)"
   , evalOkWith "list unzip preserveþ both sides" "use ilk/list.tung use ilk/product.tung yield ((1 ∏ 'a') _* ((2 ∏ 'b') _* empty)) unzip" imports "eval ok: ((1 (2 empty _*) _*) ('a' ('b' empty _*) _*) ∏)"
-  , evalOkWith "n-ary sum addeþ a foldable collection" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield (1 _* (2 _* (3 _* empty))) …+" imports "eval ok: 6"
-  , evalOkWith "n-ary sum of an empty collection is zero" "use ground.tung use ilk/list.tung use collection/catamorphism.tung let values: ℤ list = empty yield values …+" imports "eval ok: 0"
-  , evalTypeErrWith "n-ary sum needeþ a catamorphism" "use ground.tung use collection/catamorphism.tung ilk a box { a box } let value: ℤ box = 1 box yield value …+" imports
-  , evalOkWith "n-ary product multiplies a foldable collection" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield (2 _* (3 _* (4 _* empty))) …×" imports "eval ok: 24"
-  , evalOkWith "n-ary product of an empty collection is one" "use ground.tung use ilk/list.tung use collection/catamorphism.tung let values: ℤ list = empty yield values …×" imports "eval ok: 1"
-  , evalTypeErrWith "n-ary product needeþ a multiplicative monoid" "use ground.tung use ilk/list.tung use collection/catamorphism.tung yield ('a' _* empty) …×" imports
-  , evalOkWith "boolean supremal wrapper useþ disjunction" "use ground.tung use ilk/list.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let values = (nay supremal) _* ((yea supremal) _* list~empty) yield match values …* { result supremal @ result }" imports "eval ok: yea"
-  , evalOkWith "empty boolean supremal fold yieldeþ nay" "use ground.tung use ilk/list.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let values: (𝟚 supremal) list = list~empty yield match values …* { result supremal @ result }" imports "eval ok: nay"
-  , evalOkWith "boolean infimal wrapper useþ conjunction" "use ground.tung use ilk/list.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let values = (yea infimal) _* ((nay infimal) _* list~empty) yield match values …* { result infimal @ result }" imports "eval ok: nay"
-  , evalOkWith "empty boolean infimal fold yieldeþ yea" "use ground.tung use ilk/list.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let values: (𝟚 infimal) list = list~empty yield match values …* { result infimal @ result }" imports "eval ok: yea"
+  , evalOkWith "n-ary sum addeþ a foldable collection" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield (1 _* (2 _* (3 _* empty))) …+" imports "eval ok: 6"
+  , evalOkWith "n-ary sum of an empty collection is zero" "use ground.tung use ilk/list.tung use frame/functor/cata.tung let values: ℤ list = empty yield values …+" imports "eval ok: 0"
+  , evalTypeErrWith "n-ary sum needeþ a catamorphism" "use ground.tung use frame/functor/cata.tung ilk a box { a box } let value: ℤ box = 1 box yield value …+" imports
+  , evalOkWith "n-ary product multiplies a foldable collection" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield (2 _* (3 _* (4 _* empty))) …×" imports "eval ok: 24"
+  , evalOkWith "n-ary product of an empty collection is one" "use ground.tung use ilk/list.tung use frame/functor/cata.tung let values: ℤ list = empty yield values …×" imports "eval ok: 1"
+  , evalTypeErrWith "n-ary product needeþ a multiplicative monoid" "use ground.tung use ilk/list.tung use frame/functor/cata.tung yield ('a' _* empty) …×" imports
+  , evalOkWith "boolean supremal wrapper useþ disjunction" "use ground.tung use ilk/list.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let values = (nay supremal) _* ((yea supremal) _* list~empty) yield match values …* { result supremal @ result }" imports "eval ok: yea"
+  , evalOkWith "empty boolean supremal fold yieldeþ nay" "use ground.tung use ilk/list.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let values: (𝟚 supremal) list = list~empty yield match values …* { result supremal @ result }" imports "eval ok: nay"
+  , evalOkWith "boolean infimal wrapper useþ conjunction" "use ground.tung use ilk/list.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let values = (yea infimal) _* ((nay infimal) _* list~empty) yield match values …* { result infimal @ result }" imports "eval ok: nay"
+  , evalOkWith "empty boolean infimal fold yieldeþ yea" "use ground.tung use ilk/list.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let values: (𝟚 infimal) list = list~empty yield match values …* { result infimal @ result }" imports "eval ok: yea"
   , evalOkWith "natural semiring computeþ with both identities" "use ground.tung use ilk/natural.tung let two: ℕ = (natural~zero suc) suc let three = two suc yield ((two × three) + one) to-ℤ" imports "eval ok: 7"
-  , evalOkWith "natural semiring supplieþ multiplicative monoid evidence" "use ground.tung use ilk/list.tung use ilk/natural.tung use collection/catamorphism.tung let two: ℕ = (natural~zero suc) suc let three = two suc yield ((two _* (three _* list~empty)) …×) to-ℤ" imports "eval ok: 6"
+  , evalOkWith "natural semiring supplieþ multiplicative monoid evidence" "use ground.tung use ilk/list.tung use ilk/natural.tung use frame/functor/cata.tung let two: ℕ = (natural~zero suc) suc let three = two suc yield ((two _* (three _* list~empty)) …×) to-ℤ" imports "eval ok: 6"
   , evalOkWith "nonnegative ℤ converteþ to natural" "use ground.tung use ilk/natural.tung yield 3 to-ℕ $ to-ℤ" imports "eval ok: 3"
   , evalOkWith "negative ℤ cannot become natural" "use ground.tung yield try -1 to-ℕ { yield _ @ 'valid', message fail @ message }" imports "eval ok: 'negative cannot be a natural'"
   , evalOkWith "complex sine of zero is zero" "use ground.tung use numeric/complex.tung yield ((0.0 complex 0.0) sine) real" imports "eval ok: 0.0"
@@ -294,11 +301,11 @@ importedCases imports =
   , evalOkWith "complex sine of unit imaginary yieldeþ hyperbolic sine" "use ground.tung use numeric/complex.tung yield ((0.0 complex 1.0) sine) imaginary" imports "eval ok: 1.1752011936438014"
   , evalOkWith "complex cosine of unit imaginary yieldeþ hyperbolic cosine" "use ground.tung use numeric/complex.tung yield ((0.0 complex 1.0) cosine) real" imports "eval ok: 1.5430806348152437"
   , evalOkWith "nonempty map preserveþ the first element" "use ground.tung use ilk/list.tung use ilk/nonempty.tung yield ((1 nonempty (2 _* empty)) map { x @ x + 1 }) to-list" imports "eval ok: (2 (3 empty _*) _*)"
-  , evalOkWith "nonempty semigroup appendeþ without losing the head" "use ground.tung use ilk/list.tung use ilk/nonempty.tung use algebra/total/magma.tung yield ((1 nonempty (2 _* empty)) * (3 nonempty empty)) to-list" imports "eval ok: (1 (2 (3 empty _*) _*) _*)"
+  , evalOkWith "nonempty semigroup appendeþ without losing the head" "use ground.tung use ilk/list.tung use ilk/nonempty.tung use frame/algebra/total/magma.tung yield ((1 nonempty (2 _* empty)) * (3 nonempty empty)) to-list" imports "eval ok: (1 (2 (3 empty _*) _*) _*)"
   , evalOkWith "nonempty applicative applieþ every function" "use ground.tung use ilk/list.tung use ilk/nonempty.tung let values = 1 nonempty (2 _* empty) let fs = { x @ x + 1 } nonempty ({ x @ x × 2 } _* empty) yield (values apply fs) to-list" imports "eval ok: (2 (3 (2 (4 empty _*) _*) _*) _*)"
   , evalOkWith "nonempty monad concatenateþ every result" "use ground.tung use ilk/list.tung use ilk/nonempty.tung let values = 1 nonempty (2 _* empty) yield (values map-flat { x @ x nonempty ((x + 10) _* empty) }) to-list" imports "eval ok: (1 (11 (2 (12 empty _*) _*) _*) _*)"
-  , evalOkWith "nonempty catamorphism visiteþ the head first" "use ground.tung use ilk/list.tung use ilk/nonempty.tung use collection/catamorphism.tung yield (1 nonempty (2 _* empty)) fold₁ 0 +" imports "eval ok: 3"
-  , evalOkWith "nonempty traversal keepeþ a nonempty result" "use ground.tung use ilk/list.tung use ilk/nonempty.tung use ilk/option.tung use collection/traverse.tung yield ((1 nonempty (2 _* empty)) traverse { x @ (x + 1) some }) map to-list" imports "eval ok: ((2 (3 empty _*) _*) some)"
+  , evalOkWith "nonempty catamorphism visiteþ the head first" "use ground.tung use ilk/list.tung use ilk/nonempty.tung use frame/functor/cata.tung yield (1 nonempty (2 _* empty)) fold₁ 0 +" imports "eval ok: 3"
+  , evalOkWith "nonempty traversal keepeþ a nonempty result" "use ground.tung use ilk/list.tung use ilk/nonempty.tung use ilk/option.tung use frame/functor/traverse.tung yield ((1 nonempty (2 _* empty)) traverse { x @ (x + 1) some }) map to-list" imports "eval ok: ((2 (3 empty _*) _*) some)"
   , evalOkWith "nonempty membership delegateþ to list" "use ground.tung use ilk/list.tung use ilk/nonempty.tung yield (1 nonempty (2 _* empty)) ∋ 2" imports "eval ok: yea"
   , evalOkWith "table put replaceþ a key" "use ground.tung use ilk/table.tung let table = (empty put 'a' 1) put 'a' 2 yield table lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table membership dispatcheþ through inhold" "use ground.tung use ilk/table.tung let table = empty put 'a' 1 yield table ∋ 'a'" imports "eval ok: yea"
@@ -319,24 +326,26 @@ importedCases imports =
   , evalOkWith "powerset infimum is intersection" "use ground.tung use ilk/powerset.tung let left: ℤ powerset = { value @ (value ≡ 1) ∨ (value ≡ 2) } let right: ℤ powerset = { value @ value ≡ 2 } yield (left ∧ right) ∋ 1" imports "eval ok: nay"
   , evalOkWith "powerset complement excludeþ a former member" "use ground.tung use ilk/powerset.tung let one: ℤ powerset = { value @ value ≡ 1 } let outside: ℤ powerset = one ¬ yield outside ∋ 1" imports "eval ok: nay"
   , evalOkWith "powerset complement includeþ a former nonmember" "use ground.tung use ilk/powerset.tung let one: ℤ powerset = { value @ value ≡ 1 } let outside: ℤ powerset = one ¬ yield outside ∋ 2" imports "eval ok: yea"
+  , evalOkWith "powerset updates compose pointwise" "use ground.tung use ilk/powerset.tung let left: ℤ powerset = (powerset~empty put 1) put 2 let right: ℤ powerset = powerset~empty put 2 yield >(∧, left ∋ 1, ((left rid 1) ∋ 1) ¬, (left ∖ right) ∋ 1, ((left ∖ right) ∋ 2) ¬)" imports "eval ok: yea"
   , evalOkWith "powerset subtraction is symmetric difference" "use ground.tung use ilk/powerset.tung let values: ℤ powerset = { value @ value ≡ 1 } yield ((values - values) ∋ 1)" imports "eval ok: nay"
   , evalOkWith "powerset zero is empty" "use ground.tung use ilk/powerset.tung let values: ℤ powerset = zero yield values ∋ 7" imports "eval ok: nay"
   , evalOkWith "powerset one is universal" "use ground.tung use ilk/powerset.tung let values: ℤ powerset = one yield values ∋ 7" imports "eval ok: yea"
   , evalOkWith "set becomeþ a powerset" "use ground.tung use ilk/set.tung use ilk/powerset.tung let finite = set~empty set~put 7 yield (finite to-powerset) ∋ 7" imports "eval ok: yea"
-  , evalOkWith "powerset infimal wrapper useþ intersection" "use ground.tung use ilk/list.tung use ilk/powerset.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let one: ℤ powerset = { value @ value ≡ 1 } let both: ℤ powerset = { value @ (value ≡ 1) ∨ (value ≡ 2) } let wrapped = (one infimal) _* ((both infimal) _* list~empty) yield match wrapped …* { result infimal @ result ∋ 2 }" imports "eval ok: nay"
-  , evalOkWith "powerset supremal wrapper useþ union" "use ground.tung use ilk/list.tung use ilk/powerset.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let one: ℤ powerset = { value @ value ≡ 1 } let two: ℤ powerset = { value @ value ≡ 2 } let wrapped = (one supremal) _* ((two supremal) _* list~empty) yield match wrapped …* { result supremal @ result ∋ 2 }" imports "eval ok: yea"
-  , evalTypeErrWith "powerset hath no arbitrarily chosen monoid" "use ground.tung use ilk/list.tung use ilk/powerset.tung use algebra/total/semigroup.tung use collection/catamorphism.tung let values: (ℤ powerset) list = list~empty yield values …*" imports
+  , evalOkWith "powerset infimal wrapper useþ intersection" "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let one: ℤ powerset = { value @ value ≡ 1 } let both: ℤ powerset = { value @ (value ≡ 1) ∨ (value ≡ 2) } let wrapped = (one infimal) _* ((both infimal) _* list~empty) yield match wrapped …* { result infimal @ result ∋ 2 }" imports "eval ok: nay"
+  , evalOkWith "powerset supremal wrapper useþ union" "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let one: ℤ powerset = { value @ value ≡ 1 } let two: ℤ powerset = { value @ value ≡ 2 } let wrapped = (one supremal) _* ((two supremal) _* list~empty) yield match wrapped …* { result supremal @ result ∋ 2 }" imports "eval ok: yea"
+  , evalOkWith "empty powerset wrapper monoids select þeir bounds" "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let meets: ((ℤ powerset) infimal) list = list~empty let joins: ((ℤ powerset) supremal) list = list~empty yield >(∧, match meets …* { result infimal @ result ∋ 42 }, match joins …* { result supremal @ (result ∋ 42) ¬ })" imports "eval ok: yea"
+  , evalTypeErrWith "powerset hath no arbitrarily chosen monoid" "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/algebra/partial/semigroup.tung use frame/functor/cata.tung let values: (ℤ powerset) list = list~empty yield values …*" imports
   , evalOkWith "table functor mapeþ values" "use ground.tung use ilk/table.tung let table = (empty put 'a' 1) put 'b' 2 yield (table map { x @ x + 10 }) lookup 'a'" imports "eval ok: (11 some)"
-  , evalOkWith "table filter keepeþ matching values" "use ground.tung use ilk/table.tung use collection/filter.tung let table = (empty put 'a' 1) put 'b' 2 yield (table filter { x @ 2 ≤ x }) lookup 'a'" imports "eval ok: none"
+  , evalOkWith "table filter keepeþ matching values" "use ground.tung use ilk/table.tung use frame/functor/filter.tung let table = (empty put 'a' 1) put 'b' 2 yield (table filter { x @ 2 ≤ x }) lookup 'a'" imports "eval ok: none"
   , evalOkWith "table merge preferreþ right values" "use ground.tung use ilk/table.tung let left = empty put 'a' 1 let right = empty put 'a' 2 yield (left merge right) lookup 'a'" imports "eval ok: (2 some)"
   , evalOkWith "table adjust changeþ an existing value" "use ground.tung use ilk/table.tung let table = empty put 'a' 1 yield (table adjust 'a' { x @ x + 1 }) lookup 'a'" imports "eval ok: (2 some)"
-  , evalOkWith "text operations use unicode code points" "use ground.tung use text/operation.tung yield ('aβ字' reverse-text) take-text 2" imports "eval ok: '字β'"
-  , evalOkWith "text size counteþ unicode code points" "use ground.tung use text/operation.tung use collection/size.tung use ilk/natural.tung yield ('aβ字' size) to-ℤ" imports "eval ok: 3"
-  , evalOkWith "text split and join preserve empty fields" "use ground.tung use text/operation.tung yield ('a,b,,c' split-text `,) join-wiþ-text '.'" imports "eval ok: 'a.b..c'"
-  , evalOkWith "text words collapse whitespace runs" "use ground.tung use text/operation.tung yield ' red\\tblue\\nred ' words-text $ join-wiþ-text '.'" imports "eval ok: 'red.blue.red'"
+  , evalOkWith "text operations use unicode code points" "use ground.tung use ilk/text/operation.tung yield ('aβ字' reverse-text) take-text 2" imports "eval ok: '字β'"
+  , evalOkWith "text size counteþ unicode code points" "use ground.tung use ilk/text/operation.tung use frame/size.tung use ilk/natural.tung yield ('aβ字' size) to-ℤ" imports "eval ok: 3"
+  , evalOkWith "text split and join preserve empty fields" "use ground.tung use ilk/text/operation.tung yield ('a,b,,c' split-text `,) join-wiþ-text '.'" imports "eval ok: 'a.b..c'"
+  , evalOkWith "text words collapse whitespace runs" "use ground.tung use ilk/text/operation.tung yield ' red\\tblue\\nred ' words-text $ join-wiþ-text '.'" imports "eval ok: 'red.blue.red'"
   , evalOkWith "typed paþs join components" "use ground.tung use ilk/path.tung yield (('root' paþ) join-paþ ('leaf' paþ)) to-text" imports "eval ok: 'root/leaf'"
   , evalOkWith "time spans drive async sleep" "use ground.tung use ilk/milliseconds.tung yield (0 milliseconds) sleep-for" imports "eval ok: only"
-  , evalOkWith "process captureþ standard output" "use ground.tung use process.tung use process/result.tung use ilk/list.tung yield ('printf' run-process ('hello' _* empty)) process-output" imports "eval ok: 'hello'"
+  , evalOkWith "process captureþ standard output" "use ground.tung use deed/process.tung use process/result.tung use ilk/list.tung yield ('printf' run-process ('hello' _* empty)) process-output" imports "eval ok: 'hello'"
   , evalTypeErrWith "missing import is rejected before runtime" "use missing.tung" Map.empty
   , evalTypeErrWith "import cycle is rejected before runtime" "use left.tung" cyclicImports
   , evalOkWith "arctan range is nonnegative" "use _foreign.tung yield 0.0 arctan-float -1.0" imports "eval ok: 4.71238898038469"
@@ -412,6 +421,12 @@ importedCases imports =
   dottedDirectoryEffectImports = Map.fromList [("pkg.one/query.tung", queryEffect), ("pkg.two/query.tung", queryEffect)]
   queryEffect = "show deed query { ℤ ask: ℤ }"
   cyclicImports = Map.fromList [("left.tung", "use right.tung"), ("right.tung", "use left.tung")]
+  freePrelude =
+    "use frame/functor/functor-deedless.tung use ilk/free.tung "
+      ++ "ilk a request { (ℤ → a) ask, stop } "
+      ++ "fill request functor-deedless { let remap = { next ask, change @ { value @ (value next) change } ask, stop, _ @ stop } } "
+      ++ "let ask-free = ({ value @ value } ask) lift "
+      ++ "let (program: request free ℤ) run-free: ℤ = { next ask @ (1 next) + (2 next), stop @ 0 } fold { value @ value } program "
 
 randomRange :: Map.Map String String -> Test
 randomRange imports = do
@@ -434,13 +449,13 @@ concurrentForks imports =
 
 systemArguments :: Map.Map String String -> Test
 systemArguments imports = do
-  actual <- evaluateWithArgsAndImports ["north", "two words"] "use ground.tung use system.tung yield only arguments" imports
+  actual <- evaluateWithArgsAndImports ["north", "two words"] "use ground.tung use deed/system.tung yield only arguments" imports
   pure $ if actual == "eval ok: ('north' ('two words' empty _*) _*)" then Nothing else Just ("system arguments: " ++ actual)
 
 systemEnvironment :: Map.Map String String -> Test
 systemEnvironment imports = bracket (Environment.lookupEnv name) restore $ \_ -> do
   Environment.setEnv name "seen"
-  actual <- evaluateWithImports ("use ground.tung use system.tung yield '" ++ name ++ "' environment") imports
+  actual <- evaluateWithImports ("use ground.tung use deed/system.tung yield '" ++ name ++ "' environment") imports
   pure $ if actual == "eval ok: ('seen' some)" then Nothing else Just ("system environment: " ++ actual)
  where
   name = "TUNG_TEST_ENVIRONMENT"
@@ -450,7 +465,7 @@ systemEnvironment imports = bracket (Environment.lookupEnv name) restore $ \_ ->
 unixTime :: Map.Map String String -> Test
 unixTime imports = do
   before <- floor <$> getPOSIXTime
-  actual <- evaluateWithImports "use ground.tung use clock.tung yield only unix-time" imports
+  actual <- evaluateWithImports "use ground.tung use deed/clock.tung yield only unix-time" imports
   after <- floor <$> getPOSIXTime
   pure $ case stripPrefix "eval ok: " actual >>= readMaybe of
     Just value | value >= (before :: Int) && value <= after -> Nothing

@@ -1,0 +1,43 @@
+use _foreign.tung
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-partial.tung
+use frame/algebra/order/order-total.tung
+use frame/algebra/partial/semigroup.tung
+use frame/algebra/total/monoid.tung
+use frame/equal.tung
+use ilk/list.tung
+use ilk/option.tung
+use ilk/product.tung
+use ilk/two.tung
+
+fill text equal {
+  let ≡ = equal-text
+}
+
+fill unicode equal {
+  let ≡ = equal-unicode
+}
+
+fill text less-equal {
+  let ≤ = less-equal-text
+}
+
+fill text order-partial {}
+
+fill text order-total {}
+
+fill unicode less-equal {
+  let ≤ = less-equal-unicode
+}
+
+fill unicode order-partial {}
+
+fill unicode order-total {}
+
+fill text semigroup {
+  let * = join-text
+}
+
+fill text monoid {
+  let ∅ = ''
+}

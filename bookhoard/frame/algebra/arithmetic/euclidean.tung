@@ -1,0 +1,35 @@
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/divide-remainder.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/ring.tung
+use frame/algebra/arithmetic/subtract.tung
+use frame/algebra/arithmetic/zero.tung
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-total.tung
+use ilk/product.tung
+use ilk/two.tung
+
+## euclidean division, whose remainder lieþ between zero and þe divisor's
+## absolute magnitude. each law shareþ þe operations' division-by-zero effect.
+graiþ a ring, a divide-remainder, a order-total
+show frame a euclidean {
+  law (dividend: a, divisor: a):
+    match dividend % divisor {
+      quotient ∏ rest @ (quotient × divisor) + rest
+    } ~ dividend + (zero × ((dividend % divisor) project₁))
+
+  law (dividend: a, divisor: a):
+    zero ≤ ((dividend % divisor) project₁)
+      ~ match dividend % divisor {
+        _ ∏ rest @ rest ≤ rest
+      }
+
+  law (dividend: a, divisor: a):
+    match dividend % divisor {
+      _ ∏ rest @ (zero ≤ divisor) if (rest < divisor) (rest < (zero - divisor))
+    } ~ match dividend % divisor {
+      _ ∏ rest @ rest ≤ rest
+    }
+}
+
+fill ℤ euclidean {}

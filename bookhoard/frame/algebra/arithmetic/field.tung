@@ -1,0 +1,9 @@
+use frame/algebra/arithmetic/divide.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/ring.tung
+
+graiþ a ring, a divide
+show frame a field {
+  law (dividend: a, divisor: a):
+    (dividend ÷ divisor) × divisor ~ dividend
+}

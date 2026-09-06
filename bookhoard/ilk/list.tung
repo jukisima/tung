@@ -1,23 +1,21 @@
-use ilk/one.tung
-use ilk/two.tung
-use algebra/partial/category.tung
-use equal.tung
-use order.tung
-use ilk/product.tung
-use algebra/total/magma.tung
-use algebra/total/semigroup.tung
-use algebra/total/monoid.tung
-use algebra/arithmetic/semiring.tung
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/partial/semigroup.tung
+use frame/algebra/total/magma.tung
+use frame/algebra/total/monoid.tung
+use frame/equal.tung
+use frame/functor.tung
+use frame/functor/applicative.tung
+use frame/functor/cata.tung
+use frame/functor/filter.tung
+use frame/functor/monad.tung
+use frame/functor/traverse.tung
+use frame/inhold.tung
+use frame/size.tung
 use ilk/natural.tung
+use ilk/one.tung
 use ilk/option.tung
-use collection/size.tung
-use collection/catamorphism.tung
-use collection/functor.tung
-use collection/applicative.tung
-use collection/monad.tung
-use collection/filter.tung
-use collection/inhold.tung
-use collection/traverse.tung
+use ilk/product.tung
+use ilk/two.tung
 
 deed e fail {
   e fail: a
@@ -88,11 +86,7 @@ fill list filter {
 }
 
 show let each: a list → (a → 𝟙 ! e) → 𝟙 ! e = {
-  empty, _ @ only,
-  first _* rest, action @ (
-    let _ = first action
-    yield rest each action
-  )
+  list, action @ list fold₁ only { _, a @ a action }
 }
 
 ## first list element, if present.
@@ -182,7 +176,7 @@ show let (list: a list, index: ℤ) at: a ! text fail = match index ≤ -1 {
 
 ## final element, if present.
 show let (list: a list) last: a option =
-  (list reverse) head
+  list fold₁ none { _, a @ a some }
 
 ## repeat a value count times.
 show let (a: a, count: ℤ) replicate: a list =
@@ -193,19 +187,13 @@ show let (a: a, count: ℤ) replicate: a list =
 
 ## split values accepted and rejected by a predicate.
 show let partition: a list → (a → 𝟚 ! e) → (a list) ∏ (a list) ! e = {
-  empty, _ @ empty ∏ empty,
-  first _* rest, f @ match rest partition f {
-    accepted ∏ rejected @ match first f {
-      yea @ (first _* accepted) ∏ rejected,
-      nay @ accepted ∏ (first _* rejected)
-    }
+  list, f @ list fold₀ (empty ∏ empty) { a, accepted ∏ rejected @
+    (a f) if ((a _* accepted) ∏ rejected) (accepted ∏ (a _* rejected))
   }
 }
 
 ## split a list of products into two lists.
-show let unzip: (a ∏ b) list → (a list) ∏ (b list) = {
-  empty @ empty ∏ empty,
-  (a ∏ b) _* pairs @ match pairs unzip {
-    a… ∏ b… @ (a _* a…) ∏ (b _* b…)
+show let (pairs: (a ∏ b) list) unzip: (a list) ∏ (b list) =
+  pairs fold₀ (empty ∏ empty) { a ∏ b, a… ∏ b… @
+    (a _* a…) ∏ (b _* b…)
   }
-}

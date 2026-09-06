@@ -163,17 +163,17 @@ primitiveShapeTarget PrimitiveShape{primitiveShapeSource, primitiveShapeName} = 
 
 primitiveShapes :: [PrimitiveShape]
 primitiveShapes =
-  [ frame "equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two)
-  , frame "order.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two)
-  , frame "algebra/arithmetic/semiring.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , frame "algebra/arithmetic/semiring.tung" "zero" "zero" (variable "a")
-  , frame "algebra/arithmetic/ring.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , frame "algebra/arithmetic/semiring.tung" "multiply" "×" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , frame "algebra/arithmetic/semiring.tung" "one" "one" (variable "a")
-  , frame "algebra/arithmetic/euclidean.tung" "divide-remainder" "%" (arrow [variable "a", variable "a"] [failText] (TypeApply "∏" [variable "a", variable "a"]))
-  , frame "algebra/arithmetic/field.tung" "divide" "÷" (arrow [variable "a", variable "a"] [] (variable "a"))
-  , frame "text/from-text.tung" "from-text" "from-text" (arrow [text] [failText] (variable "a"))
-  , frame "text/to-text.tung" "to-text" "to-text" (arrow [variable "a"] [] text)
+  [ frame "frame/equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two)
+  , frame "frame/algebra/order/less-equal.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two)
+  , frame "frame/algebra/arithmetic/add.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "frame/algebra/arithmetic/zero.tung" "zero" "zero" (variable "a")
+  , frame "frame/algebra/arithmetic/subtract.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "frame/algebra/arithmetic/multiply.tung" "multiply" "×" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "frame/algebra/arithmetic/one.tung" "one" "one" (variable "a")
+  , frame "frame/algebra/arithmetic/divide-remainder.tung" "divide-remainder" "%" (arrow [variable "a", variable "a"] [failText] (TypeApply "∏" [variable "a", variable "a"]))
+  , frame "frame/algebra/arithmetic/divide.tung" "divide" "÷" (arrow [variable "a", variable "a"] [] (variable "a"))
+  , frame "frame/from-text.tung" "from-text" "from-text" (arrow [text] [failText] (variable "a"))
+  , frame "frame/to-text.tung" "to-text" "to-text" (arrow [variable "a"] [] text)
   ]
  where
   frame source name member signature = PrimitiveShape source name ["a"] (member, TypeAnn signature [])

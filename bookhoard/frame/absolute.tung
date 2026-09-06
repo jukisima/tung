@@ -1,0 +1,15 @@
+use frame/algebra/arithmetic/subtract.tung
+use frame/algebra/order/less-equal.tung
+use ilk/two.tung
+
+show frame a absolute b {
+  let a absolute: b
+}
+
+fill ℤ absolute ℤ {
+  let integer absolute = (0 ≤ integer) if integer (0 - integer)
+}
+
+fill float absolute float {
+  let float absolute = (0.0 ≤ float) if float (0.0 - float)
+}

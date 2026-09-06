@@ -1,13 +1,11 @@
-use ilk/two.tung
 use combinator.tung
-use algebra/partial/category.tung
-use algebra/partial/semigroupoid.tung
-use equal.tung
-use collection/inhold.tung
-use algebra/arithmetic/ring.tung
-use algebra/total/monoid.tung
-use algebra/total/semigroup.tung
-use order/lattice.tung
+use frame/algebra/order/complement.tung
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal.tung
+use frame/algebra/partial/semigroupoid.tung
+use frame/equal.tung
+use frame/inhold.tung
+use ilk/two.tung
 
 ## a powerset represented by its membership predicate.
 show let-ilk a powerset = a func 𝟚
@@ -24,28 +22,15 @@ fill (a powerset) inhold a {
 }
 
 graiþ a equal
-show let (powerset: a powerset, a: a) put: a powerset = {
-  b @ (b ≡ a) ∨ (b powerset)
-}
+show let (powerset: a powerset, a: a) put: a powerset =
+  powerset ∨ (a singleton)
 
 graiþ a equal
-show let (powerset: a powerset, a: a) rid: a powerset = {
-  b @ (b ≢ a) ∧ (b powerset)
-}
+show let (powerset: a powerset, a: a) rid: a powerset =
+  powerset ∧ (a singleton $ ¬)
 
 show let (powerset₀: a powerset, powerset₁: a powerset)
-  ∖: a powerset = {
-    a @ (a powerset₀) ∧ (a powerset₁ $ ¬)
-  }
-
-graiþ (a powerset) semilattice-infimal
-fill ((a powerset) infimal) semigroup {
-  let (a infimal) * (b infimal) = (a ∧ b) infimal
-}
-
-fill ((a powerset) infimal) monoid {
-  let ∅ = universe infimal
-}
+  ∖: a powerset = powerset₀ ∧ (powerset₁ ¬)
 
 fill (a powerset) complement {
   let powerset ¬ = powerset ∘ ¬

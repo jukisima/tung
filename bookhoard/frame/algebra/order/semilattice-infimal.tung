@@ -1,0 +1,21 @@
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-total.tung
+use ilk/two.tung
+
+## a carrier whose every pair haþ an infimum.
+show frame a semilattice-infimal {
+  let a ∧ a: a
+  law (a: a): a ∧ a ~ a
+  law (a: a, b: a): a ∧ b ~ b ∧ a
+  law (a: a, b: a, c: a): (a ∧ b) ∧ c ~ a ∧ (b ∧ c)
+}
+
+graiþ b semilattice-infimal
+fill (a func b) semilattice-infimal {
+  let f ∧ g a = (a f) ∧ (a g)
+}
+
+graiþ a order-total
+fill a semilattice-infimal {
+  let a ∧ b = (a ≤ b) if a b
+}

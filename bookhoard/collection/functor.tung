@@ -1,7 +1,0 @@
-use algebra/partial/category.tung
-
-show frame f functor {
-  let (a f) map (a → b ! e): b f ! e
-
-  law (af: a f): af map (identity: a → a) ~ af
-}

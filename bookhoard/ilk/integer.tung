@@ -1,15 +1,44 @@
 use _foreign.tung
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/monoid-additive.tung
+use frame/algebra/arithmetic/monoid-multiplicative.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use frame/algebra/arithmetic/semiring.tung
+use frame/algebra/arithmetic/subtract.tung
+use frame/algebra/arithmetic/zero.tung
+use frame/algebra/order/less-equal.tung
 use ilk/natural.tung
 use ilk/two.tung
-use order.tung
-use order/lattice.tung
 
 ## convert a nonnegative integer to a natural.
 show let (integer: ℤ) to-ℕ: ℕ ! text fail =
   match 0 ≤ integer {
     yea @ match integer {
-      0 @ zero,
+      0 @ natural~zero,
       n @ (n - 1) to-ℕ $ suc
     },
     nay @ 'negative cannot be a natural' fail
   }
+
+fill ℤ add {
+  let + = add-integer
+}
+
+fill ℤ zero {
+  let zero = 0
+}
+
+fill ℤ multiply {
+  let × = multiply-integer
+}
+
+fill ℤ one {
+  let one = 1
+}
+
+fill ℤ monoid-additive {}
+
+fill ℤ monoid-multiplicative {}
+
+fill ℤ semiring {}

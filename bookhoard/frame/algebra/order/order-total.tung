@@ -1,0 +1,27 @@
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-partial.tung
+use frame/equal.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a partial order in which every pair is comparable.
+graiþ a order-partial
+show frame a order-total {
+  law (a: a, b: a): ((a ≤ b) ≡ nay) ≤ (b ≤ a) ~ yea
+}
+
+graiþ a order-total, a less-equal
+show let (a: a, b: a) compare: 𝟛 = (a ≤ b) if ((b ≤ a) if mid fore) aft
+
+## keep a value wiþin inclusive bounds of a total order.
+graiþ a order-total
+show let (lower: a, upper: a, a: a) clamp: a = (
+  let raised = (lower ≤ a) if a lower
+  yield (raised ≤ upper) if raised upper
+)
+
+fill 𝟚 order-total {}
+
+fill 𝟛 order-total {}
+
+fill ℤ order-total {}

@@ -9,7 +9,7 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, listToMaybe)
 import Data.Set qualified as Set
 import System.Directory (doesDirectoryExist, listDirectory)
-import System.FilePath (takeExtension, (</>))
+import System.FilePath (takeBaseName, takeExtension, (</>))
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
 import Tung
@@ -28,6 +28,7 @@ group = do
       : systemExplicitCase imports
       : runnerEffectsCase imports
       : primitiveCatalogueCase imports
+      : frameLayoutCase
       : map (typeCase imports) bookhoardImportFiles
       ++ map oneDataTypeCase (nub (map fst bookhoardImportFiles))
 
@@ -118,7 +119,7 @@ runnerEffectsCase imports =
     actual -> Just ("runner effects: " ++ actual)
  where
   source =
-    "use ground.tung use clock.tung use process.tung use system.tung use web/server.tung use ilk/list.tung use ilk/option.tung "
+    "use ground.tung use deed/clock.tung use deed/process.tung use deed/system.tung use web/server.tung use ilk/list.tung use ilk/option.tung "
       ++ "let (_: request) route: response = 'ok' ok "
       ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process, web = ("
       ++ "let args = only arguments "
@@ -182,3 +183,25 @@ isDataDecl :: Decl -> Bool
 isDataDecl DataDecl{} = True
 isDataDecl (Export declaration) = isDataDecl declaration
 isDataDecl _ = False
+
+frameLayoutCase :: Test
+frameLayoutCase = listToMaybe . catMaybes <$> traverse checkModule (nub (map fst bookhoardImportFiles))
+ where
+  checkModule path = do
+    source <- readFile path
+    pure $ case parse source of
+      Left message -> Just ("parse " ++ path ++ ": " ++ message)
+      Right (Program declarations) -> checkFrames path (concatMap frameNames declarations)
+  checkFrames path names
+    | framePrefix `isPrefixOf` path = case names of
+        [name] | name == takeBaseName path -> Nothing
+        [name] -> Just (path ++ " defineþ frame '" ++ name ++ "'")
+        _ -> Just (path ++ " owneþ " ++ show (length names) ++ " frames")
+    | null names = Nothing
+    | otherwise = Just (path ++ " defineþ a frame outside the frame directory")
+  framePrefix = (".." </> "bookhoard" </> "frame") ++ "/"
+
+frameNames :: Decl -> [String]
+frameNames (ShapeDecl _ name _ _) = [name]
+frameNames (Export declaration) = frameNames declaration
+frameNames _ = []

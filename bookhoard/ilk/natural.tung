@@ -1,8 +1,16 @@
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/monoid-additive.tung
+use frame/algebra/arithmetic/monoid-multiplicative.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use frame/algebra/arithmetic/semiring.tung
+use frame/algebra/arithmetic/zero.tung
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-partial.tung
+use frame/algebra/order/order-total.tung
+use frame/algebra/order/semilattice-supremal-bounded.tung
+use frame/equal.tung
 use ilk/two.tung
-use equal.tung
-use order.tung
-use order/lattice.tung
-use algebra/arithmetic/semiring.tung
 
 show ilk ℕ {
   zero,

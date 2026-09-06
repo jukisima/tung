@@ -1,5 +1,5 @@
 use ilk/table.tung
-use text/structure.tung
+use ilk/text/structure.tung
 
 ## an http response wiþ its status, headers, and utf-8 body.
 show ilk response {

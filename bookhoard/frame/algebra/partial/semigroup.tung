@@ -1,0 +1,28 @@
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal.tung
+use frame/algebra/total/magma.tung
+use ilk/infimal.tung
+use ilk/supremal.tung
+
+graiþ a magma
+show frame a semigroup {
+  law (a: a, b: a, c: a): a * (b * c) ~ (a * b) * c
+}
+
+show-ilk infimal, supremal
+show infimal, supremal
+
+graiþ b semigroup
+fill (a func b) semigroup {
+  let f * g a = (a f) * (a g)
+}
+
+graiþ a semilattice-infimal
+fill (a infimal) semigroup {
+  let (a infimal) * (b infimal) = (a ∧ b) infimal
+}
+
+graiþ a semilattice-supremal
+fill (a supremal) semigroup {
+  let (a supremal) * (b supremal) = (a ∨ b) supremal
+}

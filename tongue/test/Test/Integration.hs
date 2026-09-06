@@ -77,7 +77,7 @@ webServerRoundTrip imports = do
   let source =
         """
         use ground.tung
-        use clock.tung
+        use deed/clock.tung
         use ilk/option.tung
         use ilk/table.tung
         use web/server.tung
@@ -103,7 +103,7 @@ webServerRoundTrip imports = do
           ++ " serve route { _ fail @ only }"
   server <- forkIO (void (evaluateMainWithImports source imports))
   -- type checking and evaluator startup share this budget with the round trip.
-  response <- Timeout.timeout 10000000 (tryIOException (requestEventually 300 port)) `finally` killThread server
+  response <- Timeout.timeout 30000000 (tryIOException (requestEventually 300 port)) `finally` killThread server
   pure case response of
     Nothing -> Just "web server round trip timed out"
     Just (Left exception) -> Just ("web server did not accept a connection: " ++ show exception)

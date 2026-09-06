@@ -1,9 +1,12 @@
 use _foreign.tung
-use algebra/arithmetic/semiring.tung
-use algebra/arithmetic/ring.tung
-use algebra/arithmetic/field.tung
-use numeric/absolute.tung
-use numeric/elementary.tung
+use frame/absolute.tung
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/divide.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use frame/algebra/arithmetic/subtract.tung
+use frame/algebra/arithmetic/zero.tung
+use frame/elementary.tung
 
 show ilk a complex {
   a complex a

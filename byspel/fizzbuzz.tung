@@ -1,7 +1,7 @@
+use frame/algebra/partial/semigroupoid.tung
 use ground.tung
 use ilk/list.tung
 use ilk/product.tung
-use algebra/partial/semigroupoid.tung
 
 graiþ a divide-remainder, a zero, a equal
 let (divisor: a, dividend: a) can-divide: 𝟚 =

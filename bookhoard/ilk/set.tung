@@ -1,14 +1,21 @@
+use frame/algebra/order/complement.tung
+use frame/algebra/order/lattice-distributive.tung
+use frame/algebra/order/lattice.tung
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-partial.tung
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal-bounded.tung
+use frame/algebra/order/semilattice-supremal.tung
+use frame/algebra/partial/semigroup.tung
+use frame/algebra/total/monoid.tung
+use frame/equal.tung
+use frame/functor/cata.tung
+use frame/functor/filter.tung
+use frame/inhold.tung
+use frame/size.tung
 use ilk/list.tung
-use ilk/two.tung
 use ilk/powerset.tung
-use equal.tung
-use collection/catamorphism.tung
-use collection/inhold.tung
-use collection/size.tung
-use algebra/total/semigroup.tung
-use algebra/total/monoid.tung
-use order.tung
-use order/lattice.tung
+use ilk/two.tung
 
 ## a list-backed finite set.
 show ilk a set {
@@ -31,22 +38,16 @@ graiþ (a list) inhold a
 show let (list from-list: a set, a: a) put: a set =
   (list ∋ a) if (list from-list) ((a _* list) from-list)
 
-graiþ a equal
-show let (list from-list: a set, a: a) rid: a set =
-  list fold₀ list~empty {
-    b, list′ @ (a ≡ b) if list′ (b _* list′)
-  } $ from-list
-
-graiþ (a list) inhold a
-show let (list₀ from-list: a set, list₁ from-list: a set) ∖: a set =
-  list₀ fold₀ list~empty {
-    value, kept @ (list₁ ∋ value) if kept (value _* kept)
-  } $ from-list
-
 show let (list from-list: a set, predicate: a → 𝟚 ! e) keep: a set ! e =
-  list fold₀ list~empty {
-    a, kept @ a predicate $ if (a _* kept) kept
-  } $ from-list
+  (list filter predicate) from-list
+
+graiþ a equal
+show let (set: a set, a: a) rid: a set =
+  set keep { b @ a ≢ b }
+
+graiþ (a set) inhold a
+show let (set₀: a set, set₁: a set) ∖: a set =
+  set₀ keep { value @ (set₁ ∋ value) ¬ }
 
 graiþ (a list) inhold a
 show let (list from-list: a set) to-powerset: a powerset = list ∋
@@ -56,21 +57,20 @@ fill (a set) size {
 }
 
 graiþ (a list) inhold a
+let (list₀: a list, list₁: a list) included: 𝟚 =
+  list₀ fold₀ yea { value, all-included @
+    all-included ∧ (list₁ ∋ value)
+  }
+
+graiþ (a list) inhold a
 fill (a set) equal {
   let (list₀ from-list) ≡ (list₁ from-list) =
-    list₀ fold₀ yea {
-      value, included @ included ∧ (list₁ ∋ value)
-    } $ if (list₁ fold₀ yea {
-        value, included @ included ∧ (list₀ ∋ value)
-    }) nay
+    (list₀ included list₁) ∧ (list₁ included list₀)
 }
 
 graiþ (a list) inhold a
 fill (a set) less-equal {
-  let (list₀ from-list) ≤ (list₁ from-list) =
-    list₀ fold₀ yea {
-      value, included @ included ∧ (list₁ ∋ value)
-    }
+  let (list₀ from-list) ≤ (list₁ from-list) = list₀ included list₁
 }
 
 graiþ (a list) inhold a
@@ -86,12 +86,9 @@ fill (a set) monoid {
   let ∅ = empty
 }
 
-graiþ (a list) inhold a
+graiþ (a set) inhold a
 fill (a set) semilattice-infimal {
-  let (list₀ from-list) ∧ (list₁ from-list) =
-    list₀ fold₀ list~empty {
-      value, kept @ (list₁ ∋ value) if (value _* kept) kept
-    } $ from-list
+  let set₀ ∧ set₁ = set₀ keep { value @ set₁ ∋ value }
 }
 
 graiþ (a list) inhold a

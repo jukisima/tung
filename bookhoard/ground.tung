@@ -1,27 +1,45 @@
 use _foreign.tung
-use ilk/zero.tung
-use ilk/one.tung
-use ilk/two.tung
-use ilk/three.tung
-use equal.tung
-use order.tung
-use order/lattice.tung
-use text/to-text.tung
-use text/from-text.tung
 use control.tung
-use algebra/arithmetic/semiring.tung
-use algebra/arithmetic/primitive.tung
-use algebra/arithmetic/ring.tung
-use algebra/arithmetic/field.tung
-use algebra/arithmetic/euclidean.tung
-use collection/functor.tung
-use collection/bifunctor.tung
-use collection/applicative.tung
-use collection/monad.tung
-use collection/inhold.tung
-use text/structure.tung
-use numeric/elementary.tung
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/divide-remainder.tung
+use frame/algebra/arithmetic/divide.tung
+use frame/algebra/arithmetic/euclidean.tung
+use frame/algebra/arithmetic/field.tung
+use frame/algebra/arithmetic/monoid-additive.tung
+use frame/algebra/arithmetic/monoid-multiplicative.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung one-frame
+use frame/algebra/arithmetic/ring.tung
+use frame/algebra/arithmetic/semiring.tung
+use frame/algebra/arithmetic/subtract.tung
+use frame/algebra/arithmetic/zero.tung zero-frame
+use frame/algebra/order/complement.tung
+use frame/algebra/order/lattice-bounded.tung
+use frame/algebra/order/lattice-distributive.tung
+use frame/algebra/order/lattice.tung
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-partial.tung
+use frame/algebra/order/order-total.tung
+use frame/algebra/order/semilattice-infimal-bounded.tung
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal-bounded.tung
+use frame/algebra/order/semilattice-supremal.tung
+use frame/elementary.tung
+use frame/equal.tung
+use frame/from-text.tung
+use frame/functor.tung
+use frame/functor/applicative.tung
+use frame/functor/bifunctor.tung
+use frame/functor/monad.tung
+use frame/inhold.tung
+use frame/to-text.tung
+use ilk/float.tung
 use ilk/integer.tung
+use ilk/one.tung
+use ilk/text/structure.tung
+use ilk/three.tung
+use ilk/two.tung
+use ilk/zero.tung
 
 ## write text followed by a newline.
 show let (text: text) write-line: 𝟙 ! console = (
@@ -79,5 +97,5 @@ show unicode-to-integer, integer-to-unicode
 show behead-text, text-to-list, list-to-text
 show map
 show bimap
-show pure, apply, lift₂, lift₃, keep-left, keep-right
+show pure, apply, lift₂, lift₃, keep-first, keep-other
 show flat, map-flat, þen, void

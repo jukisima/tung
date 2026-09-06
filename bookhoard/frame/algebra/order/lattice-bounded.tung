@@ -1,0 +1,16 @@
+use frame/algebra/order/lattice.tung
+use frame/algebra/order/semilattice-infimal-bounded.tung
+use frame/algebra/order/semilattice-supremal-bounded.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a lattice wiþ greatest and least values.
+graiþ a lattice, a semilattice-infimal-bounded, a semilattice-supremal-bounded
+show frame a lattice-bounded {}
+
+graiþ b lattice-bounded
+fill (a func b) lattice-bounded {}
+
+fill 𝟚 lattice-bounded {}
+
+fill 𝟛 lattice-bounded {}

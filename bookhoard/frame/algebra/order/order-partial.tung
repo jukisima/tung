@@ -1,0 +1,18 @@
+use frame/algebra/order/less-equal.tung
+use frame/equal.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a decidable partial order.
+graiþ a less-equal
+show frame a order-partial {
+  law (a: a): a ≤ a ~ yea
+  law (a: a, b: a): >(≤, a ≤ b, b ≤ a, a ≡ b) ~ yea
+  law (a: a, b: a, c: a): >(≤, a ≤ b, b ≤ c, a, c) ~ yea
+}
+
+fill 𝟚 order-partial {}
+
+fill 𝟛 order-partial {}
+
+fill ℤ order-partial {}

@@ -60,10 +60,10 @@ test("textmate giveþ a whole use path one scope", async () => {
   for (
     const line of [
       "use ground.tung",
-      "use algebra/arithmetic/field.tung",
+      "use frame/algebra/arithmetic/field.tung",
       "use _foreign.tung",
-      "use equal.tung",
-      "use order.tung",
+      "use frame/equal.tung",
+      "use frame/algebra/order/order-total.tung",
     ]
   ) {
     const start = "use ".length;

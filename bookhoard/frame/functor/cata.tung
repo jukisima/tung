@@ -1,0 +1,42 @@
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/monoid-additive.tung
+use frame/algebra/arithmetic/monoid-multiplicative.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use frame/algebra/arithmetic/zero.tung
+use frame/algebra/order/semilattice-infimal-bounded.tung
+use frame/algebra/order/semilattice-infimal.tung
+use frame/algebra/order/semilattice-supremal-bounded.tung
+use frame/algebra/order/semilattice-supremal.tung
+use frame/algebra/partial/semigroup.tung
+use frame/algebra/total/magma.tung
+use frame/algebra/total/monoid.tung
+
+show frame f cata {
+  let (a f) fold₀ b (a → b → b ! e): b ! e
+  let (a f) fold₁ b (b → a → b ! e): b ! e
+}
+
+graiþ a monoid, f cata
+show let (l: a f) …*: a = l fold₀ ∅ *
+
+## map values into a monoid and combine þem.
+graiþ b monoid, f cata
+show let (af: a f, f: a → b ! e) fold-map: b ! e =
+  af fold₁ ∅ { folded, a @ folded * (a f) }
+
+## combine every value wiþ ∧; an empty collection yieldeþ ⊤.
+graiþ f cata, a semilattice-infimal-bounded
+show let (af: a f) …∧: a = af fold₁ ⊤ ∧
+
+## combine every value wiþ ∨; an empty collection yieldeþ ⟂.
+graiþ f cata, a semilattice-supremal-bounded
+show let (af: a f) …∨: a = af fold₁ ⟂ ∨
+
+## add every value in a foldable collection.
+graiþ f cata, a monoid-additive
+show let (af: a f) …+: a = af fold₁ zero +
+
+## multiply every value in a foldable collection.
+graiþ f cata, a monoid-multiplicative
+show let (af: a f) …×: a = af fold₁ one ×

@@ -1,0 +1,21 @@
+use frame/algebra/order/less-equal.tung
+use frame/algebra/order/order-total.tung
+use ilk/two.tung
+
+## a carrier whose every pair haþ a supremum.
+show frame a semilattice-supremal {
+  let a ∨ a: a
+  law (a: a): a ∨ a ~ a
+  law (a: a, b: a): a ∨ b ~ b ∨ a
+  law (a: a, b: a, c: a): (a ∨ b) ∨ c ~ a ∨ (b ∨ c)
+}
+
+graiþ b semilattice-supremal
+fill (a func b) semilattice-supremal {
+  let f ∨ g a = (a f) ∨ (a g)
+}
+
+graiþ a order-total
+fill a semilattice-supremal {
+  let a ∨ b = (a ≤ b) if b a
+}
