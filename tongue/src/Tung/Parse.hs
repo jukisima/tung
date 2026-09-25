@@ -861,14 +861,14 @@ parseMatchCaseAlternatives ts = do
 parseMatchCasePatterns :: P (NonEmpty Pattern)
 parseMatchCasePatterns ts = do
   (firstPattern, rest) <- parsePattern ts
-  go (firstPattern :| []) rest
+  go firstPattern [] rest
  where
-  go acc rest = case rest of
+  go first acc rest = case rest of
     TComma : rest2 -> do
       (p, rest3) <- parsePattern rest2
-      go (acc <> (p :| [])) rest3
-    TIdent "|" : _ -> Right (acc, rest)
-    TMapsTo : _ -> Right (acc, rest)
+      go first (p : acc) rest3
+    TIdent "|" : _ -> Right (first :| reverse acc, rest)
+    TMapsTo : _ -> Right (first :| reverse acc, rest)
     _ -> Failed "expected ',', '|', or '@' after match pattern"
 
 parsePattern :: P Pattern
@@ -937,14 +937,16 @@ parseTypeAnnTokens tokens =
 parseFunctionResultUntilCommaOrBrace, parseFunctionResultUntilEquals :: P FunctionResult
 parseFunctionResultUntilCommaOrBrace = collect []
  where
-  collect seen ts = do
+  -- a result may contain several effect names separated by commas.
+  -- keep the consumed prefix reversed so each token is traversed once.
+  collect seenReversed ts = do
     (part, rest) <- takeTopLevelUntil ts (\case TComma -> True; TRBrace -> True; _ -> False) "unterminated type"
-    let resultTokens = seen ++ part
+    let resultReversed = reverse part ++ seenReversed
     case rest of
-      TRBrace : _ -> finishFunctionResult resultTokens rest
+      TRBrace : _ -> finishFunctionResult (reverse resultReversed) rest
       TComma : following
-        | startsEffectOperation following || startsRightBrace following -> finishFunctionResult resultTokens rest
-        | otherwise -> collect (resultTokens ++ [TComma]) following
+        | startsEffectOperation following || startsRightBrace following -> finishFunctionResult (reverse resultReversed) rest
+        | otherwise -> collect (TComma : resultReversed) following
       _ -> Failed "unterminated type"
 
   startsEffectOperation ts = case takeTopLevelUntil ts (\case TColon -> True; TComma -> True; TRBrace -> True; _ -> False) "expected effect operation" of

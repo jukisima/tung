@@ -5,11 +5,11 @@ use frame/algebra/arithmetic/multiply.tung
 use frame/algebra/arithmetic/one.tung
 use frame/algebra/arithmetic/semiring.tung
 use frame/algebra/arithmetic/zero.tung
-use frame/algebra/order/less-equal.tung
-use frame/algebra/order/order-partial.tung
-use frame/algebra/order/order-total.tung
-use frame/algebra/order/semilattice-supremal-bounded.tung
 use frame/equal.tung
+use frame/order/less-equal.tung
+use frame/order/order-partial.tung
+use frame/order/order-total.tung
+use frame/order/semilattice-upper-bounded.tung
 use ilk/two.tung
 
 show ilk ℕ {
@@ -37,7 +37,7 @@ fill ℕ order-partial {}
 
 fill ℕ order-total {}
 
-fill ℕ semilattice-supremal-bounded {
+fill ℕ semilattice-upper-bounded {
   let ⟂ = zero
 }
 

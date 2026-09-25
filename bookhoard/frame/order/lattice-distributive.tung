@@ -1,7 +1,7 @@
-use frame/algebra/order/lattice.tung
-use frame/algebra/order/order-total.tung
-use frame/algebra/order/semilattice-infimal.tung
-use frame/algebra/order/semilattice-supremal.tung
+use frame/order/lattice.tung
+use frame/order/order-total.tung
+use frame/order/semilattice-lower.tung
+use frame/order/semilattice-upper.tung
 
 ## a lattice whose infimum and supremum distribute over each oþer.
 graiþ a lattice

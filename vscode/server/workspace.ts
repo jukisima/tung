@@ -243,6 +243,21 @@ class WorkspaceIndex {
       return { model, token, definition: undefined };
     }
     const local = findDefinition(model, token, token.offset);
+    if (local?.role === "parameter" && !token.text.includes("~")) {
+      const constructors = this.resolveVisibleRole(
+        model,
+        token.text,
+        "enumMember",
+      );
+      if (constructors.length === 1) {
+        return {
+          model,
+          token,
+          definition: constructors[0],
+          candidates: constructors,
+        };
+      }
+    }
     if (local && !token.text.includes("~")) {
       return { model, token, definition: local };
     }

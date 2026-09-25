@@ -1,6 +1,6 @@
-use frame/algebra/order/semilattice-infimal.tung
-use frame/algebra/order/semilattice-supremal.tung
 use frame/algebra/total/magma.tung
+use frame/order/semilattice-lower.tung
+use frame/order/semilattice-upper.tung
 use ilk/infimal.tung
 use ilk/supremal.tung
 
@@ -17,12 +17,12 @@ fill (a func b) semigroup {
   let f * g a = (a f) * (a g)
 }
 
-graiþ a semilattice-infimal
+graiþ a semilattice-lower
 fill (a infimal) semigroup {
   let (a infimal) * (b infimal) = (a ∧ b) infimal
 }
 
-graiþ a semilattice-supremal
+graiþ a semilattice-upper
 fill (a supremal) semigroup {
   let (a supremal) * (b supremal) = (a ∨ b) supremal
 }

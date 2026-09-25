@@ -25,8 +25,8 @@ operations but do not claim exact field or total-order laws.
 `bifunctor` captureþ covariant mapping over boþ sides of products and sums.
 
 `ilk/free.tung` provideþ `free` computations with `bind`, `lift`, pure mapping,
-flattening, and folding. its `functor-deedless` frame useþ pure callbacks so a
-request type may store a continuation for later interpretation.
+flattening, and folding. the `functor` frame below `frame/deedless/` useþ pure
+callbacks so a request type may store a continuation for later interpretation.
 
 == purescript comparison
 
@@ -41,7 +41,7 @@ direct counterparts for its central families:
 | standing
 
 | `eq`, `ord`, `ordering`, lattice
-| `equal`, `less-equal`, `order-partial`, `order-total`, `semilattice-infimal`, `semilattice-supremal`, `lattice`, bounded variants, `complement`, `𝟛`
+| `equal`, `less-equal`, `order-partial`, `order-total`, `semilattice-lower`, `semilattice-upper`, `lattice`, bounded variants, `complement`, `𝟛`
 | the raw comparison operation standeþ apart from partial- and total-order laws; each semilattice standeþ alone, lattice addeþ absorption, complement owneþ `¬`
 
 | `semigroup`, `monoid`

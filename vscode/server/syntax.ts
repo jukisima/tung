@@ -174,45 +174,47 @@ const isOpen = (text) => closeForOpen.has(text);
 const isClose = (text) => closingDelimiters.has(text);
 const matchingClose = (text) => closeForOpen.get(text);
 
-const tokenDepths = (tokens) => {
+// token arrays are complete after tokenisation; semantic and structural
+// lookups share one scan for depths and matching delimiters.
+const structureCache = new WeakMap();
+const tokenStructure = (tokens) => {
+  const cached = structureCache.get(tokens);
+  if (cached) return cached;
   const depths = [];
+  const forward = new Map();
+  const backward = new Map();
+  const stack = [];
   let depth = 0;
   for (const token of tokens) {
     depths.push(depth);
-    if (isOpen(token.text)) depth += 1;
-    if (isClose(token.text)) depth = Math.max(0, depth - 1);
-  }
-  return depths;
-};
-
-const bracketPairs = (tokens) => {
-  const pairs = new Map();
-  const stack = [];
-  for (const token of tokens) {
     if (isOpen(token.text)) {
+      depth += 1;
       stack.push(token.index);
     } else if (isClose(token.text)) {
+      depth = Math.max(0, depth - 1);
       const open = stack.at(-1);
       if (
         open !== undefined && matchingClose(tokens[open].text) === token.text
       ) {
         stack.pop();
-        pairs.set(open, token.index);
+        forward.set(open, token.index);
+        backward.set(token.index, open);
       }
     }
   }
-  return pairs;
+  const structure = { depths, forward, backward };
+  structureCache.set(tokens, structure);
+  return structure;
 };
+const tokenDepths = (tokens) => tokenStructure(tokens).depths;
+const bracketPairs = (tokens) => tokenStructure(tokens).forward;
 
 const findMatching = (tokens, openIndex) => {
-  return bracketPairs(tokens).get(openIndex) ?? -1;
+  return tokenStructure(tokens).forward.get(openIndex) ?? -1;
 };
 
 const findOpening = (tokens, closeIndex) => {
-  for (const [open, close] of bracketPairs(tokens)) {
-    if (close === closeIndex) return open;
-  }
-  return -1;
+  return tokenStructure(tokens).backward.get(closeIndex) ?? -1;
 };
 
 const splitTopLevel = (tokens, start, end, separators) => {

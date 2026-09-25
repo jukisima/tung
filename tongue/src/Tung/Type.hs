@@ -33,7 +33,7 @@ module Tung.Type (
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (foldM, replicateM, unless, void, when, zipWithM, zipWithM_)
+import Control.Monad (filterM, foldM, replicateM, unless, void, when, zipWithM_)
 import Control.Monad.Trans.State.Strict (StateT (..), get, mapStateT, put, runStateT, state)
 import Data.Bifunctor (first)
 import Data.Char (isAscii, isDigit, isLower)
@@ -2999,7 +2999,7 @@ checkNeedsAgainstM name ctx actualNeeds0 expectedNeeds0 = do
   st <- getTc
   let actualNeeds = applyStateNeeds actualNeeds0 st
       expectedNeeds = applyStateNeeds expectedNeeds0 st
-      unexpected = filter (not . needResolvedBy expectedNeeds ctx) actualNeeds
+  unexpected <- filterM (fmap not . needResolvedBy expectedNeeds ctx) actualNeeds
   unless (null unexpected) $
     failTc ("in '" ++ name ++ "': missing graith " ++ showNeeds unexpected ++ "; available graiths " ++ showNeeds expectedNeeds)
 
@@ -3016,11 +3016,13 @@ normalizeNeedsM ctx needs0 = do
 normalizeNeedM :: TcContext -> [Need] -> Need -> Tc [Need]
 normalizeNeedM ctx seen need
   | need `elem` seen = if needMayRemainOpen need then pure [need] else failTc ("missing graith " ++ showNeed need)
-  | otherwise = case fillNeedsForNeed ctx need of
-      Just needs -> foldM step [] needs
-      Nothing
-        | needMayRemainOpen need -> pure [need]
-        | otherwise -> failTc ("missing graith " ++ showNeed need)
+  | otherwise = do
+      selected <- either failTc pure (selectFillCandidate ctx need)
+      case selected of
+        Just (_, needs, _) -> foldM step [] needs
+        Nothing
+          | needMayRemainOpen need -> pure [need]
+          | otherwise -> failTc ("missing graith " ++ showNeed need)
  where
   step acc nested = do
     normalized <- normalizeNeedM ctx (need : seen) nested
@@ -3033,38 +3035,32 @@ requireNoNeedsM ctx needs = do
     then pure ()
     else failTc ("runnable file hath unresolved graiths " ++ showNeeds remaining)
 
-needResolvedBy :: [Need] -> TcContext -> Need -> Bool
+needResolvedBy :: [Need] -> TcContext -> Need -> Tc Bool
 needResolvedBy expected ctx = go []
  where
   go seen need
-    | any (\graith -> needCovers ctx [] graith need) expected = True
-    | need `elem` seen = False
-    | otherwise = case fillNeedsForNeed ctx need of
-        Just needs -> all (go (need : seen)) needs
-        Nothing -> False
+    | any (\graith -> needCovers ctx [] graith need) expected = pure True
+    | need `elem` seen = pure False
+    | otherwise = do
+        selected <- either failTc pure (selectFillCandidate ctx need)
+        case selected of
+          Just (_, needs, _) -> foldM (\resolved nested -> if resolved then go (need : seen) nested else pure False) True needs
+          Nothing -> pure False
 
-needSubsumes :: TcContext -> Need -> Need -> Bool
-needSubsumes _ (Need expectedArgs expectedShape) (Need actualArgs actualShape) =
+needSubsumes :: Need -> Need -> Bool
+needSubsumes (Need expectedArgs expectedShape) (Need actualArgs actualShape) =
   expectedShape == actualShape
     && length expectedArgs == length actualArgs
     && hasConsistentTypePatternBindings expectedArgs actualArgs
 
 needCovers :: TcContext -> [ShapeRef] -> Need -> Need -> Bool
 needCovers ctx seen graith@(Need graithArgs graithShape) wanted
-  | needSubsumes ctx graith wanted = True
+  | needSubsumes graith wanted = True
   | graithShape `elem` seen = False
   | otherwise = case findShapeInfoByRef graithShape ctx of
       Nothing -> False
       Just ShapeInfo{shapeParams, shapeNeeds} ->
         any (\need -> needCovers ctx (graithShape : seen) (specializeNeed shapeParams graithArgs need) wanted) shapeNeeds
-
-fillNeedsForNeed :: TcContext -> Need -> Maybe [Need]
-fillNeedsForNeed ctx (Need tys frame) =
-  if all hasConcreteHead tys then listToMaybe (mapMaybe matches (fillsForShapeRef frame ctx)) else Nothing
- where
-  matches info@FillInfo{..} = do
-    bindings <- zipWithExact typePatternBindings fillTypes tys >>= mergeBindingMaps
-    pure (projectFillNeeds frame info (map (needWithBindings bindings) fillNeeds))
 
 -- evidence holes keep inference independent of fill selection. resolution turns
 -- them into hidden local parameters or a statically chosen dictionary tree.
@@ -3131,15 +3127,22 @@ bestLocalEvidence ctx available wanted = choose (filter (covers . fst) available
           (0, name : _) -> Right (Just name)
           (_, [name]) -> Right (Just name)
           _ -> Left ("ambiguous graith evidence for " ++ showNeed wanted)
-  localEvidenceRank given = if needSubsumes ctx given wanted then (0 :: Int) else 1
+  localEvidenceRank given = if needSubsumes given wanted then (0 :: Int) else 1
 
 selectFillEvidenceM :: TcContext -> Need -> Tc (FillInfo, [Need], [Need])
-selectFillEvidenceM ctx wanted@(Need actualTypes frame)
-  | not (all hasConcreteHead actualTypes) = failTc ("missing graith " ++ showNeed wanted)
+selectFillEvidenceM ctx wanted = do
+  selected <- either failTc pure (selectFillCandidate ctx wanted)
+  maybe (failTc ("missing graith " ++ showNeed wanted)) pure selected
+
+type FillCandidate = (FillInfo, [Need], [Need])
+
+selectFillCandidate :: TcContext -> Need -> Either String (Maybe FillCandidate)
+selectFillCandidate ctx wanted@(Need actualTypes frame)
+  | not (all hasConcreteHead actualTypes) = Right Nothing
   | otherwise = case bestCandidates of
-      [] -> failTc ("missing graith " ++ showNeed wanted)
-      [(info, needs, parents)] -> pure (info, needs, parents)
-      choices -> failTc ("ambiguous fills for " ++ showNeed wanted ++ ": " ++ intercalate ", " (nub [renderFillId (fillKey info) | (info, _, _) <- choices]))
+      [] -> Right Nothing
+      [candidate] -> Right (Just candidate)
+      choices -> Left ("ambiguous fills for " ++ showNeed wanted ++ ": " ++ intercalate ", " (nub [renderFillId (fillKey info) | (info, _, _) <- choices]))
  where
   -- selection is static: inheritance depth rankeþ fills first, then a
   -- structured type pattern outrankeþ a blanket pattern it refines.
@@ -3245,9 +3248,9 @@ typePatternBindings patternTy actualTy = case (normalizeFun patternTy, normalize
   _ -> Nothing
 
 zipWithExact :: (a -> b -> Maybe c) -> [a] -> [b] -> Maybe [c]
-zipWithExact f xs ys
-  | length xs == length ys = zipWithM f xs ys
-  | otherwise = Nothing
+zipWithExact _ [] [] = Just []
+zipWithExact f (x : xs) (y : ys) = (:) <$> f x y <*> zipWithExact f xs ys
+zipWithExact _ _ _ = Nothing
 
 mergeBindingMaps :: [Map.Map String Ty] -> Maybe (Map.Map String Ty)
 mergeBindingMaps = foldM mergeOne Map.empty

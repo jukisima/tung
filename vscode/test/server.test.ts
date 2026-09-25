@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show ilk ℕ { zero }\nshow ilk a parcel { a wrap }\nshow let (x: ℤ) identity: ℤ = x\nshow let answer: ℤ = 42\nshow frame a convert { let a convert: a }\n";
+    "show ilk ℕ { zero }\nshow ilk truth { yea, nay }\nshow ilk a parcel { a wrap }\nshow let (x: ℤ) identity: ℤ = x\nshow let answer: ℤ = 42\nshow frame a convert { let a convert: a }\n";
   const mainText =
-    'use dep.tung\nlet value: ℤ = answer\nlet count: ℕ = zero\nlet ratio: float = 1.5\nlet shipment: ℤ parcel = 1 wrap\nlet same: ℤ = 1 identity # "unicode 𝟙\\n"\nlet (left: ℤ, middle: ℤ, right: ℤ) select: ℤ = middle\nlet picker = { first, second, third @ second }\nfill ℤ convert { let x convert = x }\nshow ilk a box {\na box\n}\n';
+    "use dep.tung\nlet value: ℤ = answer\nlet count: ℕ = zero\nlet ratio: float = 1.5\nlet truth-to-text: truth → text = { yea @ 'yea', nay @ 'nay' }\nlet shipment: ℤ parcel = 1 wrap\nlet same: ℤ = 1 identity # \"unicode 𝟙\\n\"\nlet (left: ℤ, middle: ℤ, right: ℤ) select: ℤ = middle\nlet picker = { first, second, third @ second }\nfill ℤ convert { let x convert = x }\nshow ilk a box {\na box\n}\n";
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -154,13 +154,20 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     semanticAt.get(positionKey(positionOf(mainText, "answer"))),
     undefined,
   );
+  for (const name of ["yea", "nay"]) {
+    assert.equal(
+      semanticAt.get(positionKey(positionOf(mainText, name))),
+      "enumMember",
+      name,
+    );
+  }
   assert.notEqual(
     semanticAt.get(positionKey(positionOf(mainText, "ℕ"))),
     semanticAt.get(positionKey(positionOf(mainText, "identity"))),
   );
   assert.equal(
     semanticAt.get(positionKey(positionOf(mainText, "convert", 1))),
-    "method",
+    "call",
   );
   for (const name of ["left", "middle", "right", "first", "second", "third"]) {
     assert.equal(

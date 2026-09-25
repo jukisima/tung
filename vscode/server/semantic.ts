@@ -90,7 +90,18 @@ const classifyToken = (token, tokens, info, definition) => {
     return { type: "keyword", modifiers: [] };
   }
   const analyzed = info.semantic.get(token.index);
-  const semantic = (analyzed?.modifiers.includes("declaration") && analyzed) ||
+  const patternConstructor = analyzed?.type === "parameter" &&
+      analyzed.modifiers.includes("declaration") &&
+      definition?.role === "enumMember"
+    ? semanticFromDefinition(definition)
+    : undefined;
+  const frameFunction = analyzed?.type === "method" &&
+      analyzed.modifiers.includes("applied") &&
+      !analyzed.modifiers.includes("effect")
+    ? { ...analyzed, type: "call" }
+    : undefined;
+  const semantic = patternConstructor || frameFunction ||
+    (analyzed?.modifiers.includes("declaration") && analyzed) ||
     refinedTypeSemantic(analyzed, definition) ||
     analyzed ||
     functionPositionSemantic(token, tokens, info, definition) ||
@@ -465,7 +476,12 @@ const collectTypedMember = (
   if (!member.name) return;
   info.functions.add(member.name.text);
   if (modifiers.includes("effect")) info.effectOps.add(member.name.text);
-  mark(info, member.name.index, role, modifiers, 100);
+  const callable = terms.length > 1 ||
+    findTopLevelText(tokens, colon + 1, segment.end, "→") >= 0;
+  const semanticModifiers = callable && !modifiers.includes("effect")
+    ? [...modifiers, "applied"]
+    : modifiers;
+  mark(info, member.name.index, role, semanticModifiers, 100);
 };
 const collectMemberLet = (tokens, segment, info) => {
   collectValueLet(tokens, segment.start + 1, segment.end, info, true);
@@ -490,11 +506,13 @@ const collectValueLet = (tokens, start, end, info, member) => {
   info.functions.add(header.name.text);
   const annotatedFunction = colon >= 0 &&
     findTopLevelText(tokens, colon + 1, equals, "→") >= 0;
-  const role = member ? "method" : terms.length > 1 || annotatedFunction ||
-      isAnonymousFunctionValue(tokens, equals + 1, end)
-    ? "function"
-    : "variable";
-  mark(info, header.name.index, role, ["declaration"], member ? 110 : 100);
+  const callable = terms.length > 1 || annotatedFunction ||
+    isAnonymousFunctionValue(tokens, equals + 1, end);
+  const role = member ? "method" : callable ? "function" : "variable";
+  const modifiers = member && callable
+    ? ["declaration", "applied"]
+    : ["declaration"];
+  mark(info, header.name.index, role, modifiers, member ? 110 : 100);
   markValueParameters(terms, header, info);
 };
 const markValueParameters = (terms, header, info) => {

@@ -111,7 +111,7 @@ data RuntimeDictionary
   | PrimitiveDictionary SymbolId String [RuntimeDictionary]
 
 data RuntimeFill = RuntimeFill
-  { runtimeFillMembers :: Map.Map String CoreExpr
+  { runtimeFillMembers :: Map.Map String RuntimeExpr
   , runtimeFillEnv :: RuntimeEnv
   }
 
@@ -276,9 +276,15 @@ evalProgramEnv importStack program declarations = evalDeclsWithImports importSta
 evalDeclsWithImports :: ImportStack -> CoreProgram -> [CoreDecl] -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
 evalDeclsWithImports importStack program declarations env lastValue = do
   importedEnv <- foldM use env declarations
-  let declarationEnv = closeRuntimeFills declarations (foldl' hoistRuntimeDecl importedEnv declarations)
+  let declarationEnv = closeRuntimeFills compiledFills (foldl' hoistRuntimeDecl importedEnv declarations)
   foldM execute (declarationEnv, lastValue) declarations
  where
+  compiledFills =
+    Map.fromList
+      [ (key, Map.fromList [(name, compileExpr member) | (name, member) <- members])
+      | CoreFill key _ members <- declarations
+      ]
+
   use currentEnv = \case
     CoreImport path -> do
       importedEnv <- evalImport importStack path program
@@ -290,7 +296,7 @@ evalDeclsWithImports importStack program declarations env lastValue = do
   execute (currentEnv, currentLast) = \case
     CoreLet term expr -> do
       value <- evalGlobalBoundValue term expr currentEnv
-      let nextEnv = closeRuntimeFills declarations (addGlobalValue term value currentEnv)
+      let nextEnv = closeRuntimeFills compiledFills (addGlobalValue term value currentEnv)
           nextLast = if symbolName (termExportTarget term) == "_" then value else currentLast
       pure (nextEnv, nextLast)
     _ -> pure (currentEnv, currentLast)
@@ -347,17 +353,11 @@ hoistRuntimeDecl env = \case
   CoreForeignLet term hostKey arity -> addGlobalValue term (nativeValue hostKey arity) env
   _ -> env
 
-closeRuntimeFills :: [CoreDecl] -> RuntimeEnv -> RuntimeEnv
-closeRuntimeFills declarations env = closedEnv
+closeRuntimeFills :: Map.Map FillId (Map.Map String RuntimeExpr) -> RuntimeEnv -> RuntimeEnv
+closeRuntimeFills fills env = closedEnv
  where
-  closedEnv = foldl' add env declarations
-  add current = \case
-    CoreFill key _ members ->
-      current
-        { runtimeFills =
-            Map.insert key (RuntimeFill (Map.fromList members) closedEnv) (runtimeFills current)
-        }
-    _ -> current
+  closedEnv = env{runtimeFills = Map.union localFills (runtimeFills env)}
+  localFills = Map.map (\members -> RuntimeFill members closedEnv) fills
 
 evalGlobalBoundValue :: TermExport -> CoreExpr -> RuntimeEnv -> Eval RuntimeValue
 evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
@@ -540,17 +540,14 @@ evalDictionaryMember member dictionary =
     (pure <$> primitiveDictionaryValue frame typeName member)
       <|> asum (map dictionaryMember parents)
   dictionaryMember current@(FillDictionary fill requirements parents) =
-    case fillMemberExpr member fill of
-      Just expr -> Just do
+    case Map.lookup member (runtimeFillMembers fill) of
+      Just compiledMember -> Just do
         let evidence = VDictionary current : requirements
             memberEnv = foldl' addEvidence (runtimeFillEnv fill) (zip [(0 :: Int) ..] evidence)
-        compileExpr expr memberEnv
+        compiledMember memberEnv
       Nothing -> asum (map dictionaryMember parents)
 
   addEvidence env (index, value) = addLocalValue (EvidenceLocal index) value env
-
-fillMemberExpr :: String -> RuntimeFill -> Maybe CoreExpr
-fillMemberExpr member RuntimeFill{runtimeFillMembers} = Map.lookup member runtimeFillMembers
 
 primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
 primitiveDictionaryValue frame typeName member = do

@@ -19,26 +19,26 @@ show let empty: k table v = list~empty from-list
 show let (key: k, value: v) singleton: k table v =
   key ∏ value $ _* list~empty $ from-list
 
-show let (entries from-list: k table v) entries: (k ∏ v) list =
-  entries
+show let (list from-list: k table v) entries: (k ∏ v) list =
+  list
 
 graiþ k equal
-show let (entries from-list: k table v, key: k) lookup: v option =
-  entries find { pair @ key ≡ (pair project₀) } $ map project₁
+show let (list from-list: k table v, key: k) lookup: v option =
+  list find { pair @ key ≡ (pair project₀) } $ map project₁
 
 graiþ k equal
-show let (entries from-list: k table v, key: k, value: v) put: k table v =
-  (key ∏ value) _* (entries filter { pair @ key ≢ (pair project₀) }) $ from-list
+show let (list from-list: k table v, key: k, value: v) put: k table v =
+  (key ∏ value) _* (list filter { pair @ key ≢ (pair project₀) }) $ from-list
 
 graiþ k equal
-show let (entries from-list: k table v, key: k) rid: k table v =
-  entries filter { pair @ key ≢ (pair project₀) } $ from-list
+show let (list from-list: k table v, key: k) rid: k table v =
+  list filter { pair @ key ≢ (pair project₀) } $ from-list
 
-show let (entries from-list: k table v) keys: k list =
-  entries map project₀
+show let (list from-list: k table v) keys: k list =
+  list map project₀
 
-show let (entries from-list: k table v) values: v list =
-  entries map project₁
+show let (list from-list: k table v) values: v list =
+  list map project₁
 
 graiþ k equal
 fill (k table v) inhold k {
@@ -46,13 +46,13 @@ fill (k table v) inhold k {
 }
 
 fill (k table) functor {
-  let (entries from-list) map f =
-    entries map { pair @ pair map f } $ from-list
+  let (list from-list) map f =
+    list map { pair @ pair map f } $ from-list
 }
 
 fill (k table) filter {
-  let (entries from-list) filter predicate =
-    entries filter {
+  let (list from-list) filter predicate =
+    list filter {
       pair @ (pair project₁) predicate
     } $ from-list
 }
@@ -62,14 +62,14 @@ fill (k table v) size {
 }
 
 graiþ k equal
-show let (first: k table v, other: k table v) merge: k table v =
-  (other entries) fold₁ first {
+show let (first: k table v, oþer: k table v) merge: k table v =
+  (oþer entries) fold₁ first {
     table, pair @ table put (pair project₀) (pair project₁)
   }
 
 graiþ k equal
-show let (entries from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
-  entries map { pair @ match key ≡ (pair project₀) {
+show let (list from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
+  list map { pair @ match key ≡ (pair project₀) {
       nay @ pair,
       yea @ pair map change
     } } $ from-list

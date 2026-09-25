@@ -4,13 +4,13 @@ use frame/algebra/arithmetic/monoid-multiplicative.tung
 use frame/algebra/arithmetic/multiply.tung
 use frame/algebra/arithmetic/one.tung
 use frame/algebra/arithmetic/zero.tung
-use frame/algebra/order/semilattice-infimal-bounded.tung
-use frame/algebra/order/semilattice-infimal.tung
-use frame/algebra/order/semilattice-supremal-bounded.tung
-use frame/algebra/order/semilattice-supremal.tung
-use frame/algebra/partial/semigroup.tung
 use frame/algebra/total/magma.tung
 use frame/algebra/total/monoid.tung
+use frame/algebra/total/semigroup.tung
+use frame/order/semilattice-bounded-upper.tung
+use frame/order/semilattice-lower.tung
+use frame/order/semilattice-upper-bounded.tung
+use frame/order/semilattice-upper.tung
 
 show frame f cata {
   let (a f) fold₀ b (a → b → b ! e): b ! e
@@ -26,11 +26,11 @@ show let (af: a f, f: a → b ! e) fold-map: b ! e =
   af fold₁ ∅ { folded, a @ folded * (a f) }
 
 ## combine every value wiþ ∧; an empty collection yieldeþ ⊤.
-graiþ f cata, a semilattice-infimal-bounded
+graiþ f cata, a semilattice-bounded-upper
 show let (af: a f) …∧: a = af fold₁ ⊤ ∧
 
 ## combine every value wiþ ∨; an empty collection yieldeþ ⟂.
-graiþ f cata, a semilattice-supremal-bounded
+graiþ f cata, a semilattice-upper-bounded
 show let (af: a f) …∨: a = af fold₁ ⟂ ∨
 
 ## add every value in a foldable collection.

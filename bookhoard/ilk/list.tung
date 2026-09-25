@@ -1,7 +1,7 @@
 use frame/algebra/arithmetic/add.tung
-use frame/algebra/partial/semigroup.tung
 use frame/algebra/total/magma.tung
 use frame/algebra/total/monoid.tung
+use frame/algebra/total/semigroup.tung
 use frame/equal.tung
 use frame/functor.tung
 use frame/functor/applicative.tung

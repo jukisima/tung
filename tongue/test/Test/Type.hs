@@ -87,6 +87,10 @@ accepted =
   , ("frame member carrieþ its own graiþ", memberGraith ++ "fill option functor { let value map f = match value { none @ none, x some @ x f $ some } } fill option applicative { let pure = some let apply = { x some, f some @ x f $ some, _, _ @ none } } fill option traverse { let value traverse f = match value { none @ none pure, x some @ (x f) map some } } let lifted: (ℤ option) option = (1 some) traverse some")
   , ("existing parent fill satisfieþ child", classHierarchy ++ "fill ℤ parent { let x parent = x } fill ℤ child { let x child = x }")
   , ("specific fill outrankeþ a blanket fill", "frame a identity { let a identity: a } fill a identity { let x identity = x } fill ℤ identity { let x identity = x } let ok = 1 identity")
+  , ("specific fill winneþ when blanket with graiþ cometh later", fillPriorityPrefix ++ specificIdentityFill ++ blanketIdentityFill ++ "let answer: ℤ = 1 identity")
+  , ("specific fill winneþ when blanket with graiþ cometh earlier", fillPriorityPrefix ++ blanketIdentityFill ++ specificIdentityFill ++ "let answer: ℤ = 1 identity")
+  , ("inferred need chooseþ specific fill before later blanket", fillPriorityPrefix ++ specificIdentityFill ++ blanketIdentityFill ++ "let answer = 1 identity")
+  , ("inferred need chooseþ specific fill after earlier blanket", fillPriorityPrefix ++ blanketIdentityFill ++ specificIdentityFill ++ "let answer = 1 identity")
   , ("child fill may supply parent member", classHierarchy ++ "fill ℤ child { let x parent = x let x child = x } let ok: ℤ = 1 parent")
   , ("parametric child fill useþ its parent method", inheritedMethodHierarchy)
   , ("fill graiþ may construct a parent dictionary", parentDictionaryGraith)
@@ -101,6 +105,10 @@ accepted =
   , ("fremmed key entereþ value scope under another name", "let plus: ℤ → ℤ → ℤ = 'add-integer' fremmed let answer: ℤ = 1 plus 2")
   , ("declaration-only file is runnable", "let answer = 42")
   ]
+ where
+  fillPriorityPrefix = "frame a label { let a label: a } frame a identity { let a identity: a } "
+  specificIdentityFill = "fill ℤ identity { let x identity = x } "
+  blanketIdentityFill = "graiþ a label fill a identity { let x identity = x label } "
 
 rejected :: [(String, String)]
 rejected =
@@ -348,7 +356,7 @@ orderCases imports =
   ]
  where
   rankPrefix =
-    "use ilk/two.tung use frame/equal.tung use frame/algebra/order/less-equal.tung use frame/algebra/order/order-partial.tung use frame/algebra/order/order-total.tung "
+    "use ilk/two.tung use frame/equal.tung use frame/order/less-equal.tung use frame/order/order-partial.tung use frame/order/order-total.tung "
       ++ "ilk rank { lesser, greater } "
       ++ "fill rank equal { let ≡ = { lesser, lesser @ yea, greater, greater @ yea, _, _ @ nay } } "
   partialPrefix =
@@ -376,8 +384,8 @@ boundCases imports =
  where
   prefix = "use ground.tung use ilk/list.tung use ilk/natural.tung use frame/functor/cata.tung "
   powersetPrefix = "use ground.tung use ilk/list.tung use ilk/powerset.tung use frame/functor/cata.tung let empty-set: ℤ powerset = powerset~empty let full-set: ℤ powerset = universe "
-  semilatticePrefix = "use frame/algebra/order/semilattice-infimal.tung ilk one-sided { item } fill one-sided semilattice-infimal { let _ ∧ _ = item } "
-  supremumPrefix = "use frame/algebra/order/semilattice-supremal.tung ilk one-sided { item } fill one-sided semilattice-supremal { let _ ∨ _ = item } "
+  semilatticePrefix = "use frame/order/semilattice-lower.tung ilk one-sided { item } fill one-sided semilattice-lower { let _ ∧ _ = item } "
+  supremumPrefix = "use frame/order/semilattice-upper.tung ilk one-sided { item } fill one-sided semilattice-upper { let _ ∨ _ = item } "
 
 numericHierarchyCases :: Map.Map String String -> [Test]
 numericHierarchyCases imports =

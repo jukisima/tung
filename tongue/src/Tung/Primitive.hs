@@ -164,7 +164,7 @@ primitiveShapeTarget PrimitiveShape{primitiveShapeSource, primitiveShapeName} = 
 primitiveShapes :: [PrimitiveShape]
 primitiveShapes =
   [ frame "frame/equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two)
-  , frame "frame/algebra/order/less-equal.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two)
+  , frame "frame/order/less-equal.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two)
   , frame "frame/algebra/arithmetic/add.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a"))
   , frame "frame/algebra/arithmetic/zero.tung" "zero" "zero" (variable "a")
   , frame "frame/algebra/arithmetic/subtract.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a"))

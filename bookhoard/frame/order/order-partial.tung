@@ -1,5 +1,5 @@
-use frame/algebra/order/less-equal.tung
 use frame/equal.tung
+use frame/order/less-equal.tung
 use ilk/three.tung
 use ilk/two.tung
 

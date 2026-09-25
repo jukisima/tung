@@ -1,4 +1,4 @@
-use frame/algebra/order/complement.tung
+use frame/order/complement.tung
 use ilk/one.tung
 use ilk/two.tung
 

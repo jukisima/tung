@@ -204,6 +204,23 @@ cases =
       """
     )
   ,
+    ( "body after a multiline header"
+    , """
+      show let (
+      value: a
+      ) identity: a =
+      value
+
+      """
+    , """
+      show let (
+        value: a
+      ) identity: a =
+        value
+
+      """
+    )
+  ,
     ( "term type ascription"
     , """
       let answer = (1 + 2: ℤ)

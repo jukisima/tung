@@ -1,17 +1,17 @@
-use frame/algebra/order/lattice-distributive.tung
-use frame/algebra/order/lattice.tung
-use frame/algebra/order/semilattice-infimal.tung
-use frame/algebra/order/semilattice-supremal.tung
 use frame/algebra/partial/category.tung
-use frame/algebra/partial/semigroup.tung
 use frame/algebra/total/magma.tung
 use frame/algebra/total/monoid.tung
+use frame/algebra/total/semigroup.tung
 use frame/functor.tung
 use frame/functor/applicative.tung
 use frame/functor/bifunctor.tung
 use frame/functor/cata.tung
 use frame/functor/monad.tung
 use frame/functor/traverse.tung
+use frame/order/lattice-distributive.tung
+use frame/order/lattice.tung
+use frame/order/semilattice-lower.tung
+use frame/order/semilattice-upper.tung
 
 show ilk a ∏ b {
   a ∏ b
@@ -53,13 +53,13 @@ fill (a ∏) traverse {
     (b f) map (a ∏)
 }
 
-graiþ a semilattice-infimal, b semilattice-infimal
-fill (a ∏ b) semilattice-infimal {
+graiþ a semilattice-lower, b semilattice-lower
+fill (a ∏ b) semilattice-lower {
   let (a₀ ∏ b₀) ∧ (a₁ ∏ b₁) = (a₀ ∧ a₁) ∏ (b₀ ∧ b₁)
 }
 
-graiþ a semilattice-supremal, b semilattice-supremal
-fill (a ∏ b) semilattice-supremal {
+graiþ a semilattice-upper, b semilattice-upper
+fill (a ∏ b) semilattice-upper {
   let (a₀ ∏ b₀) ∨ (a₁ ∏ b₁) = (a₀ ∨ a₁) ∏ (b₀ ∨ b₁)
 }
 
@@ -68,3 +68,9 @@ fill (a ∏ b) lattice {}
 
 graiþ a lattice-distributive, b lattice-distributive
 fill (a ∏ b) lattice-distributive {}
+
+show let (a ∏ b: a ∏ b, f: a → b → c) uncurry: c =
+  a f b
+
+show let (a ∏ (b ∏ c): a ∏ (b ∏ c), f: a → b → c → d) uncurry₃: d =
+  a f b c

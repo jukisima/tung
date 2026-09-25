@@ -1,11 +1,11 @@
-use frame/algebra/order/lattice.tung
-use frame/algebra/order/semilattice-infimal-bounded.tung
-use frame/algebra/order/semilattice-supremal-bounded.tung
+use frame/order/lattice.tung
+use frame/order/semilattice-bounded-upper.tung
+use frame/order/semilattice-upper-bounded.tung
 use ilk/three.tung
 use ilk/two.tung
 
 ## a lattice wiþ greatest and least values.
-graiþ a lattice, a semilattice-infimal-bounded, a semilattice-supremal-bounded
+graiþ a lattice, a semilattice-bounded-upper, a semilattice-upper-bounded
 show frame a lattice-bounded {}
 
 graiþ b lattice-bounded

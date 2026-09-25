@@ -1,13 +1,13 @@
 use _foreign.tung
-use frame/algebra/order/complement.tung
-use frame/algebra/order/semilattice-supremal.tung
-use frame/algebra/partial/semigroup.tung
 use frame/algebra/partial/semigroupoid.tung
 use frame/algebra/total/magma.tung
+use frame/algebra/total/semigroup.tung
 use frame/equal.tung
 use frame/functor.tung
 use frame/functor/cata.tung
 use frame/functor/filter.tung
+use frame/order/complement.tung
+use frame/order/semilattice-upper.tung
 use frame/size.tung
 use ilk/list.tung
 use ilk/natural.tung

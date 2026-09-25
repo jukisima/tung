@@ -1,5 +1,5 @@
 show let (a: a, f: a → b ! e)
-  into: b ! e = a f
+  call: b ! e = a f
 
 show let (a: a, _: b)
   constant: a = a

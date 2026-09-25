@@ -164,7 +164,7 @@ test("semantic analysis separateþ a required frame from its member", () => {
   ]);
   assert.deepEqual(semanticLabelsOf(source, "traverse"), [
     "frame:declaration.typeFunction",
-    "method:declaration",
+    "call:declaration.applied",
   ]);
   assert.deepEqual(semanticLabelsOf(source, "a"), ["type:", "type:"]);
 });
@@ -204,7 +204,7 @@ test("semantic analysis highlighteþ law binders, types, calls, and equation mar
   assert.deepEqual(labelsOf("b"), ["type:", "type:", "type:"]);
   assert.deepEqual(labelsOf("e"), ["type:", "type:", "type:"]);
   assert.deepEqual(labelsOf("map"), [
-    "method:declaration",
+    "call:declaration.applied",
     "call:applied",
     "call:applied",
   ]);
@@ -245,7 +245,7 @@ test("parameterised ilk heads are type functions", () => {
 });
 test("semantic analysis keepeþ ilk names apart and normaliseþ callable declarations", () => {
   const source =
-    "deed a action { a act: 𝟙 } frame a mapped { let a map: a } let x plain = x";
+    "deed a action { a act: 𝟙 } frame a mapped { let empty: a let a map: a } let x plain = x";
   const ranges = buildSemanticRanges(source);
   const at = (name, occurrence = 0) => {
     const offset =
@@ -257,7 +257,10 @@ test("semantic analysis keepeþ ilk names apart and normaliseþ callable declara
   };
   assert.equal(at("action").type, "type");
   assert.equal(at("act").type, "method");
-  assert.equal(at("map").type, "method");
+  assert.equal(at("empty").type, "method");
+  assert.deepEqual(semanticLabelsOf(source, "map"), [
+    "call:declaration.applied",
+  ]);
   assert.equal(at("plain").type, "function");
 });
 test("semantic analysis coloureþ data type names and constructor argument types", () => {
@@ -396,9 +399,13 @@ test("semantic analysis coloureþ frame and fill methods", () => {
   ].join("\n");
   const typesOf = (name) =>
     semanticTypesOf(source, name).map((token) => token?.type);
-  assert.deepEqual(typesOf("≡"), ["method", "call", "method", "call"]);
-  assert.deepEqual(typesOf("≢"), ["method", "method"]);
-  assert.deepEqual(typesOf("map"), ["method", "method", "call"]);
+  assert.deepEqual(typesOf("≡"), ["call", "call", "call", "call"]);
+  assert.deepEqual(typesOf("≢"), ["call", "call"]);
+  assert.deepEqual(semanticLabelsOf(source, "map"), [
+    "call:declaration.applied",
+    "call:declaration.applied",
+    "call:applied",
+  ]);
   assert.deepEqual(typesOf("f"), [
     "type",
     "type",
@@ -813,7 +820,7 @@ test("semantic analysis leaveþ use paths to the textmate import scope", () => {
   const source = [
     "use _foreign.tung",
     "use frame/equal.tung",
-    "use frame/algebra/order/order-total.tung",
+    "use frame/order/order-total.tung",
     "use frame/algebra/arithmetic/field.tung",
     "use integer.tung",
     "use table.tung",

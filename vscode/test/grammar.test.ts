@@ -63,7 +63,7 @@ test("textmate giveþ a whole use path one scope", async () => {
       "use frame/algebra/arithmetic/field.tung",
       "use _foreign.tung",
       "use frame/equal.tung",
-      "use frame/algebra/order/order-total.tung",
+      "use frame/order/order-total.tung",
     ]
   ) {
     const start = "use ".length;

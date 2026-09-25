@@ -71,6 +71,7 @@ formatLine state line
           (depth, remainingBlocks) = if delta < 0 then releaseBlocks balancedDepth blocks else (balancedDepth, blocks)
           continuation
             | startsComment = formatContinuation state
+            | "=" `isSuffixOf` code = 1
             | closes > 0 = 0
             | delta == 0 && lineContinues code (lineContinuation > 0) = 1
             | lineContinuation > 0 && delta == 0 = max 2 lineContinuation

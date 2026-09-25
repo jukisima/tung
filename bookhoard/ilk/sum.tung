@@ -1,4 +1,3 @@
-use frame/algebra/order/complement.tung
 use frame/algebra/partial/category.tung
 use frame/functor.tung
 use frame/functor/applicative.tung
@@ -6,6 +5,7 @@ use frame/functor/bifunctor.tung
 use frame/functor/cata.tung
 use frame/functor/monad.tung
 use frame/functor/traverse.tung
+use frame/order/complement.tung
 use ilk/two.tung
 
 show ilk a ∐ b {

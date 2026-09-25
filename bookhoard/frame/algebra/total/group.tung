@@ -1,5 +1,5 @@
-use frame/algebra/partial/semigroup.tung
 use frame/algebra/total/monoid.tung
+use frame/algebra/total/semigroup.tung
 
 graiþ a monoid
 show frame a group {

@@ -1,8 +1,8 @@
-use frame/algebra/order/lattice-bounded.tung
-use frame/algebra/order/semilattice-infimal-bounded.tung
-use frame/algebra/order/semilattice-infimal.tung
-use frame/algebra/order/semilattice-supremal-bounded.tung
-use frame/algebra/order/semilattice-supremal.tung
+use frame/order/lattice-bounded.tung
+use frame/order/semilattice-bounded-upper.tung
+use frame/order/semilattice-lower.tung
+use frame/order/semilattice-upper-bounded.tung
+use frame/order/semilattice-upper.tung
 use ilk/two.tung
 
 ## a bounded lattice wiþ a chosen complement for every value.

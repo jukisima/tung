@@ -1,0 +1,23 @@
+use frame/order/semilattice-lower.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## an infimum semilattice wiþ a greatest value.
+graiþ a semilattice-lower
+show frame a semilattice-bounded-upper {
+  let ⊤: a
+  law (a: a): ⊤ ∧ a ~ a
+}
+
+graiþ b semilattice-bounded-upper
+fill (a func b) semilattice-bounded-upper {
+  let _ ⊤ = ⊤
+}
+
+fill 𝟚 semilattice-bounded-upper {
+  let ⊤ = yea
+}
+
+fill 𝟛 semilattice-bounded-upper {
+  let ⊤ = aft
+}

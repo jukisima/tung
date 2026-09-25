@@ -7,7 +7,7 @@ use frame/algebra/arithmetic/one.tung
 use frame/algebra/arithmetic/semiring.tung
 use frame/algebra/arithmetic/subtract.tung
 use frame/algebra/arithmetic/zero.tung
-use frame/algebra/order/less-equal.tung
+use frame/order/less-equal.tung
 use ilk/natural.tung
 use ilk/two.tung
 

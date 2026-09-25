@@ -1,6 +1,6 @@
-use frame/algebra/order/less-equal.tung
-use frame/algebra/order/order-partial.tung
 use frame/equal.tung
+use frame/order/less-equal.tung
+use frame/order/order-partial.tung
 use ilk/three.tung
 use ilk/two.tung
 
