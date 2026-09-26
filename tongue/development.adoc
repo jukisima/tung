@@ -136,6 +136,10 @@ union equalities are retained with generalised schemes; the solver propagateþ
 upper bounds and rejecteþ incompatible labels without choosing an arbitrary
 variable to absorb a union. generalisation excludeþ free variables of the
 enclosing environment, including those in retained row constraints.
+inference checkeþ that repeated nominal effects in each row agree on type
+arguments. an operation-specific handler for a parameterised effect rejecteþ
+an open body row until the solver can retain a constraint excluding conflicting
+instantiations after handler elimination.
 
 an inferred recursive function is checked once against a monomorphic self
 type. elaboration bindeþ its self-reference inside each function case,
@@ -158,6 +162,11 @@ back into compiler state.
 after inference selecteþ a binding or constructor, each global or constructor
 reference in þe elaborated syntax carrieþ its canonical `SymbolId`. local
 references retain spelling until Core assigneþ a `LocalId`.
+bare term lookup settleþ scope rank before checking an application; a failed
+application doth not retry a shadowed import or primitive binding.
+repeated lexical bindings of one term kind choose þe newest one; a constructor
+and frame selector may share a spelling, while host primitive signatures wiþ
+one name form an explicit overload set.
 `Tung.Core` lowereþ þis elaborated syntax into separate `CoreDecl` and `CoreExpr`
 types. blocks contain only `CoreLocalDecl`, so module-only declarations cannot
 be represented in a local scope. each variable is eiþer a `CoreLocalName` wiþ a
@@ -180,6 +189,8 @@ checking and evaluation. reserved host data-family and constructor identities
 also live there; only a declaration matching þe complete ABI schema receiveþ
 þem. add or change a host operation there before changing þe source binding in
 `_foreign.tung`.
+runner-executed effects bypass source handlers, so checking rejecteþ handlers
+for those effects instead of erasing their rows.
 
 == formatting and editor support
 

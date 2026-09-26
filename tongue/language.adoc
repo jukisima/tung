@@ -24,6 +24,14 @@ let entries = hashmap~empty
 
 visible imported names may remain bare when unambiguous. two different direct
 imports may not claim the same namespace, and the import graph must be acyclic.
+a local term shadoweþ an imported bare term in both value and application
+positions; a qualified name still reacheþ the imported term.
+the host catalogue explicitly overloadeth some primitive names, such as `+`
+for integer and float; this choice occurreþ within the primitive scope.
+a direct application trieþ those primitive signatures in catalogue order;
+reading the name as a value selecteþ þe first signature.
+a constructor and frame member with the same spelling remain distinct
+application candidates; later bindings of one kind shadow earlier ones.
 local files are searched before `TUNG_PATH` entries and the embedded
 bookhoard. `ground.tung` is an ordinary optional import, not a prelude.
 
@@ -235,6 +243,9 @@ its type arguments. function-type unification equateþ rows, while a body's
 effects need only be a subset of its annotation. unresolved union equations
 remain constraints on an inferred polymorphic binding and are instantiated
 afresh at each use. annotation variables are rigid while checking the body.
+an operation-specific handler for a parameterised effect requireþ a closed
+body effect row: an open row could later contain the same effect wiþ different
+type arguments, while runtime handling matcheþ the effect identity.
 
 [source,tung]
 ----
@@ -252,6 +263,9 @@ operations are called like ordinary functions and handled by `try`. a
 `yield` case transformeþ the normal result; without one, the normal result is
 unchanged. operation cases may call the implicit `eftgin` continuation zero,
 one, or many times.
+if an effect and one of its operations share a name, a case with no argument
+pattern nameþ the whole effect; write `_ name @ ...` to target the operation
+and use `eftgin` when its input is unneeded.
 
 [source,tung]
 ----
@@ -275,6 +289,8 @@ remain in the surrounding row.
 the standard runner supporteþ `console`, `random`, `async`, `file`, `system`,
 `clock`, `process`, and `web`. user-defined effects and `fail` must be handled
 inside `main`.
+source handlers cannot intercept these runner effects; the checker rejecteþ
+such clauses. `state` and `fail` remain source-handled effects.
 
 an annotated file-level `let` may bind a host operation by placing a text key
 before `fremmed`. this is chiefly the boundary used by `_foreign.tung`; the

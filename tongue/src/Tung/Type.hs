@@ -40,7 +40,7 @@ import Data.Char (isAscii, isDigit, isLower)
 import Data.Either (fromRight, isRight)
 import Data.Graph (SCC (..), stronglyConnComp)
 import Data.IntMap.Strict qualified as IntMap
-import Data.List (find, intercalate, isPrefixOf, nub, partition, stripPrefix)
+import Data.List (find, intercalate, isPrefixOf, nub, nubBy, stripPrefix)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
@@ -230,11 +230,12 @@ data TcState = TcState
 
 -- primitive entries exist only when a module explicitly showeþ a built-in type;
 -- unlike aliases, they remain opaque during unification.
+-- effect entries retain all operations even when an import hideþ some names.
 data TypeInfo
   = Primitive String
   | Alias String [String] Ty
   | DataInfo TypeRef [String] [ConstructorInfo]
-  | EffectInfo EffectRef [String]
+  | EffectInfo EffectRef [String] [SymbolId]
   | ShownType TypeInfo
   deriving (Eq, Show)
 
@@ -901,7 +902,7 @@ canonicalTypeName name ctx = case unshownTypeInfo <$> findTypeInfoForTypeSystem 
 
 effectRefForName :: String -> TcContext -> Maybe EffectRef
 effectRefForName name ctx = case unshownTypeInfo <$> findTypeInfoForTypeSystem name ctx of
-  Just (EffectInfo effect _) -> Just effect{effectDisplayName = name}
+  Just (EffectInfo effect _ _) -> Just effect{effectDisplayName = name}
   _
     | name `elem` hostEffectNames -> Just (runtimeEffectRef name)
     | otherwise -> Nothing
@@ -979,10 +980,8 @@ showRecordFields fields = intercalate ", " [name ++ ": " ++ showTy ty | (name, t
 showTyList :: [Ty] -> String
 showTyList = intercalate ", " . map showTy
 
-baseRuntimeNames, baseEffectNames, runnerEffectNames :: [String]
+baseRuntimeNames :: [String]
 baseRuntimeNames = nub (map hostName (baseNativeBindings ++ baseEffectBindings))
-baseEffectNames = hostEffectNames
-runnerEffectNames = filter (`notElem` ["fail", "state"]) baseEffectNames
 
 -- this base contract must agree with evaluator arities and primitive dictionary
 -- support; the bookhoard supplieþ the public declarations around these names.
@@ -1072,7 +1071,7 @@ typeInfoNominalIdentity info = case unshownTypeInfo info of
 
 typeInfoEffectIdentity :: TypeInfo -> Maybe SymbolId
 typeInfoEffectIdentity info = case unshownTypeInfo info of
-  EffectInfo EffectRef{effectIdentity} _ -> Just effectIdentity
+  EffectInfo EffectRef{effectIdentity} _ _ -> Just effectIdentity
   _ -> Nothing
 
 aliasImportContext :: String -> String -> TcContext -> TcContext
@@ -1138,13 +1137,13 @@ relabelTypeInfoDisplays rename = \case
   primitive@Primitive{} -> primitive
   Alias name params target -> Alias (rename name) params (relabelTypeRefs emptyDisplayNames rename target)
   DataInfo ref params constructors -> DataInfo (relabelTypeRef emptyDisplayNames rename ref) params constructors
-  EffectInfo effect params -> EffectInfo (relabelEffectRef emptyDisplayNames rename effect) params
+  EffectInfo effect params operations -> EffectInfo (relabelEffectRef emptyDisplayNames rename effect) params operations
   ShownType info -> ShownType (relabelTypeInfoDisplays rename info)
 
 relabelAliasedTypeInfoDisplays :: (String -> String) -> TypeInfo -> TypeInfo
 relabelAliasedTypeInfoDisplays rename = \case
   Alias name params target -> Alias name params (relabelTypeRefs emptyDisplayNames rename target)
-  EffectInfo effect params -> EffectInfo (relabelEffectRef emptyDisplayNames rename effect) params
+  EffectInfo effect params operations -> EffectInfo (relabelEffectRef emptyDisplayNames rename effect) params operations
   info -> info
 
 namespaceTypeName :: String -> String -> String
@@ -1251,7 +1250,7 @@ typeInfoNames = \case
   Primitive name -> [name]
   Alias name _ _ -> [name]
   DataInfo TypeRef{typeDisplayName} _ _ -> [typeDisplayName]
-  EffectInfo EffectRef{effectDisplayName} _ -> [effectDisplayName]
+  EffectInfo EffectRef{effectDisplayName} _ _ -> [effectDisplayName]
   ShownType info -> typeInfoNames info
 
 isBaseEnvBinding :: String -> String -> Bool
@@ -1327,14 +1326,14 @@ collectNominalTypeHeader isConcrete declaration ctx = case declaration of
   EffectDecl params name operations ->
     let target = effectId isConcrete (tcModule ctx) params name operations
         effect = EffectRef target (renderEffectId target)
-     in addEffectTypeInfo name effect params ctx
+     in addEffectTypeInfo name effect params operations ctx
   _ -> ctx
 
 collectResolvedEffectHeader :: Decl -> TcContext -> TcContext
 collectResolvedEffectHeader declaration ctx = case declaration of
   Export nested -> collectResolvedEffectHeader nested ctx
   EffectDecl params name operations ->
-    addEffectTypeInfo name (resolvedEffectRef params name operations ctx) params ctx
+    addEffectTypeInfo name (resolvedEffectRef params name operations ctx) params operations ctx
   _ -> ctx
 
 resolvedEffectRef :: [String] -> String -> [EffectOp] -> TcContext -> EffectRef
@@ -1404,7 +1403,7 @@ hostNominalsMatchResolvedTypes bound expressions ctx = all typeMatches expressio
     | name `elem` bound = True
     | name `elem` hostEffectNames = case unshownTypeInfo <$> findTypeInfoForTypeSystem name ctx of
         Nothing -> True
-        Just (EffectInfo EffectRef{effectIdentity} _) -> effectIdentity == SymbolId RuntimeModule name
+        Just (EffectInfo EffectRef{effectIdentity} _ _) -> effectIdentity == SymbolId RuntimeModule name
         Just _ -> False
     | otherwise = True
 
@@ -1577,8 +1576,9 @@ addDataTypeHeader name ref params ctx@TcContext{tcTypes, tcTypeAmbiguities} =
     , tcTypeAmbiguities = Map.delete name tcTypeAmbiguities
     }
 
-addEffectTypeInfo :: String -> EffectRef -> [String] -> TcContext -> TcContext
-addEffectTypeInfo name effect params = addTypeInfo name (EffectInfo effect params)
+addEffectTypeInfo :: String -> EffectRef -> [String] -> [EffectOp] -> TcContext -> TcContext
+addEffectTypeInfo name effect params operations =
+  addTypeInfo name (EffectInfo effect params [effectOperationId (effectIdentity effect) operationName | EffectOp operationName _ <- operations])
 
 addTypeInfo :: String -> TypeInfo -> TcContext -> TcContext
 addTypeInfo name info ctx@TcContext{tcTypes, tcTypeRegistry, tcTypeAmbiguities} =
@@ -1671,7 +1671,7 @@ shownEnvBindings name TcContext{tcEnv}
       Left _ -> []
 
 shownBareEnvBindings :: String -> [EnvBinding] -> Either String [EnvBinding]
-shownBareEnvBindings name env = fst <$> rankEnvCandidates name (collectEnvCandidates name env)
+shownBareEnvBindings name env = rankEnvCandidates name (collectEnvCandidates name env)
 
 addShownType :: String -> TcContext -> TcContext
 addShownType name ctx@TcContext{tcTypes, tcTypeAmbiguities}
@@ -1719,17 +1719,23 @@ selectEnvChoices :: String -> [EnvBinding] -> EnvChoices
 selectEnvChoices _ [] = ChoicesMissing
 selectEnvChoices name candidates = case rankEnvCandidates name candidates of
   Left message -> ChoicesAmbiguous message
-  Right (best, lower) -> EnvChoices (best ++ lower)
+  Right best -> EnvChoices best
 
-rankEnvCandidates :: String -> [EnvBinding] -> Either String ([EnvBinding], [EnvBinding])
+rankEnvCandidates :: String -> [EnvBinding] -> Either String [EnvBinding]
 rankEnvCandidates name [] = Left ("unknown name '" ++ name ++ "'")
 rankEnvCandidates name candidates =
   let bestRank = minimum (map envRank candidates)
-      (best, lower) = partition ((== bestRank) . envRank) candidates
+      best = filter ((== bestRank) . envRank) candidates
       origins = nub (map envOrigin best)
    in case origins of
-        [origin] -> Right (filter ((== origin) . envOrigin) best, lower)
+        -- host signatures overload by type; distinct term kinds may share a name.
+        -- repeated bindings of one kind follow lexical shadowing.
+        [_] -> Right (if bestRank == baseEnvRank then best else nubBy sameKind best)
         _ -> Left ("ambiguous name '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " origins)
+ where
+  sameKind left right = bindingKind left == bindingKind right
+  bindingKind EnvBinding{envTarget = Just TermExport{termExportKind}} = termExportKind
+  bindingKind _ = OrdinaryTerm
 
 baseEnv :: [EnvBinding]
 baseEnv =
@@ -1977,7 +1983,13 @@ replaceTyVarsForCoverage repls ty = case ty of
 -- expression inference produceþ an elaborated expression skeleton alongside
 -- its value type, immediate effects, and dictionary requirements.
 inferExprM :: Expr -> TcContext -> Tc Inferred
-inferExprM expr ctx = case expr of
+inferExprM expr ctx = do
+  inferred <- inferExprUncheckedM expr ctx
+  checkInferredEffectRowsM inferred
+  pure inferred
+
+inferExprUncheckedM :: Expr -> TcContext -> Tc Inferred
+inferExprUncheckedM expr ctx = case expr of
   ELocated span inner -> withTcSpan span do
     inferred <- inferExprM inner ctx
     pure inferred{inferredExpr = ELocated span (inferredExpr inferred)}
@@ -2000,6 +2012,34 @@ inferExprM expr ctx = case expr of
   EBlock ds body -> inferBlockM ds body ctx
   EWithEvidence{} -> failTc "internal evidence appeareþ before elaboration"
   EDictionary{} -> failTc "internal dictionary appeareþ before elaboration"
+
+-- effect rows denote sets: occurrences of the same effect must agree on their
+-- type arguments, even when inference hath not equated the row with another.
+checkInferredEffectRowsM :: Inferred -> Tc ()
+checkInferredEffectRowsM Inferred{inferredTy, inferredEffects, inferredNeeds} = do
+  checkEffectRowArgumentsM inferredEffects
+  checkTypeEffectRowsM inferredTy
+  mapM_ (\(Need args _) -> mapM_ checkTypeEffectRowsM args) inferredNeeds
+
+checkTypeEffectRowsM :: Ty -> Tc ()
+checkTypeEffectRowsM ty = do
+  st <- getTc
+  case applyState ty st of
+    TyApplication _ args -> mapM_ checkTypeEffectRowsM args
+    TyEffect _ args -> mapM_ checkTypeEffectRowsM args
+    TyRecord fields -> mapM_ checkTypeEffectRowsM (Map.elems fields)
+    TyArrow arg effects ret -> do
+      checkTypeEffectRowsM arg
+      checkEffectRowArgumentsM effects
+      mapM_ (checkTypeEffectRowsM . effectAsTy) effects
+      checkTypeEffectRowsM ret
+    _ -> pure ()
+
+checkEffectRowArgumentsM :: EffectRow -> Tc ()
+checkEffectRowArgumentsM effects = do
+  st <- getTc
+  let concrete = concreteEffects (applyStateEffects effects st)
+  unifyCommonEffectsM concrete concrete
 
 inferAscribedM :: Expr -> TypeExpr -> TcContext -> Tc Inferred
 inferAscribedM expression annotation ctx = do
@@ -2174,9 +2214,23 @@ data HandlerCoverage
   | OneOperation EffectRef SymbolId
   deriving (Eq, Show)
 
+-- these effects are executed directly by the standard runner. a source handler
+-- cannot intercept them, so it must not erase them from the static row.
+rejectRunnerEffectHandlerM :: HandlerCoverage -> Tc ()
+rejectRunnerEffectHandlerM coverage = case effectIdentity effect of
+  SymbolId RuntimeModule name
+    | name `elem` runnerEffectNames ->
+        failTc ("runner effect '" ++ effectDisplayName effect ++ "' cannot have a source handler")
+  _ -> pure ()
+ where
+  effect = case coverage of
+    WholeEffect owner -> owner
+    OneOperation owner _ -> owner
+
 inferHandlerCasesM :: Expr -> Maybe ReturnCase -> [HandlerCase] -> Ty -> EffectRow -> [Need] -> EffectRow -> TcContext -> Tc Inferred
 inferHandlerCasesM body returnCase cases answerTy effects bodyNeeds returnEffects ctx = do
   coverage <- traverse (handlerCoverageM effects ctx) cases
+  mapM_ rejectRunnerEffectHandlerM coverage
   let fullyHandled = completeHandledEffects coverage ctx
   ((finalAnswerTy, accumulatedEffects, accumulatedNeeds), cases2) <- mapAccumM (step fullyHandled) (answerTy, returnEffects, bodyNeeds) (zip coverage cases)
   st <- getTc
@@ -2184,7 +2238,7 @@ inferHandlerCasesM body returnCase cases answerTy effects bodyNeeds returnEffect
   pure (Inferred (applyState finalAnswerTy st) (unionEffects remainingEffects accumulatedEffects) (applyStateNeeds accumulatedNeeds st) (ETry body returnCase cases2))
  where
   step fullyHandled (currentAnswerTy, accumulatedEffects, accumulatedNeeds) (target, HandlerCase name patterns handlerBody) = do
-    handlerCtx <- handlerCaseContextM fullyHandled name patterns currentAnswerTy effects ctx
+    handlerCtx <- handlerCaseContextM fullyHandled target name patterns currentAnswerTy effects ctx
     Inferred handlerTy caseEffects caseNeeds handlerBody2 <- inferExprM handlerBody handlerCtx
     mapTcError (unifyM currentAnswerTy handlerTy) (\msg -> "in handler for '" ++ name ++ "': " ++ msg)
     st <- getTc
@@ -2227,7 +2281,8 @@ completeHandledEffects :: [HandlerCoverage] -> TcContext -> [EffectRef]
 completeHandledEffects coverage ctx =
   [ effect
   | effect <- nub [owner | item <- coverage, owner <- coverageEffect item]
-  , any (wholeEffectMatches effect) coverage || all (`elem` handledOperations effect) (effectOperationTargets effect ctx)
+  , any (wholeEffectMatches effect) coverage
+      || maybe False (all (`elem` handledOperations effect)) (effectOperationTargets effect ctx)
   ]
  where
   coverageEffect = \case
@@ -2237,21 +2292,22 @@ completeHandledEffects coverage ctx =
   wholeEffectMatches _ _ = False
   handledOperations effect = [operation | OneOperation owner operation <- coverage, owner == effect]
 
-effectOperationTargets :: EffectRef -> TcContext -> [SymbolId]
-effectOperationTargets effect TcContext{tcEnv} =
-  nub
-    [ termExportTarget
-    | EnvBinding{envScheme, envTarget = Just TermExport{termExportTarget}} <- tcEnv
-    , schemeEffectOwner envScheme == Just effect
+effectOperationTargets :: EffectRef -> TcContext -> Maybe [SymbolId]
+effectOperationTargets EffectRef{effectIdentity} TcContext{tcTypes} =
+  listToMaybe
+    [ operations
+    | info <- Map.elems tcTypes
+    , EffectInfo EffectRef{effectIdentity = declaredIdentity} _ operations <- [unshownTypeInfo info]
+    , declaredIdentity == effectIdentity
     ]
 
-handlerCaseContextM :: [EffectRef] -> String -> [Pattern] -> Ty -> EffectRow -> TcContext -> Tc TcContext
-handlerCaseContextM fullyHandled name patterns answerTy effects ctx = case lookupEnv name ctx of
-  EnvMissing -> effectHandlerCaseContextM name patterns effects ctx
-  EnvAmbiguous msg -> failTc msg
-  EnvFound scheme
-    | null patterns -> recoverTc (operationHandlerCaseContextM fullyHandled name patterns answerTy effects scheme ctx) (\_ -> effectHandlerCaseContextM name patterns effects ctx)
-    | otherwise -> operationHandlerCaseContextM fullyHandled name patterns answerTy effects scheme ctx
+handlerCaseContextM :: [EffectRef] -> HandlerCoverage -> String -> [Pattern] -> Ty -> EffectRow -> TcContext -> Tc TcContext
+handlerCaseContextM fullyHandled target name patterns answerTy effects ctx = case target of
+  WholeEffect{} -> effectHandlerCaseContextM name patterns effects ctx
+  OneOperation{} -> case lookupEnv name ctx of
+    EnvFound scheme -> operationHandlerCaseContextM fullyHandled name patterns answerTy effects scheme ctx
+    EnvMissing -> failTc ("handler case '" ++ name ++ "' is not an effect operation")
+    EnvAmbiguous msg -> failTc msg
 
 effectHandlerCaseContextM :: String -> [Pattern] -> EffectRow -> TcContext -> Tc TcContext
 effectHandlerCaseContextM effectName patterns effects ctx = case patterns of
@@ -2289,7 +2345,12 @@ findHandledOperationEffectM :: String -> EffectRef -> EffectRow -> EffectRow -> 
 findHandledOperationEffectM name ownerEffect opEffects effects = do
   ownEffect <- maybe notFound pure (find (effectHasRef ownerEffect) opEffects)
   st <- getTc
-  case findEffectByHead ownEffect (applyStateEffects effects st) of
+  let actualEffects = applyStateEffects effects st
+      hasOpenRow = any (\case EffectVariable{} -> True; EffectLabel RigidEffect{} _ -> True; _ -> False) actualEffects
+      parameterized = maybe False (not . null . snd) (effectHeadAndArgs ownEffect)
+  when (parameterized && hasOpenRow) $
+    failTc ("cannot handle parameterized effect '" ++ effectDisplayName ownerEffect ++ "' across an open effect row")
+  case findEffectByHead ownEffect actualEffects of
     Nothing -> failTc ("handler for absent effect '" ++ effectDisplayName ownerEffect ++ "' in operation '" ++ name ++ "'")
     Just actualEffect -> unifyEffectM ownEffect actualEffect >> ((\st -> mapEffectTypes (`applyState` st) actualEffect) <$> getTc)
  where

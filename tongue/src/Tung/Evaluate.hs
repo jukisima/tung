@@ -110,8 +110,14 @@ data RuntimeDictionary
   = FillDictionary RuntimeFill [RuntimeValue] [RuntimeDictionary]
   | PrimitiveDictionary SymbolId String [RuntimeDictionary]
 
+data RuntimeFrame = RuntimeFrame
+  { runtimeFrameParents :: [SymbolId]
+  , runtimeFrameMembers :: Set.Set String
+  }
+
 data RuntimeFill = RuntimeFill
-  { runtimeFillMembers :: Map.Map String RuntimeExpr
+  { runtimeFillFrame :: SymbolId
+  , runtimeFillMembers :: Map.Map String RuntimeExpr
   , runtimeFillEnv :: RuntimeEnv
   }
 
@@ -128,6 +134,7 @@ instance Eq RuntimeValue where
 data RuntimeEnv = RuntimeEnv
   { runtimeGlobals :: Map.Map TermExport RuntimeValue
   , runtimeLocals :: Map.Map LocalId RuntimeValue
+  , runtimeFrames :: Map.Map SymbolId RuntimeFrame
   , runtimeFills :: Map.Map FillId RuntimeFill
   }
 
@@ -281,8 +288,8 @@ evalDeclsWithImports importStack program declarations env lastValue = do
  where
   compiledFills =
     Map.fromList
-      [ (key, Map.fromList [(name, compileExpr member) | (name, member) <- members])
-      | CoreFill key _ members <- declarations
+      [ (key, (frame, Map.fromList [(name, compileExpr member) | (name, member) <- members]))
+      | CoreFill key frame members <- declarations
       ]
 
   use currentEnv = \case
@@ -325,10 +332,11 @@ cacheRuntimeImport path env = Eval $ \RuntimeHost{hostImportCache} -> do
   pure (RuntimeOk ())
 
 projectRuntimeInterface :: ModuleInterface -> RuntimeEnv -> RuntimeEnv
-projectRuntimeInterface ModuleInterface{interfaceTerms} RuntimeEnv{runtimeGlobals, runtimeFills} =
+projectRuntimeInterface ModuleInterface{interfaceTerms} RuntimeEnv{runtimeGlobals, runtimeFrames, runtimeFills} =
   RuntimeEnv
     { runtimeGlobals = Map.restrictKeys runtimeGlobals targets
     , runtimeLocals = Map.empty
+    , runtimeFrames
     , runtimeFills
     }
  where
@@ -339,6 +347,7 @@ mergeRuntimeEnv left right =
   RuntimeEnv
     { runtimeGlobals = Map.union (runtimeGlobals left) (runtimeGlobals right)
     , runtimeLocals = Map.union (runtimeLocals left) (runtimeLocals right)
+    , runtimeFrames = Map.union (runtimeFrames left) (runtimeFrames right)
     , runtimeFills = Map.union (runtimeFills left) (runtimeFills right)
     }
 
@@ -349,15 +358,18 @@ hoistRuntimeDecl :: RuntimeEnv -> CoreDecl -> RuntimeEnv
 hoistRuntimeDecl env = \case
   CoreData constructors -> addConstructors constructors env
   CoreEffect operations -> addEffectOps operations env
-  CoreShape _ _ members -> addShapeSelectors members env
+  CoreShape frame parents members ->
+    addShapeSelectors
+      members
+      (env{runtimeFrames = Map.insert frame (RuntimeFrame parents (Set.fromList (map shapeMemberName members))) (runtimeFrames env)})
   CoreForeignLet term hostKey arity -> addGlobalValue term (nativeValue hostKey arity) env
   _ -> env
 
-closeRuntimeFills :: Map.Map FillId (Map.Map String RuntimeExpr) -> RuntimeEnv -> RuntimeEnv
+closeRuntimeFills :: Map.Map FillId (SymbolId, Map.Map String RuntimeExpr) -> RuntimeEnv -> RuntimeEnv
 closeRuntimeFills fills env = closedEnv
  where
   closedEnv = env{runtimeFills = Map.union localFills (runtimeFills env)}
-  localFills = Map.map (\members -> RuntimeFill members closedEnv) fills
+  localFills = Map.map (\(frame, members) -> RuntimeFill frame members closedEnv) fills
 
 evalGlobalBoundValue :: TermExport -> CoreExpr -> RuntimeEnv -> Eval RuntimeValue
 evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
@@ -369,7 +381,9 @@ evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
 addShapeSelectors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
 addShapeSelectors members env = foldl' add env members
  where
-  add current term = addGlobalValue term (shapeMemberValue (shapeMemberName term)) current
+  add current term@TermExport{termExportKind = ShapeMemberTerm frame} =
+    addGlobalValue term (shapeMemberValue frame (shapeMemberName term)) current
+  add current _ = current
 
 shapeMemberName :: TermExport -> String
 shapeMemberName = lastQualifiedSegment . symbolName . termExportTarget
@@ -523,31 +537,44 @@ unaryValue display action = callableValue display 1 $ \case
 nativeValue :: String -> Int -> RuntimeValue
 nativeValue name arity = callableValue ("<native " ++ name ++ ">") arity (evalNative name)
 
-shapeMemberValue :: String -> RuntimeValue
-shapeMemberValue member = unaryValue ("<frame member " ++ member ++ ">") $ \case
-  VDictionary dictionary -> evalDictionaryMember member dictionary
+shapeMemberValue :: SymbolId -> String -> RuntimeValue
+shapeMemberValue frame member = unaryValue ("<frame member " ++ member ++ ">") $ \case
+  VDictionary dictionary -> evalDictionaryMember frame member dictionary
   _ -> runtimeError ("frame member '" ++ member ++ "' received non-dictionary evidence")
 
-evalDictionaryMember :: String -> RuntimeDictionary -> Eval RuntimeValue
-evalDictionaryMember member dictionary =
+evalDictionaryMember :: SymbolId -> String -> RuntimeDictionary -> Eval RuntimeValue
+evalDictionaryMember frame member dictionary =
   fromMaybe missing (dictionaryMember dictionary)
  where
   missing = case dictionary of
     PrimitiveDictionary frame typeName _ -> runtimeError ("primitive fill '" ++ symbolName frame ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
     FillDictionary{} -> runtimeError ("selected fill hath no member '" ++ member ++ "'")
 
-  dictionaryMember (PrimitiveDictionary frame typeName parents) =
-    (pure <$> primitiveDictionaryValue frame typeName member)
+  dictionaryMember (PrimitiveDictionary owner typeName parents) =
+    (if owner == frame then pure <$> primitiveDictionaryValue owner typeName member else Nothing)
       <|> asum (map dictionaryMember parents)
   dictionaryMember current@(FillDictionary fill requirements parents) =
     case Map.lookup member (runtimeFillMembers fill) of
-      Just compiledMember -> Just do
+      Just compiledMember | fillMemberOwner fill member == Just frame -> Just do
         let evidence = VDictionary current : requirements
             memberEnv = foldl' addEvidence (runtimeFillEnv fill) (zip [(0 :: Int) ..] evidence)
         compiledMember memberEnv
-      Nothing -> asum (map dictionaryMember parents)
+      _ -> asum (map dictionaryMember parents)
 
   addEvidence env (index, value) = addLocalValue (EvidenceLocal index) value env
+
+-- a child fill may implement an inherited member itself. the checker assigns
+-- that member to the first frame in declaration order which specifies it.
+fillMemberOwner :: RuntimeFill -> String -> Maybe SymbolId
+fillMemberOwner RuntimeFill{runtimeFillFrame, runtimeFillEnv} member = go Set.empty runtimeFillFrame
+ where
+  go seen frame
+    | Set.member frame seen = Nothing
+    | otherwise = case Map.lookup frame (runtimeFrames runtimeFillEnv) of
+        Nothing -> Nothing
+        Just RuntimeFrame{runtimeFrameParents, runtimeFrameMembers}
+          | Set.member member runtimeFrameMembers -> Just frame
+          | otherwise -> asum (map (go (Set.insert frame seen)) runtimeFrameParents)
 
 primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
 primitiveDictionaryValue frame typeName member = do
@@ -985,7 +1012,7 @@ addEffectOps ops env = foldl' step env ops
 baseRuntimeEnv :: RuntimeEnv
 baseRuntimeEnv = foldl' add base hostBindings
  where
-  base = RuntimeEnv{runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeFills = Map.empty}
+  base = RuntimeEnv{runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeFrames = Map.empty, runtimeFills = Map.empty}
   add current binding = case hostRole binding of
     BaseNative -> addGlobalValue (TermExport (runtimeSymbol name) OrdinaryTerm) (nativeValue name arity) current
     BaseEffect effectName ->

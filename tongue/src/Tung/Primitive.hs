@@ -8,6 +8,7 @@ module Tung.Primitive (
   hostBindings,
   hostArity,
   hostEffectNames,
+  runnerEffectNames,
   primitiveTypeNames,
   effectId,
   effectOperationId,
@@ -220,6 +221,14 @@ numberedVariables prefix variables = zip variables [prefix ++ show index | index
 
 hostEffectNames :: [String]
 hostEffectNames = map hostEffectName hostEffectSchemas
+
+-- only effects whose operations enter the runner's host dispatch appear here.
+runnerEffectNames :: [String]
+runnerEffectNames = nub (concatMap executedEffect hostBindings)
+ where
+  executedEffect HostBinding{hostRole = BaseEffect owner} = [owner]
+  executedEffect HostBinding{hostRole = SourceEffect owner} = [owner]
+  executedEffect _ = []
 
 effectId :: (String -> Bool) -> ModuleId -> [String] -> String -> [EffectOp] -> SymbolId
 effectId isConcrete owner parameters name operations

@@ -113,6 +113,7 @@ accepted =
 rejected :: [(String, String)]
 rejected =
   [ ("literal type mismatch", "let bad: ℤ = 'wrong'")
+  , ("a later local function shadoweþ an earlier one in application", "let (x: text) foo: text = x let (x: ℤ) foo: ℤ = x + 1 let bad: text = 'x' foo")
   , ("captured local alias cannot become polymorphic", "let x bad = (let y = x let number: ℤ = y yield number + 1) yield 'oops' bad")
   , ("nested function cannot generalise a captured variable", "let x bad = (let _ capture = x let number: ℤ = 0 capture let word: text = 0 capture yield number)")
   , ("constructor unification cannot change a nominal head", "ilk a box { a box } ilk a option { a some } let (x: a f) lift: a f = x let x twice = (x lift) lift let bad: ℤ option = (1 box) twice")
@@ -184,6 +185,8 @@ rejected =
 importCases :: [Test]
 importCases =
   [ typeOkWith "shown value and type cross a use" "use file.tung let value: box = box" shown
+  , typeErrWith "a local function shadoweþ an imported one in application" "use source.tung let (x: text) foo: text = x let bad: ℤ = 1 foo" shadowedFunctionImport
+  , typeOkWith "qualification still reacheþ a shadowed import" "use source.tung let (x: text) foo: text = x let good: ℤ = 1 source~foo" shadowedFunctionImport
   , typeOkWith "default use namespace covereþ terms, types, and frames" "use ilk/item.tung let value: item~item = item~empty let same: item~item = value let result = same item~identity" aliased
   , typeOkWith "custom use alias surviveþ resolved frame inheritance" "use dep.tung d graiþ a d~parent frame a child { let a child: a }" (Map.singleton "dep.tung" "show frame a parent { let a parent: a }")
   , expect "re-exported nominal mismatch nameþ boþ outer aliases" $
@@ -195,6 +198,10 @@ importCases =
   , expect "re-exported effect mismatch nameþ boþ outer aliases" $
       let message = checkWithImports "use middle-left.tung left use middle-right.tung right let (x: ℤ) bad: ℤ ! left~pulse = x right~ask" reexportEffectImports
        in "left~pulse" `isInfixOf` message && "right~pulse" `isInfixOf` message
+  , expect "a hidden operation still counteth toward handler coverage" $
+      let message = checkWithImports "use middle.tung let (_: 𝟙) run: 𝟙 = try only trigger { first @ only }" hiddenEffectOperationImports
+       in "type error:" `isPrefixOf` message && "cannot unify effects" `isInfixOf` message
+  , typeOkWith "an effect-level handler covereth hidden operations" "use middle.tung let (_: 𝟙) run: 𝟙 = try only trigger { duo @ only }" hiddenEffectOperationImports
   , expect "re-exported graiþ mismatch nameþ boþ outer aliases" $
       let message = checkWithImports "use middle-left.tung left use middle-right.tung right graiþ a left~identity let (x: a) bad: a = x right~identity" reexportShapeImports
        in "left~identity" `isInfixOf` message && "right~identity" `isInfixOf` message
@@ -256,6 +263,7 @@ importCases =
   ]
  where
   shown = Map.fromList [("file.tung", "show ilk box { box } let hidden = 1")]
+  shadowedFunctionImport = Map.singleton "source.tung" "show let (x: ℤ) foo: ℤ = x + 1"
   aliased = Map.singleton "ilk/item.tung" "show ilk item { item } show frame a identity { let a identity: a } fill item identity { let x identity = x } show let empty: item = item"
   reexportMismatchImports =
     Map.fromList
@@ -275,6 +283,11 @@ importCases =
       , ("base-right.tung", "show deed pulse { ℤ ask: ℤ }")
       , ("middle-left.tung", "use base-left.tung base-left show-ilk base-left~pulse show base-left~ask")
       , ("middle-right.tung", "use base-right.tung base-right show-ilk base-right~pulse show base-right~ask")
+      ]
+  hiddenEffectOperationImports =
+    Map.fromList
+      [ ("base.tung", "show ilk 𝟙 { only } show deed duo { 𝟙 first: 𝟙, 𝟙 second: 𝟙 } show let (_: 𝟙) trigger: 𝟙 ! duo = only second")
+      , ("middle.tung", "use base.tung show-ilk base~𝟙 show-ilk base~duo show base~only show base~first show base~trigger")
       ]
   reexportShapeImports =
     Map.fromList
@@ -462,7 +475,7 @@ booleanRows :: Int -> [[String]]
 booleanRows arity = replicateM arity ["yea", "nay"]
 
 generatedEffectCases :: [Test]
-generatedEffectCases = reordered ++ closed ++ unions
+generatedEffectCases = reordered ++ closed ++ unions ++ parameterized ++ hostHandlers
  where
   effects = ["pulse", "spark", "glow"]
   rows = subsequences ["pulse", "spark"]
@@ -503,6 +516,34 @@ generatedEffectCases = reordered ++ closed ++ unions
               ++ "let result = first "
               ++ (if imported then "rows~combined" else "combined")
               ++ " second"
+    ]
+  parameterized =
+    [ typeErrContaining
+        "one inferred row cannot contain conflicting parameters of the same effect"
+        "cannot unify"
+        (askPrelude ++ "let _ mixed = (let word = (only ask: text) let number = (only ask: ℤ) yield only)")
+    , typeErrContaining
+        "one operation handler cannot erase conflicting effect parameters"
+        "cannot unify"
+        (askPrelude ++ "let (_: 𝟙) bad: text = try (let word = (only ask: text) let number = (only ask: ℤ) yield word) { x ask @ 1 eftgin }")
+    , typeErrContaining
+        "parameterized operation handler cannot assume an open row excludes its effect"
+        "cannot handle parameterized effect 'source' across an open effect row"
+        (askPrelude ++ "let (f: 𝟙 → text ! e) run: text ! e = try (let number = (only ask: ℤ) let word = only f yield word) { ask @ 1 eftgin }")
+    , typeErrContaining
+        "whole-effect clause with an operation name cannot receive eftgin"
+        "unknown name 'eftgin'"
+        ("ilk 𝟙 { only } deed duo { 𝟙 duo: ℤ, 𝟙 other: ℤ } let (_: 𝟙) bad: ℤ = try only other { duo @ 1 eftgin }")
+    ]
+  askPrelude = "ilk 𝟙 { only } deed a source { 𝟙 ask: a } "
+  hostHandlers =
+    [ typeErrContaining
+        "a source handler cannot suppress an effect run by the host"
+        "runner effect 'console' cannot have a source handler"
+        "ilk 𝟙 { only } let _ = try 'should-be-handled' write { console @ only }"
+    , typeOk
+        "state remaineþ handled in source despite its standard schema"
+        "ilk 𝟙 { only } deed a state { 𝟙 get: a, a set: 𝟙 } let answer: ℤ = try (only get: ℤ) { state @ 0 }"
     ]
   checkRow name permitted source imports =
     let actual = checkWithImports source imports

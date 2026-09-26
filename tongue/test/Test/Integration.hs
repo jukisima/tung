@@ -1,9 +1,10 @@
 -- runnable byspels and host-backed effects cross the full compiler boundary here.
 module Test.Integration (group) where
 
-import Control.Concurrent (forkIO, killThread, threadDelay)
-import Control.Exception (IOException, bracket, finally, try)
-import Control.Monad (filterM, void, when)
+import Control.Concurrent (forkFinally, killThread, threadDelay)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, tryReadMVar)
+import Control.Exception (IOException, SomeException, bracket, finally, try)
+import Control.Monad (filterM, when)
 import Data.ByteString qualified as ByteString
 import Data.ByteString.Char8 qualified as Char8
 import Data.List (isPrefixOf, sort)
@@ -12,6 +13,7 @@ import Network.Socket qualified as Socket
 import Network.Socket.ByteString qualified as SocketBytes
 import System.Directory (doesFileExist, getTemporaryDirectory, listDirectory, removeFile)
 import System.FilePath (takeExtension, (</>))
+import System.IO.Error (isDoesNotExistError)
 import System.Timeout qualified as Timeout
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
@@ -101,12 +103,13 @@ webServerRoundTrip imports = do
           ++ " "
           ++ show port
           ++ " serve route { _ fail @ only }"
-  server <- forkIO (void (evaluateMainWithImports source imports))
+  completed <- newEmptyMVar
+  server <- forkFinally (evaluateMainWithImports source imports) (putMVar completed)
   -- type checking and evaluator startup share this budget with the round trip.
-  response <- Timeout.timeout 30000000 (tryIOException (requestEventually 300 port)) `finally` killThread server
+  response <- Timeout.timeout 30000000 (requestEventually completed port) `finally` killThread server
   pure case response of
     Nothing -> Just "web server round trip timed out"
-    Just (Left exception) -> Just ("web server did not accept a connection: " ++ show exception)
+    Just (Left message) -> Just message
     Just (Right bytes)
       | all ((`ByteString.isInfixOf` bytes) . Char8.pack) ["HTTP/1.1 200 OK", "Content-Length: 16", "X-Tung: yea", "\r\n\r\nhello from tung\n"]
           && not (any ((`ByteString.isInfixOf` bytes) . Char8.pack) ["Transfer-Encoding:", "X-Tung: old"]) ->
@@ -122,13 +125,17 @@ unusedPort = Socket.withSocketsDo $ bracket open Socket.close $ \listener -> do
  where
   open = Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
 
-requestEventually :: Int -> Integer -> IO ByteString.ByteString
-requestEventually retries port =
+requestEventually :: MVar (Either SomeException String) -> Integer -> IO (Either String ByteString.ByteString)
+requestEventually completed port =
   tryIOException (requestOnce port) >>= \case
-    Right response -> pure response
+    Right response -> pure (Right response)
     Left exception
-      | retries > 0 -> threadDelay 20000 >> requestEventually (retries - 1) port
-      | otherwise -> fail (show exception)
+      | isDoesNotExistError exception ->
+          tryReadMVar completed >>= \case
+            Just (Left failure) -> pure (Left ("web server crashed before accepting a connection: " ++ show failure))
+            Just (Right result) -> pure (Left ("web server exited before accepting a connection: " ++ result))
+            Nothing -> threadDelay 20000 >> requestEventually completed port
+      | otherwise -> pure (Left ("web server request failed: " ++ show exception))
 
 requestOnce :: Integer -> IO ByteString.ByteString
 requestOnce port = Socket.withSocketsDo $ bracket open Socket.close $ \connection -> do

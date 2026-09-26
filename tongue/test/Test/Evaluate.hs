@@ -199,6 +199,8 @@ importedCases imports =
   , evalOkWith "shared diamond import" "use left.tung use right.tung yield left~left + right~right" diamondImports "eval ok: 5"
   , evalOkWith "diamond import keepeþ one fill identity" "use left.tung use right.tung yield 3 left~identity" fillDiamondImports "eval ok: 3"
   , evalOkWith "qualified frames from different modules stay distinct" "use left.tung use right.tung yield 3 left~identity" distinctShapeImports "eval ok: 4"
+  , evalOkWith "inherited same-named members select þe requested frame" (collidingMemberPrelude ++ "fill ℤ first { let _ tag = 1 } fill ℤ second { let _ tag = 2 } fill ℤ both { let _ own = 3 } graiþ a both let (x: a) result: ℤ = x right~tag yield 1 result") collidingMemberImports "eval ok: 2"
+  , evalOkWith "a child member override doth not replace a sibling frame member" (collidingMemberPrelude ++ "fill ℤ second { let _ tag = 2 } fill ℤ both { let _ tag = 10 let _ own = 3 } graiþ a both let (x: a) result: ℤ = (x left~tag) + (x right~tag) yield 1 result") collidingMemberImports "eval ok: 12"
   , evalOkWith "fills in extension-sharing paths stay distinct" "use a.tung one use a.extra.tung two yield (1 one~identity) + (1 two~identity)" samePrefixFillImports "eval ok: 13"
   , evalOkWith "fills beneath dotted directories stay distinct" "use pkg.one/identity.tung one use pkg.two/identity.tung two yield (1 one~identity) + (1 two~identity)" dottedDirectoryFillImports "eval ok: 13"
   , evalOkWith "same-spelled imported data types dispatch through distinct fills" "use common.tung use left.tung use right.tung yield (left~value common~label) + (right~value common~label)" nominalTypeFillImports "eval ok: 11"
@@ -381,6 +383,12 @@ importedCases imports =
     Map.fromList
       [ ("left.tung", "show frame a identity { let a identity: a } fill ℤ identity { let x identity = x + 1 }")
       , ("right.tung", "show frame a identity { let a identity: a } fill ℤ identity { let x identity = x + 2 }")
+      ]
+  collidingMemberPrelude = "use left.tung use right.tung graiþ a first, a second frame a both { let a own: ℤ } "
+  collidingMemberImports =
+    Map.fromList
+      [ ("left.tung", "show frame a first { let a tag: ℤ }")
+      , ("right.tung", "show frame a second { let a tag: ℤ }")
       ]
   samePrefixFillImports = Map.fromList [("a.tung", identityFill 1), ("a.extra.tung", identityFill 10)]
   dottedDirectoryFillImports = Map.fromList [("pkg.one/identity.tung", identityFill 1), ("pkg.two/identity.tung", identityFill 10)]
