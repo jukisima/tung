@@ -12,7 +12,7 @@ import Tung
 
 group :: IO Group
 group = do
-  imports <- readBookhoardImports
+  imports <- readLibraryImports "." >>= either fail pure
   Harness.group "core" (map (integerCase imports) integerTerms ++ map (languageCase imports) (languagePrograms ++ booleanProductPrograms) ++ [checkedImportGraph, checkedModuleInterface, checkedImportInterface, checkedReExportInterface, checkedReservedDataInterface, checkedAliasedShapeNeed, checkedVisibleShapeNeed, checkedMainCore])
 
 checkedImportGraph :: Test

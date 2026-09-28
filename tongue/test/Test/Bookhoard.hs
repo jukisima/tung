@@ -9,49 +9,52 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, listToMaybe)
 import Data.Set qualified as Set
 import System.Directory (doesDirectoryExist, listDirectory)
-import System.FilePath (takeBaseName, takeExtension, (</>))
+import System.FilePath (takeBaseName, takeDirectory, takeExtension, (</>))
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
 group = do
-  imports <- readBookhoardImports
-  registry <- registryCase
-  embedded <- embeddedSourcesCase imports
+  files <- readLibraryImportFiles "." >>= either fail pure
+  imports <- readLibraryImports "." >>= either fail pure
+  registry <- registryCase files
+  loaded <- loadedSourcesCase files imports
   Harness.group "bookhoard" $
     registry
-      : embedded
+      : loaded
       : acyclicCase imports
-      : noUmbrellaDependencyCase
+      : noUmbrellaDependencyCase files
       : groundEffectExportsCase imports
       : systemExplicitCase imports
       : runnerEffectsCase imports
       : primitiveCatalogueCase imports
-      : frameLayoutCase
-      : map (typeCase imports) bookhoardImportFiles
-      ++ map oneDataTypeCase (nub (map fst bookhoardImportFiles))
+      : frameLayoutCase files
+      : map (typeCase imports) files
+      ++ map oneDataTypeCase (nub (map fst files))
 
-embeddedSourcesCase :: Map.Map String String -> IO Test
-embeddedSourcesCase imports = do
-  differences <- traverse differs bookhoardImportFiles
+loadedSourcesCase :: [(FilePath, String)] -> Map.Map String String -> IO Test
+loadedSourcesCase files imports = do
+  differences <- traverse differs files
   pure . pure $ listToMaybe (catMaybes differences)
  where
   differs (path, name) = do
     source <- readFile path
     pure $ case Map.lookup name imports of
-      Just embedded | embedded == source -> Nothing
-      _ -> Just ("embedded bookhoard source differs from " ++ path)
+      Just loaded | loaded == source -> Nothing
+      _ -> Just ("loaded bookhoard source differs from " ++ path)
 
-registryCase :: IO Test
-registryCase = do
-  files <- discover (".." </> "bookhoard")
-  let registered = sort (nub (map fst bookhoardImportFiles))
-      actual = sort (filter ((== ".tung") . takeExtension) files)
-  pure . pure $
-    if registered == actual
-      then Nothing
-      else Just ("bookhoard registry differs from source tree: " ++ intercalate ", " (registered `symmetricDifference` actual))
+registryCase :: [(FilePath, String)] -> IO Test
+registryCase registeredFiles = case lookup "ground.tung" [(name, path) | (path, name) <- registeredFiles] of
+  Nothing -> pure (pure (Just "the declared bookhoard library lacks ground.tung"))
+  Just groundPath -> do
+    files <- discover (takeDirectory groundPath)
+    let registered = sort (nub (map fst registeredFiles))
+        actual = sort (filter ((== ".tung") . takeExtension) files)
+    pure . pure $
+      if registered == actual
+        then Nothing
+        else Just ("bookhoard registry differs from source tree: " ++ intercalate ", " (registered `symmetricDifference` actual))
 
 discover :: FilePath -> IO [FilePath]
 discover directory = do
@@ -84,11 +87,11 @@ acyclicCase imports = pure $ case traverse_ (walk []) (Map.keys imports) of
     Program declarations <- either (Left . (("parse " ++ path ++ ": ") ++)) Right (parse source)
     traverse_ (walk nextStack) (concatMap importedPaths declarations)
 
-noUmbrellaDependencyCase :: Test
-noUmbrellaDependencyCase = listToMaybe . catMaybes <$> traverse checkModule (nub (map fst bookhoardImportFiles))
+noUmbrellaDependencyCase :: [(FilePath, String)] -> Test
+noUmbrellaDependencyCase files = listToMaybe . catMaybes <$> traverse checkModule files
  where
-  checkModule "../bookhoard/ground.tung" = pure Nothing
-  checkModule path = do
+  checkModule (_, "ground.tung") = pure Nothing
+  checkModule (path, _) = do
     source <- readFile path
     pure $ case parse source of
       Left message -> Just ("parse " ++ path ++ ": " ++ message)
@@ -184,22 +187,22 @@ isDataDecl DataDecl{} = True
 isDataDecl (Export declaration) = isDataDecl declaration
 isDataDecl _ = False
 
-frameLayoutCase :: Test
-frameLayoutCase = listToMaybe . catMaybes <$> traverse checkModule (nub (map fst bookhoardImportFiles))
+frameLayoutCase :: [(FilePath, String)] -> Test
+frameLayoutCase files = listToMaybe . catMaybes <$> traverse checkModule files
  where
-  checkModule path = do
+  checkModule (path, name) = do
     source <- readFile path
     pure $ case parse source of
       Left message -> Just ("parse " ++ path ++ ": " ++ message)
-      Right (Program declarations) -> checkFrames path (concatMap frameNames declarations)
-  checkFrames path names
-    | framePrefix `isPrefixOf` path = case names of
+      Right (Program declarations) -> checkFrames path name (concatMap frameNames declarations)
+  checkFrames path name names
+    | framePrefix `isPrefixOf` name = case names of
         [name] | name == takeBaseName path -> Nothing
         [name] -> Just (path ++ " defineþ frame '" ++ name ++ "'")
         _ -> Just (path ++ " owneþ " ++ show (length names) ++ " frames")
     | null names = Nothing
     | otherwise = Just (path ++ " defineþ a frame outside the frame directory")
-  framePrefix = (".." </> "bookhoard" </> "frame") ++ "/"
+  framePrefix = "frame/"
 
 frameNames :: Decl -> [String]
 frameNames (ShapeDecl _ name _ _) = [name]

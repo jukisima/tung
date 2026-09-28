@@ -1,4 +1,4 @@
-{- | public compiler, evaluator, and bookhoard api.
+{- | public compiler, evaluator, and library api.
 internal modules remain hidden by the cabal package.
 -}
 module Tung (
@@ -76,20 +76,22 @@ module Tung (
   evaluateMainWithImports,
   evaluateMainWithArgsAndImports,
   evaluateMainBundleWithArgs,
-  bookhoardImportFiles,
-  readBookhoardImports,
+  resolveLibraryRoots,
+  readLibraryImportFiles,
+  readLibraryImports,
   loadProjectFile,
   loadProjectFileWithRoots,
+  loadProjectSourceWithRoots,
   hostBindings,
 ) where
 
-import Tung.Bookhoard (bookhoardImportFiles, readBookhoardImports)
 import Tung.Core (CoreProgram, ModuleInterface (..), coreImportInterface, coreInterface)
 import Tung.Diagnostic
 import Tung.Evaluate (evaluate, evaluateCoreProgram, evaluateMainBundleWithArgs, evaluateMainCoreProgram, evaluateMainWithArgsAndImports, evaluateMainWithImports, evaluateWithArgsAndImports, evaluateWithImports)
 import Tung.Format (formatSource)
 import Tung.Identity
 import Tung.Import (enterImport)
+import Tung.Library (readLibraryImportFiles, readLibraryImports, resolveLibraryRoots)
 import Tung.Metadata (languageMetadata)
 import Tung.Parse (ParsedBundle, parse, prepareBundle)
 import Tung.Primitive

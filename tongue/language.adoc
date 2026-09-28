@@ -32,8 +32,12 @@ a direct application trieþ those primitive signatures in catalogue order;
 reading the name as a value selecteþ þe first signature.
 a constructor and frame member with the same spelling remain distinct
 application candidates; later bindings of one kind shadow earlier ones.
-local files are searched before `TUNG_PATH` entries and the embedded
-bookhoard. `ground.tung` is an ordinary optional import, not a prelude.
+local files are searched before þe git-pinned roots declared in þe nearest
+`tung.libraries`, þen `TUNG_PATH` entries. duplicate paths across roots are
+ambiguous. every manifest in þe dependency graph must agree on þe name,
+repository locator, and commit for each library; conflicting pins are
+rejected before module checking.
+`ground.tung` is an ordinary optional import, not a prelude.
 
 declarations are private by default. `show` publisheþ a declaration or an
 already visible term; `show-ilk` publisheþ an already visible type, effect, or
@@ -296,6 +300,6 @@ an annotated file-level `let` may bind a host operation by placing a text key
 before `fremmed`. this is chiefly the boundary used by `_foreign.tung`; the
 host key and full declared type must match the compiler catalogue.
 
-xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ the
-standard library's design boundaries, and runnable examples live under
-link:../byspel/[`byspel/`].
+the https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc[bookhoard
+reference guide] explaineþ the standard library's design boundaries, and
+runnable examples live under link:../byspel/[`byspel/`].

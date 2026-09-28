@@ -12,12 +12,11 @@ LANGUAGE_NAMES := $(VSCODE_DIR)/generated/language-names.json
 CABAL ?= cabal
 NPM ?= npm
 CODE ?= code
-RUNGHC ?= runghc
 BENCH_RUNS ?= 3
 BENCH_SIZE ?= 1000
 
 .PHONY: all setup build test benchmark install \
-	bookhoard-membership compiler-build compiler-test compiler-install runner-check \
+	compiler-build compiler-test compiler-install runner-check \
 	language-metadata \
 	vscode-deps vscode-build vscode-test extension-package extension-install
 
@@ -36,10 +35,7 @@ benchmark: compiler-build
 
 install: compiler-install extension-install
 
-bookhoard-membership:
-	@cd "$(TONGUE_DIR)" && $(RUNGHC) -isrc tool/bookhoard-membership.hs
-
-compiler-build: bookhoard-membership
+compiler-build:
 	@printf 'building tung compiler\n'
 	@cd "$(TONGUE_DIR)" && $(CABAL) build exe:tung
 

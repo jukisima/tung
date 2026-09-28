@@ -13,18 +13,23 @@ interface ResponseFrame {
 }
 class CompilerBridge {
   tongue: string | undefined;
+  libraryRoots: string[] = [];
   executable: string | undefined;
   session: childProcess.ChildProcessWithoutNullStreams | undefined;
   pending = new Map<number, PendingRequest>();
   nextRequestId = 1;
   output = "";
   responseFrame: ResponseFrame | undefined;
-  configure(tongue) {
-    if (tongue !== this.tongue) {
+  configure(tongue, libraryRoots: string[] = []) {
+    const tongueChanged = tongue !== this.tongue;
+    const rootsChanged = libraryRoots.length !== this.libraryRoots.length ||
+      libraryRoots.some((root, index) => root !== this.libraryRoots[index]);
+    if (tongueChanged || rootsChanged) {
       this.dispose();
-      this.executable = undefined;
+      if (tongueChanged) this.executable = undefined;
     }
     this.tongue = tongue;
+    this.libraryRoots = [...libraryRoots];
   }
   available() {
     return Boolean(this.findExecutable());
@@ -81,6 +86,12 @@ class CompilerBridge {
     }
     const process = childProcess.spawn(executable, ["--editor-session"], {
       cwd: this.tongue,
+      env: this.libraryRoots.length
+        ? {
+          ...globalThis.process.env,
+          TUNG_PATH: this.libraryRoots.join(path.delimiter),
+        }
+        : globalThis.process.env,
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.session = process;

@@ -14,7 +14,7 @@ import Tung
 
 group :: IO Group
 group = do
-  imports <- readBookhoardImports
+  imports <- readLibraryImports "." >>= either fail pure
   Harness.group "evaluate" (map evalCase (deterministic ++ runtimeErrors) ++ map typeErrorCase typeErrors ++ importedCases imports ++ effectRowCases ++ handlerProperties)
 
 effectRowCases :: [Test]

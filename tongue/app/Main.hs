@@ -8,10 +8,10 @@ import Control.Monad (unless)
 import Data.Foldable (for_)
 import Data.List (intercalate, isPrefixOf)
 import Data.Map.Strict qualified as Map
+import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs)
-import System.Environment qualified as Environment
 import System.Exit (exitFailure)
-import System.FilePath (splitSearchPath)
+import System.FilePath ((</>))
 import System.IO (hFlush, isEOF, stdout)
 import Text.Read (readMaybe)
 import Tung
@@ -23,6 +23,8 @@ main = do
     ["--check-stdin"] -> checkStdin checkWithImports
     ["--editor-session"] -> editorSession
     ["--language-metadata"] -> putStr languageMetadata
+    ["--library-paths"] -> getCurrentDirectory >>= listLibraryPaths
+    ["--library-paths", path] -> listLibraryPaths path
     ["--check", path] -> checkFile True path
     ["--check-module", path] -> checkFile False path
     ["--type-of", name, path] -> typeOfFile name path
@@ -65,36 +67,51 @@ typeOfFile name path = withProject path \Project{projectBundle} ->
 
 withProject :: FilePath -> (Project -> IO ()) -> IO ()
 withProject path action = do
-  bookhoard <- readBookhoardImports
-  loadConfiguredFile bookhoard path >>= \case
-    Left message -> putStrLn ("project error: " ++ message) >> exitFailure
-    Right project -> action project
+  resolveLibraryRoots path >>= \case
+    Left message -> projectFailure message
+    Right roots ->
+      loadProjectFileWithRoots Map.empty roots path >>= \case
+        Left message -> projectFailure message
+        Right project -> action project
 
 checkStdin :: (String -> Map.Map String String -> String) -> IO ()
 checkStdin checkSource = do
-  imports <- readBookhoardImports
   source <- getContents
-  putStrLn (checkSource source imports)
+  current <- getCurrentDirectory
+  resolveLibraryRoots current >>= \case
+    Left message -> projectFailure message
+    Right roots ->
+      loadProjectSourceWithRoots Map.empty roots (current </> "<stdin>.tung") source >>= \case
+        Left message -> projectFailure message
+        Right project -> putStrLn (checkSource source (projectImports project))
+
+listLibraryPaths :: FilePath -> IO ()
+listLibraryPaths path =
+  resolveLibraryRoots path >>= \case
+    Left message -> projectFailure message
+    Right roots -> mapM_ putStrLn roots
+
+projectFailure :: String -> IO a
+projectFailure message = putStrLn ("project error: " ++ message) >> exitFailure
 
 type EditorRequest = (Int, Int, String, String, (String, [(String, String)]))
 
 editorSession :: IO ()
 editorSession = do
-  bookhoard <- readBookhoardImports
   workers <- newMVar Map.empty
   outputLock <- newMVar ()
-  sessionLoop bookhoard workers outputLock
+  sessionLoop workers outputLock
 
-sessionLoop :: Map.Map String String -> MVar (Map.Map Int ThreadId) -> MVar () -> IO ()
-sessionLoop bookhoard workers outputLock = do
+sessionLoop :: MVar (Map.Map Int ThreadId) -> MVar () -> IO ()
+sessionLoop workers outputLock = do
   eof <- isEOF
   unless eof do
     line <- getLine
-    for_ (readMaybe line) (dispatchEditorRequest bookhoard workers outputLock)
-    sessionLoop bookhoard workers outputLock
+    for_ (readMaybe line) (dispatchEditorRequest workers outputLock)
+    sessionLoop workers outputLock
 
-dispatchEditorRequest :: Map.Map String String -> MVar (Map.Map Int ThreadId) -> MVar () -> EditorRequest -> IO ()
-dispatchEditorRequest bookhoard workers outputLock request@(requestId, version, command, _, _)
+dispatchEditorRequest :: MVar (Map.Map Int ThreadId) -> MVar () -> EditorRequest -> IO ()
+dispatchEditorRequest workers outputLock request@(requestId, version, command, _, _)
   | command == "cancel" = cancelEditorRequest workers requestId
   | otherwise = do
       gate <- newEmptyMVar
@@ -105,7 +122,7 @@ dispatchEditorRequest bookhoard workers outputLock request@(requestId, version, 
       putMVar gate ()
  where
   run =
-    sendEditorResponse outputLock requestId version (editorResponse bookhoard request)
+    sendEditorResponse outputLock requestId version (editorResponse request)
       `Exception.catch` \exception ->
         case Exception.fromException exception of
           Just Exception.ThreadKilled -> pure ()
@@ -116,12 +133,12 @@ cancelEditorRequest workers requestId = do
   thread <- modifyMVar workers \running -> pure (Map.delete requestId running, Map.lookup requestId running)
   mapM_ killThread thread
 
-editorResponse :: Map.Map String String -> EditorRequest -> String
-editorResponse bookhoard (_, _, command, name, (source, imports)) =
-  let allImports = Map.union (Map.fromList imports) bookhoard
+editorResponse :: EditorRequest -> String
+editorResponse (_, _, command, name, (source, imports)) =
+  let sourceImports = Map.fromList imports
    in case command of
-        "check" -> maybe "tung-ok" renderDiagnostic (checkEditorDiagnosticWithImports source allImports)
-        "type" -> case typeOfWithImports source allImports name of
+        "check" -> maybe "tung-ok" renderDiagnostic (checkEditorDiagnosticWithImports source sourceImports)
+        "type" -> case typeOfWithImports source sourceImports name of
           Right ty -> "type: " ++ ty
           Left message -> "type error: " ++ message
         "format" -> "tung-format\n" ++ formatSource source
@@ -136,12 +153,6 @@ sendEditorResponse outputLock requestId version output = do
     putChar '\n'
     hFlush stdout
 
-loadConfiguredFile :: Map.Map String String -> FilePath -> IO (Either String Project)
-loadConfiguredFile bookhoard path = moduleRoots >>= \roots -> loadProjectFileWithRoots bookhoard roots path
-
-moduleRoots :: IO [FilePath]
-moduleRoots = maybe [] splitSearchPath <$> Environment.lookupEnv "TUNG_PATH"
-
 usage :: String
 usage =
   unlines
@@ -152,4 +163,5 @@ usage =
     , "       tung --format <file.tung>..."
     , "       tung --format-stdin"
     , "       tung --language-metadata"
+    , "       tung --library-paths [project-path]"
     ]

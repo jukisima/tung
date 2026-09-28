@@ -8,6 +8,7 @@ import Test.Format qualified as Format
 import Test.Harness (runGroups)
 import Test.Import qualified as Import
 import Test.Integration qualified as Integration
+import Test.Library qualified as Library
 import Test.Name qualified as Name
 import Test.Parse qualified as Parse
 import Test.Project qualified as Project
@@ -16,4 +17,4 @@ import Test.Type qualified as Type
 import Test.Validate qualified as Validate
 
 main :: IO ()
-main = sequence [Token.group, Parse.group, Format.group, Validate.group, Import.group, Project.group, Type.group, Name.group, Evaluate.group, Bookhoard.group, Core.group, Diagnostic.group, Integration.group] >>= runGroups
+main = sequence [Token.group, Parse.group, Format.group, Validate.group, Import.group, Project.group, Library.group, Type.group, Name.group, Evaluate.group, Bookhoard.group, Core.group, Diagnostic.group, Integration.group] >>= runGroups

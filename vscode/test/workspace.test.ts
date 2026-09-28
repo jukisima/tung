@@ -31,7 +31,7 @@ test("workspace explicit import alias replaceeþ the default namespace", (contex
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
   fs.writeFileSync(dep, "show let answer: ℤ = 42");
-  fs.writeFileSync(main, "use ilk/dep.tung d yield d~answer");
+  fs.writeFileSync(main, "use data/dep.tung d yield d~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
@@ -54,7 +54,7 @@ test("workspace resolveþ and completeþ a default basename alias", (context) =>
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
   fs.writeFileSync(dep, "show let answer: ℤ = 42");
-  fs.writeFileSync(main, "use ilk/dep.tung yield dep~answer");
+  fs.writeFileSync(main, "use data/dep.tung yield dep~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
@@ -146,37 +146,71 @@ test("workspace re-exports deeds through the type namespace", (context) => {
   assert.equal(workspace.resolveVisibleRole(model, "ask", "type").length, 1);
   assert.equal(workspace.resolveVisibleRole(model, "ask", "method").length, 1);
 });
-test("workspace default completions come from the bundled ground bookhoard", () => {
+test("library modules do not become an implicit prelude", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ground-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const library = path.join(root, "library");
+  fs.mkdirSync(library);
+  fs.writeFileSync(
+    path.join(library, "ground.tung"),
+    "show let offered = 1 let hidden = 2",
+  );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
-  workspace.configure([], path.resolve(__dirname, "..", "..", "..", "tongue"));
+  workspace.configure([], [library]);
   const completions = workspace.primitiveCompletions();
   const labels = new Set(
     completions.map(({ completionName, bareName }) =>
       completionName || bareName
     ),
   );
-  assert(labels.has("lift₂"));
-  assert(labels.has("write-line"));
-  assert(labels.has("console"));
-  assert(!labels.has("add-integer"));
+  assert(!labels.has("offered"));
+  assert(!labels.has("hidden"));
+  assert(labels.has("ℤ"));
 });
-test("bookhoard module paths keep their exact file names", (context) => {
+test("library module paths keep their exact file names", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-module-paths-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const tongue = path.join(root, "tongue");
-  const bookhoard = path.join(root, "bookhoard");
-  fs.mkdirSync(tongue);
-  fs.mkdirSync(bookhoard, { recursive: true });
+  const library = path.join(root, "library");
+  fs.mkdirSync(library, { recursive: true });
   fs.writeFileSync(
-    path.join(bookhoard, "_foreign.tung"),
+    path.join(library, "_foreign.tung"),
     "show let value = 1",
   );
   const main = path.join(root, "main.tung");
   fs.writeFileSync(main, "use foreign.tung");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
-  workspace.configure([root], tongue);
+  workspace.configure([root], [library]);
   const model = workspace.model(pathToFileURL(main).href);
   assert(workspace.modulePaths(model.uri).includes("_foreign.tung"));
   assert(!workspace.modulePaths(model.uri).includes("foreign.tung"));
   assert.equal(workspace.resolveImport(model, model.imports[0]), undefined);
+});
+test("library roots resolve exact paths and duplicate names stay ambiguous", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-library-roots-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const project = path.join(root, "project");
+  const first = path.join(root, "first");
+  const second = path.join(root, "second");
+  for (const directory of [project, first, second]) fs.mkdirSync(directory);
+  const main = path.join(project, "main.tung");
+  const module = path.join(first, "extra.tung");
+  fs.writeFileSync(main, "use extra.tung yield extra~value");
+  fs.writeFileSync(module, "show let value = 1");
+  const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
+  workspace.configure([project], [first, second]);
+  const model = workspace.model(pathToFileURL(main).href);
+  assert.equal(
+    workspace.resolveImport(model, model.imports[0])?.uri,
+    pathToFileURL(module).href,
+  );
+  assert(workspace.modulePaths(model.uri).includes("extra.tung"));
+  fs.writeFileSync(path.join(second, "extra.tung"), "show let value = 2");
+  workspace.invalidateFiles();
+  assert.equal(workspace.resolveImport(model, model.imports[0]), undefined);
+  fs.writeFileSync(path.join(project, "extra.tung"), "show let value = 3");
+  workspace.invalidateFiles();
+  assert.equal(
+    workspace.resolveImport(model, model.imports[0])?.uri,
+    pathToFileURL(path.join(project, "extra.tung")).href,
+  );
 });

@@ -18,6 +18,9 @@ export const activate = (context) => {
         tonguePath: vscode.workspace.getConfiguration("tung").get(
           "tonguePath",
         ),
+        libraryPaths: vscode.workspace.getConfiguration("tung").get(
+          "libraryPaths",
+        ),
       },
     },
   );
@@ -38,6 +41,10 @@ const runFile = async (resource?: vscode.Uri) => {
     await client.sendRequest<string | undefined>("tung/executable").catch(
       () => undefined,
     ) || "tung";
+  const libraryPath = await client.sendRequest<string>("tung/libraryPath")
+    .catch(
+      () => "",
+    );
   const folder = vscode.workspace.getWorkspaceFolder(document.uri);
   const task = new vscode.Task(
     { type: "tung", file: document.uri.fsPath },
@@ -46,6 +53,7 @@ const runFile = async (resource?: vscode.Uri) => {
     "tung",
     new vscode.ProcessExecution(executable, [document.uri.fsPath], {
       cwd: folder?.uri.fsPath || path.dirname(document.uri.fsPath),
+      env: libraryPath ? { TUNG_PATH: libraryPath } : undefined,
     }),
   );
   task.presentationOptions = {

@@ -30,7 +30,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const server = childProcess.spawn(
     process.execPath,
     [path.join(__dirname, "..", "server", "main.js"), "--stdio"],
-    { stdio: ["pipe", "pipe", "pipe"] },
+    { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, TUNG_PATH: "" } },
   );
   context.after(() => server.kill());
   let stderr = "";
@@ -377,6 +377,90 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   await once(server, "exit");
   connection.dispose();
   assert.equal(stderr, "");
+});
+test("server resolveþ a nested project's git-pinned library", async (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-lsp-library-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const repository = path.join(root, "library");
+  const project = path.join(root, "project");
+  fs.mkdirSync(repository);
+  fs.mkdirSync(project);
+  fs.writeFileSync(
+    path.join(repository, "value.tung"),
+    "show let value: ℤ = 42",
+  );
+  const git = (...args: string[]) =>
+    childProcess.execFileSync("git", args, { encoding: "utf8" }).trim();
+  git("init", "--quiet", repository);
+  git("-C", repository, "config", "user.name", "Tung Test");
+  git("-C", repository, "config", "user.email", "tung-test@example.invalid");
+  git("-C", repository, "add", ".");
+  git(
+    "-C",
+    repository,
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "--quiet",
+    "-m",
+    "library",
+  );
+  const commit = git("-C", repository, "rev-parse", "HEAD");
+  fs.writeFileSync(
+    path.join(project, "tung.libraries"),
+    `sample\t../library\t${commit}\n`,
+  );
+  const mainPath = path.join(project, "main.tung");
+  const source = "use value.tung let answer: ℤ = value";
+  fs.writeFileSync(mainPath, source);
+  const uri = pathToFileURL(mainPath).href;
+  const server = childProcess.spawn(
+    process.execPath,
+    [path.join(__dirname, "..", "server", "main.js"), "--stdio"],
+    { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, TUNG_PATH: "" } },
+  );
+  context.after(() => server.kill());
+  const connection = createMessageConnection(
+    new StreamMessageReader(server.stdout),
+    new StreamMessageWriter(server.stdin),
+  );
+  connection.listen();
+  await connection.sendRequest("initialize", {
+    processId: process.pid,
+    rootUri: pathToFileURL(root).href,
+    workspaceFolders: [{ uri: pathToFileURL(root).href, name: "fixture" }],
+    capabilities: {},
+  });
+  connection.sendNotification("initialized", {});
+  const diagnostics = nextDiagnostics(connection, uri);
+  connection.sendNotification("textDocument/didOpen", {
+    textDocument: { uri, languageId: "tung", version: 1, text: source },
+  });
+  assert.deepEqual((await diagnostics).diagnostics, []);
+  assert.equal(await connection.sendRequest("tung/libraryPath"), "");
+  const definition = await connection.sendRequest<LspTestResult>(
+    "textDocument/definition",
+    { textDocument: { uri }, position: positionOf(source, "value", 1) },
+  );
+  assert.equal(
+    definition.uri,
+    pathToFileURL(
+      fs.realpathSync(
+        path.join(
+          project,
+          ".tung",
+          "libraries",
+          "sample",
+          commit,
+          "value.tung",
+        ),
+      ),
+    ).href,
+  );
+  await connection.sendRequest("shutdown");
+  connection.sendNotification("exit");
+  await once(server, "exit");
+  connection.dispose();
 });
 const nextDiagnostics = (
   connection,

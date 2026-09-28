@@ -7,11 +7,11 @@ import Data.Map.Strict qualified as Map
 import Test.Harness (Group, Test, expect, expectEq, runnableErr, runnableOk, typeErr, typeErrContaining, typeErrWith, typeOk, typeOkWith)
 import Test.Harness qualified as Harness
 import Test.QuickCheck qualified as QuickCheck
-import Tung (CoreProgram, check, checkRunnableWithImports, checkWithImports, elaborateProgramWithImports, parse, readBookhoardImports, typeOfWithImports)
+import Tung (CoreProgram, check, checkRunnableWithImports, checkWithImports, elaborateProgramWithImports, parse, readLibraryImports, typeOfWithImports)
 
 group :: IO Group
 group = do
-  imports <- readBookhoardImports
+  imports <- readLibraryImports "." >>= either fail pure
   Harness.group "type" $
     map (uncurry typeOk) accepted
       ++ map (uncurry typeErr) rejected

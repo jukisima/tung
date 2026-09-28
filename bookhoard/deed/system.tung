@@ -1,9 +1,0 @@
-use ilk/list.tung
-use ilk/option.tung
-
-## host arguments, settings, and process ending.
-show deed system {
-  𝟙 arguments: text list,
-  text environment: text option,
-  ℤ exit: a
-}

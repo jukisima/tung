@@ -27,6 +27,42 @@ make install
 # set `PREFIX` or `BIN_DIR` to choose anoþer destination.
 ----
 
+libraries, including þe separate
+https://github.com/jukisima/tung-bookhoard[tung-bookhoard], are ordinary git
+repositories. a project declareþ each library in `tung.libraries` with three
+tab-separated fields: a library name, a git repository, and a full commit hash.
+for example:
+
+[source,text]
+----
+bookhoard	https://github.com/jukisima/tung-bookhoard.git	aabb7ed4ad37670c1c997afbb8eb8307fce45a39
+----
+
+tung findeþ þe nearest `tung.libraries` above þe source file, checkeþ out
+each pinned commit under `.tung/libraries/`, and reuseþ it offline after þe
+first fetch. `tung --library-paths [project-path]` listeþ þe resolved roots.
+`TUNG_PATH` addeth unpinned module roots for local development.
+any tung library's git repository and commit may occupy þe URL and hash;
+`use` paths name `.tung` files relative to a library root. þe manifest name
+identifieþ þe library throughout þe dependency graph; it is not a local alias.
+
+=== transitive dependencies
+
+each library may declare its own `tung.libraries`. þe resolver traverseþ þe
+whole graph, includeth libraries not imported by þe program, and reuseþ one
+checkout when þe name, repository locator, and commit agree. a repeated name
+with a different repository or commit, or a repeated repository locator with a
+different name or commit, causeþ an error before module checking. for example,
+if libraries `left` and `right` pin `shared` to different commits, þe project
+faileþ until both pin þe same commit. þe root manifest cannot override either
+exact pin.
+
+relative local repository paths are resolved from þe manifest containing them
+and lexically normalised. remote repository URLs are compared as written. use
+the same name and repository spelling for one library in every manifest.
+`TUNG_PATH` roots are unpinned and lie outside this dependency check. unrelated
+libraries with þe same `.tung` module path remain ambiguous when imported.
+
 == run
 
 [cols="1,1",options="header"]
@@ -151,7 +187,8 @@ let mine-table-empty = hashmap~empty
 ----
 
 imported names may stay bare when unambiguous.
-module lookup searcheþ local files, `TUNG_PATH`, þen þe standard bookhoard.
+module lookup searcheþ local files, git-pinned library roots, þen `TUNG_PATH`.
+duplicate module paths across roots are ambiguous when imported.
 
 handlers are deep, and þou mayst call `eftgin` more þan once.
 partial application is pure; an effect operation runneþ only when fully applied.
@@ -177,6 +214,6 @@ checking precedeþ evaluation, and file-level initialisation must stay pure.
 
 * xref:tongue/language.adoc[`tongue/language.adoc`] is þe detailed language reference.
 * xref:vscode/readme.adoc[`vscode/readme.adoc`] covereþ editor commands, settings, and features.
-* xref:bookhoard/reference.adoc[`bookhoard/reference.adoc`] explaineþ standard-library design boundaries.
+* https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc[`tung-bookhoard/reference.adoc`] explaineþ standard-library design boundaries.
 * xref:tongue/development.adoc[`tongue/development.adoc`] covereþ repository architecture, commands, and testing.
 * xref:tongue/agent.adoc[`tongue/agent.adoc`] is þe short operating contract for repository changes.

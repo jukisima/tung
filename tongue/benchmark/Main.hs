@@ -188,7 +188,7 @@ generatedBundle size =
 loadByspel :: FilePath -> IO SourceBundle
 loadByspel relativePath = do
   root <- findRepositoryRoot
-  bookhoard <- readBookhoardImports
+  bookhoard <- readLibraryImports "." >>= either fail pure
   loaded <- loadProjectFile bookhoard (root </> relativePath)
   case loaded of
     Left message -> die ("could not load " ++ relativePath ++ ": " ++ message)

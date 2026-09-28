@@ -157,7 +157,7 @@ data TypeFailure = TypeFailure
   deriving (Eq, Show)
 
 -- these modes share inference but impose different top-level computation bounds.
-data ProgramMode = Bookhoard | Interactive | Runnable deriving (Eq)
+data ProgramMode = ModuleMode | Interactive | Runnable deriving (Eq)
 
 data TypeConstructor = StructuralConstructor String | NamedConstructor TypeRef deriving (Eq, Show)
 
@@ -984,7 +984,7 @@ baseRuntimeNames :: [String]
 baseRuntimeNames = nub (map hostName (baseNativeBindings ++ baseEffectBindings))
 
 -- this base contract must agree with evaluator arities and primitive dictionary
--- support; the bookhoard supplieþ the public declarations around these names.
+-- support; source libraries supply þe public declarations around these names.
 baseContext :: TcContext
 baseContext =
   TcContext
@@ -3442,16 +3442,16 @@ checkEditorProgramPrepared :: Program -> Map.Map String SourceUnit -> Maybe Type
 checkEditorProgramPrepared program imports
   | looksRunnable program = case checkMode Runnable of
       Right _ -> Nothing
-      Left runnableFailure -> case checkMode Bookhoard of
+      Left runnableFailure -> case checkMode ModuleMode of
         Right _ -> Nothing
         Left _ -> Just runnableFailure
-  | otherwise = either Just (const Nothing) (checkMode Bookhoard)
+  | otherwise = either Just (const Nothing) (checkMode ModuleMode)
  where
   checkMode mode = inferProgramWithModeDetailed program imports mode
 
 checkProgramPrepared :: Program -> Map.Map String SourceUnit -> Bool -> Maybe TypeFailure
 checkProgramPrepared program imports runnable =
-  either Just (const Nothing) (inferProgramWithModeDetailed program imports (if runnable then Runnable else Bookhoard))
+  either Just (const Nothing) (inferProgramWithModeDetailed program imports (if runnable then Runnable else ModuleMode))
 
 checkRunnableWithImports :: String -> Map.Map String String -> String
 checkRunnableWithImports source imports = checkPrepared source imports True
@@ -3521,7 +3521,7 @@ elaboratePrepared program imports runnable =
   either (Left . typeFailureMessage) Right (inferProgramWithModeDetailed program imports (if runnable then Runnable else Interactive))
 
 elaborateProgramWithImports :: Program -> Map.Map String String -> Bool -> Either String CoreProgram
-elaborateProgramWithImports program imports runnable = elaborateWithMode program imports (if runnable then Runnable else Bookhoard)
+elaborateProgramWithImports program imports runnable = elaborateWithMode program imports (if runnable then Runnable else ModuleMode)
 
 elaborateInteractiveProgramWithImports :: Program -> Map.Map String String -> Either String CoreProgram
 elaborateInteractiveProgramWithImports program imports = elaborateWithMode program imports Interactive
@@ -3567,7 +3567,7 @@ inferProgramContext p imports baseCtx = runTc (inferProgramContextFromM [] p (pr
 
 inferProgramContextFromM :: ImportStack -> Program -> Map.Map String SourceUnit -> TcContext -> Tc TcContext
 inferProgramContextFromM importStack program imports baseCtx =
-  snd <$> checkProgramWithModeM Bookhoard importStack program imports baseCtx
+  snd <$> checkProgramWithModeM ModuleMode importStack program imports baseCtx
 
 prepareDeclsM :: ImportStack -> [Decl] -> Map.Map String SourceUnit -> TcContext -> Tc ([Decl], TcContext)
 prepareDeclsM importStack ds imports baseCtx = do
@@ -3627,6 +3627,6 @@ importedContextM importStack path p imports = Tc $ StateT $ \st ->
 inferImportedProgramM :: ImportStack -> String -> Program -> Map.Map String SourceUnit -> Tc (TcContext, CoreProgram)
 inferImportedProgramM importStack path program imports = do
   let moduleContext = baseContext{tcModule = SourceModule path}
-  (elaboratedDecls, checkedCtx) <- checkProgramWithModeM Bookhoard importStack program imports moduleContext
+  (elaboratedDecls, checkedCtx) <- checkProgramWithModeM ModuleMode importStack program imports moduleContext
   core <- lowerProgramM elaboratedDecls checkedCtx
   pure (checkedCtx, core)

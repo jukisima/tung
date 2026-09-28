@@ -7,7 +7,9 @@ component-specific setup remaineþ in each component readme.
 == setup and commands
 
 compiler development requireþ ghc 9.12 or newer; ci currently useþ 9.12.4.
-from the repository root:
+the repository's `tung.libraries` pinneþ
+https://github.com/jukisima/tung-bookhoard[tung-bookhoard] as a test dependency.
+git fetcheþ þe pinned commit on first use. from þe repository root:
 
 [source,sh]
 ----
@@ -37,9 +39,8 @@ make setup
 | runneþ repeatable compiler and evaluator workloads
 |===
 
-the pre-commit hook formateþ staged tung, haskell, typescript, and html files,
-refresheþ bookhoard membership, then runneþ every test suite. generated
-outputs must not be edited by hand.
+the pre-commit hook formateþ staged haskell, typescript, and html files, þen
+runneþ every test suite. generated outputs must not be edited by hand.
 
 == repository layout
 
@@ -48,8 +49,8 @@ outputs must not be edited by hand.
 | `tongue/`
 | haskell compiler, evaluator, formatter, repl, runner, and tests
 
-| `bookhoard/`
-| embedded standard library written in tung
+| `tung.libraries`
+| git-pinned library dependencies; þe standard library is an ordinary entry
 
 | `vscode/`
 | vscode client, tolerant language server, and editor tests
@@ -94,10 +95,9 @@ implementation. this guide explaineþ only relationships between modules.
 == projects and imports
 
 `Tung.Project` discovereþ local source bundles before checking. it resolveþ
-relative imports declared with `use` from their owner, then platform-separated
-`TUNG_PATH` roots; the embedded bookhoard is the final fallback. one written
-import path resolving
-to different canonical files is rejected.
+relative imports declared with `use` from their owner, then git-pinned roots
+from þe nearest `tung.libraries`, þen platform-separated `TUNG_PATH` roots.
+one written import path resolving to different canonical files is rejected.
 
 each source unit retaineþ its text and located parse result, including a
 structured parse failure. project discovery, checking, execution, and type
@@ -188,7 +188,7 @@ host metadata live in `Tung.Primitive` as one data-only catalogue shared by
 checking and evaluation. reserved host data-family and constructor identities
 also live there; only a declaration matching þe complete ABI schema receiveþ
 þem. add or change a host operation there before changing þe source binding in
-`_foreign.tung`.
+`tung-bookhoard/_foreign.tung`.
 runner-executed effects bypass source handlers, so checking rejecteþ handlers
 for those effects instead of erasing their rows.
 
@@ -210,12 +210,30 @@ must not enter editor state.
 xref:../vscode/readme.adoc[`vscode/readme.adoc`] documenteþ editor setup,
 features, and component checks.
 
-== embedded library and generated metadata
+== git libraries and generated metadata
 
-`Tung.Embed` discovereþ the sibling `bookhoard/` tree at compile time. the
-tracked `.bookhoard-membership` file containeþ paths and content fingerprints;
-`make compiler-build` refresheþ it before cabal buildeþ. when cabal appeareþ
-to reuse stale embedded sources, verify with a fresh `--builddir`.
+`Tung.Library` readeþ `tung.libraries` from þe source tree, checkeþ out each
+declared full commit hash, and cacheþ þe checkout in `.tung/libraries/`.
+dependencies declared by a library are resolved þe same way. resolution
+requireþ one name, repository locator, and exact commit for each library
+throughout þe graph. repeated matching declarations share one checkout;
+conflicting names, locators, or commits fail before module checking. this rule
+followeþ þe flat `use` namespace: two revisions of one library cannot be
+distinguished by an importing module. raw commit hashes have no useful version
+ordering, so þe resolver cannot choose a newer pin or silently override an
+exact requirement.
+
+dependency managers take different approaches. https://go.dev/ref/mod#minimal-version-selection[go
+modules] select one version per module path from *minimum* version
+requirements. https://doc.rust-lang.org/cargo/reference/resolver.html#semver-compatibility[cargo]
+unifieþ compatible versions but may retain distinct incompatible versions.
+https://nodejs.org/api/modules.html#loading-from-node_modules-folders[node.js]
+can resolve dependencies from separate package directories. tung's exact-pin
+rule followeþ its flat module namespace; it is not a universal rule for
+indirect dependencies.
+
+þe compiler buildeþ wiþout bookhoard sources; ci resolveþ þe pinned commit
+through þe same manifest as local development.
 
 `tung --language-metadata` emiteþ tracked editor keywords, primitive types, and
 special-name characters from compiler-owned definitions. run
@@ -237,10 +255,10 @@ follow the owning stage first and then every consumer:
 | type and evaluator regressions, bookhoard checking, and language guide
 
 | runtime or host surface
-| primitive catalogue, `_foreign.tung`, exact evaluator tests, and runner boundary
+| primitive catalogue, `tung-bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary
 
 | public bookhoard api
-| doc comments, membership, and a realistic byspel when useful
+| doc comments, separate library tests, and a realistic byspel when useful
 
 | editor behaviour
 | tolerant and compiler-backed paths, typescript checks, and editor tests
@@ -266,5 +284,6 @@ tung adapteþ established work without copying its syntax:
 
 purescript informeþ strict functional module and class boundaries; lean and
 mathlib inform lawful algebra and finite-collection distinctions. detailed
-bookhoard comparisons live in
-xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`].
+bookhoard comparisons live in the
+https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc[bookhoard
+reference guide].

@@ -26,6 +26,10 @@ import {
 } from "./analysis.ts";
 import { CompilerBridge, parseCompilerDiagnostic } from "./checker.ts";
 import { formatRangeEdit } from "./format.ts";
+import {
+  readDeclaredLibraryPaths,
+  resolveLibraryPaths,
+} from "./library-paths.ts";
 import { languageNames } from "./syntax.ts";
 import { toFilePath, uniqueByKey, WorkspaceIndex } from "./workspace.ts";
 import {
@@ -52,9 +56,14 @@ let tongueDir;
 let canRegisterWatchedFiles = false;
 let canRefreshSemanticTokens = false;
 let configuredTongue;
+let configuredLibraryPaths;
+let libraryRoots: string[] = [];
+let localLibraryRoots: string[] = [];
+let libraryResolutionError: string | undefined;
 let semanticRefreshTimer;
 connection.onInitialize((params) => {
   configuredTongue = params.initializationOptions?.tonguePath;
+  configuredLibraryPaths = params.initializationOptions?.libraryPaths;
   canRegisterWatchedFiles = Boolean(
     params.capabilities?.workspace?.didChangeWatchedFiles
       ?.dynamicRegistration,
@@ -68,9 +77,7 @@ connection.onInitialize((params) => {
       toFilePath(params.rootUri),
     ].filter(Boolean),
   );
-  tongueDir = findTongueDir(configuredTongue);
-  compiler.configure(tongueDir);
-  workspace.configure(workspaceRoots, tongueDir);
+  configureWorkspace();
   return {
     capabilities: {
       textDocumentSync: {
@@ -114,7 +121,10 @@ connection.onInitialized(() => {
   if (!canRegisterWatchedFiles) return;
   connection.client
     .register(DidChangeWatchedFilesNotification.type, {
-      watchers: [{ globPattern: "**/*.tung" }],
+      watchers: [
+        { globPattern: "**/*.tung" },
+        { globPattern: "**/tung.libraries" },
+      ],
     })
     .catch(() => {});
 });
@@ -123,6 +133,10 @@ connection.onShutdown(() => {
   return null;
 });
 connection.onRequest("tung/executable", () => compiler.findExecutable());
+connection.onRequest(
+  "tung/libraryPath",
+  () => localLibraryRoots.join(path.delimiter),
+);
 process.on("exit", () => compiler.dispose());
 connection.onNotification(
   "workspace/didChangeWorkspaceFolders",
@@ -135,14 +149,19 @@ connection.onNotification(
       ...workspaceRoots.filter((root) => !removedPaths.has(root)),
       ...added.map(({ uri }) => toFilePath(uri)).filter(Boolean),
     ]);
-    tongueDir = findTongueDir(configuredTongue);
-    compiler.configure(tongueDir);
-    workspace.configure(workspaceRoots, tongueDir);
+    configureWorkspace();
     checkAllOpenDocuments();
     scheduleSemanticRefresh();
   },
 );
 connection.onDidChangeWatchedFiles(({ changes }) => {
+  if (
+    changes.some(({ uri }) =>
+      path.basename(toFilePath(uri) || "") === "tung.libraries"
+    )
+  ) {
+    configureWorkspace();
+  }
   for (const { uri } of changes) workspace.invalidate(uri);
   workspace.invalidateFiles();
   checkAllOpenDocuments();
@@ -398,9 +417,10 @@ connection.onSignatureHelp(({ textDocument, position }) => {
   };
 });
 documents.onDidOpen(({ document }) => {
+  configureWorkspace();
   workspace.invalidate(document.uri);
   clearTypeCache(document.uri);
-  scheduleCheck(document);
+  checkAllOpenDocuments();
 });
 documents.onDidChangeContent(({ document }) => {
   workspace.invalidate(document.uri);
@@ -419,11 +439,13 @@ documents.onDidSave(({ document }) => {
 });
 documents.onDidClose(({ document }) => {
   cancelCheck(document.uri);
+  configureWorkspace();
   workspace.invalidate(document.uri);
   const previous = diagnosticReports.get(document.uri);
   diagnosticReports.delete(document.uri);
   refreshDiagnostics(previous?.targetUri);
   refreshDiagnostics(document.uri);
+  checkAllOpenDocuments();
 });
 // semantic requests are synchronous over the latest tolerant model so stale
 // compiler work cannot block highlighting after an edit.
@@ -489,6 +511,10 @@ const checkAllOpenDocuments = () => {
 // in the persistent compiler session before a newer request is sent.
 const runCheck = (document) => {
   timers.delete(document.uri);
+  if (libraryResolutionError) {
+    publish(document, `project error: ${libraryResolutionError}`);
+    return;
+  }
   if (!tongueDir) {
     publish(document, "could not find the haskell tung project");
     return;
@@ -792,6 +818,30 @@ const offsetAt = (text, position) => {
 };
 const validName = (name) => {
   return Boolean(name) && !/[\s#(){}:,|!=.$→`']/u.test(name);
+};
+const configureWorkspace = () => {
+  tongueDir = findTongueDir(configuredTongue);
+  localLibraryRoots = resolveLibraryPaths(
+    [],
+    configuredLibraryPaths,
+    process.env.TUNG_PATH,
+  );
+  compiler.configure(tongueDir, localLibraryRoots);
+  let declared: string[] = [];
+  libraryResolutionError = undefined;
+  try {
+    const openProjects = documents.all().map(({ uri }) => toFilePath(uri))
+      .filter(Boolean);
+    declared = readDeclaredLibraryPaths(
+      compiler.findExecutable(),
+      openProjects.length ? openProjects : workspaceRoots,
+    );
+  } catch (error) {
+    libraryResolutionError = String(error);
+    connection.console.error(libraryResolutionError);
+  }
+  libraryRoots = resolveLibraryPaths(declared, localLibraryRoots, undefined);
+  workspace.configure(workspaceRoots, libraryRoots);
 };
 const findTongueDir = (configured) => {
   const candidates = [

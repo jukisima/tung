@@ -1,15 +1,5 @@
 pre-commit:
   jobs:
-    - name: format tung
-      glob: "bookhoard/**/*.tung"
-      run: tung --format {staged_files}
-      stage_fixed: true
-
-    - name: bookhoard membership
-      glob: "bookhoard/**/*.tung"
-      run: make bookhoard-membership
-      stage_fixed: true
-
     - name: format haskell
       glob: "**/*.hs"
       run: fourmolu --mode inplace {staged_files}

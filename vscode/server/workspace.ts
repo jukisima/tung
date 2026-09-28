@@ -18,7 +18,12 @@ type DocumentStore = {
   all(): DocumentLike[];
 };
 type Definition = DocumentModel["definitions"][number];
-const skippedDirectories = new Set([".git", "dist-newstyle", "node_modules"]);
+const skippedDirectories = new Set([
+  ".git",
+  ".tung",
+  "dist-newstyle",
+  "node_modules",
+]);
 const termRoles = new Set([
   "function",
   "method",
@@ -29,7 +34,7 @@ const termRoles = new Set([
 class WorkspaceIndex {
   documents: DocumentStore;
   roots: string[];
-  bookhoard: string | undefined;
+  libraryRoots: string[];
   cache: Map<string, CachedModel>;
   fileUris: string[];
   filesDirty: boolean;
@@ -39,7 +44,7 @@ class WorkspaceIndex {
   constructor(documents: DocumentStore) {
     this.documents = documents;
     this.roots = [];
-    this.bookhoard = undefined;
+    this.libraryRoots = [];
     this.cache = new Map();
     this.fileUris = [];
     this.filesDirty = true;
@@ -47,11 +52,15 @@ class WorkspaceIndex {
     this.resolveImportCache = new Map();
     this.publicDefinitionsCache = new Map();
   }
-  configure(roots: string[], tongue: string | undefined = undefined) {
+  configure(roots: string[], libraryRoots: string[] = []) {
     this.roots = [
       ...new Set(roots.filter(Boolean).map((root) => path.resolve(root))),
     ];
-    this.bookhoard = tongue && path.resolve(tongue, "..", "bookhoard");
+    this.libraryRoots = [
+      ...new Set(
+        libraryRoots.filter(Boolean).map((root) => path.resolve(root)),
+      ),
+    ];
     this.invalidateFiles();
   }
   invalidate(uri) {
@@ -94,8 +103,7 @@ class WorkspaceIndex {
   }
   workspaceFileUris() {
     if (!this.filesDirty) return this.fileUris;
-    const roots = new Set(this.roots);
-    if (this.bookhoard) roots.add(this.bookhoard);
+    const roots = new Set([...this.roots, ...this.libraryRoots]);
     const files = [];
     for (const root of roots) collectFiles(root, files);
     this.fileUris = [
@@ -115,32 +123,22 @@ class WorkspaceIndex {
         candidate,
       ) => [normalPath(toFilePath(candidate.uri)), candidate]),
     );
-    const candidates = [];
     const from = toFilePath(model.uri);
     if (from) {
-      candidates.push(path.resolve(path.dirname(from), imported.path));
-    }
-    for (const root of this.roots) {
-      candidates.push(path.resolve(root, imported.path));
-    }
-    if (this.bookhoard) {
-      candidates.push(path.resolve(this.bookhoard, imported.path));
-    }
-    for (const candidate of candidates) {
+      const candidate = path.resolve(path.dirname(from), imported.path);
       const found = byPath.get(normalPath(candidate));
       if (found) return this.cacheResolvedImport(cacheKey, found);
     }
-    const wanted = path.basename(imported.path);
-    const suffix = normalPath(imported.path);
-    return this.cacheResolvedImport(
-      cacheKey,
-      models.find((candidate) => {
-        const file = normalPath(toFilePath(candidate.uri));
-        if (!file) return false;
-        const base = path.basename(file);
-        return file.endsWith(`/${suffix}`) || base === wanted;
-      }),
-    );
+    const libraryMatches = this.libraryRoots
+      .map((root) => byPath.get(normalPath(path.resolve(root, imported.path))))
+      .filter(Boolean);
+    if (libraryMatches.length > 1) {
+      return this.cacheResolvedImport(cacheKey, undefined);
+    }
+    if (libraryMatches.length === 1) {
+      return this.cacheResolvedImport(cacheKey, libraryMatches[0]);
+    }
+    return this.cacheResolvedImport(cacheKey, undefined);
   }
   cacheResolvedImport(key, model) {
     this.resolveImportCache.set(key, model);
@@ -375,10 +373,14 @@ class WorkspaceIndex {
           normalPath(path.relative(path.dirname(current), file)),
         );
       }
-      if (this.bookhoard && file.startsWith(this.bookhoard)) {
-        result.add(
-          normalPath(path.relative(this.bookhoard, file)),
-        );
+      for (const root of this.libraryRoots) {
+        const relative = path.relative(root, file);
+        if (
+          relative && !relative.startsWith(".." + path.sep) &&
+          relative !== ".." && !path.isAbsolute(relative)
+        ) {
+          result.add(normalPath(relative));
+        }
       }
     }
     return [...result]
@@ -388,29 +390,9 @@ class WorkspaceIndex {
       .sort();
   }
   primitiveCompletions() {
-    const ground = this.groundModel();
-    if (ground) {
-      return this.publicDefinitions(ground).map((definition) => ({
-        ...definition,
-        modifiers: [
-          ...new Set([
-            ...(definition.modifiers || []),
-            "defaultLibrary",
-          ]),
-        ],
-        detail: definition.detail ||
-          `bookhoard ${definition.role} ${definition.bareName}`,
-      }));
-    }
     return [
       ...languageNames.primitiveTypes.map((name) => primitive(name, "type")),
     ];
-  }
-  groundModel() {
-    if (!this.bookhoard) return undefined;
-    return this.model(
-      pathToFileURL(path.join(this.bookhoard, "ground.tung")).href,
-    );
   }
 }
 const collectFiles = (root, result) => {

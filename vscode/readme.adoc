@@ -38,7 +38,7 @@ make setup TONGUE_DIR=/path/to/tung/tongue
 ----
 
 when the compiler checkout is outside the vscode workspace, also set `tung.tonguePath` to its absolute path in vscode settings.
-the configured `tongue/` compiler folder and the `bookhoard/` source folder must be siblings.
+the server askeþ tung to resolve þe workspace's `tung.libraries` and indexeþ þe pinned module roots. `tung.libraryPaths` addeth extra absolute local module roots after declared libraries; `TUNG_PATH` addeth further roots. the checker and `Run Tung File` command use þe same roots.
 
 other lsp clients can start the server over stdio. set `TUNG_TONGUE` when the server cannot find the `tongue` folder from the workspace:
 
@@ -68,7 +68,7 @@ the server provideþ:
 * quick fixes for supported parse errors
 * a `Run Tung File` command and editor play button using an integrated terminal
 
-the tolerant workspace index followeþ local and bundled imports, honoureþ
+the tolerant workspace index followeþ local and declared-library imports, honoureþ
 `show`, approximateþ qualify-if-needed lookup, default last-segment import
 aliases, and explicit `use path alias` overrides, and sendeþ unsaved imported
 sources to the haskell checker. the checker bridge askeþ cabal for `exe:tung` and

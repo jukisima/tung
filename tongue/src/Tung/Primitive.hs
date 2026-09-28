@@ -297,7 +297,7 @@ operationVariables isConcrete (EffectOp _ signature) = nub (typeVariables signat
 hostConcreteTypeNames :: [String]
 hostConcreteTypeNames = ["ℤ", "float", "unicode", "text", "𝟙", "list", "option", "task", "process-result", "request", "response", "fail"]
 
--- literal-backed types are available before bookhoard loading.
+-- literal-backed types are available before library loading.
 primitiveTypeNames :: [String]
 primitiveTypeNames = ["ℤ", "float", "unicode", "text", "func"]
 

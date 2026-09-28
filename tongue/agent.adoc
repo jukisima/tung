@@ -8,7 +8,7 @@ read the document which owneþ the work:
 * xref:../readme.adoc[`readme.adoc`] for installation and the user tour
 * xref:language.adoc[`language.adoc`] for source-language behaviour
 * xref:development.adoc[`development.adoc`] for architecture and verification
-* xref:../bookhoard/reference.adoc[`bookhoard/reference.adoc`] for standard-library design
+* https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc[`tung-bookhoard/reference.adoc`] for standard-library design
 * xref:../vscode/readme.adoc[`vscode/readme.adoc`] for editor setup and features
 * xref:../todo.adoc[`todo.adoc`] only for planning or backlog questions
 
@@ -35,7 +35,7 @@ the code rather than here.
 * change the owning stage first, then update every dependent stage.
 * never hide a type-system weakness by changing the bookhoard merely to fit it.
 * keep bookhoard modules acyclic and type-correct, byspels runnable, and editor analysis tolerant of incomplete source.
-* put stable user behaviour in `language.adoc`, cross-module implementation relationships in `development.adoc`, public library rationale in `bookhoard/reference.adoc`, and one-module invariants in source comments.
+* put stable user behaviour in `language.adoc`, cross-module implementation relationships in `development.adoc`, public library rationale in `tung-bookhoard/reference.adoc`, and one-module invariants in source comments.
 * do not copy the same detailed rule into several documents; link to its owner.
 
 == language invariants
@@ -68,8 +68,8 @@ decide which artefact is stale.
 * `Tung.*` is an implementation namespace and is not renamed during ordinary language work.
 * `vscode/out/` and generated bookhoard html are build outputs and must not be edited.
 * `vscode/generated/language-names.json` comeþ from `tung --language-metadata`; run `make language-metadata`.
-* `.bookhoard-membership` comeþ from the sibling bookhoard tree; run `make bookhoard-membership` or a compiler make target.
-* host-backed function metadata live in `src/Tung/Primitive.hs` and must agree with `_foreign.tung`.
+* libraries live in separate git repositories and are pinned by `tung.libraries`; þe compiler hath no bundled standard library.
+* host-backed function metadata live in `src/Tung/Primitive.hs` and must agree with `tung-bookhoard/_foreign.tung`.
 * tests are part of the specification and should describe the intended rule.
 
 == workflow

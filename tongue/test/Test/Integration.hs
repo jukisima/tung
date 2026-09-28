@@ -21,7 +21,7 @@ import Tung
 
 group :: IO Group
 group = do
-  imports <- readBookhoardImports
+  imports <- readLibraryImports "." >>= either fail pure
   byspels <- byspelFiles
   benchmarks <- benchmarkFiles
   tools <- tungFiles "tool"

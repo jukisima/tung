@@ -26,9 +26,11 @@ group =
     , preparedProject
     , localImportPaths
     , moduleRootImport
+    , localShadowsModuleRoot
+    , moduleRootShadowsSupplied
     , ambiguousModuleRoots
-    , embeddedFallback
-    , localShadowsBuiltin
+    , suppliedSourcesFallback
+    , localShadowsSupplied
     , missingImport
     , ambiguousRelativeImport
     , canonicalAlias
@@ -78,10 +80,10 @@ localImportPaths = withDirectory \root -> do
         result
     )
 
-localShadowsBuiltin :: Test
-localShadowsBuiltin = withProjectUsing (Map.singleton "value.tung" "show let value = 1") files "main.tung" \result ->
+localShadowsSupplied :: Test
+localShadowsSupplied = withProjectUsing (Map.singleton "value.tung" "show let value = 1") files "main.tung" \result ->
   expectEq
-    "local use shadows an embedded module"
+    "local use shadows a supplied source"
     (Just "show let value = 2")
     (either (const Nothing) (Map.lookup "value.tung" . projectImports) result)
  where
@@ -99,6 +101,30 @@ moduleRootImport = withDirectory \root -> do
   result <- loadProjectFileWithRoots Map.empty [modules] (project </> "main.tung")
   expectEq "loadeþ an import from a module root" (Just source) (either (const Nothing) (Map.lookup "shared.tung" . projectImports) result)
 
+localShadowsModuleRoot :: Test
+localShadowsModuleRoot = withDirectory \root -> do
+  let project = root </> "project"
+      modules = root </> "modules"
+      localSource = "show let shared = 2"
+  writeProject
+    root
+    [ ("project/main.tung", "use shared.tung")
+    , ("project/shared.tung", localSource)
+    , ("modules/shared.tung", "show let shared = 1")
+    ]
+  result <- loadProjectFileWithRoots Map.empty [modules] (project </> "main.tung")
+  expectEq "local use precedeþ a module root" (Just localSource) (either (const Nothing) (Map.lookup "shared.tung" . projectImports) result)
+
+moduleRootShadowsSupplied :: Test
+moduleRootShadowsSupplied = withDirectory \root -> do
+  let project = root </> "project"
+      modules = root </> "modules"
+      source = "show let shared = 2"
+      supplied = Map.singleton "shared.tung" "show let shared = 1"
+  writeProject root [("project/main.tung", "use shared.tung"), ("modules/shared.tung", source)]
+  result <- loadProjectFileWithRoots supplied [modules] (project </> "main.tung")
+  expectEq "module root precedeþ a supplied source" (Just source) (either (const Nothing) (Map.lookup "shared.tung" . projectImports) result)
+
 ambiguousModuleRoots :: Test
 ambiguousModuleRoots = withDirectory \root -> do
   let project = root </> "project"
@@ -113,12 +139,12 @@ ambiguousModuleRoots = withDirectory \root -> do
   result <- loadProjectFileWithRoots Map.empty [left, right] (project </> "main.tung")
   expect "rejecteþ duplicate module-root matches" (either (isInfixOf "ambiguous use 'shared.tung'") (const False) result)
 
-embeddedFallback :: Test
-embeddedFallback = withProjectUsing builtins [("main.tung", "use ground.tung")] "main.tung" \result ->
-  expectEq "useþ an embedded module when no local file exists" (Just source) (either (const Nothing) (Map.lookup "ground.tung" . projectImports) result)
+suppliedSourcesFallback :: Test
+suppliedSourcesFallback = withProjectUsing supplied [("main.tung", "use ground.tung")] "main.tung" \result ->
+  expectEq "useþ a supplied source when no file exists" (Just source) (either (const Nothing) (Map.lookup "ground.tung" . projectImports) result)
  where
   source = "show let value = 1"
-  builtins = Map.singleton "ground.tung" source
+  supplied = Map.singleton "ground.tung" source
 
 missingImport :: Test
 missingImport = withProject [("main.tung", "use absent.tung")] "main.tung" \result ->

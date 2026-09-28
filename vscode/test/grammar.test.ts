@@ -423,6 +423,10 @@ test("manifest exposeþ running a tung file from the editor", () => {
     manifest.contributes.configuration.properties["tung.tonguePath"].default,
     "",
   );
+  assert.deepEqual(
+    manifest.contributes.configuration.properties["tung.libraryPaths"].default,
+    [],
+  );
   assert.equal(
     manifest.contributes.configuration.properties["tung.executablePath"],
     undefined,

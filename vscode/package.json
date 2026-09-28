@@ -197,7 +197,13 @@
         "tung.tonguePath": {
           "type": "string",
           "default": "",
-          "description": "absolute path to the tung compiler folder containing tung.cabal; bookhoard/ is its sibling"
+          "description": "absolute path to the tung compiler folder containing tung.cabal"
+        },
+        "tung.libraryPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "additional absolute module-root directories searched after git-pinned project libraries"
         }
       }
     }
