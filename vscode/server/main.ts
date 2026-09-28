@@ -123,7 +123,7 @@ connection.onInitialized(() => {
     .register(DidChangeWatchedFilesNotification.type, {
       watchers: [
         { globPattern: "**/*.tung" },
-        { globPattern: "**/tung.libraries" },
+        { globPattern: "**/tung.yaml" },
       ],
     })
     .catch(() => {});
@@ -157,7 +157,7 @@ connection.onNotification(
 connection.onDidChangeWatchedFiles(({ changes }) => {
   if (
     changes.some(({ uri }) =>
-      path.basename(toFilePath(uri) || "") === "tung.libraries"
+      path.basename(toFilePath(uri) || "") === "tung.yaml"
     )
   ) {
     configureWorkspace();

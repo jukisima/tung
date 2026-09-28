@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- git-pinned libraries supply ordinary module roots without compiler-owned names.
 module Tung.Library (
   resolveLibraryRoots,
@@ -7,12 +9,17 @@ module Tung.Library (
 
 import Control.Exception (finally)
 import Control.Monad (foldM)
+import Data.Aeson (FromJSON (parseJSON), withObject, (.:))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Key qualified as Key
+import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Types (Parser)
 import Data.Char (isHexDigit, toLower)
 import Data.List (intercalate, isInfixOf, nub, sort)
 import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Data.Yaml qualified as Yaml
 import System.Directory (canonicalizePath, createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, makeAbsolute, removeFile, removePathForcibly, renameDirectory)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
@@ -26,6 +33,29 @@ data Library = Library
   , libraryRepository :: String
   , libraryCommit :: String
   }
+
+data LibrarySource = LibrarySource String String
+
+instance FromJSON LibrarySource where
+  parseJSON = withObject "library" \fields -> do
+    rejectUnknown "library" ["repo", "hash"] fields
+    LibrarySource <$> fields .: "repo" <*> fields .: "hash"
+
+newtype Manifest = Manifest [(String, LibrarySource)]
+
+instance FromJSON Manifest where
+  parseJSON = withObject "tung.yaml" \fields -> do
+    rejectUnknown "manifest" ["dependencies"] fields
+    dependencies <- fields .: "dependencies" :: Parser Aeson.Value
+    Manifest <$> withObject "dependencies" (traverse parseEntry . KeyMap.toAscList) dependencies
+   where
+    parseEntry (name, source) = (Key.toString name,) <$> parseJSON source
+
+rejectUnknown :: String -> [String] -> Aeson.Object -> Parser ()
+rejectUnknown context allowed fields =
+  case filter (`notElem` allowed) (map Key.toString (KeyMap.keys fields)) of
+    [] -> pure ()
+    unknown : _ -> fail ("unknown " ++ context ++ " field '" ++ unknown ++ "'")
 
 data Pin = Pin
   { pinName :: String
@@ -43,14 +73,18 @@ emptyResolved :: Resolved
 emptyResolved = Resolved Map.empty Map.empty
 
 manifestName :: FilePath
-manifestName = "tung.libraries"
+manifestName = "tung.yaml"
+
+legacyManifestName :: FilePath
+legacyManifestName = "tung.libraries"
 
 resolveLibraryRoots :: FilePath -> IO (Either String [FilePath])
 resolveLibraryRoots owner = do
   manifest <- findManifest owner
   pinned <- case manifest of
-    Nothing -> pure (Right [])
-    Just path -> fmap (fmap snd) (resolveManifest (takeDirectory path </> ".tung" </> "libraries") emptyResolved path)
+    Left message -> pure (Left message)
+    Right Nothing -> pure (Right [])
+    Right (Just path) -> fmap (fmap snd) (resolveManifest (takeDirectory path </> ".tung" </> "libraries") emptyResolved path)
   case pinned of
     Left message -> pure (Left message)
     Right roots -> do
@@ -86,20 +120,29 @@ readLibraryImports owner =
     result <- tryIOError (Text.readFile path)
     pure (either (\failure -> Left ("cannot read library module '" ++ path ++ "': " ++ show failure)) (Right . Text.unpack) result)
 
-findManifest :: FilePath -> IO (Maybe FilePath)
+findManifest :: FilePath -> IO (Either String (Maybe FilePath))
 findManifest owner = do
   absolute <- makeAbsolute owner
   file <- doesFileExist absolute
   search (if file then takeDirectory absolute else absolute)
  where
   search directory = do
-    let manifest = directory </> manifestName
-    present <- doesFileExist manifest
-    if present
-      then Just <$> canonicalizePath manifest
-      else
+    manifest <- manifestAt directory
+    case manifest of
+      Right Nothing ->
         let parent = takeDirectory directory
-         in if parent == directory then pure Nothing else search parent
+         in if parent == directory then pure (Right Nothing) else search parent
+      result -> pure result
+
+manifestAt :: FilePath -> IO (Either String (Maybe FilePath))
+manifestAt directory = do
+  let path = directory </> manifestName
+      legacy = directory </> legacyManifestName
+  present <- doesFileExist path
+  old <- doesFileExist legacy
+  if old
+    then pure (Left ("replace '" ++ legacy ++ "' with '" ++ path ++ "'"))
+    else if present then Right . Just <$> canonicalizePath path else pure (Right Nothing)
 
 resolveManifest :: FilePath -> Resolved -> FilePath -> IO (Either String (Resolved, [FilePath]))
 resolveManifest cache resolved manifest =
@@ -119,11 +162,12 @@ resolveManifest cache resolved manifest =
             checkout cache library{libraryRepository = repository} >>= \case
               Left message -> pure (Left message)
               Right root -> do
-                nested <- doesFileExist (root </> manifestName)
+                nested <- manifestAt root
                 dependencies <-
-                  if nested
-                    then resolveManifest cache next (root </> manifestName)
-                    else pure (Right (next, []))
+                  case nested of
+                    Left message -> pure (Left message)
+                    Right (Just path) -> resolveManifest cache next path
+                    Right Nothing -> pure (Right (next, []))
                 case dependencies of
                   Left message -> pure (Left message)
                   Right (afterChildren, children) -> go afterChildren (roots ++ [root] ++ children) rest
@@ -171,26 +215,19 @@ pinConflict subject earlier later =
 
 readManifest :: FilePath -> IO (Either String [Library])
 readManifest path = do
-  content <- tryIOError (Text.readFile path)
-  pure $ case content of
-    Left errorMessage -> Left ("cannot read '" ++ path ++ "': " ++ show errorMessage)
-    Right source -> do
-      libraries <- traverse (parseLine path) (zip [1 :: Int ..] (Text.lines source))
-      let entries = concat libraries
-          names = map libraryName entries
-      if length names == Set.size (Set.fromList names)
-        then Right entries
-        else Left ("duplicate library name in '" ++ path ++ "'")
-
-parseLine :: FilePath -> (Int, Text.Text) -> Either String [Library]
-parseLine path (number, raw)
-  | Text.null line || Text.pack "#" `Text.isPrefixOf` line = Right []
-  | otherwise = case map (Text.unpack . Text.strip) (Text.splitOn (Text.pack "\t") raw) of
-      [name, repository, commit]
-        | validName name && not (null repository) && validCommit commit -> Right [Library name repository (map toLower commit)]
-      _ -> Left (path ++ ":" ++ show number ++ ": expected name, git repository, and full commit hash separated by tabs")
+  decoded <- tryIOError (Yaml.decodeFileWithWarnings path)
+  pure $ case decoded of
+    Left failure -> Left ("cannot read '" ++ path ++ "': " ++ show failure)
+    Right (Left failure) -> Left (path ++ ": " ++ Yaml.prettyPrintParseException failure)
+    Right (Right (warnings, Manifest entries))
+      | not (null warnings) -> Left (path ++ ": " ++ intercalate "; " (map show warnings))
+      | otherwise -> traverse validateEntry entries
  where
-  line = Text.strip raw
+  validateEntry (name, LibrarySource repository commit)
+    | not (validName name) = Left (path ++ ": invalid library name '" ++ name ++ "'")
+    | null repository = Left (path ++ ": library '" ++ name ++ "' hath an empty repository")
+    | not (validCommit commit) = Left (path ++ ": library '" ++ name ++ "' needeth a full 40- or 64-digit hexadecimal commit hash")
+    | otherwise = Right (Library name repository (map toLower commit))
   validName name = not (null name) && all (\character -> character `elem` (['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9'] ++ "-_")) name
   validCommit commit = length commit `elem` [40, 64] && all isHexDigit commit
 

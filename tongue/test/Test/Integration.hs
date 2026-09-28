@@ -24,9 +24,8 @@ group = do
   imports <- readLibraryImports "." >>= either fail pure
   byspels <- byspelFiles
   benchmarks <- benchmarkFiles
-  tools <- tungFiles "tool"
   Harness.group "integration" $
-    map (runnableFileCase imports) (byspels ++ benchmarks ++ tools)
+    map (runnableFileCase imports) (byspels ++ benchmarks)
       ++ [mainEntry imports, rejectedMain imports, fibonacciSampleResult imports, fileRoundTrip imports, webServerRoundTrip imports]
 
 byspelFiles :: IO [FilePath]

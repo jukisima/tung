@@ -407,8 +407,8 @@ test("server resolveþ a nested project's git-pinned library", async (context) =
   );
   const commit = git("-C", repository, "rev-parse", "HEAD");
   fs.writeFileSync(
-    path.join(project, "tung.libraries"),
-    `sample\t../library\t${commit}\n`,
+    path.join(project, "tung.yaml"),
+    `dependencies:\n  sample:\n    repo: ../library\n    hash: "${commit}"\n`,
   );
   const mainPath = path.join(project, "main.tung");
   const source = "use value.tung let answer: ℤ = value";

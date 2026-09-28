@@ -3,8 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import test from "node:test";
 const root = path.resolve(__dirname, "..", "..", "..");
-const ignored = new Set([".git", "dist-newstyle", "node_modules"]);
-const documentationExtensions = new Set([".adoc"]);
+const ignored = new Set([".git", ".tung", "dist-newstyle", "node_modules"]);
+const documentationExtensions = new Set([".md"]);
 const sourceExtensions = new Set([".hs", ".sh", ".ts", ".tung"]);
 const sentenceStart = /(?:^|[.!?]\s+)([A-Z][a-z]+)\b/;
 const americanSpelling =
@@ -63,9 +63,9 @@ test("prose distinguisheþ second-person number and case", () => {
   );
   assert.deepEqual(failures, []);
 });
-test("project documentation useþ asciidoc", () => {
+test("project documentation useþ markdown", () => {
   assert.deepEqual(
-    repositoryFiles(root).filter((file) => file.endsWith(".md")),
+    repositoryFiles(root).filter((file) => file.endsWith(".adoc")),
     [],
   );
 });
@@ -86,7 +86,7 @@ const repositoryFiles = (directory) => {
 };
 const proseFragments = (file) => {
   const text = fs.readFileSync(file, "utf8");
-  if (file.endsWith(".adoc")) return asciidocFragments(text);
+  if (file.endsWith(".md")) return markdownFragments(text);
   const lineMarker = file.endsWith(".hs")
     ? /^\s*--+\s*\|?\s?(.*)$/
     : file.endsWith(".ts")
@@ -105,24 +105,25 @@ const proseFragments = (file) => {
   }));
   return [...lines, ...blocks];
 };
-const asciidocFragments = (text) => {
-  let delimiter;
+const markdownFragments = (text) => {
+  let fence;
   return text.split(/\r?\n/).flatMap((line, index) => {
     const trimmed = line.trim();
-    if (delimiter) {
-      if (trimmed === delimiter) delimiter = undefined;
+    const marker = /^(`{3,}|~{3,})/.exec(trimmed)?.[1];
+    if (marker) {
+      if (!fence) fence = marker;
+      else if (marker[0] === fence[0] && marker.length >= fence.length) {
+        fence = undefined;
+      }
       return [];
     }
-    if (trimmed === "|===") return [];
-    if (["----", "...."].includes(trimmed)) {
-      delimiter = trimmed;
-      return [];
-    }
-    if (!trimmed || /^\[[^\]]*\]$/.test(trimmed)) return [];
+    if (fence || !trimmed || /^\|?\s*[:|-]+\s*\|?$/.test(trimmed)) return [];
     return [
       {
         line: index + 1,
-        text: line.replace(/^\s*(?:={1,6}|\*+|\d+\.|>|\|)\s*/, ""),
+        text: line
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+          .replace(/^\s*(?:#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|\|\s*)/, ""),
       },
     ];
   });

@@ -16,7 +16,7 @@ import Test.Harness qualified as Harness
 import Tung (loadProjectFileWithRoots, projectImports, resolveLibraryRoots)
 
 group :: IO Group
-group = Harness.group "library" [pinnedCheckout, transitiveCheckout, sharedTransitivePin, conflictingTransitivePins, conflictingAliasedPins, conflictingRepositoryNames, conflictingLibrarySources, invalidManifest]
+group = Harness.group "library" [pinnedCheckout, transitiveCheckout, sharedTransitivePin, conflictingTransitivePins, conflictingAliasedPins, conflictingRepositoryNames, conflictingLibrarySources, invalidManifest, duplicateManifestKey, unknownManifestField, malformedManifest, legacyManifest]
 
 pinnedCheckout :: Test
 pinnedCheckout = withDirectory \root -> do
@@ -24,13 +24,13 @@ pinnedCheckout = withDirectory \root -> do
       project = root </> "project"
       owner = project </> "main.tung"
       libraryFile = repository </> "value.tung"
-      manifest = project </> "tung.libraries"
+      manifest = project </> "tung.yaml"
   initRepository repository
   createDirectory project
   writeFile libraryFile "show let value = 41"
   commitAll repository "first"
   commit <- runGit ["-C", repository, "rev-parse", "HEAD"]
-  writeFile manifest ("sample\tfile://" ++ repository ++ "\t" ++ map toUpper commit ++ "\n")
+  writeFile manifest (yamlManifest [("sample", "file://" ++ repository, map toUpper commit)])
   writeFile owner "use value.tung let answer = value + 1"
   first <- resolveLibraryRoots owner
   imported <- case first of
@@ -51,9 +51,44 @@ invalidManifest :: Test
 invalidManifest = withDirectory \root -> do
   let owner = root </> "main.tung"
   writeFile owner "let answer = 1"
-  writeFile (root </> "tung.libraries") "sample\t../source\tmain\n"
+  writeFile (root </> "tung.yaml") (yamlManifest [("sample", "../source", "main")])
   result <- resolveLibraryRoots owner
   expect "rejecteþ a moving git revision" (either (const True) (const False) result)
+
+duplicateManifestKey :: Test
+duplicateManifestKey = withDirectory \root -> do
+  let owner = root </> "main.tung"
+  writeFile owner "let answer = 1"
+  writeFile (root </> "tung.yaml") "dependencies:\n  sample:\n    repo: ../first\n    hash: abc\n  sample:\n    repo: ../second\n    hash: def\n"
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ duplicate yaml dependency names" $
+    either (isInfixOf "DuplicateKey") (const False) result
+
+unknownManifestField :: Test
+unknownManifestField = withDirectory \root -> do
+  let owner = root </> "main.tung"
+  writeFile owner "let answer = 1"
+  writeFile (root </> "tung.yaml") "dependencies:\n  sample:\n    repository: ../source\n    hash: abc\n"
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ misspelled yaml fields" $
+    either (isInfixOf "unknown library field 'repository'") (const False) result
+
+malformedManifest :: Test
+malformedManifest = withDirectory \root -> do
+  let owner = root </> "main.tung"
+  writeFile owner "let answer = 1"
+  writeFile (root </> "tung.yaml") "dependencies: [\n"
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ malformed yaml" (either (const True) (const False) result)
+
+legacyManifest :: Test
+legacyManifest = withDirectory \root -> do
+  let owner = root </> "main.tung"
+  writeFile owner "let answer = 1"
+  writeFile (root </> "tung.libraries") "sample\t../source\tmain\n"
+  result <- resolveLibraryRoots owner
+  expect "explaineþ þe legacy manifest migration" $
+    either (\message -> all (`isInfixOf` message) ["tung.libraries", "tung.yaml"]) (const False) result
 
 transitiveCheckout :: Test
 transitiveCheckout = withDirectory \root -> do
@@ -67,11 +102,11 @@ transitiveCheckout = withDirectory \root -> do
   dependencyCommit <- runGit ["-C", dependency, "rev-parse", "HEAD"]
   initRepository parent
   writeFile (parent </> "parent.tung") "use dep.tung show let value = answer"
-  writeFile (parent </> "tung.libraries") ("dependency\t" ++ dependency ++ "\t" ++ dependencyCommit ++ "\n")
+  writeFile (parent </> "tung.yaml") (yamlManifest [("dependency", dependency, dependencyCommit)])
   commitAll parent "parent"
   parentCommit <- runGit ["-C", parent, "rev-parse", "HEAD"]
   createDirectory project
-  writeFile (project </> "tung.libraries") ("parent\t../parent\t" ++ parentCommit ++ "\n")
+  writeFile (project </> "tung.yaml") (yamlManifest [("parent", "../parent", parentCommit)])
   writeFile owner "use parent.tung let result = value"
   resolved <- resolveLibraryRoots owner
   imported <- case resolved of
@@ -148,17 +183,25 @@ createDiamondWith root left right = do
   let project = root </> "project"
       owner = project </> "main.tung"
   createDirectory project
-  writeFile (project </> "tung.libraries") (concat [name ++ "\t../" ++ name ++ "\t" ++ commit ++ "\n" | (name, commit) <- parents])
+  writeFile (project </> "tung.yaml") (yamlManifest [(name, "../" ++ name, commit) | (name, commit) <- parents])
   writeFile owner "let answer = 1"
   pure owner
  where
   createParent (name, (dependency, dependencyName, commit)) = do
     let repository = root </> name
     initRepository repository
-    writeFile (repository </> "tung.libraries") (dependencyName ++ "\t" ++ dependency ++ "\t" ++ commit ++ "\n")
+    writeFile (repository </> "tung.yaml") (yamlManifest [(dependencyName, dependency, commit)])
     commitAll repository name
     parentCommit <- runGit ["-C", repository, "rev-parse", "HEAD"]
     pure (name, parentCommit)
+
+yamlManifest :: [(String, String, String)] -> String
+yamlManifest entries =
+  "dependencies:\n"
+    ++ concat
+      [ "  " ++ name ++ ":\n    repo: " ++ show repository ++ "\n    hash: " ++ show commit ++ "\n"
+      | (name, repository, commit) <- entries
+      ]
 
 initRepository :: FilePath -> IO ()
 initRepository repository = do
