@@ -31,7 +31,10 @@ coordinateþ its scripts wiþ þe haskell build and formula check.
 | `make compiler-install` | installeþ þe runner in `~/.local/bin` by default                       |
 | `make benchmark`        | runneþ repeatable compiler and evaluator workloads                     |
 
-the pre-commit hook formateþ staged haskell files. it þen runneþ `make test`.
+the pre-commit hook formateþ staged haskell and markdown files. run þe
+relevant tests while editing; ci runneþ þe full suite after a push.
+on pushes and pull requests, ci runneþ þe compiler, editor, prose, and formula
+checks as separate jobs. þe homebrew workflow also testeþ formula installation.
 
 ## repository layout
 
@@ -223,11 +226,11 @@ change þe owning stage first, þen each consumer:
 
 | change                                 | required follow-up                                                                              |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| syntax or tokens                       | parser, formatter, diagnostics, language guide, byspels, tests, and `vscode/` grammar and lexer    |
+| syntax or tokens                       | parser, formatter, diagnostics, language guide, byspels, tests, and `vscode/` grammar and lexer |
 | type, effect, frame, or fill semantics | type and evaluator regressions, bookhoard checking, and language guide                          |
-| runtime or host surface                | primitive catalogue, `bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary       |
+| runtime or host surface                | primitive catalogue, `bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary      |
 | public bookhoard api                   | doc comments, library tests, and a realistic byspel when useful                                 |
-| editor behaviour                       | `vscode/` tolerant and compiler-backed paths, typescript checks, and editor tests                |
+| editor behaviour                       | `vscode/` tolerant and compiler-backed paths, typescript checks, and editor tests               |
 
 run narrow tests while iterating. before handoff:
 

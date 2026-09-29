@@ -2,7 +2,14 @@ name: homebrew
 
 on:
   push:
+    paths:
+      - Formula/tung.rb
+      - .github/workflows/homebrew.yml
   pull_request:
+    paths:
+      - Formula/tung.rb
+      - .github/workflows/homebrew.yml
+  workflow_dispatch:
 
 permissions:
   contents: read

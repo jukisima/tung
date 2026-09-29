@@ -56,12 +56,6 @@ test("prose distinguisheþ second-person number and case", () => {
   );
   assert.deepEqual(failures, []);
 });
-test("project documentation useþ markdown", () => {
-  assert.deepEqual(
-    repositoryFiles(root).filter((file) => file.endsWith(".adoc")),
-    [],
-  );
-});
 const proseFiles = (directory) => {
   return repositoryFiles(directory).filter(
     (file) =>

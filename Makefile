@@ -26,7 +26,7 @@ setup: test install
 
 build: compiler-build editor-build
 
-test: compiler-test prose-test editor-test formula-check
+test: prose-test formula-check compiler-test editor-test
 
 benchmark: compiler-build
 	@printf 'benchmarking tung compiler and evaluator\n'

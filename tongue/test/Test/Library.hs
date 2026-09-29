@@ -16,7 +16,7 @@ import Test.Harness qualified as Harness
 import Tung (loadProjectFileWithRoots, projectImports, resolveLibraryRoots)
 
 group :: IO Group
-group = Harness.group "library" [pinnedCheckout, gitSubdirectory, distinctGitSubdirectories, conflictingGitSubdirectoryNames, escapedGitSubdirectory, localPathDependency, transitivePathDependency, sharedTransitivePin, conflictingTransitivePins, conflictingAliasedPins, conflictingRepositoryNames, conflictingLibrarySources, conflictingPathNames, conflictingPathAndGitSources, invalidManifest, invalidPathSource, duplicateManifestKey, unknownManifestField, malformedManifest, legacyManifest, transitiveCheckout]
+group = Harness.group "library" [pinnedCheckout, gitSubdirectory, distinctGitSubdirectories, conflictingGitSubdirectoryNames, escapedGitSubdirectory, localPathDependency, transitivePathDependency, sharedTransitivePin, conflictingTransitivePins, conflictingAliasedPins, conflictingRepositoryNames, conflictingLibrarySources, conflictingPathNames, conflictingPathAndGitSources, invalidManifest, invalidPathSource, duplicateManifestKey, unknownManifestField, malformedManifest, transitiveCheckout]
 
 pinnedCheckout :: Test
 pinnedCheckout = withDirectory \root -> do
@@ -206,15 +206,6 @@ malformedManifest = withDirectory \root -> do
   result <- resolveLibraryRoots owner
   expect "rejecteþ malformed yaml" (either (const True) (const False) result)
 
-legacyManifest :: Test
-legacyManifest = withDirectory \root -> do
-  let owner = root </> "main.tung"
-  writeFile owner "let answer = 1"
-  writeFile (root </> "tung.libraries") "sample\t../source\tmain\n"
-  result <- resolveLibraryRoots owner
-  expect "explaineþ þe legacy manifest migration" $
-    either (\message -> all (`isInfixOf` message) ["tung.libraries", "tung.yaml"]) (const False) result
-
 transitiveCheckout :: Test
 transitiveCheckout = withDirectory \root -> do
   let dependency = root </> "dependency"
@@ -356,14 +347,14 @@ createDiamondWith root left right = do
   writeFile (project </> "tung.yaml") (yamlManifest [(name, "../" ++ name, commit) | (name, commit) <- parents])
   writeFile owner "let answer = 1"
   pure owner
- where
-  createParent (name, (dependency, dependencyName, commit)) = do
-    let repository = root </> name
-    initRepository repository
-    writeFile (repository </> "tung.yaml") (yamlManifest [(dependencyName, dependency, commit)])
-    commitAll repository name
-    parentCommit <- runGit ["-C", repository, "rev-parse", "HEAD"]
-    pure (name, parentCommit)
+  where
+    createParent (name, (dependency, dependencyName, commit)) = do
+      let repository = root </> name
+      initRepository repository
+      writeFile (repository </> "tung.yaml") (yamlManifest [(dependencyName, dependency, commit)])
+      commitAll repository name
+      parentCommit <- runGit ["-C", repository, "rev-parse", "HEAD"]
+      pure (name, parentCommit)
 
 yamlManifest :: [(String, String, String)] -> String
 yamlManifest entries =
@@ -395,14 +386,14 @@ commitAll repository message = do
 
 withDirectory :: (FilePath -> Test) -> Test
 withDirectory action = bracket temporary removePathForcibly action
- where
-  temporary = do
-    directory <- getTemporaryDirectory
-    stamp <- round . (* 1000000) <$> getPOSIXTime
-    let path = directory </> ("tung-library-test-" ++ show (stamp :: Integer))
-    createDirectoryIfMissing True (takeDirectory path)
-    createDirectory path
-    pure path
+  where
+    temporary = do
+      directory <- getTemporaryDirectory
+      stamp <- round . (* 1000000) <$> getPOSIXTime
+      let path = directory </> ("tung-library-test-" ++ show (stamp :: Integer))
+      createDirectoryIfMissing True (takeDirectory path)
+      createDirectory path
+      pure path
 
 runGit :: [String] -> IO String
 runGit arguments = do

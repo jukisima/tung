@@ -1,5 +1,5 @@
 class Tung < Formula
-  desc "a functional programming tongue with infix notation"
+  desc "Functional programming tongue with infix notation"
   homepage "https://github.com/jukisima/tung"
   url "https://github.com/jukisima/tung.git",
       revision: "b63b57a1afca95e89a81e37b5e61247d21c5c882"
@@ -11,7 +11,7 @@ class Tung < Formula
   depends_on "ghc@9.12" => :build
 
   def fetch
-    ENV.prepend_path "PATH", Formula["ghc@9.12"].opt_bin
+    ENV.prepend_path "PATH", formula_opt_bin("ghc@9.12")
 
     cd "tongue" do
       system "cabal", "v2-update"
@@ -20,7 +20,7 @@ class Tung < Formula
   end
 
   def install
-    ENV.prepend_path "PATH", Formula["ghc@9.12"].opt_bin
+    ENV.prepend_path "PATH", formula_opt_bin("ghc@9.12")
 
     cd "tongue" do
       system "cabal", "v2-build", "exe:tung", "--offline", "--jobs=#{ENV.make_jobs}"

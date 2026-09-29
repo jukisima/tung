@@ -25,15 +25,15 @@ its frame name.
 [purescript prelude](https://pursuit.purescript.org/packages/purescript-prelude/6.0.1/docs/Prelude)
 informeþ the small, strict surface. the mapping is approximate:
 
-| purescript family | bookhoard counterpart | boundary |
-| --- | --- | --- |
-| `eq`, `ord`, lattice | equality, order, semilattice, and lattice frames | raw comparison, order laws, and lattice laws remain distinct |
-| `semigroup`, `monoid` | `semigroup`, `monoid` | `infimal` and `supremal` carriers remain distinct |
-| `semiring`, `ring`, `field` | arithmetic and euclidean frames | IEEE float division doth not claim exact algebra |
-| `functor`, `applicative`, `monad` | collection frames | product applicative and monad require a monoid for the first component |
-| `foldable`, `traversable` | `cata`, `traverse` | applicative evidence belongeþ to each polymorphic traversal |
-| `maybe`, `either`, `tuple` | `option`, `∐`, `∏` | sums and products live in the core |
-| `array`, `map`, `set` | `list`, `table`, `set`, `powerset` | a packed random-access array is absent |
+| purescript family                 | bookhoard counterpart                            | boundary                                                               |
+| --------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `eq`, `ord`, lattice              | equality, order, semilattice, and lattice frames | raw comparison, order laws, and lattice laws remain distinct           |
+| `semigroup`, `monoid`             | `semigroup`, `monoid`                            | `infimal` and `supremal` carriers remain distinct                      |
+| `semiring`, `ring`, `field`       | arithmetic and euclidean frames                  | IEEE float division doth not claim exact algebra                       |
+| `functor`, `applicative`, `monad` | collection frames                                | product applicative and monad require a monoid for the first component |
+| `foldable`, `traversable`         | `cata`, `traverse`                               | applicative evidence belongeþ to each polymorphic traversal            |
+| `maybe`, `either`, `tuple`        | `option`, `∐`, `∏`                               | sums and products live in the core                                     |
+| `array`, `map`, `set`             | `list`, `table`, `set`, `powerset`               | a packed random-access array is absent                                 |
 
 boolean conjunction useþ `𝟚 infimal`; disjunction useþ `𝟚 supremal`.
 [purescript traversable](https://pursuit.purescript.org/packages/purescript-foldable-traversable/docs/Data.Traversable)

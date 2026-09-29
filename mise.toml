@@ -1,0 +1,9 @@
+monorepo_root = true
+
+[tools]
+cabal = "3.18"
+ormolu = "latest"
+lefthook = "2.1"
+node = "26"
+npm = "11"
+prettier = "latest"

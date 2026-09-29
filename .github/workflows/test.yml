@@ -13,29 +13,45 @@ concurrency:
 
 jobs:
   test:
+    name: ${{ matrix.check }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: compiler
+            target: compiler-test
+          - check: editor
+            target: editor-test
+          - check: prose
+            target: prose-test
+          - check: formula
+            target: formula-check
 
     steps:
       - name: check out source
         uses: actions/checkout@v6
 
       - name: set up haskell
+        if: matrix.check == 'compiler' || matrix.check == 'editor'
         uses: haskell-actions/setup@v2
         with:
           ghc-version: 9.12.4
           cabal-version: 3.16.1.0
 
       - name: set up node
+        if: matrix.check == 'editor' || matrix.check == 'prose'
         uses: actions/setup-node@v6
         with:
           node-version: 26.4.0
           cache: npm
 
       - name: set up ruby
+        if: matrix.check == 'formula'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
 
-      - name: run tests
-        run: make test
+      - name: run ${{ matrix.check }} tests
+        run: make ${{ matrix.target }}

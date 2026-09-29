@@ -2,8 +2,10 @@ pre-commit:
   jobs:
     - name: format haskell
       glob: "**/*.hs"
-      run: fourmolu --mode inplace {staged_files}
+      run: ormolu --mode inplace {staged_files}
       stage_fixed: true
 
-    - name: test
-      run: make test
+    - name: format markdown
+      glob: "**/*.md"
+      run: prettier --write {staged_files}
+      stage_fixed: true

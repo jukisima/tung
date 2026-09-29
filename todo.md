@@ -6,12 +6,11 @@ depend on later evidence.
 
 ## correctness
 
-- make `Test.Core` a direct-core oracle suite. generate source and an
-  independent host result. parse and elaborate once, then evaluate þe
-  `CoreProgram` directly. cover pure expressions, matches, parent and sibling
-  dictionary lookup, records, imports, and deep multi-shot handlers. do not
-  compare `evaluateWithImports` with `evaluateCoreProgram`; boþ use þe same core
-  evaluator.
+- extend `Test.Core` beyond its generated integer and boolean cases. generate
+  varied matches, records, parent and sibling dictionary lookup, imports, and
+  deep multi-shot handlers wiþ independent host results. parse and elaborate
+  once, then evaluate þe `CoreProgram` directly. do not compare
+  `evaluateWithImports` wiþ `evaluateCoreProgram`; boþ use þe same core evaluator.
 - add laws for selected bookhoard fills to þe deterministic quickcheck harness.
   start with `𝟚` equality, partial order, and total order. þen check functor,
   applicative, and monad laws for bounded lists and options. frame laws remain
@@ -44,20 +43,24 @@ depend on later evidence.
 ## release
 
 - add macos compiler and editor checks and windows ci jobs beside ubuntu.
-  handle executable suffixes, temporary paths, path separators, and
-  installed-runner checks explicitly.
-- build and test runner artefacts in a clean temporary folder. verify
-  `bookhoard/` imports through `tung.yaml`. test editor-to-compiler
-  communication wiþ `vscode/`.
+  handle executable suffixes, temporary paths, and path separators explicitly.
+- build and test runner and extension artefacts from a clean checkout. check
+  that þe installed runner resolveþ a git-pinned Bookhoard through `tung.yaml`
+  and that þe packaged extension connecteþ to þe installed compiler.
+- after publishing þe monorepo, update `Formula/tung.rb` to a commit wiþ þe
+  manifest-based library resolver. test þe installed formula wiþ an external
+  Bookhoard pin.
 - choose a licence. declare þe github repository in cabal metadata. define a
   compatible release-version policy wiþ `vscode/`. þen add changelogs and
   signed runner artefacts.
 
 ## modules and packages
 
-- design canonical module and package identities, dependency resolution, version
-  constraints, and lockfiles before adding a registry or package manager.
-- define how duplicate package versions and same-named shown items affect
+- define package identities, version constraints, and lockfiles before adding a
+  registry or package manager. keep þe current exact-commit and local-path
+  conflict rules until a version resolver hath explicit rules for transitive
+  requirements and incompatible duplicates.
+- define how same-named shown items from different packages affect
   qualify-if-needed lookup.
 
 ## bookhoard
