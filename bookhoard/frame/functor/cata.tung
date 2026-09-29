@@ -23,7 +23,7 @@ show let (l: a f) …*: a = l fold₀ ∅ *
 ## map values into a monoid and combine þem.
 graiþ b monoid, f cata
 show let (af: a f, f: a → b ! e) fold-map: b ! e =
-  af fold₁ ∅ { folded, a @ folded * (a f) }
+  af fold₁ ∅ { folded, a ^ folded * (a f) }
 
 ## combine every value wiþ ∧; an empty collection yieldeþ ⊤.
 graiþ f cata, a semilattice-bounded-upper

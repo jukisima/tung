@@ -88,14 +88,14 @@ webServerRoundTrip imports = do
         let (incoming: request) route: response ! clock = (
           let stamp = only unix-time
           yield match ((incoming request-meþod) ≡ 'POST') ∧ ((incoming request-target) ≡ '/echo') {
-            yea @ match ((incoming request-headers) table~lookup 'Host') {
-              host option~some @ match host ≡ 'localhost' {
-                yea @ ((((incoming request-body) ok) wiþ-header 'Transfer-Encoding' 'chunked') wiþ-header 'X-Tung' 'old') wiþ-header 'X-Tung' 'yea',
-                nay @ 'not found\\n' not-found
+            yea ^ match ((incoming request-headers) table~lookup 'Host') {
+              host option~some ^ match host ≡ 'localhost' {
+                yea ^ ((((incoming request-body) ok) wiþ-header 'Transfer-Encoding' 'chunked') wiþ-header 'X-Tung' 'old') wiþ-header 'X-Tung' 'yea',
+                nay ^ 'not found\\n' not-found
               },
-              _ @ 'not found\\n' not-found
+              _ ^ 'not found\\n' not-found
             },
-            nay @ 'not found\\n' not-found
+            nay ^ 'not found\\n' not-found
           }
         )
 
@@ -103,7 +103,7 @@ webServerRoundTrip imports = do
         """
           ++ " "
           ++ show port
-          ++ " serve route { _ fail @ only }"
+          ++ " serve route { _ fail ^ only }"
   completed <- newEmptyMVar
   server <- forkFinally (evaluateMainWithImports source imports) (putMVar completed)
   -- type checking and evaluator startup share this budget with the round trip.
@@ -123,8 +123,8 @@ unusedPort = Socket.withSocketsDo $ bracket open Socket.close $ \listener -> do
   Socket.getSocketName listener >>= \case
     Socket.SockAddrInet port _ -> pure (toInteger port)
     _ -> fail "expected an ipv4 test socket"
- where
-  open = Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
+  where
+    open = Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
 
 requestEventually :: MVar (Either SomeException String) -> Integer -> IO (Either String ByteString.ByteString)
 requestEventually completed port =
@@ -143,8 +143,8 @@ requestOnce port = Socket.withSocketsDo $ bracket open Socket.close $ \connectio
   Socket.connect connection (Socket.SockAddrInet (fromInteger port) loopback)
   SocketBytes.sendAll connection (Char8.pack "POST /echo HTTP/1.1\r\nHost: localhost\r\nContent-Length: 16\r\n\r\nhello from tung\n")
   receiveAll connection ByteString.empty
- where
-  open = Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
+  where
+    open = Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
 
 receiveAll :: Socket.Socket -> ByteString.ByteString -> IO ByteString.ByteString
 receiveAll connection received =

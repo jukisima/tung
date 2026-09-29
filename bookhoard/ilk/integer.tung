@@ -14,11 +14,11 @@ use ilk/two.tung
 ## convert a nonnegative integer to a natural.
 show let (integer: ℤ) to-ℕ: ℕ ! text fail =
   match 0 ≤ integer {
-    yea @ match integer {
-      0 @ natural~zero,
-      n @ (n - 1) to-ℕ $ suc
+    yea ^ match integer {
+      0 ^ natural~zero,
+      n ^ (n - 1) to-ℕ $ suc
     },
-    nay @ 'negative cannot be a natural' fail
+    nay ^ 'negative cannot be a natural' fail
   }
 
 fill ℤ add {

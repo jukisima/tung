@@ -15,20 +15,20 @@ graiþ a ring, a divide-remainder, a order-total
 show frame a euclidean {
   law (dividend: a, divisor: a):
     match dividend % divisor {
-      quotient ∏ rest @ (quotient × divisor) + rest
-    } ~ dividend + (zero × ((dividend % divisor) project₁))
+      quotient ∏ rest ^ (quotient × divisor) + rest
+    } = dividend + (zero × ((dividend % divisor) project₁))
 
   law (dividend: a, divisor: a):
     zero ≤ ((dividend % divisor) project₁)
-      ~ match dividend % divisor {
-        _ ∏ rest @ rest ≤ rest
+      = match dividend % divisor {
+        _ ∏ rest ^ rest ≤ rest
       }
 
   law (dividend: a, divisor: a):
     match dividend % divisor {
-      _ ∏ rest @ (zero ≤ divisor) if (rest < divisor) (rest < (zero - divisor))
-    } ~ match dividend % divisor {
-      _ ∏ rest @ rest ≤ rest
+      _ ∏ rest ^ (zero ≤ divisor) if (rest < divisor) (rest < (zero - divisor))
+    } = match dividend % divisor {
+      _ ∏ rest ^ rest ≤ rest
     }
 }
 

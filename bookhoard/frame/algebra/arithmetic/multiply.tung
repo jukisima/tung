@@ -6,7 +6,7 @@ show frame a multiply {
 
 fill 𝟚 multiply {
   let × = {
-    yea, yea @ yea,
-    _, _ @ nay
+    yea, yea ^ yea,
+    _, _ ^ nay
   }
 }

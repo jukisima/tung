@@ -16,30 +16,29 @@ idempotence = expect "formatter is idempotent" (all (\(_, source, _) -> isIdempo
 
 generatedIdempotence :: Test
 generatedIdempotence = expect "formatter is idempotent for generated structural sources" (all isIdempotent generatedSources)
- where
-  generatedSources =
-    [ intercalate "\n" (map (prefix ++) declaration) ++ ending
-    | declaration <- declarations
-    , prefix <- ["", " ", "  ", "\t"]
-    , ending <- ["", "\n"]
-    ]
-  declarations =
-    [ ["show ilk a box {", "a box", "}"]
-    , ["let result =", "match value {", "yea | nay @ 1", "}"]
-    , ["let handled =", "try risky {", "message fail @ 0", "}"]
-    , ["frame a identity {", "let a identity: a", "law (x: a):", "x identity ~ x", "}"]
-    ]
+  where
+    generatedSources =
+      [ intercalate "\n" (map (prefix ++) declaration) ++ ending
+      | declaration <- declarations,
+        prefix <- ["", " ", "  ", "\t"],
+        ending <- ["", "\n"]
+      ]
+    declarations =
+      [ ["show ilk a box {", "a box", "}"],
+        ["let result =", "match value {", "yea | nay ^ 1", "}"],
+        ["let handled =", "try risky {", "message fail ^ 0", "}"],
+        ["frame a identity {", "let a identity: a", "law (x: a):", "x identity = x", "}"]
+      ]
 
 isIdempotent :: String -> Bool
 isIdempotent source = formatSource formatted == formatted
- where
-  formatted = formatSource source
+  where
+    formatted = formatSource source
 
 cases :: [(String, String, String)]
 cases =
-  [
-    ( "sort use declarations"
-    , """
+  [ ( "sort use declarations",
+      """
       use zebra.tung zebra
       use alpha.tung
 
@@ -47,8 +46,8 @@ cases =
       use delta.tung
       use beta.tung beta
 
+      """,
       """
-    , """
       use alpha.tung
       use zebra.tung zebra
 
@@ -57,77 +56,73 @@ cases =
       use delta.tung
 
       """
-    )
-  ,
-    ( "nested declarations"
-    , """
+    ),
+    ( "nested declarations",
+      """
       show ilk a box {
       a box
       }
       let text = '{not a block}' # }
 
+      """,
       """
-    , """
       show ilk a box {
         a box
       }
       let text = '{not a block}' # }
 
       """
-    )
-  ,
-    ( "current application syntax"
-    , """
+    ),
+    ( "current application syntax",
+      """
       show let (x: a option, f: a → 𝟚) filter: a option = x match {
-      a some @ a f $ if (a some) none
-      none @ none
+      a some ^ a f $ if (a some) none
+      none ^ none
+      }
+
+      """,
+      """
+      show let (x: a option, f: a → 𝟚) filter: a option = x match {
+        a some ^ a f $ if (a some) none
+        none ^ none
       }
 
       """
-    , """
-      show let (x: a option, f: a → 𝟚) filter: a option = x match {
-        a some @ a f $ if (a some) none
-        none @ none
-      }
-
+    ),
+    ( "expression continuations",
       """
-    )
-  ,
-    ( "expression continuations"
-    , """
       let picked =
       match value {
-      yea @ 1,
-      nay @ 0
+      yea ^ 1,
+      nay ^ 0
       }
       let handled =
       try risky {
-      yield value @ value,
-      message fail @ 0
+      yield value ^ value,
+      message fail ^ 0
       }
       let identity =
-      { x @ x }
+      { x ^ x }
 
+      """,
       """
-    , """
       let picked =
         match value {
-          yea @ 1,
-          nay @ 0
+          yea ^ 1,
+          nay ^ 0
         }
       let handled =
         try risky {
-          yield value @ value,
-          message fail @ 0
+          yield value ^ value,
+          message fail ^ 0
         }
       let identity =
-        { x @ x }
+        { x ^ x }
 
       """
-    )
-  ,
-    ( "local result"
-    , """
+    ),
+    ( "local result",
+      """
       let main = (
       let first =
       1 + 2
@@ -135,8 +130,8 @@ cases =
       yield first + second
       )
 
+      """,
       """
-    , """
       let main = (
         let first =
           1 + 2
@@ -145,10 +140,9 @@ cases =
       )
 
       """
-    )
-  ,
-    ( "nested continuation"
-    , """
+    ),
+    ( "nested continuation",
+      """
       let fixtures =
       first _*
       (second _*
@@ -157,8 +151,8 @@ cases =
       let next =
       value
 
+      """,
       """
-    , """
       let fixtures =
         first _*
           (second _*
@@ -168,18 +162,17 @@ cases =
         value
 
       """
-    )
-  ,
-    ( "split right side"
-    , """
+    ),
+    ( "split right side",
+      """
       fill (float complex) elementary {
       let (a complex b) sine =
       (((0.0 subtract-float b) complex a) exponent)
       sine-from-exponents ((b complex (0.0 subtract-float a)) exponent)
       }
 
+      """,
       """
-    , """
       fill (float complex) elementary {
         let (a complex b) sine =
           (((0.0 subtract-float b) complex a) exponent)
@@ -187,53 +180,49 @@ cases =
       }
 
       """
-    )
-  ,
-    ( "split annotation and definition"
-    , """
+    ),
+    ( "split annotation and definition",
+      """
       show let (f0: a → b ! e0, f1: b → c ! e1) compose
       : a → c ! e0, e1
-      = { a @ a f0 $ f1 }
+      = { a ^ a f0 $ f1 }
 
+      """,
       """
-    , """
       show let (f0: a → b ! e0, f1: b → c ! e1) compose
         : a → c ! e0, e1
-        = { a @ a f0 $ f1 }
+        = { a ^ a f0 $ f1 }
 
       """
-    )
-  ,
-    ( "body after a multiline header"
-    , """
+    ),
+    ( "body after a multiline header",
+      """
       show let (
       value: a
       ) identity: a =
       value
 
+      """,
       """
-    , """
       show let (
         value: a
       ) identity: a =
         value
 
       """
-    )
-  ,
-    ( "term type ascription"
-    , """
+    ),
+    ( "term type ascription",
+      """
+      let answer = (1 + 2: ℤ)
+
+      """,
+      """
       let answer = (1 + 2: ℤ)
 
       """
-    , """
-      let answer = (1 + 2: ℤ)
-
+    ),
+    ( "multiline record",
       """
-    )
-  ,
-    ( "multiline record"
-    , """
       let person: r(
       name: text,
       age: ℤ
@@ -242,8 +231,8 @@ cases =
       age = 35
       )
 
+      """,
       """
-    , """
       let person: r(
         name: text,
         age: ℤ
@@ -253,10 +242,9 @@ cases =
       )
 
       """
-    )
-  ,
-    ( "associative sequence"
-    , """
+    ),
+    ( "associative sequence",
+      """
       let list = >(
       _*,
       a,
@@ -264,8 +252,8 @@ cases =
       empty
       )
 
+      """,
       """
-    , """
       let list = >(
         _*,
         a,
@@ -274,58 +262,55 @@ cases =
       )
 
       """
-    )
-  ,
-    ( "multiline law header"
-    , """
+    ),
+    ( "multiline law header",
+      """
       frame f applicative {
       law (a: a f):
-      a apply (identity pure) ~ a
-      law (a: a): a pure ~ a pure
+      a apply (identity pure) = a
+      law (a: a): a pure = a pure
       }
 
+      """,
       """
-    , """
       frame f applicative {
         law (a: a f):
-          a apply (identity pure) ~ a
-        law (a: a): a pure ~ a pure
+          a apply (identity pure) = a
+        law (a: a): a pure = a pure
       }
 
       """
-    )
-  ,
-    ( "equals signs in strings and comments"
-    , """
+    ),
+    ( "equals signs in strings and comments",
+      """
+      let text = 'a = b' # =
+      let next = 1
+
+      """,
+      """
       let text = 'a = b' # =
       let next = 1
 
       """
-    , """
-      let text = 'a = b' # =
-      let next = 1
-
+    ),
+    ( "decimal unicode and block comments",
       """
-    )
-  ,
-    ( "decimal unicode and block comments"
-    , """
       let result =
       match character {
-      `\\32; @ 1,
-      _ @ 0
+      `\\32; ^ 1,
+      _ ^ 0
       }
       /*
         {
       */
       let next = 1
 
+      """,
       """
-    , """
       let result =
         match character {
-          `\\32; @ 1,
-          _ @ 0
+          `\\32; ^ 1,
+          _ ^ 0
         }
       /*
         {
@@ -333,10 +318,18 @@ cases =
       let next = 1
 
       """
-    )
-  ,
-    ( "delimiters in block comments"
-    , """
+    ),
+    ( "delimiters in block comments",
+      """
+      let x = 1 /* { = */
+      let y = 2
+      /*
+        {
+      */
+      let z = 3
+
+      """,
+      """
       let x = 1 /* { = */
       let y = 2
       /*
@@ -345,28 +338,18 @@ cases =
       let z = 3
 
       """
-    , """
-      let x = 1 /* { = */
-      let y = 2
-      /*
-        {
-      */
-      let z = 3
-
+    ),
+    ("windows newlines", "ilk box {\r\nbox\r\n}\r\n", "ilk box {\n  box\n}\n"),
+    ( "blank line endeþ continuation",
       """
-    )
-  , ("windows newlines", "ilk box {\r\nbox\r\n}\r\n", "ilk box {\n  box\n}\n")
-  ,
-    ( "blank line endeþ continuation"
-    , """
       show let value =
       1
 
       ## the next declaration.
       show let next = 2
 
+      """,
       """
-    , """
       show let value =
         1
 
@@ -374,26 +357,25 @@ cases =
       show let next = 2
 
       """
-    )
-  ,
-    ( "comment useþ structural indentation"
-    , """
+    ),
+    ( "comment useþ structural indentation",
+      """
       frame a identity {
       law (x: a):
       # the equation.
-      x identity ~ x
+      x identity = x
       # the next law.
-      law (x: a): x identity ~ x
+      law (x: a): x identity = x
       }
 
+      """,
       """
-    , """
       frame a identity {
         law (x: a):
         # the equation.
-          x identity ~ x
+          x identity = x
         # the next law.
-        law (x: a): x identity ~ x
+        law (x: a): x identity = x
       }
 
       """

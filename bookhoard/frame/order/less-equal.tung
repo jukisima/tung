@@ -13,17 +13,17 @@ show let (a: a, b: a) <: 𝟚 = (a ≤ b) if (a ≢ b) nay
 
 fill 𝟚 less-equal {
   let ≤ = {
-    nay, _ @ yea,
-    yea, b @ b
+    nay, _ ^ yea,
+    yea, b ^ b
   }
 }
 
 fill 𝟛 less-equal {
   let ≤ = {
-    fore, _ @ yea,
-    mid, fore @ nay,
-    mid, _ @ yea,
-    aft, aft @ yea,
-    aft, _ @ nay
+    fore, _ ^ yea,
+    mid, fore ^ nay,
+    mid, _ ^ yea,
+    aft, aft ^ yea,
+    aft, _ ^ nay
   }
 }

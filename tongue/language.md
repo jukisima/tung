@@ -105,7 +105,7 @@ to migrate from `tung.libraries`, move each repository and commit under
 ## names, comments, and literals
 
 most non-space, non-reserved characters may occur in names. `~` qualifieþ
-imports; `.` selecteþ record fields; `@` separateþ match and handler cases. type
+imports; `.` selecteþ record fields; `^` separateþ match and handler cases. type
 alias, data, effect, and frame names are unqualified. so are þeir constructors,
 operations, and members. outside `.tung` import paths, a name may contain at
 most one `~`. its namespace and member must be nonempty and slash-free. `_*` is
@@ -200,23 +200,23 @@ exact integer or text literals, or destructure constructors. each binder may
 occur only once in a pattern row.
 
 `match` consumeþ one or more comma-separated scrutinees. bare braces form an
-anonymous function with one curried input per pattern. `@` separateþ a case from
+anonymous function with one curried input per pattern. `^` separateþ a case from
 its result. `|` joineþ complete alternative rows that share a result.
 
 ```tung
 let chosen = match yea, nay {
-  yea, b | b, yea @ b,
-  nay, _ @ nay
+  yea, b | b, yea ^ b,
+  nay, _ ^ nay
 }
 
 let not: 𝟚 → 𝟚 = {
-  yea @ nay,
-  nay @ yea
+  yea ^ nay,
+  nay ^ yea
 }
 
 let classify: text → ℤ = {
-  'yes' @ 1,
-  _ @ 0
+  'yes' ^ 1,
+  _ ^ 0
 }
 ```
 
@@ -252,7 +252,7 @@ declaration, frame, fill, or individual member.
 ```tung
 frame a equal {
   let a ≡ a: 𝟚
-  law (x: a): x ≡ x ~ yea
+  law (x: a): x ≡ x = yea
 }
 
 graiþ a equal
@@ -260,12 +260,15 @@ let (a: a, b: a) ≢: 𝟚 = (a ≡ b) if nay yea
 
 fill 𝟚 equal {
   let ≡ = {
-    yea, yea @ yea,
-    nay, nay @ yea,
-    _, _ @ nay
+    yea, yea ^ yea,
+    nay, nay ^ yea,
+    _, _ ^ nay
   }
 }
 ```
+
+in a `law`, `=` separateþ two expressions. in a `let`, `=` beginneþ the
+definition. parentheses keep any nested `let` inside a law side.
 
 a fill must supply each required member not supplied by a parent. a child fill
 also witnesseþ required parent frames and may define inherited members.
@@ -317,7 +320,7 @@ transformeþ the normal result. without one, that result is unchanged. operation
 cases may call the implicit `eftgin` continuation any number of times.
 
 if an effect and one of its operations share a name, a case without an argument
-pattern nameþ the whole effect. write `_ name @ ...` to target the operation.
+pattern nameþ the whole effect. write `_ name ^ ...` to target the operation.
 use `eftgin` when its input is unneeded.
 
 ```tung
@@ -326,8 +329,8 @@ deed ask {
 }
 
 let answer: text = try 10 ask {
-  yield n @ n to-text,
-  n ask @ (n + 1) eftgin
+  yield n ^ n to-text,
+  n ask ^ (n + 1) eftgin
 }
 ```
 

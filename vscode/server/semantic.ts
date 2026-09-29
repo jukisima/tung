@@ -45,9 +45,8 @@ const applicationStartTexts = new Set([
   "{",
   ":",
   ",",
-  "@",
+  "^",
   "=",
-  "~",
 ]);
 const graithEndKeywords = new Set(["let", "frame", "fill", "show", "show-ilk"]);
 const typeRoles = new Set(["type", "typeParameter", "frame"]);
@@ -393,7 +392,7 @@ const collectShapeLaw = (tokens, segment, info) => {
   const body = findTopLevelText(tokens, close + 1, segment.end, ":");
   const equation = body < 0
     ? -1
-    : findTopLevelText(tokens, body + 1, segment.end, "~");
+    : findTopLevelText(tokens, body + 1, segment.end, "=");
   if (equation >= 0) mark(info, equation, "operator", [], 100);
 };
 const collectFill = (tokens, index, info) => {

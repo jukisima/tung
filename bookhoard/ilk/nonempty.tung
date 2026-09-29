@@ -24,8 +24,8 @@ show let (first nonempty rest: a nonempty) to-list: a list =
 
 ## make a non-empty list when þe input haþ a first element.
 show let from-list: a list → (a nonempty) option = {
-  empty @ none,
-  first _* rest @ (first nonempty rest) some
+  empty ^ none,
+  first _* rest ^ (first nonempty rest) some
 }
 
 show let (first nonempty _: a nonempty) head: a = first

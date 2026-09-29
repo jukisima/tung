@@ -2,7 +2,7 @@ use ground.tung
 
 let (_: 𝟙) read-user: float ! console =
   try (only read) from-text {
-    _ fail @ (
+    _ fail ^ (
       let _ = 'could not read a float; using 0.0' write-line
       yield 0.0
     )
@@ -13,9 +13,9 @@ let (_: 𝟙) main: 𝟙 ! console, random = (
   let user = only read-user
   let hidden = only random
   let outcome: text = match user ≤ hidden, hidden ≤ user {
-    yea, nay @ 'lose',
-    nay, yea @ 'win',
-    _, _ @ 'draw'
+    yea, nay ^ 'lose',
+    nay, yea ^ 'win',
+    _, _ ^ 'draw'
   }
   yield outcome write-line
 )

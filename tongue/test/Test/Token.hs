@@ -12,7 +12,7 @@ group = Harness.group "token" (map lexCase lexCases ++ map lexError lexErrors ++
 lexCases :: [(String, String, [Token])]
 lexCases =
   [ ("record access separateþ member names", "person.age", [TIdent "person", TDot, TIdent "age"]),
-    ("case separator is syntax", "@", [TMapsTo]),
+    ("case separator is syntax", "^", [TMapsTo]),
     ("pipe is an ordinary name", "|", [TIdent "|"]),
     ("qualified operator stayeþ one name", "list~_*", [TIdent "list~_*"]),
     ("qualified name stayeþ one name", "list~empty", [TIdent "list~empty"]),

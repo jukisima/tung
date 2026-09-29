@@ -19,17 +19,17 @@ show ilk ℕ {
 
 fill ℕ equal {
   let ≡ = {
-    zero, zero @ yea,
-    a suc, b suc @ a ≡ b,
-    _, _ @ nay
+    zero, zero ^ yea,
+    a suc, b suc ^ a ≡ b,
+    _, _ ^ nay
   }
 }
 
 fill ℕ less-equal {
   let ≤ = {
-    zero, _ @ yea,
-    _, zero @ nay,
-    a suc, b suc @ a ≤ b
+    zero, _ ^ yea,
+    _, zero ^ nay,
+    a suc, b suc ^ a ≤ b
   }
 }
 
@@ -43,21 +43,21 @@ fill ℕ semilattice-upper-bounded {
 
 fill ℕ semiring {
   let + = {
-    a, zero @ a,
-    a, b suc @ (a + b) suc
+    a, zero ^ a,
+    a, b suc ^ (a + b) suc
   }
 
   let zero = zero
 
   let × = {
-    _, zero @ zero,
-    a, b suc @ a + (a × b)
+    _, zero ^ zero,
+    a, b suc ^ a + (a × b)
   }
 
   let one = zero suc
 }
 
 show let to-ℤ: ℕ → ℤ = {
-  zero @ 0,
-  a suc @ 1 + (a to-ℤ)
+  zero ^ 0,
+  a suc ^ 1 + (a to-ℤ)
 }

@@ -5,7 +5,7 @@ use ilk/two.tung
 
 graiþ a semiring, a subtract
 show frame a ring {
-  law (a: a): a - a ~ zero
+  law (a: a): a - a = zero
 }
 
 graiþ b ring

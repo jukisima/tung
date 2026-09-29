@@ -7,8 +7,8 @@ graiþ a semigroup
 show frame a monoid {
   let ∅: a
 
-  law (a: a): ∅ * a ~ a
-  law (a: a): a * ∅ ~ a
+  law (a: a): ∅ * a = a
+  law (a: a): a * ∅ = a
 }
 
 graiþ b monoid

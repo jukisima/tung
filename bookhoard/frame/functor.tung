@@ -4,9 +4,9 @@ use ilk/one.tung
 show frame f functor {
   let (a f) map (a → b ! e): b f ! e
 
-  law (af: a f): af map (sameness: a → a) ~ af
+  law (af: a f): af map (sameness: a → a) = af
 }
 
 graiþ f functor
 show let (af: a f) void: 𝟙 f =
-  af map {_ @ only}
+  af map {_ ^ only}

@@ -138,7 +138,7 @@ test("workspace re-exports deeds through the type namespace", (context) => {
   const main = path.join(root, "main.tung");
   fs.writeFileSync(
     main,
-    "use ask-middle.tung let run: ℤ → ℤ ! ask = { x @ x ask }",
+    "use ask-middle.tung let run: ℤ → ℤ ! ask = { x ^ x ask }",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);

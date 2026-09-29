@@ -1,33 +1,36 @@
 -- shared assertions preserve the boundary between static evaluator rejection and
 -- deliberate runtime failure from an unhandled deed.
-module Test.Harness (
-  Group,
-  Test,
-  group,
-  runGroups,
-  expect,
-  expectEq,
-  expectPrefix,
-  propertyTest,
-  parseOk,
-  parseErr,
-  typeOk,
-  typeErr,
-  typeErrContaining,
-  typeOkWith,
-  typeErrWith,
-  runnableOk,
-  runnableErr,
-  evalOk,
-  evalOkWith,
-  evalTypeErr,
-  evalTypeErrWith,
-)
+module Test.Harness
+  ( Group,
+    Test,
+    group,
+    runGroups,
+    expect,
+    expectEq,
+    expectPrefix,
+    propertyTest,
+    parseOk,
+    parseErr,
+    typeOk,
+    typeErr,
+    typeErrContaining,
+    typeOkWith,
+    typeErrWith,
+    runnableOk,
+    runnableErr,
+    evalOk,
+    evalOkWith,
+    evalTypeErr,
+    evalTypeErrWith,
+  )
 where
 
+import Control.Monad (foldM, when)
 import Data.List (isInfixOf, isPrefixOf)
 import Data.Map.Strict qualified as Map
+import System.Environment qualified as Environment
 import System.Exit (exitFailure)
+import System.IO (hFlush, stdout)
 import Test.QuickCheck qualified as QuickCheck
 import Test.QuickCheck.Random qualified as QuickCheck
 import Tung
@@ -39,16 +42,31 @@ data Group = Group String [Test]
 group :: String -> [Test] -> IO Group
 group name tests = pure (Group name tests)
 
-runGroups :: [Group] -> IO ()
-runGroups groups = do
-  failures <- concat <$> traverse runGroup groups
-  if null failures
-    then putStrLn ("ok (" ++ show (sum [length tests | Group _ tests <- groups]) ++ " tests)")
-    else mapM_ putStrLn failures >> exitFailure
- where
-  runGroup (Group name tests) = do
-    results <- sequence tests
-    pure [name ++ "/" ++ failure | Just failure <- results]
+runGroups :: [IO Group] -> IO ()
+runGroups actions = do
+  progress <- (== Just "1") <$> Environment.lookupEnv "TUNG_TEST_PROGRESS"
+  selected <- Environment.lookupEnv "TUNG_TEST_GROUP"
+  go progress selected 0 [] actions
+  where
+    go _ _ count failures [] =
+      if null failures
+        then putStrLn ("ok (" ++ show count ++ " tests)")
+        else mapM_ putStrLn (reverse failures) >> exitFailure
+    go progress selected count failures (action : rest) = do
+      Group name tests <- action
+      if maybe True (elem name . words) selected
+        then do
+          when progress (putStrLn ("running " ++ name) >> hFlush stdout)
+          found <- foldM (runTest progress name) failures (zip [1 :: Int ..] tests)
+          let nextCount = count + length tests
+          nextCount `seq` go progress selected nextCount found rest
+        else go progress selected count failures rest
+    runTest progress name failures (index, test) = do
+      when progress (putStrLn (name ++ "/" ++ show index) >> hFlush stdout)
+      result <- test
+      pure $ case result of
+        Nothing -> failures
+        Just failure -> (name ++ "/" ++ failure) : failures
 
 expect :: String -> Bool -> Test
 expect name passed = pure $ if passed then Nothing else Just name
@@ -66,13 +84,13 @@ propertyTest name property = do
   result <-
     QuickCheck.quickCheckWithResult
       QuickCheck.stdArgs
-        { QuickCheck.chatty = False
-        , QuickCheck.maxSuccess = 50
-        , QuickCheck.replay = Just (QuickCheck.mkQCGen 20260820, 0)
+        { QuickCheck.chatty = False,
+          QuickCheck.maxSuccess = 50,
+          QuickCheck.replay = Just (QuickCheck.mkQCGen 20260820, 0)
         }
       property
   pure case result of
-    QuickCheck.Success{} -> Nothing
+    QuickCheck.Success {} -> Nothing
     _ -> Just (name ++ ": " ++ QuickCheck.output result)
 
 parseOk, parseErr, typeOk, typeErr, runnableOk, runnableErr :: String -> String -> Test
@@ -85,7 +103,9 @@ typeErrContaining :: String -> String -> String -> Test
 typeErrContaining name expected source =
   let actual = check source
    in expectMessage name ("type error:" `isPrefixOf` actual && expected `isInfixOf` actual) ("expected error containing " ++ show expected ++ ", got " ++ show actual)
+
 runnableOk name = expectEq name "type ok" . (`checkRunnableWithImports` Map.empty)
+
 runnableErr name = expectPrefix name "type error:" . (`checkRunnableWithImports` Map.empty)
 
 typeOkWith, typeErrWith :: String -> String -> Map.Map String String -> Test

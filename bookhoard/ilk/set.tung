@@ -43,11 +43,11 @@ show let (list from-list: a set, predicate: a → 𝟚 ! e) keep: a set ! e =
 
 graiþ a equal
 show let (set: a set, a: a) rid: a set =
-  set keep { b @ a ≢ b }
+  set keep { b ^ a ≢ b }
 
 graiþ (a set) inhold a
 show let (set₀: a set, set₁: a set) ∖: a set =
-  set₀ keep { value @ (set₁ ∋ value) ¬ }
+  set₀ keep { value ^ (set₁ ∋ value) ¬ }
 
 graiþ (a list) inhold a
 show let (list from-list: a set) to-powerset: a powerset = list ∋
@@ -58,7 +58,7 @@ fill (a set) size {
 
 graiþ (a list) inhold a
 let (list₀: a list, list₁: a list) included: 𝟚 =
-  list₀ fold₀ yea { value, all-included @
+  list₀ fold₀ yea { value, all-included ^
     all-included ∧ (list₁ ∋ value)
   }
 
@@ -88,7 +88,7 @@ fill (a set) monoid {
 
 graiþ (a set) inhold a
 fill (a set) semilattice-lower {
-  let set₀ ∧ set₁ = set₀ keep { value @ set₁ ∋ value }
+  let set₀ ∧ set₁ = set₀ keep { value ^ set₁ ∋ value }
 }
 
 graiþ (a list) inhold a

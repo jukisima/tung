@@ -6,7 +6,7 @@ show frame a to-text {
 
 fill 𝟚 to-text {
   let to-text = {
-    yea @ 'yea',
-    nay @ 'nay'
+    yea ^ 'yea',
+    nay ^ 'nay'
   }
 }

@@ -1,24 +1,23 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-{- | source lexer. a name containeþ any non-space character not reserved by
-'specialNameChars'; literals and comments are consumed before name parsing.
--}
-module Tung.Token (
-  Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar),
-  SourceSpan (..),
-  LocatedToken (..),
-  tokenSpan,
-  consumedSpan,
-  SourceFailure (..),
-  lexTokens,
-  lexLocatedTokens,
-  lexLocatedTokensDetailed,
-  keywordNames,
-  languageKeywordNames,
-  specialNameChars,
-  isNameChar,
-  unicodeScalar,
-)
+-- | source lexer. a name containeþ any non-space character not reserved by
+-- 'specialNameChars'; literals and comments are consumed before name parsing.
+module Tung.Token
+  ( Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar),
+    SourceSpan (..),
+    LocatedToken (..),
+    tokenSpan,
+    consumedSpan,
+    SourceFailure (..),
+    lexTokens,
+    lexLocatedTokens,
+    lexLocatedTokensDetailed,
+    keywordNames,
+    languageKeywordNames,
+    specialNameChars,
+    isNameChar,
+    unicodeScalar,
+  )
 where
 
 import Control.Applicative (many, some)
@@ -33,14 +32,14 @@ import Text.Megaparsec.Char qualified as C
 import Text.Megaparsec.Char.Lexer qualified as L
 
 data SourceSpan = SourceSpan
-  { spanStart :: !Int
-  , spanEnd :: !Int
+  { spanStart :: !Int,
+    spanEnd :: !Int
   }
   deriving (Eq, Show)
 
 data SourceFailure = SourceFailure
-  { failureSpan :: Maybe SourceSpan
-  , failureMessage :: String
+  { failureSpan :: Maybe SourceSpan,
+    failureMessage :: String
   }
   deriving (Eq, Show)
 
@@ -94,33 +93,33 @@ instance Show Token where
 
 pattern TIdent :: String -> Token
 pattern TIdent name <- Token _ (KTIdent name)
- where
-  TIdent name = Token Nothing (KTIdent name)
+  where
+    TIdent name = Token Nothing (KTIdent name)
 
 pattern TInteger :: Integer -> Token
 pattern TInteger value <- Token _ (KTInteger value)
- where
-  TInteger value = Token Nothing (KTInteger value)
+  where
+    TInteger value = Token Nothing (KTInteger value)
 
 pattern TFloat :: Double -> Token
 pattern TFloat value <- Token _ (KTFloat value)
- where
-  TFloat value = Token Nothing (KTFloat value)
+  where
+    TFloat value = Token Nothing (KTFloat value)
 
 pattern TUnicode :: Char -> Token
 pattern TUnicode value <- Token _ (KTUnicode value)
- where
-  TUnicode value = Token Nothing (KTUnicode value)
+  where
+    TUnicode value = Token Nothing (KTUnicode value)
 
 pattern TText :: String -> Token
 pattern TText value <- Token _ (KTText value)
- where
-  TText value = Token Nothing (KTText value)
+  where
+    TText value = Token Nothing (KTText value)
 
 pattern TParenKeyword :: String -> Token
 pattern TParenKeyword name <- Token _ (KTParenKeyword name)
- where
-  TParenKeyword name = Token Nothing (KTParenKeyword name)
+  where
+    TParenKeyword name = Token Nothing (KTParenKeyword name)
 
 pattern TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBrace, TRBrace, TColon, TComma, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar :: Token
 pattern TLet <- Token _ KTLet where TLet = Token Nothing KTLet
@@ -171,8 +170,8 @@ withoutTokenSpan :: Token -> Token
 withoutTokenSpan (Token _ kind) = Token Nothing kind
 
 data LocatedToken = LocatedToken
-  { locatedSpan :: !SourceSpan
-  , locatedToken :: !Token
+  { locatedSpan :: !SourceSpan,
+    locatedToken :: !Token
   }
   deriving (Eq, Show)
 
@@ -191,17 +190,17 @@ lexLocatedTokensDetailed source =
       let offset = offsets IntMap.! M.errorOffset (NE.head (M.bundleErrors err))
        in Left (SourceFailure (Just (SourceSpan offset offset)) (M.errorBundlePretty err))
     Right toks -> Right (withCursors 0 (map convertSpan toks))
- where
-  offsets = IntMap.fromList (zip [0 ..] (scanl (+) 0 (map utf16Width source)))
-  convertSpan LocatedToken{locatedSpan = SourceSpan start end, locatedToken} =
-    let span = SourceSpan (offsets IntMap.! start) (offsets IntMap.! end)
-     in LocatedToken span (withTokenSpan span locatedToken)
-  withCursors previous tokens = case tokens of
-    [] -> []
-    _ -> attach previous (spanEnd (locatedSpan (last tokens))) tokens
-  attach _ _ [] = []
-  attach previous finalEnd (LocatedToken span (Token _ kind) : rest) =
-    LocatedToken span (Token (Just (TokenCursor span previous finalEnd)) kind) : attach (spanEnd span) finalEnd rest
+  where
+    offsets = IntMap.fromList (zip [0 ..] (scanl (+) 0 (map utf16Width source)))
+    convertSpan LocatedToken {locatedSpan = SourceSpan start end, locatedToken} =
+      let span = SourceSpan (offsets IntMap.! start) (offsets IntMap.! end)
+       in LocatedToken span (withTokenSpan span locatedToken)
+    withCursors previous tokens = case tokens of
+      [] -> []
+      _ -> attach previous (spanEnd (locatedSpan (last tokens))) tokens
+    attach _ _ [] = []
+    attach previous finalEnd (LocatedToken span (Token _ kind) : rest) =
+      LocatedToken span (Token (Just (TokenCursor span previous finalEnd)) kind) : attach (spanEnd span) finalEnd rest
 
 utf16Width :: Char -> Int
 utf16Width character = if ord character > 0xffff then 2 else 1
@@ -216,13 +215,13 @@ locatedTokenParser = lexeme do
 rawTokenParser :: Lexer Token
 rawTokenParser =
   M.choice
-    [ TInteger <$> M.try integerParser
-    , TFloat <$> M.try floatParser
-    , unicodeLiteralParser
-    , textParser
-    , specialOpenParser
-    , M.try nameParser
-    , singleTokenParser
+    [ TInteger <$> M.try integerParser,
+      TFloat <$> M.try floatParser,
+      unicodeLiteralParser,
+      textParser,
+      specialOpenParser,
+      M.try nameParser,
+      singleTokenParser
     ]
 
 specialOpenParser :: Lexer Token
@@ -234,18 +233,18 @@ specialOpenParser = M.try do
 singleTokenParser :: Lexer Token
 singleTokenParser =
   M.choice
-    [ TLParen <$ C.char '('
-    , TRParen <$ C.char ')'
-    , TLBrace <$ C.char '{'
-    , TRBrace <$ C.char '}'
-    , TColon <$ C.char ':'
-    , TComma <$ C.char ','
-    , TDot <$ C.char '.'
-    , TMapsTo <$ C.char '@'
-    , TBang <$ C.char '!'
-    , TEquals <$ C.char '='
-    , TDollar <$ C.char '$'
-    , TArrow <$ C.char '→'
+    [ TLParen <$ C.char '(',
+      TRParen <$ C.char ')',
+      TLBrace <$ C.char '{',
+      TRBrace <$ C.char '}',
+      TColon <$ C.char ':',
+      TComma <$ C.char ',',
+      TDot <$ C.char '.',
+      TMapsTo <$ C.char '^',
+      TBang <$ C.char '!',
+      TEquals <$ C.char '=',
+      TDollar <$ C.char '$',
+      TArrow <$ C.char '→'
     ]
 
 integerParser :: Lexer Integer
@@ -274,20 +273,20 @@ textParser = TText <$> (C.char '\'' *> many textCharParser <* C.char '\'')
 textCharParser :: Lexer Char
 textCharParser =
   M.choice
-    [ escapedCodePointParser
-    , M.satisfy (\codePoint -> codePoint /= '\'' && isUnicodeScalar codePoint)
+    [ escapedCodePointParser,
+      M.satisfy (\codePoint -> codePoint /= '\'' && isUnicodeScalar codePoint)
     ]
 
 escapedCodePointParser :: Lexer Char
 escapedCodePointParser = do
   _ <- C.char '\\'
   M.choice
-    [ '\n' <$ C.char 'n'
-    , '\r' <$ C.char 'r'
-    , '\t' <$ C.char 't'
-    , '\'' <$ C.char '\''
-    , '\\' <$ C.char '\\'
-    , decimalEscapeParser
+    [ '\n' <$ C.char 'n',
+      '\r' <$ C.char 'r',
+      '\t' <$ C.char 't',
+      '\'' <$ C.char '\'',
+      '\\' <$ C.char '\\',
+      decimalEscapeParser
     ]
 
 decimalEscapeParser :: Lexer Char
@@ -348,25 +347,25 @@ keywordOrIdent name = fromMaybe (TIdent name) (lookup name keywordTokens)
 
 keywordTokens :: [(String, Token)]
 keywordTokens =
-  [ ("let", TLet)
-  , ("graiþ", TGraith)
-  , ("show", TShow)
-  , ("show-ilk", TShowIlk)
-  , ("use", TUse)
-  , ("let-ilk", TLetIlk)
-  , ("ilk", TIlk)
-  , ("deed", TDeed)
-  , ("yield", TYield)
-  , ("fremmed", TForeign)
-  , ("frame", TFrame)
-  , ("fill", TFill)
-  , ("law", TLaw)
-  , ("match", TMatch)
-  , ("try", TTry)
+  [ ("let", TLet),
+    ("graiþ", TGraith),
+    ("show", TShow),
+    ("show-ilk", TShowIlk),
+    ("use", TUse),
+    ("let-ilk", TLetIlk),
+    ("ilk", TIlk),
+    ("deed", TDeed),
+    ("yield", TYield),
+    ("fremmed", TForeign),
+    ("frame", TFrame),
+    ("fill", TFill),
+    ("law", TLaw),
+    ("match", TMatch),
+    ("try", TTry)
   ]
 
 isNameChar :: Char -> Bool
 isNameChar c = not (isSpace c) && c `notElem` specialNameChars
 
 specialNameChars :: [Char]
-specialNameChars = "#(){}:,!=$→`'@."
+specialNameChars = "#(){}:,!=$→`'@^."

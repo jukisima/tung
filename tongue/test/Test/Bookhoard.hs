@@ -142,7 +142,7 @@ runnerEffectsCase imports =
         ++ "let args = only arguments "
         ++ "let setting = 'TUNG_SETTING' environment "
         ++ "let stamp = only unix-time "
-        ++ "yield try 8080 serve route { _ fail @ only })"
+        ++ "yield try 8080 serve route { _ fail ^ only })"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
 primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) of

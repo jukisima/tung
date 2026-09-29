@@ -5,5 +5,5 @@ graiþ a monoid
 show frame a group {
   let a / a: a
 
-  law (a: a): a / a ~ ∅
+  law (a: a): a / a = ∅
 }

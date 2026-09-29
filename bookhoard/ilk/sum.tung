@@ -15,20 +15,20 @@ show ilk a ∐ b {
 
 show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) eiþer: c ! e₀, e₁ =
   match sum {
-    a inject₀ @ a f₀,
-    b inject₁ @ b f₁
+    a inject₀ ^ a f₀,
+    b inject₁ ^ b f₁
   }
 
 fill ∐ bifunctor {
   let sum bimap f g = match sum {
-    a inject₀ @ (a f) inject₀,
-    b inject₁ @ (b g) inject₁
+    a inject₀ ^ (a f) inject₀,
+    b inject₁ ^ (b g) inject₁
   }
 }
 
 show let is-inject₀: a ∐ b → 𝟚 = {
-  _ inject₀ @ yea,
-  _ inject₁ @ nay
+  _ inject₀ ^ yea,
+  _ inject₁ ^ nay
 }
 
 show let (sum: a ∐ b) is-inject₁: 𝟚 = sum is-inject₀ $ ¬
@@ -40,33 +40,33 @@ fill (a ∐) functor {
 fill (a ∐) applicative {
   let pure = inject₁
   let apply = {
-    a inject₀, _ @ a inject₀,
-    _, a inject₀ @ a inject₀,
-    b inject₁, f inject₁ @ (b f) inject₁
+    a inject₀, _ ^ a inject₀,
+    _, a inject₀ ^ a inject₀,
+    b inject₁, f inject₁ ^ (b f) inject₁
   }
 }
 
 fill (a ∐) monad {
   let flat = {
-    a inject₀ @ a inject₀,
-    b inject₁ @ b
+    a inject₀ ^ a inject₀,
+    b inject₁ ^ b
   }
 }
 
 fill (a ∐) cata {
   let sum fold₀ b f = match sum {
-    _ inject₀ @ b,
-    a inject₁ @ a f b
+    _ inject₀ ^ b,
+    a inject₁ ^ a f b
   }
   let sum fold₁ b f = match sum {
-    _ inject₀ @ b,
-    a inject₁ @ b f a
+    _ inject₀ ^ b,
+    a inject₁ ^ b f a
   }
 }
 
 fill (a ∐) traverse {
   let sum traverse f = match sum {
-    a inject₀ @ (a inject₀) pure,
-    b inject₁ @ (b f) map inject₁
+    a inject₀ ^ (a inject₀) pure,
+    b inject₁ ^ (b f) map inject₁
   }
 }

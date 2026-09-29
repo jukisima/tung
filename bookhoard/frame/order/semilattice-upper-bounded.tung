@@ -6,7 +6,7 @@ use ilk/two.tung
 graiþ a semilattice-upper
 show frame a semilattice-upper-bounded {
   let ⟂: a
-  law (a: a): ⟂ ∨ a ~ a
+  law (a: a): ⟂ ∨ a = a
 }
 
 graiþ b semilattice-upper-bounded

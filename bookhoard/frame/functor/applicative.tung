@@ -9,19 +9,19 @@ graiþ f functor show frame f applicative {
 
   # sameness
   law (a: a f):
-    a apply ((sameness: a → a) pure) ~ a
+    a apply ((sameness: a → a) pure) = a
 
   # homomorphism
   law (a: a, f: a → b ! e):
-    (a pure) apply (f pure) ~ (a f) pure
+    (a pure) apply (f pure) = (a f) pure
 
   # composition
   law (a: a f, f: a → b ! e, g: b → c ! e):
-    <(apply, a, f pure, g pure) ~ a apply (f ∘ g $ pure)
+    <(apply, a, f pure, g pure) = a apply (f ∘ g $ pure)
 
   # interchange
   law (a: a, fs: (a → b ! e) f):
-    (a pure) apply fs ~ fs map (a call)
+    (a pure) apply fs = fs map (a call)
 }
 
 graiþ f applicative

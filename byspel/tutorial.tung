@@ -41,13 +41,13 @@ ilk a option {
 
 # match a value
 let ¬: 𝟚 → 𝟚 = {
-  yea @ nay,
-  nay @ yea
+  yea ^ nay,
+  nay ^ yea
 }
 # or equivalently
 let (x: 𝟚) ¬′: 𝟚 = match x {
-  yea @ nay,
-  nay @ yea
+  yea ^ nay,
+  nay ^ yea
 }
 
 # define records
@@ -64,8 +64,8 @@ frame a to-text {
 # implement a type class
 fill 𝟚 to-text {
   let to-text = {
-    yea @ 'yea',
-    nay @ 'nay'
+    yea ^ 'yea',
+    nay ^ 'nay'
   }
 }
 
@@ -76,8 +76,8 @@ deed ask {
 
 # handle an effect
 let asked: text = try 10 ask {
-  yield n @ n to-text,
-  n ask @ (n + 1) eftgin
+  yield n ^ n to-text,
+  n ask ^ (n + 1) eftgin
 }
 
 # `main` is þe entry point

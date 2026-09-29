@@ -194,7 +194,7 @@ test("textmate recogniseþ declaration and member keywords", async () => {
     const [line, keyword] of [
       ["ilk option {", "ilk"],
       ["deed ask {", "deed"],
-      ["law (x: a): x ~ x", "law"],
+      ["law (x: a): x = x", "law"],
     ]
   ) {
     const token = loaded
@@ -286,12 +286,19 @@ test("language configuration keepeþ every special opener whole", () => {
   ]);
 });
 test("textmate recogniseþ the law equation marker", async () => {
-  const line = "law (x: a): x identity ~ x";
+  const line = "law (x: a): x identity = x";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   const marker = tokens.find(
-    ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "~",
+    ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "=",
   );
-  assert(marker.scopes.includes("keyword.operator.tung"));
+  assert(marker.scopes.includes("keyword.operator.assignment.tung"));
+});
+test("textmate recogniseþ the case separator", async () => {
+  const line = "let choose = { value ^ value }";
+  const marker = (await loadGrammar()).tokenizeLine(line).tokens.find(
+    ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "^",
+  );
+  assert(marker?.scopes.includes("keyword.operator.arrow.case.tung"));
 });
 test("textmate recogniseþ a term type ascription", async () => {
   const line = "let answer = (1: ℤ)";
@@ -301,7 +308,7 @@ test("textmate recogniseþ a term type ascription", async () => {
   assert(token.scopes.includes("support.type.tung"));
 });
 test("textmate keepeþ law expressions distinct from parameter types", async () => {
-  const line = "law (a: a): a * ∅ ~ a";
+  const line = "law (a: a): a * ∅ = a";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;
   const occurrences = tokens.filter(
     ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "a",

@@ -15,6 +15,7 @@ const declarationKeywords = new Set([
 const fileDeclarationKeywords = new Set([
   "use",
   "graiþ",
+  "law",
   "yield",
   "show",
   "show-ilk",
@@ -251,7 +252,7 @@ const patternArmRegions = (tokens) => {
       continue;
     }
     const frame = frames.at(-1);
-    if (token.text === "@") {
+    if (token.text === "^") {
       const arm = {
         patternStart: frame.patternStart,
         pipe: token,

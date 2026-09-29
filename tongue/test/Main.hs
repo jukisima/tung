@@ -17,4 +17,4 @@ import Test.Type qualified as Type
 import Test.Validate qualified as Validate
 
 main :: IO ()
-main = sequence [Token.group, Parse.group, Format.group, Validate.group, Import.group, Project.group, Library.group, Type.group, Name.group, Evaluate.group, Bookhoard.group, Core.group, Diagnostic.group, Integration.group] >>= runGroups
+main = runGroups [Token.group, Parse.group, Format.group, Validate.group, Import.group, Project.group, Library.group, Type.group, Name.group, Evaluate.group, Bookhoard.group, Core.group, Diagnostic.group, Integration.group]

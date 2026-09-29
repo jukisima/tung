@@ -8,9 +8,9 @@ show frame f monad {
   let ((a f) f) flat: a f
 
   law (a: a, f: a → b f ! e):
-    (a pure) map f $ flat ~ a f
+    (a pure) map f $ flat = a f
   law (a: a f):
-    a map pure $ flat ~ a
+    a map pure $ flat = a
 }
 
 graiþ f functor, f monad

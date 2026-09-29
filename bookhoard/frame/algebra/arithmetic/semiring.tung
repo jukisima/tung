@@ -8,11 +8,11 @@ use ilk/two.tung
 
 graiþ a monoid-additive, a monoid-multiplicative
 show frame a semiring {
-  law (a: a, b: a): a + b ~ b + a
-  law (a: a, b: a, c: a): a × (b + c) ~ (a × b) + (a × c)
-  law (a: a, b: a, c: a): (a + b) × c ~ (a × c) + (b × c)
-  law (a: a, b: a): zero × a ~ zero
-  law (a: a, b: a): a × zero ~ zero
+  law (a: a, b: a): a + b = b + a
+  law (a: a, b: a, c: a): a × (b + c) = (a × b) + (a × c)
+  law (a: a, b: a, c: a): (a + b) × c = (a × c) + (b × c)
+  law (a: a, b: a): zero × a = zero
+  law (a: a, b: a): a × zero = zero
 }
 
 graiþ b semiring

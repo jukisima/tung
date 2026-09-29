@@ -18,8 +18,8 @@ use ilk/two.tung
 ## true when text haþ no unicode code points.
 show let (text: text) is-empty-text: 𝟚 =
   match text behead-text {
-    none @ yea,
-    _ some @ nay
+    none ^ yea,
+    _ some ^ nay
   }
 
 ## count unicode code points, not bytes or utf-16 units.
@@ -44,18 +44,18 @@ show let (text: text, character: unicode) append-text: text =
 
 let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
   match list {
-    empty @ empty _* empty,
-    character _* rest @ match rest split-unicode-by separates {
-      empty @ (character _* empty) _* empty,
-      current _* previous @ match character separates {
-        yea @ empty _* (current _* previous),
-        nay @ (character _* current) _* previous
+    empty ^ empty _* empty,
+    character _* rest ^ match rest split-unicode-by separates {
+      empty ^ (character _* empty) _* empty,
+      current _* previous ^ match character separates {
+        yea ^ empty _* (current _* previous),
+        nay ^ (character _* current) _* previous
       }
     }
   }
 
 let (list: unicode list, separator: unicode) split-unicode: (unicode list) list =
-  list split-unicode-by { character @
+  list split-unicode-by { character ^
     character ≡ separator
   }
 
@@ -73,8 +73,8 @@ show let (text: text) words-text: text list =
 
 ## join text values wiþ a separator between neighbours.
 show let join-wiþ-text: text list → text → text = {
-  empty, _ @ '',
-  text _* texts, separator @ texts fold₁ text {
-    joined, next @ (joined * separator) * next
+  empty, _ ^ '',
+  text _* texts, separator ^ texts fold₁ text {
+    joined, next ^ (joined * separator) * next
   }
 }

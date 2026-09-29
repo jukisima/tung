@@ -9,8 +9,8 @@ show ilk f free a {
 }
 
 show let bind = {
-  þing done, next @ þing next,
-  layer more, next @ (layer map { child @ child bind next }) more
+  þing done, next ^ þing next,
+  layer more, next ^ (layer map { child ^ child bind next }) more
 }
 
 graiþ f functor
@@ -29,6 +29,6 @@ show let þing flat-free =
   þing bind sameness
 
 show let node fold leaf program = match program {
-  þing done @ þing leaf,
-  layer more @ (layer map { child @ node fold leaf child }) node
+  þing done ^ þing leaf,
+  layer more ^ (layer map { child ^ node fold leaf child }) node
 }

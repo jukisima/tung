@@ -6,7 +6,7 @@ show frame a add {
 
 fill 𝟚 add {
   let + = {
-    yea, nay | nay, yea @ yea,
-    _, _ @ nay
+    yea, nay | nay, yea ^ yea,
+    _, _ ^ nay
   }
 }

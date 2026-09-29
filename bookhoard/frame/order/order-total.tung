@@ -7,7 +7,7 @@ use ilk/two.tung
 ## a partial order in which every pair is comparable.
 graiþ a order-partial
 show frame a order-total {
-  law (a: a, b: a): ((a ≤ b) ≡ nay) ≤ (b ≤ a) ~ yea
+  law (a: a, b: a): ((a ≤ b) ≡ nay) ≤ (b ≤ a) = yea
 }
 
 graiþ a order-total, a less-equal

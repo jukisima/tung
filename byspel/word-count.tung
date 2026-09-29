@@ -10,8 +10,8 @@ use ilk/text/operation.tung
 
 let (counts: text table ℤ, word: text) count-word: text table ℤ =
   match counts lookup word {
-    none @ counts put word 1,
-    count some @ counts put word (count + 1)
+    none ^ counts put word 1,
+    count some ^ counts put word (count + 1)
   }
 
 let (content: text) count-words: text table ℤ = (
@@ -27,12 +27,12 @@ let (entry: text ∏ ℤ) write-count: 𝟙 ! console = (
 
 let (_: 𝟙) main: 𝟙 ! console, file, system =
   match only arguments {
-    list~empty @ 'usage: tung word-count.tung <file>' write-line,
-    paþ _* _ @ try (
+    list~empty ^ 'usage: tung word-count.tung <file>' write-line,
+    paþ _* _ ^ try (
       let content = paþ read-file
       let counts = content count-words
       yield (counts entries) each write-count
     ) {
-      message fail @ 'error: ' * message $ write-line
+      message fail ^ 'error: ' * message $ write-line
     }
   }

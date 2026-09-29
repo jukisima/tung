@@ -115,7 +115,7 @@ test("analysis attacheþ doc comments to following shown declarations", () => {
   );
 });
 test("local resolution preferreþ the narrowest binder scope", () => {
-  const source = "let (x: ℤ) keep: ℤ = match x { x @ x }";
+  const source = "let (x: ℤ) keep: ℤ = match x { x ^ x }";
   const model = analyzeDocument(source, "file:///scope.tung");
   const use = model.tokens.filter(({ text }) => text === "x").at(-1);
   const definition = findDefinition(model, use, use.offset);
@@ -126,7 +126,7 @@ test("local resolution preferreþ the narrowest binder scope", () => {
   );
 });
 test("malformed pattern scope recovereþ through the end of the buffer", () => {
-  const source = "let choose = { (left, right @ right";
+  const source = "let choose = { (left, right ^ right";
   const model = analyzeDocument(source, "file:///incomplete-pattern.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "right");
   const use = occurrences.at(-1);
@@ -135,7 +135,7 @@ test("malformed pattern scope recovereþ through the end of the buffer", () => {
   assert.equal(definition.scopeEnd, source.length);
 });
 test("an unmatched inner delimiter doth not leak a pattern scope", () => {
-  const source = "let choose = { (left, right @ right } let outside = right";
+  const source = "let choose = { (left, right ^ right } let outside = right";
   const model = analyzeDocument(source, "file:///recovered-pattern.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "right");
   const innerDefinition = findDefinition(

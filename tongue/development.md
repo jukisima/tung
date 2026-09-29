@@ -248,6 +248,9 @@ tests are part of þe specification. keep successful and adversarial cases at th
 stage þat owneþ each rule. use exact evaluation results when deterministic. do
 not weaken static checking to preserve stale library code.
 
+set `TUNG_TEST_GROUP="parse type"` to run selected compiler groups. set
+`TUNG_TEST_PROGRESS=1` to trace individual cases while diagnosing slow tests.
+
 ## reference model
 
 tung adapteþ established work without copying its syntax:
