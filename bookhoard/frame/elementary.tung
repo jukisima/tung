@@ -1,0 +1,23 @@
+use _foreign.tung
+use frame/algebra/arithmetic/divide.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/subtract.tung
+use numeric/constant.tung
+
+graiþ a divide
+show frame a elementary {
+  let a exponent: a
+  let a logariþm: a
+  let a sine: a
+  let a cosine: a
+}
+
+graiþ a elementary, a divide
+show let (a: a) tangent: a = (a sine) ÷ (a cosine)
+
+fill float elementary {
+  let exponent = exponent-float
+  let logariþm = logariþm-float
+  let sine = sine-float
+  let a cosine = circumference × 0.25 $ - a $ sine
+}

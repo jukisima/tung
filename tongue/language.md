@@ -1,9 +1,9 @@
 # tung language reference
 
 this reference defineþ source syntax, module lookup, library manifests, and
-runtime-visible behaviour. [`readme.md`](../readme.md) covereþ installation and
-a short tour. [`development.md`](development.md) covereþ the compiler and
-repository.
+runtime-visible behaviour. [`readme.md`](../readme.md) covereþ installation.
+the checked [tutorial](../byspel/tutorial.tung) showeþ basic examples.
+[`development.md`](development.md) covereþ the compiler and repository.
 
 ## files and modules
 
@@ -39,50 +39,65 @@ signatures in catalogue order. as a value, the name selecteþ þe first signatur
 constructors and frame members with the same spelling remain distinct
 application candidates. later bindings shadow earlier ones of the same kind.
 
-module lookup searcheþ paths relative to the importing file, git-pinned roots,
+module lookup searcheþ paths relative to the importing file, declared library roots,
 þen `TUNG_PATH` entries. a `.tung` path resolving to different files is
 ambiguous. `ground.tung` is an optional import, not a prelude.
 
 ### manifests
 
-libraries are git repositories. the standard library is an ordinary library
-in [tung-bookhoard](https://github.com/jukisima/tung-bookhoard). a `tung.yaml`
-manifest declareþ pinned libraries under `dependencies`:
+the standard library is an ordinary library in [`bookhoard/`](../bookhoard/).
+a `tung.yaml` manifest declareþ local library paths or pinned git repositories
+under `dependencies`:
 
 ```yaml
 dependencies:
   bookhoard:
-    repo: https://github.com/jukisima/tung-bookhoard.git
-    hash: "aabb7ed4ad37670c1c997afbb8eb8307fce45a39"
+    path: bookhoard
+  example:
+    repo: https://example.org/example.git
+    hash: "0123456789012345678901234567890123456789"
+    subdir: library
 ```
 
 each dependency key nameþ one library throughout the graph, not a local alias.
-`repo` giveþ a git URL or local repository path, such as `../my-library`.
-`hash` giveþ a hexadecimal commit hash of 40 or 64 digits. quote it so yaml
-readeþ an all-digit hash as text. `use` paths name `.tung` files relative to
-each library root.
+`path` giveþ a live directory relative to the declaring manifest, or an
+absolute directory. it need not be a git repository. changes there take effect
+without a commit. `repo` giveþ a git URL or local git repository path, such as
+`../my-library`. `hash` giveþ its full 40- or 64-digit hexadecimal commit hash.
+quote a hash so yaml readeþ an all-digit value as text. specify either `path`
+or both `repo` and `hash`. an optional `subdir` selecteþ a library inside the
+pinned checkout. it must stay inside that checkout, even through symlinks.
+omit `subdir` when the repository root is the library. external projects may
+pin Bookhoard with `repo: https://github.com/jukisima/tung.git`, a published
+commit hash, and `subdir: bookhoard`. `use` paths name `.tung` files relative to
+the selected library root.
 
-tung findeþ the nearest `tung.yaml` above the source file. it checkeþ out each
-pin under `.tung/libraries/` beside that manifest. after the first fetch, it
+tung findeþ the nearest `tung.yaml` above the source file. local paths are
+resolved from the manifest that declareþ them. git pins are checked out under
+`.tung/libraries/` beside the root manifest. after the first fetch, tung
 reuseþ the checkout offline. `tung --library-paths [project-path]` listeþ the
-resolved roots. `TUNG_PATH` addeth unpinned roots for local development.
+resolved roots. `TUNG_PATH` addeth roots outside manifest resolution.
 
 each library may declare `tung.yaml`. tung traverseþ the whole dependency graph,
-including libraries the program doth not import. matching names, repository
-locators, and commits share one checkout. before module checking, tung rejecteþ:
+including libraries the program doth not import. matching git pins share one
+checkout; matching local paths share one root. before module checking, tung
+rejecteþ:
 
-- one name with different repositories or commits;
-- one repository locator with different names or commits.
+- one name with different sources, including a path and a git pin;
+- one repository locator and subdirectory with different names or commits;
+- one local path with different names.
 
 if two libraries pin `shared` to different commits, the project faileþ. the
 root manifest cannot override either pin. two names for one repository also
-conflict, even at the same commit.
+conflict when they select the same subdirectory, even at the same commit.
+different subdirectories of one repository may supply distinct libraries.
 
-relative local repository paths resolve from the manifest that declareþ them.
-local paths are lexically normalised. remote locators are compared as written.
-use the same name and repository spelling in every manifest. `TUNG_PATH` roots
-lie outside pinned resolution and conflict checking. the same `.tung` path in
-different roots remaineþ ambiguous when imported.
+relative git repository paths resolve from the manifest that declareþ them and
+are lexically normalised. local library paths are canonicalised, so aliases to
+one directory count as one path. remote locators are compared as written.
+`subdir` is normalised and cannot contain `..`. use the same name and source in
+every manifest. `TUNG_PATH` roots lie outside manifest conflict checking. the
+same `.tung` path in different roots remaineþ ambiguous when imported.
 
 to migrate from `tung.libraries`, move each repository and commit under
 `dependencies` in `tung.yaml`. then remove the old file.
@@ -333,6 +348,6 @@ an annotated file-level `let` may bind a host operation. a text key precedeþ
 declared type must match the compiler catalogue.
 
 the
-[bookhoard reference guide](https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc)
+[bookhoard reference guide](../bookhoard/reference.md)
 explaineþ the standard library's design boundaries. runnable examples live under
 [`byspel/`](../byspel/).

@@ -1,0 +1,12 @@
+use ilk/two.tung
+
+show frame a to-text {
+  let a to-text: text
+}
+
+fill 𝟚 to-text {
+  let to-text = {
+    yea @ 'yea',
+    nay @ 'nay'
+  }
+}

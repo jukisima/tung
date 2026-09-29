@@ -1,0 +1,3 @@
+show frame a magma {
+  let a * a: a
+}

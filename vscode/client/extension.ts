@@ -6,7 +6,7 @@ import { documentSelector } from "./options.ts";
 let client: LanguageClient;
 export const activate = (context) => {
   const server = context.asAbsolutePath(
-    path.join("out", "server", "main.js"),
+    path.join("bundle", "server", "main.js"),
   );
   client = new LanguageClient(
     "tung",
@@ -15,6 +15,9 @@ export const activate = (context) => {
     {
       documentSelector,
       initializationOptions: {
+        executablePath: vscode.workspace.getConfiguration("tung").get(
+          "executablePath",
+        ),
         tonguePath: vscode.workspace.getConfiguration("tung").get(
           "tonguePath",
         ),
@@ -37,10 +40,15 @@ const runFile = async (resource?: vscode.Uri) => {
     vscode.window.showErrorMessage("save the tung file before running it");
     return;
   }
-  const executable =
-    await client.sendRequest<string | undefined>("tung/executable").catch(
-      () => undefined,
-    ) || "tung";
+  const executable = await client.sendRequest<string | undefined>(
+    "tung/executable",
+  ).catch(() => undefined);
+  if (!executable) {
+    vscode.window.showErrorMessage(
+      "could not find tung executable; install tung or set tung.executablePath",
+    );
+    return;
+  }
   const libraryPath = await client.sendRequest<string>("tung/libraryPath")
     .catch(
       () => "",

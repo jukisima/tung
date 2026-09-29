@@ -1,0 +1,4 @@
+show deed a state {
+  𝟙 get: a,
+  a set: 𝟙
+}

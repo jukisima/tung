@@ -1,0 +1,89 @@
+use ground.tung
+# imported as `list`
+use ilk/list.tung
+# imported as `hashmap`
+use ilk/table.tung hashmap
+
+# use imported values
+let list = list~empty
+let table = hashmap~empty
+
+# define variables
+let number = 42
+let text = 'hello!'
+
+# define functions
+let (a: a) sameness: a = a
+let (a: a, b: b) constant: a = a
+
+# `yield` a value from a local block
+let seven = (
+  let six = 2 × 3
+  yield six + 1
+)
+
+# define a type alias
+let-ilk a powerset = a func 𝟚
+
+# define algebraic data types
+ilk 𝟘 {}
+ilk 𝟙 {
+  only
+}
+ilk 𝟚 {
+  yea,
+  nay
+}
+ilk a option {
+  empty,
+  a some
+}
+
+# match a value
+let ¬: 𝟚 → 𝟚 = {
+  yea @ nay,
+  nay @ yea
+}
+# or equivalently
+let (x: 𝟚) ¬′: 𝟚 = match x {
+  yea @ nay,
+  nay @ yea
+}
+
+# define records
+let-ilk person = r(name: text, age: ℤ)
+let person: person = r(name = 'tung', age = 1)
+let older = r(= person, age = 2)
+let age = older.age
+
+# define a type class
+frame a to-text {
+  let a to-text: text
+}
+
+# implement a type class
+fill 𝟚 to-text {
+  let to-text = {
+    yea @ 'yea',
+    nay @ 'nay'
+  }
+}
+
+# define an effect
+deed ask {
+  ℤ ask: ℤ
+}
+
+# handle an effect
+let asked: text = try 10 ask {
+  yield n @ n to-text,
+  n ask @ (n + 1) eftgin
+}
+
+# `main` is þe entry point
+let (_: 𝟙) main: 𝟙 ! console = (
+  let _ = 'hello, tung' write-line
+  let _ = seven to-text $ write-line
+  let _ = text write-line
+  yield asked write-line
+)

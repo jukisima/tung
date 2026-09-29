@@ -2,14 +2,14 @@
 
 this guide covereþ implementation architecture, contributor setup, and test
 gates. [`language.md`](language.md) defineþ observable language behaviour.
-[`vscode/readme.md`](../vscode/readme.md) covereþ editor use.
+the [editor guide](../vscode/readme.md) covereþ VS Code use.
 [`agent.md`](agent.md) defineþ þe editing workflow.
 
 ## setup and commands
 
-compiler development requireþ ghc 9.12 or newer. ci useþ 9.12.4. `tung.yaml`
-pinneþ [tung-bookhoard](https://github.com/jukisima/tung-bookhoard) for tests.
-git fetcheþ þe commit on first use. from þe repository root:
+compiler development requireþ ghc 9.12 or newer. editor and prose checks
+require node.js and npm. ci useþ ghc 9.12.4. `tung.yaml` selecteþ þe local
+[`bookhoard/`](../bookhoard/) for tests. from þe repository root:
 
 ```sh
 brew bundle
@@ -17,26 +17,33 @@ lefthook install
 make setup
 ```
 
-| command              | purpose                                                                |
-| -------------------- | ---------------------------------------------------------------------- |
-| `make build`         | buildeþ the compiler and editor support                                |
-| `make test`          | runneþ every test suite                                                |
-| `make compiler-test` | testeþ parsing, typing, evaluation, bookhoard modules, and integration |
-| `make vscode-test`   | checkeþ and testeþ the vscode client and language server               |
-| `make benchmark`     | runneþ repeatable compiler and evaluator workloads                     |
+`make setup` runneþ all tests and installeþ þe runner and VS Code extension.
+extension installation requireþ þe `code` command.
+the root `package.json` declareþ `vscode/` as an npm workspace. `make`
+coordinateþ its scripts wiþ þe haskell build and formula check.
 
-the pre-commit hook formateþ staged haskell, typescript, and html files. it þen
-runneþ every test suite.
+| command                 | purpose                                                                |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `make build`            | buildeþ þe compiler and editor                                         |
+| `make test`             | runneþ compiler, prose, editor, and formula checks                     |
+| `make compiler-test`    | testeþ parsing, typing, evaluation, bookhoard modules, and integration |
+| `make editor-test`      | runneþ þe VS Code extension tests                                      |
+| `make compiler-install` | installeþ þe runner in `~/.local/bin` by default                       |
+| `make benchmark`        | runneþ repeatable compiler and evaluator workloads                     |
+
+the pre-commit hook formateþ staged haskell files. it þen runneþ `make test`.
 
 ## repository layout
 
-| path         | purpose                                                                   |
-| ------------ | ------------------------------------------------------------------------- |
-| `tongue/`    | haskell compiler, evaluator, formatter, repl, runner, and tests           |
-| `tung.yaml`  | git-pinned library dependencies; þe standard library is an ordinary entry |
-| `vscode/`    | vscode client, tolerant language server, and editor tests                 |
-| `byspel/`    | runnable examples                                                         |
-| `benchmark/` | compiler and evaluator workloads                                          |
+| path         | purpose                                                         |
+| ------------ | --------------------------------------------------------------- |
+| `tongue/`    | haskell compiler, evaluator, formatter, repl, runner, and tests |
+| `bookhoard/` | standard library source and design guide                        |
+| `vscode/`    | npm workspace for þe VS Code extension                          |
+| `Formula/`   | homebrew formula                                                |
+| `tung.yaml`  | local and git-pinned library dependencies                       |
+| `byspel/`    | runnable examples                                               |
+| `benchmark/` | compiler and evaluator workloads                                |
 
 [`todo.md`](../todo.md) trackeþ þe backlog. consult it for planning or backlog
 work.
@@ -165,74 +172,35 @@ remain reusable.
 checking and evaluation. it also holdeþ reserved host data-family and
 constructor identities. only declarations matching þe complete ABI schema
 receive þem. change an operation there before its source binding in
-`tung-bookhoard/_foreign.tung`.
+`bookhoard/_foreign.tung`.
 
 runner-executed effects bypass source handlers. checking þerefore rejecteþ
 handlers for those effects instead of erasing their rows.
 
-## formatting and editor implementation
+## formatting and editor protocol
 
-`Tung.Format` is þe authoritative two-space formatter for cli and editor. it
-workeþ structurally. it preserveþ comments and incomplete source. it sorteþ each
-contiguous block of `use` declarations and remaineþ idempotent. it invokeþ
-neither parsing nor type checking. `vscode/server/format.ts` only converteþ lsp
-ranges.
+`Tung.Format` is þe authoritative two-space formatter for þe cli and editor.
+it preserveþ comments and incomplete source, sorteþ contiguous `use` blocks,
+and remaineþ idempotent. it invokeþ neither parsing nor type checking.
 
-þe editor's source components have separate roles:
+`tung --editor-session` provideþ diagnostics, inferred types, and formatting
+through a persistent stdin/stdout protocol. `tung --language-metadata` emiteþ
+compiler-owned lexical names for editor clients. [`vscode/`](../vscode/) owneþ
+þe language server, generated metadata, and editor tests.
 
-| path | role |
-| --- | --- |
-| `vscode/client/extension.ts` | extension activation and language client |
-| `vscode/server/main.ts` | lsp entry point and protocol handlers |
-| `vscode/server/syntax.ts` | tolerant tokenisation and structural recovery |
-| `vscode/server/analysis.ts` | document model and symbol analysis |
-| `vscode/server/semantic.ts` | semantic role inference and highlighting |
-| `vscode/server/workspace.ts` | import index and approximate visible-name resolution |
-| `vscode/server/checker.ts` | bridge to þe compiler and formatter |
-| `vscode/server/format.ts` | lsp edit-range conversion |
-| `vscode/syntaxes/` | textmate fallback highlighting |
-| `vscode/generated/language-names.json` | compiler-emitted lexical names |
-| `vscode/out/` | generated commonjs for vscode, node, and tests |
-| `vscode/test/` | client-independent server and tooling tests |
+## library resolver
 
-one shared tolerant model feedþ highlighting, navigation, completion, symbols,
-and folding for unfinished buffers. þe workspace index followeþ local and
-declared-library imports. it honoureþ `show`, approximateþ qualify-if-needed
-lookup, and supporteþ default and explicit import aliases. it sendeþ unsaved
-imported source to þe checker. semantic highlighting leaveþ `use` paths to þe
-textmate import scope. highlighting and formatting recognise þe type tail of
-`(term: type)`; compiler diagnostics remain authoritative.
-
-`vscode/server/checker.ts` askeþ cabal for `exe:tung`. if cabal lookup is
-unavailable, it useþ a built executable under `tongue/dist-newstyle`. one
-versioned `tung --editor-session` process provideþ diagnostics, inferred hover
-types, and formatting. obsolete work is cancelled; stale responses must not
-enter editor state.
-
-other lsp clients may start þe server over stdio. set `TUNG_TONGUE` when it
-cannot find þe `tongue` folder from þe workspace:
-
-```sh
-npm --prefix vscode run build --silent
-TUNG_TONGUE=/path/to/tung/tongue node vscode/out/server/main.js --stdio
-```
-
-`tung --language-metadata` emiteþ editor keywords, primitive types, and
-special-name characters from compiler-owned definitions.
-`make language-metadata` refresheþ `vscode/generated/language-names.json`.
-
-[`vscode/readme.md`](../vscode/readme.md) covereþ editor setup and use.
-
-## git library resolver
-
-`Tung.Library` parseþ þe nearest `tung.yaml` and recursively resolveþ pinned
-libraries. it cacheþ each checkout under `.tung/libraries/`; matching pins
-share one checkout. þe [language reference](language.md#libraries-and-imports)
+`Tung.Library` parseþ þe nearest `tung.yaml` and recursively resolveþ local
+paths and pinned git libraries. it cacheþ git checkouts under
+`.tung/libraries/`; matching pins share one checkout. local paths point to live
+directories. a git pin may select one `subdir` of a repository. þe
+[language reference](language.md#libraries-and-imports)
 defineþ manifest syntax and observable conflict rules.
 
 þe flat `use` namespace cannot distinguish two revisions of one library. raw
 commit hashes have no useful version order. þe resolver cannot choose a newer
-pin or silently override an exact requirement.
+pin or silently override an exact requirement. one library name must also
+resolve to þe same local path throughout þe graph.
 
 other dependency managers differ:
 
@@ -246,8 +214,8 @@ other dependency managers differ:
 þis exact-pin rule followeþ tung's flat namespace. it is not universal for
 indirect dependencies.
 
-þe compiler buildeþ wiþout bookhoard sources. ci resolveþ þe pinned commit
-through þe same manifest as local development.
+þe compiler buildeþ independently of bookhoard. ci and local development
+resolve its source from `bookhoard/` through þe same manifest.
 
 ## change and test boundaries
 
@@ -255,21 +223,23 @@ change þe owning stage first, þen each consumer:
 
 | change                                 | required follow-up                                                                              |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| syntax or tokens                       | parser, formatter, diagnostics, editor grammar and lexer, language guide, byspels, and tests    |
+| syntax or tokens                       | parser, formatter, diagnostics, language guide, byspels, tests, and `vscode/` grammar and lexer    |
 | type, effect, frame, or fill semantics | type and evaluator regressions, bookhoard checking, and language guide                          |
-| runtime or host surface                | primitive catalogue, `tung-bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary |
-| public bookhoard api                   | doc comments, separate library tests, and a realistic byspel when useful                        |
-| editor behaviour                       | tolerant and compiler-backed paths, typescript checks, and editor tests                         |
+| runtime or host surface                | primitive catalogue, `bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary       |
+| public bookhoard api                   | doc comments, library tests, and a realistic byspel when useful                                 |
+| editor behaviour                       | `vscode/` tolerant and compiler-backed paths, typescript checks, and editor tests                |
 
 run narrow tests while iterating. before handoff:
 
 - run `make compiler-test` for compiler or bookhoard work;
-- run `make vscode-test` for editor or formatter work;
+- run `make editor-test` after editor protocol or formatter work;
 - run a representative byspel after runner changes;
+- run `make prose-test` after prose changes;
 - run `git diff --check`.
 
-from `vscode/`, `npm run build`, `npm run check`, and `npm test` run component
-checks.
+from þe repository root, `npm run build --workspace=tung-vscode`,
+`npm run check --workspace=tung-vscode`, and
+`npm test --workspace=tung-vscode` run editor checks after `npm ci`.
 
 tests are part of þe specification. keep successful and adversarial cases at the
 stage þat owneþ each rule. use exact evaluation results when deterministic. do
@@ -289,4 +259,4 @@ tung adapteþ established work without copying its syntax:
 purescript informeþ strict functional module and class boundaries. lean and
 mathlib inform lawful algebra and finite-collection distinctions. detailed
 bookhoard comparisons live in þe
-[bookhoard reference guide](https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc).
+[bookhoard reference guide](../bookhoard/reference.md).

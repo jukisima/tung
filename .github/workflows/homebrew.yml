@@ -1,0 +1,33 @@
+name: homebrew
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homebrew-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  formula:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: check out source
+        uses: actions/checkout@v6
+
+      - name: tap local checkout
+        run: brew tap jukisima/tung "$GITHUB_WORKSPACE"
+
+      - name: check formula style
+        run: brew style Formula/tung.rb
+
+      - name: install pinned release
+        run: brew install --build-from-source jukisima/tung/tung
+
+      - name: test installed command
+        run: brew test jukisima/tung/tung

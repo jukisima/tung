@@ -1,39 +1,42 @@
 # tung language support
 
-this guide covereþ setup and use of þe vscode extension for `.tung` files.
+this directory containeth the vscode extension for `.tung` files. it shareþ
+the repository wiþ the compiler in `../tongue`.
 
 ## setup
 
-from the repository root, install or update the compiler and vscode extension:
+from the repository root, install node dependencies and build the compiler:
 
 ```sh
-make setup
+npm ci
+make compiler-build
+npm test --workspace tung-vscode
 ```
 
-`make setup` buildeþ and testeþ boþ components. it installeþ the extension
-and the runner under `${HOME}/.local/bin`.
+the tests use the compiler built in `../tongue`. set `TUNG_EXECUTABLE` to an
+absolute path to test anoþer compiler. `npm run update:metadata -w tung-vscode`
+refresheth the checked-in language names.
+`npm run check:metadata -w tung-vscode` checketh them.
 
-reload vscode when setup finisheþ.
-
-when the compiler checkout is elsewhere, pass its path:
-
-```sh
-make setup TONGUE_DIR=/path/to/tung/tongue
-```
+package the extension with `npm run package --workspace tung-vscode`.
+`npm run install:extension --workspace tung-vscode` installeth it through
+the `code` command. `npm run setup --workspace tung-vscode` runneth the
+tests and install step.
 
 ## configuration
 
-set `tung.tonguePath` to the absolute compiler path when vscode cannot find
-`tongue/` from the workspace. `TONGUE_DIR` selecteþ the compiler for the build;
-`tung.tonguePath` selecteþ it for the running extension.
+the extension useþ `tung.executablePath` when set. otherwise, it seekeþ a
+built compiler in `tung.tonguePath` or the repository's `tongue` folder,
+þen `tung` on `PATH`. `tung.tonguePath` accepteth either the repository root
+or its `tongue` folder.
 
-the extension useþ the workspace's `tung.yaml` for pinned libraries.
-`tung.libraryPaths` addeþ absolute local module roots. `TUNG_PATH` addeþ
-further roots. checking and running use þe same roots.
+the extension useth the workspace's `tung.yaml` for pinned libraries.
+`tung.libraryPaths` addeth absolute local module roots. `TUNG_PATH` addeth
+further roots. checking and running use the same roots.
 
 ## features
 
-the extension provideþ:
+the extension provideth:
 
 - syntax and semantic highlighting, folding, and selection ranges;
 - compiler-backed diagnostics and inferred types in hover;
@@ -49,12 +52,9 @@ imported files are checked with their current contents. navigation and
 highlighting work while a file is incomplete. compiler results remain
 authoritative for diagnostics, inferred types, and formatting.
 
-## run a file
+to run a file, open a saved `.tung` file and select the editor's play button.
+ye can also run `Tung: Run Tung File` from the command palette. the command
+saveth the file and useth a dedicated terminal.
 
-to run a file, open a saved `.tung` file and select the editor's play button. ye
-can also run `Tung: Run Tung File` from the command palette. the command saveþ
-the file and useþ a dedicated terminal. it trieþ the compiler found by the
-language server, then `tung` on `PATH`.
-
-for implementation details and checks, see the
-[development guide](https://github.com/jukisima/tung/blob/main/tongue/development.md).
+the [compiler development guide](https://github.com/jukisima/tung/blob/main/tongue/development.md)
+covereth the language implementation.

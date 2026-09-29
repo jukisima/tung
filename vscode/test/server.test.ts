@@ -52,6 +52,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
       processId: process.pid,
       rootUri: pathToFileURL(root).href,
       workspaceFolders: [{ uri: pathToFileURL(root).href, name: "fixture" }],
+      initializationOptions: { executablePath: process.env.TUNG_EXECUTABLE },
       capabilities: { workspace: { semanticTokens: { refreshSupport: true } } },
     },
   );
@@ -429,6 +430,7 @@ test("server resolveþ a nested project's git-pinned library", async (context) =
     processId: process.pid,
     rootUri: pathToFileURL(root).href,
     workspaceFolders: [{ uri: pathToFileURL(root).href, name: "fixture" }],
+    initializationOptions: { executablePath: process.env.TUNG_EXECUTABLE },
     capabilities: {},
   });
   connection.sendNotification("initialized", {});

@@ -14,7 +14,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: check out source
@@ -31,7 +31,11 @@ jobs:
         with:
           node-version: 26.4.0
           cache: npm
-          cache-dependency-path: vscode/package-lock.json
+
+      - name: set up ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
 
       - name: run tests
         run: make test

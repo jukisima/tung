@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- git-pinned libraries supply ordinary module roots without compiler-owned names.
+-- manifest libraries supply ordinary module roots without compiler-owned names.
 module Tung.Library (
   resolveLibraryRoots,
   readLibraryImportFiles,
@@ -9,13 +9,13 @@ module Tung.Library (
 
 import Control.Exception (finally)
 import Control.Monad (foldM)
-import Data.Aeson (FromJSON (parseJSON), withObject, (.:))
+import Data.Aeson (FromJSON (parseJSON), withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (Parser)
 import Data.Char (isHexDigit, toLower)
-import Data.List (intercalate, isInfixOf, nub, sort)
+import Data.List (intercalate, isInfixOf, isPrefixOf, nub, sort)
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
@@ -23,23 +23,32 @@ import Data.Yaml qualified as Yaml
 import System.Directory (canonicalizePath, createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, makeAbsolute, removeFile, removePathForcibly, renameDirectory)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
-import System.FilePath (isAbsolute, normalise, splitSearchPath, takeDirectory, takeExtension, (</>))
+import System.FilePath (addTrailingPathSeparator, isAbsolute, normalise, splitDirectories, splitSearchPath, takeDirectory, takeExtension, (</>))
 import System.IO (hClose, openTempFile)
 import System.IO.Error (tryIOError)
 import System.Process (readProcessWithExitCode)
 
 data Library = Library
   { libraryName :: String
-  , libraryRepository :: String
-  , libraryCommit :: String
+  , librarySource :: LibrarySource
   }
 
-data LibrarySource = LibrarySource String String
+data LibrarySource
+  = GitSource String String FilePath
+  | PathSource FilePath
+  deriving stock (Eq)
 
 instance FromJSON LibrarySource where
   parseJSON = withObject "library" \fields -> do
-    rejectUnknown "library" ["repo", "hash"] fields
-    LibrarySource <$> fields .: "repo" <*> fields .: "hash"
+    rejectUnknown "library" ["repo", "hash", "subdir", "path"] fields
+    repository <- fields .:? "repo"
+    commit <- fields .:? "hash"
+    subdirectory <- fields .:? "subdir"
+    path <- fields .:? "path"
+    case (repository, commit, path) of
+      (Just source, Just revision, Nothing) -> pure (GitSource source revision (maybe "." id subdirectory))
+      (Nothing, Nothing, Just directory) | subdirectory == Nothing -> pure (PathSource directory)
+      _ -> fail "library needs either 'path' or 'repo' with 'hash' and optional 'subdir'"
 
 newtype Manifest = Manifest [(String, LibrarySource)]
 
@@ -57,16 +66,18 @@ rejectUnknown context allowed fields =
     [] -> pure ()
     unknown : _ -> fail ("unknown " ++ context ++ " field '" ++ unknown ++ "'")
 
-data Pin = Pin
-  { pinName :: String
-  , pinRepository :: String
-  , pinCommit :: String
-  , pinManifest :: FilePath
+data LibraryUse = LibraryUse
+  { useName :: String
+  , useSource :: LibrarySource
+  , useManifest :: FilePath
   }
 
+data SourceKey = RepositoryKey String FilePath | PathKey FilePath
+  deriving stock (Eq, Ord)
+
 data Resolved = Resolved
-  { pinsByName :: Map.Map String Pin
-  , pinsByRepository :: Map.Map String Pin
+  { usesByName :: Map.Map String LibraryUse
+  , usesBySource :: Map.Map SourceKey LibraryUse
   }
 
 emptyResolved :: Resolved
@@ -152,66 +163,82 @@ resolveManifest cache resolved manifest =
  where
   go known roots [] = pure (Right (known, roots))
   go known roots (library : rest) = do
-    let repository = repositoryAt manifest (libraryRepository library)
-        pin = Pin (libraryName library) repository (libraryCommit library) manifest
-    case registerPin known pin of
+    resolveSource manifest (librarySource library) >>= \case
       Left message -> pure (Left message)
-      Right (alreadyResolved, next)
-        | alreadyResolved -> go next roots rest
-        | otherwise ->
-            checkout cache library{libraryRepository = repository} >>= \case
-              Left message -> pure (Left message)
-              Right root -> do
-                nested <- manifestAt root
-                dependencies <-
-                  case nested of
-                    Left message -> pure (Left message)
-                    Right (Just path) -> resolveManifest cache next path
-                    Right Nothing -> pure (Right (next, []))
-                case dependencies of
+      Right source -> do
+        let use = LibraryUse (libraryName library) source manifest
+        case registerUse known use of
+          Left message -> pure (Left message)
+          Right (alreadyResolved, next)
+            | alreadyResolved -> go next roots rest
+            | otherwise ->
+                libraryRoot cache (libraryName library) source >>= \case
                   Left message -> pure (Left message)
-                  Right (afterChildren, children) -> go afterChildren (roots ++ [root] ++ children) rest
+                  Right root -> do
+                    nested <- manifestAt root
+                    dependencies <-
+                      case nested of
+                        Left message -> pure (Left message)
+                        Right (Just path) -> resolveManifest cache next path
+                        Right Nothing -> pure (Right (next, []))
+                    case dependencies of
+                      Left message -> pure (Left message)
+                      Right (afterChildren, children) -> go afterChildren (roots ++ [root] ++ children) rest
 
-registerPin :: Resolved -> Pin -> Either String (Bool, Resolved)
-registerPin known pin = do
-  case Map.lookup (pinName pin) (pinsByName known) of
+registerUse :: Resolved -> LibraryUse -> Either String (Bool, Resolved)
+registerUse known use = do
+  case Map.lookup (useName use) (usesByName known) of
     Just earlier
-      | pinRepository earlier /= pinRepository pin || pinCommit earlier /= pinCommit pin ->
-          Left (pinConflict ("library '" ++ pinName pin ++ "'") earlier pin)
+      | useSource earlier /= useSource use ->
+          Left (sourceConflict ("library '" ++ useName use ++ "'") earlier use)
     _ -> Right ()
-  case Map.lookup (pinRepository pin) (pinsByRepository known) of
+  let key = sourceKey (useSource use)
+  case Map.lookup key (usesBySource known) of
     Just earlier
-      | pinName earlier /= pinName pin || pinCommit earlier /= pinCommit pin ->
-          Left (pinConflict ("repository '" ++ pinRepository pin ++ "'") earlier pin)
+      | useName earlier /= useName use || useSource earlier /= useSource use ->
+          Left (sourceConflict (sourceLabel key) earlier use)
     _ -> Right ()
-  let alreadyResolved = Map.member (pinRepository pin) (pinsByRepository known)
+  let alreadyResolved = Map.member key (usesBySource known)
       updated =
         Resolved
-          { pinsByName = Map.insertWith (\_ earlier -> earlier) (pinName pin) pin (pinsByName known)
-          , pinsByRepository = Map.insertWith (\_ earlier -> earlier) (pinRepository pin) pin (pinsByRepository known)
+          { usesByName = Map.insertWith (\_ earlier -> earlier) (useName use) use (usesByName known)
+          , usesBySource = Map.insertWith (\_ earlier -> earlier) key use (usesBySource known)
           }
   pure (alreadyResolved, updated)
 
-pinConflict :: String -> Pin -> Pin -> String
-pinConflict subject earlier later =
-  "conflicting pins for "
+sourceKey :: LibrarySource -> SourceKey
+sourceKey = \case
+  GitSource repository _ subdirectory -> RepositoryKey repository subdirectory
+  PathSource path -> PathKey path
+
+sourceLabel :: SourceKey -> String
+sourceLabel = \case
+  RepositoryKey repository "." -> "repository '" ++ repository ++ "'"
+  RepositoryKey repository subdirectory -> "repository '" ++ repository ++ "' subdirectory '" ++ subdirectory ++ "'"
+  PathKey path -> "path '" ++ path ++ "'"
+
+sourceConflict :: String -> LibraryUse -> LibraryUse -> String
+sourceConflict subject earlier later =
+  "conflicting sources for "
     ++ subject
     ++ ": '"
-    ++ pinManifest earlier
-    ++ "' pins library '"
-    ++ pinName earlier
-    ++ "' from '"
-    ++ pinRepository earlier
-    ++ "' at "
-    ++ pinCommit earlier
+    ++ useManifest earlier
+    ++ "' declares library '"
+    ++ useName earlier
+    ++ "' "
+    ++ describeSource (useSource earlier)
     ++ ", but '"
-    ++ pinManifest later
-    ++ "' pins library '"
-    ++ pinName later
-    ++ "' from '"
-    ++ pinRepository later
-    ++ "' at "
-    ++ pinCommit later
+    ++ useManifest later
+    ++ "' declares library '"
+    ++ useName later
+    ++ "' "
+    ++ describeSource (useSource later)
+
+describeSource :: LibrarySource -> String
+describeSource = \case
+  GitSource repository commit "." -> "from '" ++ repository ++ "' at " ++ commit
+  GitSource repository commit subdirectory -> "from '" ++ repository ++ "' at " ++ commit ++ " in '" ++ subdirectory ++ "'"
+  PathSource path -> "from local path '" ++ path ++ "'"
 
 readManifest :: FilePath -> IO (Either String [Library])
 readManifest path = do
@@ -223,11 +250,18 @@ readManifest path = do
       | not (null warnings) -> Left (path ++ ": " ++ intercalate "; " (map show warnings))
       | otherwise -> traverse validateEntry entries
  where
-  validateEntry (name, LibrarySource repository commit)
+  validateEntry (name, source)
     | not (validName name) = Left (path ++ ": invalid library name '" ++ name ++ "'")
-    | null repository = Left (path ++ ": library '" ++ name ++ "' hath an empty repository")
-    | not (validCommit commit) = Left (path ++ ": library '" ++ name ++ "' needeth a full 40- or 64-digit hexadecimal commit hash")
-    | otherwise = Right (Library name repository (map toLower commit))
+    | otherwise = Library name <$> validateSource name source
+  validateSource name = \case
+    GitSource repository commit subdirectory
+      | null repository -> Left (path ++ ": library '" ++ name ++ "' hath an empty repository")
+      | not (validCommit commit) -> Left (path ++ ": library '" ++ name ++ "' needeth a full 40- or 64-digit hexadecimal commit hash")
+      | isAbsolute subdirectory || ".." `elem` splitDirectories subdirectory -> Left (path ++ ": library '" ++ name ++ "' hath an invalid subdirectory")
+      | otherwise -> Right (GitSource repository (map toLower commit) (normalise subdirectory))
+    PathSource directory
+      | null directory -> Left (path ++ ": library '" ++ name ++ "' hath an empty path")
+      | otherwise -> Right (PathSource directory)
   validName name = not (null name) && all (\character -> character `elem` (['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9'] ++ "-_")) name
   validCommit commit = length commit `elem` [40, 64] && all isHexDigit commit
 
@@ -241,13 +275,50 @@ repositoryAt manifest repository
     (host, ':' : _) -> not (null host) && all (/= '/') host
     _ -> False
 
-checkout :: FilePath -> Library -> IO (Either String FilePath)
-checkout cache Library{libraryName, libraryRepository, libraryCommit} = do
-  let parent = cache </> libraryName
-      target = parent </> libraryCommit
+resolveSource :: FilePath -> LibrarySource -> IO (Either String LibrarySource)
+resolveSource manifest = \case
+  GitSource repository commit subdirectory -> pure (Right (GitSource (repositoryAt manifest repository) commit subdirectory))
+  PathSource directory -> do
+    let local = if isAbsolute directory then directory else takeDirectory manifest </> directory
+    present <- doesDirectoryExist local
+    if not present
+      then pure (Left (manifest ++ ": library path '" ++ local ++ "' does not exist"))
+      else do
+        resolved <- tryIOError (canonicalizePath local)
+        pure $ case resolved of
+          Left failure -> Left (manifest ++ ": cannot resolve library path '" ++ local ++ "': " ++ show failure)
+          Right root -> Right (PathSource root)
+
+libraryRoot :: FilePath -> String -> LibrarySource -> IO (Either String FilePath)
+libraryRoot cache name = \case
+  GitSource repository commit subdirectory ->
+    checkout cache name repository commit >>= \case
+      Left message -> pure (Left message)
+      Right root -> selectedSubdirectory root subdirectory
+  PathSource path -> pure (Right path)
+
+selectedSubdirectory :: FilePath -> FilePath -> IO (Either String FilePath)
+selectedSubdirectory root "." = pure (Right root)
+selectedSubdirectory root subdirectory = do
+  let selected = root </> subdirectory
+  present <- doesDirectoryExist selected
+  if not present
+    then pure (Left ("library subdirectory '" ++ subdirectory ++ "' does not exist in '" ++ root ++ "'"))
+    else do
+      resolved <- tryIOError ((,) <$> canonicalizePath root <*> canonicalizePath selected)
+      pure $ case resolved of
+        Left failure -> Left ("cannot resolve library subdirectory '" ++ selected ++ "': " ++ show failure)
+        Right (checkoutRoot, libraryPath)
+          | addTrailingPathSeparator checkoutRoot `isPrefixOf` addTrailingPathSeparator libraryPath -> Right libraryPath
+          | otherwise -> Left ("library subdirectory '" ++ selected ++ "' escapeþ checkout '" ++ checkoutRoot ++ "'")
+
+checkout :: FilePath -> String -> String -> String -> IO (Either String FilePath)
+checkout cache name repository commit = do
+  let parent = cache </> name
+      target = parent </> commit
   present <- doesDirectoryExist target
   if present
-    then verify target libraryCommit
+    then verify target commit
     else do
       createDirectoryIfMissing True parent
       (temporary, handle) <- openTempFile parent "checkout-"
@@ -257,15 +328,15 @@ checkout cache Library{libraryName, libraryRepository, libraryCommit} = do
             remaining <- doesDirectoryExist temporary
             if remaining then removePathForcibly temporary else pure ()
       ( do
-          cloned <- git Nothing ["clone", "--quiet", "--no-checkout", "--", libraryRepository, temporary]
+          cloned <- git Nothing ["clone", "--quiet", "--no-checkout", "--", repository, temporary]
           case cloned of
             Left message -> pure (Left message)
             Right _ -> do
-              checked <- git (Just temporary) ["checkout", "--quiet", "--detach", libraryCommit]
+              checked <- git (Just temporary) ["checkout", "--quiet", "--detach", commit]
               case checked of
                 Left message -> pure (Left message)
                 Right _ -> do
-                  verified <- verify temporary libraryCommit
+                  verified <- verify temporary commit
                   case verified of
                     Left message -> pure (Left message)
                     Right _ -> do
@@ -275,7 +346,7 @@ checkout cache Library{libraryName, libraryRepository, libraryCommit} = do
                         Left failure -> do
                           concurrent <- doesDirectoryExist target
                           if concurrent
-                            then verify target libraryCommit
+                            then verify target commit
                             else pure (Left ("cannot cache library checkout '" ++ target ++ "': " ++ show failure))
         )
         `finally` cleanup

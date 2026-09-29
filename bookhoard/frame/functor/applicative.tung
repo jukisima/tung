@@ -1,0 +1,60 @@
+use combinator.tung
+use frame/algebra/partial/category.tung
+use frame/algebra/partial/semigroupoid.tung
+use frame/functor.tung
+
+graiþ f functor show frame f applicative {
+  let a pure: a f
+  let (a f) apply ((a → b ! e) f): b f ! e
+
+  # sameness
+  law (a: a f):
+    a apply ((sameness: a → a) pure) ~ a
+
+  # homomorphism
+  law (a: a, f: a → b ! e):
+    (a pure) apply (f pure) ~ (a f) pure
+
+  # composition
+  law (a: a f, f: a → b ! e, g: b → c ! e):
+    <(apply, a, f pure, g pure) ~ a apply (f ∘ g $ pure)
+
+  # interchange
+  law (a: a, fs: (a → b ! e) f):
+    (a pure) apply fs ~ fs map (a call)
+}
+
+graiþ f applicative
+show let (
+  a₀: a₀ f,
+  a₁: a₁ f,
+  f: a₀ → a₁ → b ! e
+) lift₂: b f ! e =
+  >(apply, a₁, a₀, f pure)
+
+graiþ f applicative
+show let (
+  a₀: a₀ f,
+  a₁: a₁ f,
+  a₂: a₂ f,
+  f: a₀ → a₁ → a₂ → b ! e
+) lift₃: b f ! e =
+  >(apply, a₂, a₁, a₀, f pure)
+
+graiþ f applicative
+show let (
+  a₀: a₀ f,
+  a₁: a₁ f,
+  a₂: a₂ f,
+  a₃: a₃ f,
+  f: a₀ → a₁ → a₂ → a₃ → b ! e
+) lift₄: b f ! e =
+  >(apply, a₃, a₂, a₁, a₀, f pure)
+
+graiþ f applicative
+show let (a: a f, b: b f) keep-first: a f =
+  a lift₂ b constant
+
+graiþ f applicative
+show let (a: a f, b: b f) keep-oþer: b f =
+  a lift₂ b (constant flip)

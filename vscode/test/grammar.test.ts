@@ -428,8 +428,8 @@ test("manifest exposeþ running a tung file from the editor", () => {
     [],
   );
   assert.equal(
-    manifest.contributes.configuration.properties["tung.executablePath"],
-    undefined,
+    manifest.contributes.configuration.properties["tung.executablePath"].default,
+    "",
   );
 });
 test("semantic modifiers use standard lsp names or manifest contributions", () => {

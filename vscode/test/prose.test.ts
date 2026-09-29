@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import test from "node:test";
-const root = path.resolve(__dirname, "..", "..", "..");
-const ignored = new Set([".git", ".tung", "dist-newstyle", "node_modules"]);
+const root = path.resolve(__dirname, "..", "..");
+const ignored = new Set([".git", "dist", "node_modules", "out"]);
 const documentationExtensions = new Set([".md"]);
-const sourceExtensions = new Set([".hs", ".sh", ".ts", ".tung"]);
+const sourceExtensions = new Set([".sh", ".ts", ".tung"]);
 const sentenceStart = /(?:^|[.!?]\s+)([A-Z][a-z]+)\b/;
 const americanSpelling =
   /\b(?:behavior|behaviors|behavioral|color|colors|colored|coloring|favor|favored|favorite|generalization|generalized|gray|honor|honored|initialize|initialized|initializing|license|modeled|modeling|neighbor|neighbors|normalizes|optimization|optimize|optimized|organize|organized|parameterized|parenthesized|recognize|recognized|recognizes|tokenization|tokenized|unparenthesized)\b/i;

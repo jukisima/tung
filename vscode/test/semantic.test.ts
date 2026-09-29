@@ -127,7 +127,7 @@ test("semantic analysis markeþ fremmed lets", () => {
 });
 test("asynchronous task results are variable declarations", () => {
   const source = fs.readFileSync(
-    path.resolve(__dirname, "..", "..", "..", "byspel", "asynchronous.tung"),
+    path.resolve(__dirname, "..", "..", "test", "fixtures", "asynchronous.tung"),
     "utf8",
   );
   for (const name of ["left", "right"]) {

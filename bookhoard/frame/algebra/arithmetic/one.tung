@@ -1,0 +1,9 @@
+use ilk/two.tung
+
+show frame a one {
+  let one: a
+}
+
+fill 𝟚 one {
+  let one = yea
+}

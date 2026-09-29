@@ -13,6 +13,7 @@ interface ResponseFrame {
 }
 class CompilerBridge {
   tongue: string | undefined;
+  executablePath: string | undefined;
   libraryRoots: string[] = [];
   executable: string | undefined;
   session: childProcess.ChildProcessWithoutNullStreams | undefined;
@@ -20,15 +21,17 @@ class CompilerBridge {
   nextRequestId = 1;
   output = "";
   responseFrame: ResponseFrame | undefined;
-  configure(tongue, libraryRoots: string[] = []) {
+  configure(tongue, libraryRoots: string[] = [], executablePath?: string) {
     const tongueChanged = tongue !== this.tongue;
+    const executableChanged = executablePath !== this.executablePath;
     const rootsChanged = libraryRoots.length !== this.libraryRoots.length ||
       libraryRoots.some((root, index) => root !== this.libraryRoots[index]);
-    if (tongueChanged || rootsChanged) {
+    if (tongueChanged || rootsChanged || executableChanged) {
       this.dispose();
-      if (tongueChanged) this.executable = undefined;
+      if (tongueChanged || executableChanged) this.executable = undefined;
     }
     this.tongue = tongue;
+    this.executablePath = executablePath;
     this.libraryRoots = [...libraryRoots];
   }
   available() {
@@ -58,7 +61,7 @@ class CompilerBridge {
         process: undefined,
         requestId: 0,
         version,
-        result: Promise.resolve("checker is not built"),
+        result: Promise.resolve("could not find the tung executable"),
         cancel() {},
       };
     }
@@ -179,12 +182,22 @@ class CompilerBridge {
     return process;
   }
   findExecutable() {
-    if (!this.tongue) return undefined;
     if (this.executable && fs.existsSync(this.executable)) {
       return this.executable;
     }
-    this.executable = this.findCabalExecutable() ||
-      this.findDistExecutable();
+    if (this.executablePath) {
+      try {
+        this.executable = fs.statSync(this.executablePath).isFile()
+          ? this.executablePath
+          : undefined;
+      } catch {
+        this.executable = undefined;
+      }
+      return this.executable;
+    }
+    this.executable = this.tongue
+      ? this.findCabalExecutable() || this.findDistExecutable() || findOnPath()
+      : findOnPath();
     return this.executable;
   }
   findCabalExecutable() {
@@ -208,6 +221,24 @@ class CompilerBridge {
   }
 }
 const formatResponseHeader = "tung-format\n";
+const findOnPath = () => {
+  const names = process.platform === "win32" ? ["tung.exe", "tung"] : ["tung"];
+  for (const directory of (process.env.PATH || "").split(path.delimiter)) {
+    if (!directory) continue;
+    for (const name of names) {
+      const candidate = path.join(directory, name);
+      try {
+        if (fs.statSync(candidate).isFile()) {
+          fs.accessSync(candidate, fs.constants.X_OK);
+          return candidate;
+        }
+      } catch {
+        // the next PATH entry may contain the compiler.
+      }
+    }
+  }
+  return undefined;
+};
 const findFile = (root, predicate) => {
   if (!fs.existsSync(root)) return undefined;
   const stack = [root];

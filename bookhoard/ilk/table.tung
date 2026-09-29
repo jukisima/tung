@@ -1,0 +1,75 @@
+use frame/equal.tung
+use frame/functor.tung
+use frame/functor/cata.tung
+use frame/functor/filter.tung
+use frame/inhold.tung
+use frame/size.tung
+use ilk/list.tung
+use ilk/option.tung
+use ilk/product.tung
+use ilk/two.tung
+
+## a list-backed finite association table.
+show ilk k table v {
+  ((k ∏ v) list) from-list
+}
+
+show let empty: k table v = list~empty from-list
+
+show let (key: k, value: v) singleton: k table v =
+  key ∏ value $ _* list~empty $ from-list
+
+show let (list from-list: k table v) entries: (k ∏ v) list =
+  list
+
+graiþ k equal
+show let (list from-list: k table v, key: k) lookup: v option =
+  list find { pair @ key ≡ (pair project₀) } $ map project₁
+
+graiþ k equal
+show let (list from-list: k table v, key: k, value: v) put: k table v =
+  (key ∏ value) _* (list filter { pair @ key ≢ (pair project₀) }) $ from-list
+
+graiþ k equal
+show let (list from-list: k table v, key: k) rid: k table v =
+  list filter { pair @ key ≢ (pair project₀) } $ from-list
+
+show let (list from-list: k table v) keys: k list =
+  list map project₀
+
+show let (list from-list: k table v) values: v list =
+  list map project₁
+
+graiþ k equal
+fill (k table v) inhold k {
+  let table ∋ key = (table lookup key) is-some
+}
+
+fill (k table) functor {
+  let (list from-list) map f =
+    list map { pair @ pair map f } $ from-list
+}
+
+fill (k table) filter {
+  let (list from-list) filter predicate =
+    list filter {
+      pair @ (pair project₁) predicate
+    } $ from-list
+}
+
+fill (k table v) size {
+  let table size = (table entries) size
+}
+
+graiþ k equal
+show let (first: k table v, oþer: k table v) merge: k table v =
+  (oþer entries) fold₁ first {
+    table, pair @ table put (pair project₀) (pair project₁)
+  }
+
+graiþ k equal
+show let (list from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
+  list map { pair @ match key ≡ (pair project₀) {
+      nay @ pair,
+      yea @ pair map change
+    } } $ from-list

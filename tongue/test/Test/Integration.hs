@@ -11,9 +11,10 @@ import Data.List (isPrefixOf, sort)
 import Data.Map.Strict qualified as Map
 import Network.Socket qualified as Socket
 import Network.Socket.ByteString qualified as SocketBytes
-import System.Directory (doesFileExist, getTemporaryDirectory, listDirectory, removeFile)
-import System.FilePath (takeExtension, (</>))
+import System.Directory (doesFileExist, getTemporaryDirectory, removeFile)
+import System.FilePath (takeExtension)
 import System.IO.Error (isDoesNotExistError)
+import System.Process (readProcess)
 import System.Timeout qualified as Timeout
 import Test.Harness (Group, Test)
 import Test.Harness qualified as Harness
@@ -36,8 +37,9 @@ benchmarkFiles = tungFiles "../benchmark"
 
 tungFiles :: FilePath -> IO [FilePath]
 tungFiles directory = do
-  entries <- listDirectory directory
-  sort <$> filterM doesFileExist [directory </> entry | entry <- entries, takeExtension entry == ".tung"]
+  -- the working tree may contain drafts without a runnable main entry.
+  entries <- lines <$> readProcess "git" ["ls-files", "--cached", "--", directory] ""
+  sort <$> filterM doesFileExist [entry | entry <- entries, takeExtension entry == ".tung"]
 
 runnableFileCase :: Imports -> FilePath -> Test
 runnableFileCase imports path = do

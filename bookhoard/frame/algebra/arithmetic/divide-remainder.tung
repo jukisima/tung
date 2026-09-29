@@ -1,0 +1,11 @@
+use _foreign.tung
+use ilk/product.tung
+
+## euclidean quotient and remainder computed togeþer.
+show frame a divide-remainder {
+  let a % a: a ∏ a ! text fail
+}
+
+fill ℤ divide-remainder {
+  let % = divide-remainder-integer
+}

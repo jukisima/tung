@@ -1,9 +1,11 @@
 node_modules/
+.github/
 test/
+tool/
 .npm-cache/
 dist/
 client/
 server/
 tsconfig.json
-out/test/
-out/**/*.map
+out/
+bundle/**/*.map

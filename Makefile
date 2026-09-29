@@ -3,31 +3,30 @@
 
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 TONGUE_DIR ?= $(ROOT)/tongue
-VSCODE_DIR := $(ROOT)/vscode
 PREFIX ?= $(HOME)/.local
 BIN_DIR ?= $(PREFIX)/bin
-VSIX := $(VSCODE_DIR)/dist/tung-vscode.vsix
-LANGUAGE_NAMES := $(VSCODE_DIR)/generated/language-names.json
+NPM_STAMP := $(ROOT)/node_modules/.tung-workspace-stamp
 
 CABAL ?= cabal
+NODE ?= node
 NPM ?= npm
+RUBY ?= ruby
 CODE ?= code
 BENCH_RUNS ?= 3
 BENCH_SIZE ?= 1000
 
 .PHONY: all setup build test benchmark install \
-	compiler-build compiler-test compiler-install runner-check \
-	language-metadata \
-	vscode-deps vscode-build vscode-test extension-package extension-install
+	compiler-build compiler-test compiler-install runner-check prose-test \
+	editor-deps editor-build editor-test language-metadata extension-package extension-install formula-check
 
 all: build
 
 setup: test install
 	@printf 'ready: tung runner and vscode extension\n'
 
-build: compiler-build vscode-build
+build: compiler-build editor-build
 
-test: compiler-test vscode-test
+test: compiler-test prose-test editor-test formula-check
 
 benchmark: compiler-build
 	@printf 'benchmarking tung compiler and evaluator\n'
@@ -39,9 +38,37 @@ compiler-build:
 	@printf 'building tung compiler\n'
 	@cd "$(TONGUE_DIR)" && $(CABAL) build exe:tung
 
-compiler-test: language-metadata
+compiler-test:
 	@printf 'testing tung compiler\n'
 	@cd "$(TONGUE_DIR)" && $(CABAL) test all
+
+prose-test:
+	@printf 'checking repository prose\n'
+	@$(NODE) --test tool/prose.test.mjs
+
+$(NPM_STAMP): package.json package-lock.json vscode/package.json
+	@$(NPM) ci
+	@touch "$@"
+
+editor-deps: $(NPM_STAMP)
+
+language-metadata: compiler-build editor-deps
+	@TUNG_EXECUTABLE="$$(cd "$(TONGUE_DIR)" && $(CABAL) list-bin exe:tung)" $(NPM) run update:metadata --workspace=tung-vscode
+
+editor-build: language-metadata
+	@$(NPM) run build --workspace=tung-vscode
+
+editor-test: compiler-build editor-deps
+	@TUNG_EXECUTABLE="$$(cd "$(TONGUE_DIR)" && $(CABAL) list-bin exe:tung)" $(NPM) run test --workspace=tung-vscode
+
+formula-check:
+	@$(RUBY) -c Formula/tung.rb
+
+extension-package: language-metadata
+	@$(NPM) run package --workspace=tung-vscode
+
+extension-install: extension-package
+	@$(CODE) --install-extension "$(ROOT)/vscode/dist/tung-vscode.vsix" --force
 
 compiler-install: compiler-build
 	@printf 'installing tung runner at %s\n' "$(BIN_DIR)/tung"
@@ -56,29 +83,3 @@ runner-check:
 	@if ! printf '%s' ":$$PATH:" | grep -Fq ':$(BIN_DIR):'; then \
 		printf 'add %s to path to run: tung filename.tung\n' "$(BIN_DIR)"; \
 	fi
-
-vscode-deps:
-	@cd "$(VSCODE_DIR)" && $(NPM) install
-
-language-metadata: compiler-build
-	@printf 'generating editor language metadata with tung\n'
-	@tmp="$(LANGUAGE_NAMES).tmp"; \
-		cd "$(TONGUE_DIR)" && "$$( $(CABAL) list-bin exe:tung)" --language-metadata > "$$tmp"; \
-		if ! cmp -s "$$tmp" "$(LANGUAGE_NAMES)"; then mv "$$tmp" "$(LANGUAGE_NAMES)"; else rm -f "$$tmp"; fi
-
-vscode-build: language-metadata vscode-deps
-	@printf 'building vscode client and language server\n'
-	@cd "$(VSCODE_DIR)" && $(NPM) run build
-
-vscode-test: language-metadata vscode-deps
-	@printf 'checking and testing vscode client and language server\n'
-	@cd "$(VSCODE_DIR)" && $(NPM) test
-
-extension-package: vscode-build
-	@printf 'packaging vscode extension\n'
-	@mkdir -p "$(dir $(VSIX))"
-	@cd "$(VSCODE_DIR)" && $(NPM) exec -- vsce package --readme-path readme.md --allow-missing-repository --skip-license --out "$(VSIX)"
-
-extension-install: extension-package
-	@printf 'installing or updating vscode extension\n'
-	@$(CODE) --install-extension "$(VSIX)" --force

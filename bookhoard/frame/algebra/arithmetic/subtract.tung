@@ -1,0 +1,20 @@
+use _foreign.tung
+use frame/algebra/arithmetic/add.tung
+use ilk/two.tung
+
+graiþ a add
+show frame a subtract {
+  let a - a: a
+}
+
+fill ℤ subtract {
+  let - = subtract-integer
+}
+
+fill float subtract {
+  let - = subtract-float
+}
+
+fill 𝟚 subtract {
+  let - = +
+}

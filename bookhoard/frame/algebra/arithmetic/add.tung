@@ -1,0 +1,12 @@
+use ilk/two.tung
+
+show frame a add {
+  let a + a: a
+}
+
+fill 𝟚 add {
+  let + = {
+    yea, nay | nay, yea @ yea,
+    _, _ @ nay
+  }
+}

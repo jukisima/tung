@@ -59,11 +59,22 @@ test("checker findeþ a built executable without cabal list-bin", (context) => {
   bridge.findCabalExecutable = () => undefined;
   assert.equal(bridge.findExecutable(), executable);
 });
-test("checker reuseþ one versioned session and cancellable requests", async (context) => {
-  const root = path.resolve(__dirname, "..", "..", "..");
+test("checker useþ a configured executable without a compiler checkout", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-checker-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const executable = path.join(root, "tung");
+  fs.writeFileSync(executable, "");
   const bridge = new CompilerBridge();
-  bridge.configure(path.join(root, "tongue"));
+  bridge.configure(undefined, [], executable);
+  assert.equal(bridge.findExecutable(), executable);
+  bridge.configure(undefined, [], path.join(root, "missing"));
+  assert.equal(bridge.findExecutable(), undefined);
+});
+test("checker reuseþ one versioned session and cancellable requests", async (context) => {
+  const bridge = new CompilerBridge();
+  bridge.configure(undefined, [], process.env.TUNG_EXECUTABLE);
   context.after(() => bridge.dispose());
+  assert(bridge.findExecutable(), "install tung or set TUNG_EXECUTABLE");
   const model = { text: "let value: ℤ = 1" };
   const checked = bridge.check(model, [], 3);
   const typed = bridge.typeOf(model, [], "value", 3);

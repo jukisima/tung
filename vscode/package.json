@@ -5,13 +5,18 @@
   "version": "0.1.0",
   "publisher": "tung",
   "license": "UNLICENSED",
-  "main": "./out/client/extension.js",
+  "main": "./bundle/client/extension.js",
   "scripts": {
-    "setup": "make --directory=.. setup",
-    "prebuild": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\"",
-    "build": "tsc --project tsconfig.json",
+    "setup": "npm test && npm run install:extension",
+    "prebuild": "node -e \"for (const directory of ['out', 'bundle']) require('node:fs').rmSync(directory, { recursive: true, force: true })\"",
+    "build": "tsc --project tsconfig.json && npm run bundle",
+    "bundle": "esbuild client/extension.ts server/main.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outdir=bundle --outbase=.",
     "check": "tsc --project tsconfig.json --noEmit",
-    "test": "npm run build --silent && node --test out/test/*.test.js",
+    "test": "npm run build --silent && npm run check:metadata --silent && node tool/run-tests.mjs",
+    "check:metadata": "node tool/update-language-metadata.mjs --check",
+    "update:metadata": "node tool/update-language-metadata.mjs",
+    "package": "node -e \"require('node:fs').mkdirSync('dist', { recursive: true })\" && vsce package --no-dependencies --readme-path readme.md --allow-missing-repository --skip-license --out dist/tung-vscode.vsix",
+    "install:extension": "npm run package && code --install-extension dist/tung-vscode.vsix --force",
     "vscode:prepublish": "npm run build"
   },
   "engines": {
@@ -194,14 +199,21 @@
     "configuration": {
       "title": "tung",
       "properties": {
+        "tung.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "absolute path to the tung compiler executable; defaults to a built compiler in tung.tonguePath or tung on PATH"
+        },
         "tung.tonguePath": {
           "type": "string",
           "default": "",
-          "description": "absolute path to the tung compiler folder containing tung.cabal"
+          "description": "optional path to a tung compiler checkout containing tongue/tung.cabal or to its tongue folder"
         },
         "tung.libraryPaths": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "additional absolute module-root directories searched after git-pinned project libraries"
         }
@@ -217,6 +229,7 @@
     "@types/node": "^26.2.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.2",
     "typescript": "^7.0.2",
     "vscode-jsonrpc": "8.2.0",
     "vscode-oniguruma": "^2.0.1",

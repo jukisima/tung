@@ -1,4 +1,4 @@
--- pinned git checkouts supply ordinary modules and remain fixed after source changes.
+-- local paths and pinned git checkouts supply ordinary modules.
 module Test.Library (group) where
 
 import Control.Exception (bracket)
@@ -7,16 +7,16 @@ import Data.Char (toUpper)
 import Data.List (isInfixOf)
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (getPOSIXTime)
-import System.Directory (createDirectory, createDirectoryIfMissing, getTemporaryDirectory, removePathForcibly, renameDirectory)
+import System.Directory (canonicalizePath, createDirectory, createDirectoryIfMissing, createDirectoryLink, getTemporaryDirectory, removePathForcibly, renameDirectory)
 import System.Exit (ExitCode (..))
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath (takeDirectory, takeFileName, (</>))
 import System.Process (readProcessWithExitCode)
 import Test.Harness (Group, Test, expect)
 import Test.Harness qualified as Harness
 import Tung (loadProjectFileWithRoots, projectImports, resolveLibraryRoots)
 
 group :: IO Group
-group = Harness.group "library" [pinnedCheckout, transitiveCheckout, sharedTransitivePin, conflictingTransitivePins, conflictingAliasedPins, conflictingRepositoryNames, conflictingLibrarySources, invalidManifest, duplicateManifestKey, unknownManifestField, malformedManifest, legacyManifest]
+group = Harness.group "library" [pinnedCheckout, gitSubdirectory, distinctGitSubdirectories, conflictingGitSubdirectoryNames, escapedGitSubdirectory, localPathDependency, transitivePathDependency, sharedTransitivePin, conflictingTransitivePins, conflictingAliasedPins, conflictingRepositoryNames, conflictingLibrarySources, conflictingPathNames, conflictingPathAndGitSources, invalidManifest, invalidPathSource, duplicateManifestKey, unknownManifestField, malformedManifest, legacyManifest, transitiveCheckout]
 
 pinnedCheckout :: Test
 pinnedCheckout = withDirectory \root -> do
@@ -46,6 +46,131 @@ pinnedCheckout = withDirectory \root -> do
     (Right [firstRoot], Right (Just "show let value = 41"), Right [offlineRoot]) ->
       if firstRoot == offlineRoot then Nothing else Just "git library cache changed after its source moved"
     other -> Just ("pinned git library failed: " ++ show other)
+
+gitSubdirectory :: Test
+gitSubdirectory = withDirectory \root -> do
+  let repository = root </> "source"
+      library = repository </> "bookhoard"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  initRepository repository
+  createDirectory library
+  createDirectory project
+  writeFile (library </> "value.tung") "show let value = 42"
+  writeFile (repository </> "outside.tung") "show let outside = 0"
+  commitAll repository "bookhoard"
+  commit <- runGit ["-C", repository, "rev-parse", "HEAD"]
+  writeFile (project </> "tung.yaml") (yamlSubdirManifest [("bookhoard", repository, commit, "bookhoard")])
+  writeFile owner "use value.tung let answer = value"
+  roots <- resolveLibraryRoots owner
+  imported <- importedSource roots owner "value.tung"
+  pure $ case (roots, imported) of
+    (Right [libraryRoot], Right (Just "show let value = 42"))
+      | takeFileName libraryRoot == "bookhoard" -> Nothing
+    other -> Just ("git library subdirectory failed: " ++ show other)
+
+distinctGitSubdirectories :: Test
+distinctGitSubdirectories = withDirectory \root -> do
+  let repository = root </> "source"
+      first = repository </> "first"
+      second = repository </> "second"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  initRepository repository
+  mapM_ createDirectory [first, second, project]
+  writeFile (first </> "first.tung") "show let one = 1"
+  writeFile (second </> "second.tung") "show let two = 2"
+  commitAll repository "two libraries"
+  commit <- runGit ["-C", repository, "rev-parse", "HEAD"]
+  writeFile (project </> "tung.yaml") (yamlSubdirManifest [("first", repository, commit, "first"), ("second", repository, commit, "second")])
+  writeFile owner "use first.tung use second.tung let answer = one + two"
+  roots <- resolveLibraryRoots owner
+  one <- importedSource roots owner "first.tung"
+  two <- importedSource roots owner "second.tung"
+  pure $ case (roots, one, two) of
+    (Right [_, _], Right (Just "show let one = 1"), Right (Just "show let two = 2")) -> Nothing
+    other -> Just ("distinct git subdirectories failed: " ++ show other)
+
+conflictingGitSubdirectoryNames :: Test
+conflictingGitSubdirectoryNames = withDirectory \root -> do
+  let repository = root </> "source"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  initRepository repository
+  createDirectory (repository </> "library")
+  createDirectory project
+  writeFile (repository </> "library" </> "value.tung") "show let value = 1"
+  commitAll repository "library"
+  commit <- runGit ["-C", repository, "rev-parse", "HEAD"]
+  writeFile (project </> "tung.yaml") (yamlSubdirManifest [("first", repository, commit, "library"), ("second", repository, commit, "library")])
+  writeFile owner "let answer = 1"
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ two names for one git subdirectory" $
+    either (\message -> all (`isInfixOf` message) ["repository '" ++ repository ++ "' subdirectory 'library'", "library 'first'", "library 'second'"]) (const False) result
+
+escapedGitSubdirectory :: Test
+escapedGitSubdirectory = withDirectory \root -> do
+  let repository = root </> "source"
+      outside = root </> "outside"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  initRepository repository
+  createDirectory outside
+  createDirectory project
+  createDirectoryLink outside (repository </> "escape")
+  commitAll repository "symlink"
+  commit <- runGit ["-C", repository, "rev-parse", "HEAD"]
+  writeFile (project </> "tung.yaml") (yamlSubdirManifest [("escape", repository, commit, "escape")])
+  writeFile owner "let answer = 1"
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ a git library subdirectory outside its checkout" $
+    either (isInfixOf "escapeþ checkout") (const False) result
+
+localPathDependency :: Test
+localPathDependency = withDirectory \root -> do
+  let library = root </> "source"
+      project = root </> "project"
+      owner = project </> "main.tung"
+      source = library </> "value.tung"
+  createDirectory library
+  createDirectory project
+  writeFile source "show let value = 41"
+  writeFile (project </> "tung.yaml") "dependencies:\n  sample:\n    path: ../source\n"
+  writeFile owner "use value.tung let answer = value + 1"
+  first <- resolveLibraryRoots owner
+  firstImport <- importedSource first owner "value.tung"
+  writeFile source "show let value = 99"
+  second <- resolveLibraryRoots owner
+  secondImport <- importedSource second owner "value.tung"
+  expected <- canonicalizePath library
+  pure $ case (first, firstImport, second, secondImport) of
+    (Right [firstRoot], Right (Just "show let value = 41"), Right [secondRoot], Right (Just "show let value = 99"))
+      | firstRoot == expected && secondRoot == expected -> Nothing
+    other -> Just ("local library path failed: " ++ show other)
+
+transitivePathDependency :: Test
+transitivePathDependency = withDirectory \root -> do
+  let dependency = root </> "dependency"
+      parent = root </> "parent"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  mapM_ createDirectory [dependency, parent, project]
+  writeFile (dependency </> "dep.tung") "show let answer = 42"
+  writeFile (parent </> "parent.tung") "use dep.tung show let value = answer"
+  writeFile (parent </> "tung.yaml") "dependencies:\n  dependency:\n    path: ../dependency\n"
+  writeFile (project </> "tung.yaml") "dependencies:\n  parent:\n    path: ../parent\n"
+  writeFile owner "use parent.tung let result = value"
+  roots <- resolveLibraryRoots owner
+  imported <- importedSource roots owner "dep.tung"
+  pure $ case (roots, imported) of
+    (Right [_, _], Right (Just "show let answer = 42")) -> Nothing
+    other -> Just ("transitive local path failed: " ++ show other)
+
+importedSource :: Either String [FilePath] -> FilePath -> FilePath -> IO (Either String (Maybe String))
+importedSource (Left message) _ _ = pure (Left message)
+importedSource (Right roots) owner name = do
+  project <- loadProjectFileWithRoots Map.empty roots owner
+  pure (Map.lookup name . projectImports <$> project)
 
 invalidManifest :: Test
 invalidManifest = withDirectory \root -> do
@@ -160,6 +285,51 @@ conflictingLibrarySources = withDirectory \root -> do
   expect "rejecteþ one library name from two repositories" $
     either (\message -> all (`isInfixOf` message) ["library 'shared'", firstRepository, secondRepository]) (const False) result
 
+conflictingPathNames :: Test
+conflictingPathNames = withDirectory \root -> do
+  let source = root </> "source"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  createDirectory source
+  createDirectory project
+  writeFile owner "let answer = 1"
+  writeFile (project </> "tung.yaml") "dependencies:\n  first:\n    path: ../source\n  second:\n    path: ../source\n"
+  resolved <- canonicalizePath source
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ two names for one local library path" $
+    either (\message -> all (`isInfixOf` message) ["path '" ++ resolved ++ "'", "library 'first'", "library 'second'"]) (const False) result
+
+conflictingPathAndGitSources :: Test
+conflictingPathAndGitSources = withDirectory \root -> do
+  let source = root </> "source"
+      parent = root </> "parent"
+      project = root </> "project"
+      owner = project </> "main.tung"
+  initRepository source
+  writeFile (source </> "value.tung") "show let value = 1"
+  commitAll source "source"
+  commit <- runGit ["-C", source, "rev-parse", "HEAD"]
+  createDirectory parent
+  writeFile (parent </> "tung.yaml") (yamlManifest [("shared", source, commit)])
+  createDirectory project
+  writeFile (project </> "tung.yaml") "dependencies:\n  parent:\n    path: ../parent\n  shared:\n    path: ../source\n"
+  writeFile owner "let answer = 1"
+  result <- resolveLibraryRoots owner
+  expect "rejecteþ a local path and git pin for one library name" $
+    either (\message -> all (`isInfixOf` message) ["library 'shared'", commit, "local path"]) (const False) result
+
+invalidPathSource :: Test
+invalidPathSource = withDirectory \root -> do
+  let owner = root </> "main.tung"
+  writeFile owner "let answer = 1"
+  writeFile (root </> "tung.yaml") "dependencies:\n  sample:\n    path: missing\n"
+  missing <- resolveLibraryRoots owner
+  writeFile (root </> "tung.yaml") "dependencies:\n  sample:\n    path: .\n    repo: elsewhere\n    hash: '0123456789012345678901234567890123456789'\n"
+  mixed <- resolveLibraryRoots owner
+  expect "rejecteþ missing and mixed library sources" $
+    either (isInfixOf "does not exist") (const False) missing
+      && either (isInfixOf "either 'path' or 'repo' with 'hash' and optional 'subdir'") (const False) mixed
+
 dependencyVersions :: FilePath -> IO (FilePath, String, String)
 dependencyVersions root = do
   let repository = root </> "dependency"
@@ -201,6 +371,14 @@ yamlManifest entries =
     ++ concat
       [ "  " ++ name ++ ":\n    repo: " ++ show repository ++ "\n    hash: " ++ show commit ++ "\n"
       | (name, repository, commit) <- entries
+      ]
+
+yamlSubdirManifest :: [(String, String, String, FilePath)] -> String
+yamlSubdirManifest entries =
+  "dependencies:\n"
+    ++ concat
+      [ "  " ++ name ++ ":\n    repo: " ++ show repository ++ "\n    hash: " ++ show commit ++ "\n    subdir: " ++ show subdirectory ++ "\n"
+      | (name, repository, commit, subdirectory) <- entries
       ]
 
 initRepository :: FilePath -> IO ()

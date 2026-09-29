@@ -1,45 +1,39 @@
 # tung
 
-this guide helpeþ new users install and run tung. tung is a small functional
-programming tongue wiþ
-
-- type inference,
-- algebraic data types,
-- closed records,
-- type classes,
-- algebraic effects, and
-- infix notation.
+this guide helpeþ new users install and run tung. the checked
+[tutorial](byspel/tutorial.tung) showeþ its basic features wiþ short comments.
 
 ## install
 
 ```sh
-brew tap jukisima/tung
+brew tap jukisima/tung https://github.com/jukisima/tung.git
 brew install jukisima/tung/tung
 ```
 
-or
+or, wiþ ghc 9.12 or newer and cabal installed:
 
 ```sh
 brew bundle
-make install
+make compiler-install
 # þe command is installed at `~/.local/bin/tung` by default.
 # set `PREFIX` or `BIN_DIR` to choose anoþer destination.
 ```
 
 ## add a library
 
-[tung-bookhoard](https://github.com/jukisima/tung-bookhoard) is a separate git
-library. pin it in the project's `tung.yaml`:
+this repository keepeth þe standard library in [`bookhoard/`](bookhoard/). its
+`tung.yaml` declareþ a local path:
 
 ```yaml
 dependencies:
   bookhoard:
-    repo: https://github.com/jukisima/tung-bookhoard.git
-    hash: "aabb7ed4ad37670c1c997afbb8eb8307fce45a39"
+    path: bookhoard
 ```
 
-see [libraries and imports](tongue/language.md#libraries-and-imports) for local
-paths, transitive dependencies, and conflict rules.
+outside this checkout, projects may pin this repository at a commit with
+`subdir: bookhoard`. they may also use any other git library. see
+[libraries and imports](tongue/language.md#libraries-and-imports) for manifest
+syntax, transitive dependencies, and conflict rules.
 
 ## run
 
@@ -51,32 +45,19 @@ paths, transitive dependencies, and conflict rules.
 | `tung --type-of name program.tung`       | printeþ þe inferred type of a name       |
 | `tung --format file.tung [more.tung...]` | formateþ files in stead                  |
 
-`main` takeþ `𝟙`, yieldeþ `𝟙`, and may use þe standard runtime effects.
+`main` takeþ `𝟙`, yieldeþ `𝟙`, and may use þe standard runtime effects. run
+the tutorial wiþ `tung byspel/tutorial.tung`. more byspels lie in
+[`byspel/`](byspel/).
 
-```tung
-use ground.tung
+## editor
 
-let (_: 𝟙) main: 𝟙 ! console =
-  'hello, tung' write-line
-```
-
-byspels lie in [`byspel/`](byspel/).
-
-## syntax
-
-tung putteþ þe function after its first argument. functions are curried.
-
-```tung
-              # in haskell
-a f           # f a
-a f b c       # f a b c
-a f $ g b     # g (f a) b
-```
+the VS Code extension liveþ in [`vscode/`](vscode/). `make editor-build` buildeth
+it. `make editor-test` testeth it. `make extension-install` packageþ and
+installeþ it through þe `code` command. see þe [editor guide](vscode/readme.md).
 
 ## furþer reading
 
 - [language reference](tongue/language.md)
-- [editor guide](vscode/readme.md)
-- [bookhoard design guide](https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc)
+- [bookhoard design guide](bookhoard/reference.md)
 - [development guide](tongue/development.md)
 - [repository change guide](tongue/agent.md)

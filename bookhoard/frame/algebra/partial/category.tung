@@ -1,0 +1,13 @@
+use frame/algebra/partial/semigroupoid.tung
+
+graiþ ⇨ semigroupoid
+show frame ⇨ category {
+  let sameness: a ⇨ a
+
+  law (f: a ⇨ b): sameness ∘ f ~ f
+  law (f: a ⇨ b): f ∘ sameness ~ f
+}
+
+fill func category {
+  let a sameness = a
+}

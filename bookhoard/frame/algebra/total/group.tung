@@ -1,0 +1,9 @@
+use frame/algebra/total/monoid.tung
+use frame/algebra/total/semigroup.tung
+
+graiþ a monoid
+show frame a group {
+  let a / a: a
+
+  law (a: a): a / a ~ ∅
+}

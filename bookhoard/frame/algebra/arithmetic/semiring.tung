@@ -1,0 +1,26 @@
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/monoid-additive.tung
+use frame/algebra/arithmetic/monoid-multiplicative.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use frame/algebra/arithmetic/zero.tung
+use ilk/two.tung
+
+graiþ a monoid-additive, a monoid-multiplicative
+show frame a semiring {
+  law (a: a, b: a): a + b ~ b + a
+  law (a: a, b: a, c: a): a × (b + c) ~ (a × b) + (a × c)
+  law (a: a, b: a, c: a): (a + b) × c ~ (a × c) + (b × c)
+  law (a: a, b: a): zero × a ~ zero
+  law (a: a, b: a): a × zero ~ zero
+}
+
+graiþ b semiring
+fill (a func b) semiring {
+  let f + g a = (a f) + (a g)
+  let _ zero = zero
+  let f × g a = (a f) × (a g)
+  let _ one = one
+}
+
+fill 𝟚 semiring {}

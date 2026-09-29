@@ -1,0 +1,25 @@
+use _foreign.tung
+use frame/algebra/arithmetic/add.tung
+use frame/algebra/arithmetic/monoid-additive.tung
+use frame/algebra/arithmetic/monoid-multiplicative.tung
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use frame/algebra/arithmetic/semiring.tung
+use frame/algebra/arithmetic/zero.tung
+
+## ieee floats keep þeir useful operations wiþout claiming exact semiring laws.
+fill float add {
+  let + = add-float
+}
+
+fill float zero {
+  let zero = 0.0
+}
+
+fill float multiply {
+  let × = multiply-float
+}
+
+fill float one {
+  let one = 1.0
+}

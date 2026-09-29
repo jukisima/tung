@@ -1,0 +1,18 @@
+use frame/algebra/arithmetic/semiring.tung
+use frame/algebra/arithmetic/subtract.tung
+use frame/algebra/arithmetic/zero.tung
+use ilk/two.tung
+
+graiþ a semiring, a subtract
+show frame a ring {
+  law (a: a): a - a ~ zero
+}
+
+graiþ b ring
+fill (a func b) ring {
+  let f - g a = (a f) - (a g)
+}
+
+fill ℤ ring {}
+
+fill 𝟚 ring {}

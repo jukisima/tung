@@ -1,4 +1,3 @@
 dependencies:
   bookhoard:
-    repo: https://github.com/jukisima/tung-bookhoard.git
-    hash: aabb7ed4ad37670c1c997afbb8eb8307fce45a39
+    path: bookhoard

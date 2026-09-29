@@ -1,0 +1,3 @@
+show frame a from-text {
+  let text from-text: a ! text fail
+}

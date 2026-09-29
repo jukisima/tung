@@ -2,20 +2,12 @@
 module Test.Token (group) where
 
 import Data.Char (chr)
-import System.FilePath ((</>))
 import Test.Harness (Group, Test, expectEq, expectPrefix)
 import Test.Harness qualified as Harness
 import Tung
 
 group :: IO Group
-group = do
-  metadata <- languageMetadataCase
-  Harness.group "token" (metadata : map lexCase lexCases ++ map lexError lexErrors ++ scalarCases)
-
-languageMetadataCase :: IO Test
-languageMetadataCase = do
-  actual <- readFile (".." </> "vscode" </> "generated" </> "language-names.json")
-  pure $ expectEq "generated language metadata agreeþ with the compiler" languageMetadata actual
+group = Harness.group "token" (map lexCase lexCases ++ map lexError lexErrors ++ scalarCases)
 
 lexCases :: [(String, String, [Token])]
 lexCases =

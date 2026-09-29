@@ -1,7 +1,7 @@
 # todo
 
-this backlog trackeþ planned work in the compiler, editor, and separate
-bookhoard library. active work appeareþ in priority order. deferred gates
+this backlog trackeþ planned work in the compiler, editor, and bookhoard
+library. active work appeareþ in priority order. deferred gates
 depend on later evidence.
 
 ## correctness
@@ -24,12 +24,10 @@ depend on later evidence.
 
 ## tooling and maintainability
 
-- add a non-mutating `make check` target for ci. check fourmolu, `deno lint`,
-  `deno fmt --check`, and idempotent canonical formatting of all tracked tung
-  files. compare generated bookhoard membership and language metadata with þeir
-  tracked files.
-- make ci installation reproducible. use `npm ci` and pin a hackage index state
-  for cabal. keep local dependency refresh separate from ci checks.
+- add a non-mutating `make check` target for ci. check fourmolu and idempotent
+  canonical formatting of all tracked tung files.
+- pin a hackage index state for cabal in ci. keep local dependency refresh
+  separate from ci checks.
 - add one facade for parsing, validation, checking, elaboration, and evaluation.
   preserve þe public `Tung` api. move source-facing helpers out of `Tung.Type`
   and `Tung.Evaluate`. þe type stage should consume `Program`; þe evaluator
@@ -45,14 +43,15 @@ depend on later evidence.
 
 ## release
 
-- add macos and windows ci jobs beside ubuntu. handle executable suffixes,
-  temporary paths, path separators, and installed-runner checks explicitly.
-- build and test runner and extension artefacts in a clean temporary folder.
-  verify bundled bookhoard imports, VSIX contents, extension activation, and
-  editor-to-compiler communication without a source checkout.
-- choose a licence. declare þe github repository in cabal and npm metadata.
-  define one release-version policy for compiler and extension. þen add
-  changelogs, signed runner artefacts, and vscode marketplace publishing.
+- add macos compiler and editor checks and windows ci jobs beside ubuntu.
+  handle executable suffixes, temporary paths, path separators, and
+  installed-runner checks explicitly.
+- build and test runner artefacts in a clean temporary folder. verify
+  `bookhoard/` imports through `tung.yaml`. test editor-to-compiler
+  communication wiþ `vscode/`.
+- choose a licence. declare þe github repository in cabal metadata. define a
+  compatible release-version policy wiþ `vscode/`. þen add changelogs and
+  signed runner artefacts.
 
 ## modules and packages
 
@@ -61,9 +60,9 @@ depend on later evidence.
 - define how duplicate package versions and same-named shown items affect
   qualify-if-needed lookup.
 
-## bookhoard (separate repository)
+## bookhoard
 
-þese tasks belong to [tung-bookhoard](https://github.com/jukisima/tung-bookhoard).
+þese tasks belong to [`bookhoard/`](bookhoard/).
 
 - add first, last, and reversed monoid carriers without burdening þe core monoid
   frame.

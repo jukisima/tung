@@ -56,6 +56,7 @@ let tongueDir;
 let canRegisterWatchedFiles = false;
 let canRefreshSemanticTokens = false;
 let configuredTongue;
+let configuredExecutable;
 let configuredLibraryPaths;
 let libraryRoots: string[] = [];
 let localLibraryRoots: string[] = [];
@@ -63,6 +64,7 @@ let libraryResolutionError: string | undefined;
 let semanticRefreshTimer;
 connection.onInitialize((params) => {
   configuredTongue = params.initializationOptions?.tonguePath;
+  configuredExecutable = params.initializationOptions?.executablePath;
   configuredLibraryPaths = params.initializationOptions?.libraryPaths;
   canRegisterWatchedFiles = Boolean(
     params.capabilities?.workspace?.didChangeWatchedFiles
@@ -515,14 +517,12 @@ const runCheck = (document) => {
     publish(document, `project error: ${libraryResolutionError}`);
     return;
   }
-  if (!tongueDir) {
-    publish(document, "could not find the haskell tung project");
-    return;
-  }
   if (!compiler.available()) {
     publish(
       document,
-      "tung is not built; run `cabal build exe:tung` in the tongue folder",
+      configuredExecutable
+        ? `could not find tung executable at ${configuredExecutable}`
+        : "could not find tung executable; install tung or set tung.executablePath",
     );
     return;
   }
@@ -542,7 +542,7 @@ const runCheck = (document) => {
   });
 };
 const inspectType = (definition, cancellation = undefined) => {
-  if (!definition?.uri || definition.primitive || !tongueDir) {
+  if (!definition?.uri || definition.primitive || !compiler.available()) {
     return Promise.resolve(undefined);
   }
   const model = workspace.model(definition.uri);
@@ -826,7 +826,7 @@ const configureWorkspace = () => {
     configuredLibraryPaths,
     process.env.TUNG_PATH,
   );
-  compiler.configure(tongueDir, localLibraryRoots);
+  compiler.configure(tongueDir, localLibraryRoots, configuredExecutable || undefined);
   let declared: string[] = [];
   libraryResolutionError = undefined;
   try {
@@ -844,16 +844,18 @@ const configureWorkspace = () => {
   workspace.configure(workspaceRoots, libraryRoots);
 };
 const findTongueDir = (configured) => {
-  const candidates = [
+  const roots = [
     configured && path.resolve(configured),
     process.env.TUNG_TONGUE && path.resolve(process.env.TUNG_TONGUE),
     ...workspaceRoots,
-    ...workspaceRoots.map((root) => path.join(root, "tongue")),
-    path.resolve(__dirname, "..", "..", "..", "tongue"),
+    path.resolve(__dirname, "..", "..", ".."),
   ];
-  return candidates
-    .filter(Boolean)
-    .find((candidate) => fs.existsSync(path.join(candidate, "tung.cabal")));
+  for (const root of roots.filter(Boolean)) {
+    for (const candidate of [root, path.join(root, "tongue")]) {
+      if (fs.existsSync(path.join(candidate, "tung.cabal"))) return candidate;
+    }
+  }
+  return undefined;
 };
 documents.listen(connection);
 connection.listen();

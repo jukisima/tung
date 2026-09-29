@@ -1,0 +1,25 @@
+use ilk/three.tung
+use ilk/two.tung
+
+show frame a equal {
+  let a ≡ a: 𝟚
+}
+
+graiþ a equal
+show let (a: a, b: a) ≢: 𝟚 = (a ≡ b) if nay yea
+
+fill 𝟚 equal {
+  let ≡ = {
+    yea, yea | nay, nay @ yea,
+    _, _ @ nay
+  }
+}
+
+fill 𝟛 equal {
+  let ≡ = {
+    fore, fore @ yea,
+    mid, mid @ yea,
+    aft, aft @ yea,
+    _, _ @ nay
+  }
+}

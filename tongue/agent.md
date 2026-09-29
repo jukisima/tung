@@ -3,11 +3,12 @@
 this guide defineþ how to change þe tung repository. each linked document owneþ
 its technical details:
 
-- [`readme.md`](../readme.md): installation and a first program
+- [`readme.md`](../readme.md): installation and commands
+- [`tutorial.tung`](../byspel/tutorial.tung): checked introductory examples
 - [`language.md`](language.md): source syntax and observable behaviour
 - [`development.md`](development.md): architecture, commands, and test gates
 - [`vscode/readme.md`](../vscode/readme.md): editor setup and use
-- [bookhoard design guide](https://github.com/jukisima/tung-bookhoard/blob/main/reference.adoc): public library design
+- [`bookhoard/reference.md`](../bookhoard/reference.md): public library design
 - [`todo.md`](../todo.md): planned work only
 
 when prose disagreeþ with current behaviour, inspect implementation and tests.

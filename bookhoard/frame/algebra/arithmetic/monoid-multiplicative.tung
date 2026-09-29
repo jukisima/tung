@@ -1,0 +1,12 @@
+use frame/algebra/arithmetic/multiply.tung
+use frame/algebra/arithmetic/one.tung
+use ilk/two.tung
+
+graiþ a multiply, a one
+show frame a monoid-multiplicative {
+  law (a: a, b: a, c: a): a × (b × c) ~ (a × b) × c
+  law (a: a): one × a ~ a
+  law (a: a): a × one ~ a
+}
+
+fill 𝟚 monoid-multiplicative {}

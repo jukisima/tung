@@ -1,0 +1,10 @@
+use frame/algebra/partial/category.tung
+use frame/algebra/partial/semigroupoid.tung
+
+graiþ ⇨ category
+show frame ⇨ groupoid {
+  let (a ⇨ b) invert: b ⇨ a
+
+  law (f: a ⇨ b): f ∘ (f invert) ~ sameness
+  law (f: a ⇨ b): (f invert) ∘ f ~ sameness
+}

@@ -1,0 +1,72 @@
+use frame/algebra/partial/category.tung
+use frame/functor.tung
+use frame/functor/applicative.tung
+use frame/functor/bifunctor.tung
+use frame/functor/cata.tung
+use frame/functor/monad.tung
+use frame/functor/traverse.tung
+use frame/order/complement.tung
+use ilk/two.tung
+
+show ilk a ∐ b {
+  a inject₀,
+  b inject₁
+}
+
+show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) eiþer: c ! e₀, e₁ =
+  match sum {
+    a inject₀ @ a f₀,
+    b inject₁ @ b f₁
+  }
+
+fill ∐ bifunctor {
+  let sum bimap f g = match sum {
+    a inject₀ @ (a f) inject₀,
+    b inject₁ @ (b g) inject₁
+  }
+}
+
+show let is-inject₀: a ∐ b → 𝟚 = {
+  _ inject₀ @ yea,
+  _ inject₁ @ nay
+}
+
+show let (sum: a ∐ b) is-inject₁: 𝟚 = sum is-inject₀ $ ¬
+
+fill (a ∐) functor {
+  let sum map f = sum bimap sameness f
+}
+
+fill (a ∐) applicative {
+  let pure = inject₁
+  let apply = {
+    a inject₀, _ @ a inject₀,
+    _, a inject₀ @ a inject₀,
+    b inject₁, f inject₁ @ (b f) inject₁
+  }
+}
+
+fill (a ∐) monad {
+  let flat = {
+    a inject₀ @ a inject₀,
+    b inject₁ @ b
+  }
+}
+
+fill (a ∐) cata {
+  let sum fold₀ b f = match sum {
+    _ inject₀ @ b,
+    a inject₁ @ a f b
+  }
+  let sum fold₁ b f = match sum {
+    _ inject₀ @ b,
+    a inject₁ @ b f a
+  }
+}
+
+fill (a ∐) traverse {
+  let sum traverse f = match sum {
+    a inject₀ @ (a inject₀) pure,
+    b inject₁ @ (b f) map inject₁
+  }
+}
