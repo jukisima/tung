@@ -1,0 +1,171 @@
+## birds from smullyan's "to mock a mockingbird" and named variants.
+
+# I x = x
+show let identity [x:a, a] x
+
+# I* f x = f x
+show let identity-once-removed [f:[a, b], x:a, b] x f
+
+# I** f x y = f x y
+show let identity-twice-removed [f:[a, b, c], x:a, y:b, c] x f y
+
+# another name for the identity bird.
+show let idiot [[a, a]] identity
+
+# A f x = f x
+show let applicator [[[a, b], a, b]] identity-once-removed
+
+# K x y = x
+show let kestrel [x:a, y:b, a] x
+
+# ki x y = y
+show let kite [x:a, y:b, b] y
+
+# the earlier name for the kite remaineþ available.
+show let klubertanz [[a, b, b]] kite
+
+# B f g x = f (g x)
+show let bluebird [f:[b, c], g:[a, b], x:a, c] (x g) f
+
+# B1 f g x y = f (g x y)
+show let blackbird [f:[c, d], g:[a, b, c], x:a, y:b, d] (x g y) f
+
+# B2 f g x y z = f (g x y z)
+show let bunting [f:[d, e], g:[a, b, c, d], x:a, y:b, z:c, e] (x g y z) f
+
+# B3 f g h x = f (g (h x))
+show let becard [f:[b, c], g:[d, b], h:[a, d], x:a, c] ((x h) g) f
+
+# C f x y = f y x
+show let cardinal [f:[b, a, c], x:a, y:b, c] y f x
+
+# C' f g x y = f (g y) x
+show let cardinal′ [f:[c, a, d], g:[b, c], x:a, y:b, d] (y g) f x
+
+# C* f x y z = f x z y
+show let cardinal-once-removed [f:[a, c, b, d], x:a, y:b, z:c, d] x f z y
+
+# C** f x y z w = f x y w z
+show let cardinal-twice-removed [f:[a, b, d, c, e], x:a, y:b, z:c, w:d, e] x f y w z
+
+# D f x g y = f x (g y)
+show let dove [f:[a, c, d], x:a, g:[b, c], y:b, d] x f (y g)
+
+# B' f x g y = f x (g y)
+show let bluebird′ [[[a, c, d], a, [b, c], b, d]] dove
+
+# D1 f x y g z = f x y (g z)
+show let dickcissel [f:[a, b, d, e], x:a, y:b, g:[c, d], z:c, e] x f y (z g)
+
+# D2 f g x h y = f (g x) (h y)
+show let dovekie [f:[c, d, e], g:[a, c], x:a, h:[b, d], y:b, e] (x g) f (y h)
+
+# E f x g y z = f x (g y z)
+show let eagle [f:[a, d, e], x:a, g:[b, c, d], y:b, z:c, e] x f (y g z)
+
+# Ê f g x y h z w = f (g x y) (h z w)
+show let bald-eagle [f:[p, q, r], g:[a, b, p], x:a, y:b, h:[c, d, q], z:c, w:d, r] (x g y) f (z h w)
+
+# F x y f = f y x
+show let finch [x:a, y:b, f:[b, a, c], c] y f x
+
+# F* f x y z = f z y x
+show let finch-once-removed [f:[c, b, a, d], x:a, y:b, z:c, d] z f y x
+
+# G f g x y = f y (g x)
+show let goldfinch [f:[b, c, d], g:[a, c], x:a, y:b, d] y f (x g)
+
+# H f x y = f x y x
+show let hummingbird [f:[a, b, a, c], x:a, y:b, c] x f y x
+
+# J f x y z = f x (f z y)
+# x and z share a type.
+show let jay [f:[a, b, b], x:a, y:b, z:a, b] x f (z f y)
+
+# joy f x y = f x
+show let joy [f:[a, c], x:a, y:b, c] x f
+
+# joy' f x y z = f x y
+show let joy′ [f:[a, b, d], x:a, y:b, z:c, d] x f y
+
+# O x y = y (x y)
+show let owl [x:[[a, b], a], y:[a, b], b] (y x) y
+
+# Q x y z = y (x z)
+show let queer [x:[c, a], y:[a, b], z:c, b] (z x) y
+
+# Q1 x y z = x (z y)
+show let quixotic [x:[a, c], y:b, z:[b, a], c] (y z) x
+
+# Q2 x y z = y (z x)
+show let quizzical [x:a, y:[b, c], z:[a, b], c] (x z) y
+
+# Q3 x y z = z (x y)
+show let quirky [x:[b, a], y:b, z:[a, c], c] (y x) z
+
+# Q4 x y z = z (y x)
+show let quacky [x:a, y:[a, b], z:[b, c], c] (x y) z
+
+# R x y z = y z x
+show let robin [x:a, y:[c, a, b], z:c, b] z y x
+
+# R* f x y z = f y z x
+show let robin-once-removed [f:[b, c, a, d], x:a, y:b, z:c, d] y f z x
+
+# R** f x y z w = f x z w y
+show let robin-twice-removed [f:[a, c, d, b, e], x:a, y:b, z:c, w:d, e] x f z w y
+
+# S f g x = f x (g x)
+show let starling [f:[a, b, c], g:[a, b], x:a, c] x f (x g)
+
+# T x y = y x
+show let thrush [x:a, y:[a, b], b] x y
+
+# V x y z = z x y
+show let vireo [x:a, y:b, z:[a, b, c], c] x z y
+
+# V* f x y z = f y x z
+show let vireo-once-removed [f:[b, a, c, d], x:a, y:b, z:c, d] y f x z
+
+# V** f x y z w = f x w y z
+show let vireo-twice-removed [f:[a, d, b, c, e], x:a, y:b, z:c, w:d, e] x f w y z
+
+# W f x = f x x
+show let warbler [f:[a, a, b], x:a, b] x f x
+
+# W1 x y = y x x
+show let converse-warbler [x:a, y:[a, a, b], b] x y x
+
+# another name for the converse warbler.
+show let worbler [[a, [a, a, b], b]] converse-warbler
+
+# W* f x y = f x y y
+show let warbler-once-removed [f:[a, b, b, c], x:a, y:b, c] x f y y
+
+# W** f x y z = f x y z z
+show let warbler-twice-removed [f:[a, b, c, c, d], x:a, y:b, z:c, d] x f y z z
+
+# Φ f g h x = f (g x) (h x)
+show let phoenix [f:[b, c, d], g:[a, b], h:[a, c], x:a, d] (x g) f (x h)
+
+# S' f g h x = f (g x) (h x)
+show let starling′ [[[b, c, d], [a, b], [a, c], a, d]] phoenix
+
+# Ψ f g x y = f (g x) (g y)
+# x and y share a type.
+show let psi [f:[b, b, c], g:[a, b], x:a, y:a, c] (x g) f (y g)
+
+# Y f = f (Y f)
+show let sage [f:[a, a], a] (f sage) f
+
+# L f x = f (x x)
+# show let f lark x = (x x) f
+
+# M x = x x
+# show let x mockingbird = x x
+
+# M2 x y = (x y) (x y)
+# show let x double-mockingbird y = (y x) (y x)
+
+# U x y = y (x x y)
+# show let x turing y = (y (x x)) y

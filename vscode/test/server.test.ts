@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show ilk ℕ { zero }\nshow ilk truth { yea, nay }\nshow ilk a parcel { a wrap }\nshow let (x: ℤ) identity: ℤ = x\nshow let answer: ℤ = 42\nshow frame a convert { let a convert: a }\n";
+    "show ilk ℕ { zero }\nshow ilk truth { yea, nay }\nshow ilk a parcel { a wrap }\nshow let identity [x: ℤ, ℤ] x\nshow let answer [ℤ] 42\nshow frame a convert { let convert [a, a] }\n";
   const mainText =
-    "use dep.tung\nlet value: ℤ = answer\nlet count: ℕ = zero\nlet ratio: float = 1.5\nlet truth-to-text: truth → text = { yea ^ 'yea', nay ^ 'nay' }\nlet shipment: ℤ parcel = 1 wrap\nlet same: ℤ = 1 identity # \"unicode 𝟙\\n\"\nlet (left: ℤ, middle: ℤ, right: ℤ) select: ℤ = middle\nlet picker = { first, second, third ^ second }\nfill ℤ convert { let x convert = x }\nshow ilk a box {\na box\n}\n";
+    "use dep.tung\nlet value [ℤ] answer\nlet count [ℕ] zero\nlet ratio [float] 1.5\nlet truth-to-text [truth, text] { yea ^ 'yea', nay ^ 'nay' }\nlet shipment [ℤ parcel] 1 wrap\nlet same [ℤ] 1 identity # \"unicode 𝟙\\n\"\nlet select [left: ℤ, middle: ℤ, right: ℤ, ℤ] middle\nlet picker = { first, second, third ^ second }\nfill ℤ convert { let x convert = x }\nshow ilk a box {\na box\n}\n";
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -108,8 +108,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     contentChanges: [
       {
         text: depText.replace(
-          "answer: ℤ = 42",
-          "answer: text = 'changed'",
+          "answer [ℤ] 42",
+          "answer [text] 'changed'",
         ),
       },
     ],
@@ -219,7 +219,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: mainUri },
     position: answerPosition,
   });
-  assert.match(hover.contents.value, /let answer: ℤ/);
+  assert.match(hover.contents.value, /let answer \[ℤ\]/);
   assert.match(hover.contents.value, /inferred type/);
   const references = await request("textDocument/references", {
     textDocument: { uri: mainUri },
@@ -312,8 +312,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: depUri },
   });
   const importedSource = depText.replace(
-    "answer: ℤ = 42",
-    "answer: ℤ = 'wrong'",
+    "answer [ℤ] 42",
+    "answer [ℤ] 'wrong'",
   );
   const importedDiagnostics = nextDiagnostics(
     connection,
@@ -346,8 +346,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     ({ diagnostics }) => diagnostics.length > 0,
   );
   const badText = mainText.replace(
-    "let value: ℤ = answer",
-    "let value: text = answer",
+    "let value [ℤ] answer",
+    "let value [text] answer",
   );
   connection.sendNotification("textDocument/didChange", {
     textDocument: { uri: mainUri, version: 2 },
@@ -388,7 +388,7 @@ test("server resolveþ a nested project's git-pinned library", async (context) =
   fs.mkdirSync(project);
   fs.writeFileSync(
     path.join(repository, "value.tung"),
-    "show let value: ℤ = 42",
+    "show let value [ℤ] 42",
   );
   const git = (...args: string[]) =>
     childProcess.execFileSync("git", args, { encoding: "utf8" }).trim();
@@ -412,7 +412,7 @@ test("server resolveþ a nested project's git-pinned library", async (context) =
     `dependencies:\n  sample:\n    repo: ../library\n    hash: "${commit}"\n`,
   );
   const mainPath = path.join(project, "main.tung");
-  const source = "use value.tung let answer: ℤ = value";
+  const source = "use value.tung let answer [ℤ] value";
   fs.writeFileSync(mainPath, source);
   const uri = pathToFileURL(mainPath).href;
   const server = childProcess.spawn(

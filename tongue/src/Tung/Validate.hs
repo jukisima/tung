@@ -1,6 +1,5 @@
-{- | type-independent tree validation, such as repeated fields, binders,
-operations, and members. name and type questions belong to later stages.
--}
+-- | type-independent tree validation, such as repeated fields, binders,
+-- operations, and members. name and type questions belong to later stages.
 module Tung.Validate (validateProgram) where
 
 import Control.Monad (foldM_)
@@ -17,12 +16,12 @@ validateUseNamespaces :: [Decl] -> Either String ()
 validateUseNamespaces declarations = do
   traverse_ validateImport imports
   foldM_ register Map.empty [(importAlias path alias, path) | (path, alias) <- imports]
- where
-  imports = [(path, alias) | Import path alias <- declarations]
-  validateImport (path, alias) = validateImportPath path >> traverse_ checkImportAlias alias
-  register owners (namespace, path) = case Map.lookup namespace owners of
-    Just other | other /= path -> Left ("use namespace '" ++ namespace ++ "' referreþ to both '" ++ other ++ "' and '" ++ path ++ "'")
-    _ -> pure (Map.insert namespace path owners)
+  where
+    imports = [(path, alias) | Import path alias <- declarations]
+    validateImport (path, alias) = validateImportPath path >> traverse_ checkImportAlias alias
+    register owners (namespace, path) = case Map.lookup namespace owners of
+      Just other | other /= path -> Left ("use namespace '" ++ namespace ++ "' referreþ to both '" ++ other ++ "' and '" ++ path ++ "'")
+      _ -> pure (Map.insert namespace path owners)
 
 validateImportPath :: String -> Either String ()
 validateImportPath path
@@ -32,13 +31,13 @@ validateImportPath path
 validateDecl :: Decl -> Either String ()
 validateDecl = \case
   Import path alias -> validateImportPath path >> traverse_ checkImportAlias alias
-  Export Import{} -> Left "use cannot be shown"
-  Export FillDecl{} -> Left "fill evidence cannot be shown"
+  Export Import {} -> Left "use cannot be shown"
+  Export FillDecl {} -> Left "fill evidence cannot be shown"
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
   ReExportType _ -> pure ()
-  Let _ Nothing EForeign{} -> Left "fremmed let requireþ a type annotation"
-  Let _ (Just annotation) EForeign{} -> validateTypeAnn annotation
+  Let _ Nothing EForeign {} -> Left "fremmed let requireþ a type annotation"
+  Let _ (Just annotation) EForeign {} -> validateTypeAnn annotation
   Let _ annotation body -> traverse_ validateTypeAnn annotation >> validateExpr body
   TypeAlias params name target -> do
     validateUnqualified "type alias" name
@@ -79,10 +78,22 @@ validateShapeMember :: ShapeMember -> Either String ()
 validateShapeMember = \case
   ShapeSpec name annotation -> validateUnqualified "frame member" name >> validateTypeAnn annotation
   ShapeLaw parameters left right -> do
-    distinct "frame law parameter" (map fst parameters)
+    distinct "frame law parameter" (concatMap (patternNames . fst) parameters)
     traverse_ (validateType . snd) parameters
     validateExpr left
     validateExpr right
+
+patternNames :: Pattern -> [String]
+patternNames = \case
+  PVar "_" -> []
+  PVar name -> [name]
+  PInteger _ -> []
+  PText _ -> []
+  -- the first name may be a binder or a constructor in bracketed patterns;
+  -- the type checker resolveþ it before checking linearity.
+  PCon _ (_ : arguments) -> concatMap patternNames arguments
+  PCon _ [] -> []
+  PConstructor _ arguments -> concatMap patternNames arguments
 
 validateTypeAnn :: TypeAnn -> Either String ()
 validateTypeAnn (TypeAnn value needs) = validateType value >> traverse_ validateNeed needs
@@ -104,7 +115,7 @@ validateExpr = \case
   EFloat _ -> pure ()
   EUnicode _ -> pure ()
   EText _ -> pure ()
-  EForeign{} -> Left "fremmed is only allowed as the direct body of an annotated let"
+  EForeign {} -> Left "fremmed is only allowed as the direct body of an annotated let"
   EVar _ -> pure ()
   EGlobal _ -> pure ()
   EEvidence _ -> pure ()
@@ -143,8 +154,8 @@ distinct :: String -> [String] -> Either String ()
 distinct owner names = case repeated of
   duplicate : _ -> Left (owner ++ " repeateþ '" ++ duplicate ++ "'")
   [] -> pure ()
- where
-  repeated = [name | name : _ : _ <- group (sort names)]
+  where
+    repeated = [name | name : _ : _ <- group (sort names)]
 
 validateUnqualified :: String -> String -> Either String ()
 validateUnqualified owner name

@@ -6,21 +6,21 @@ show ilk response {
   ℤ response (text table text) text
 }
 
-show let (status response _ _: response)
-  response-status: ℤ = status
+show let response-status [status response _ _:response, ℤ]
+  status
 
-show let (_ response headers _: response)
-  response-headers: text table text = headers
+show let response-headers [_ response headers _:response, text table text]
+  headers
 
-show let (_ response _ body: response)
-  response-body: text = body
+show let response-body [_ response _ body:response, text]
+  body
 
-show let (status: ℤ, body: text)
-  respond: response = status response empty body
+show let respond [status:ℤ, body:text, response]
+  status response empty body
 
-show let (body: text) ok: response = 200 respond body
+show let ok [body:text, response] 200 respond body
 
-show let (body: text) not-found: response = 404 respond body
+show let not-found [body:text, response] 404 respond body
 
-show let (status response headers body: response, name: text, value: text)
-  wiþ-header: response = status response (headers put name value) body
+show let wiþ-header [status response headers body:response, name:text, value:text, response]
+  status response (headers put name value) body

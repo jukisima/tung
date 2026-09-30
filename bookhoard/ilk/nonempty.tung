@@ -15,22 +15,22 @@ show ilk a nonempty {
 }
 
 ## build a one-element non-empty list.
-show let (a: a) singleton: a nonempty =
+show let singleton [a:a, a nonempty]
   a nonempty empty
 
 ## expose a non-empty list as an ordinary list.
-show let (first nonempty rest: a nonempty) to-list: a list =
+show let to-list [(first nonempty rest):a nonempty, a list]
   first _* rest
 
 ## make a non-empty list when þe input haþ a first element.
-show let from-list: a list → (a nonempty) option = {
+show let from-list [a list, (a nonempty) option] {
   empty ^ none,
   first _* rest ^ (first nonempty rest) some
 }
 
-show let (first nonempty _: a nonempty) head: a = first
+show let head [(first nonempty _):a nonempty, a] first
 
-show let (_ nonempty rest: a nonempty) tail: a list = rest
+show let tail [(_ nonempty rest):a nonempty, a list] rest
 
 graiþ (a list) inhold a
 fill (a nonempty) inhold a {
@@ -38,7 +38,8 @@ fill (a nonempty) inhold a {
 }
 
 fill nonempty functor {
-  let (first nonempty rest) map f = (first f) nonempty (rest map f)
+  let (first nonempty rest) map f =
+    (first f) nonempty (rest map f)
 }
 
 fill (a nonempty) semigroup {
@@ -59,8 +60,10 @@ fill nonempty monad {
 }
 
 fill nonempty cata {
-  let (first nonempty rest) fold₀ b f = first f (rest fold₀ b f)
-  let (first nonempty rest) fold₁ b f = rest fold₁ (b f first) f
+  let (first nonempty rest) fold₀ b f =
+    first f (rest fold₀ b f)
+  let (first nonempty rest) fold₁ b f =
+    rest fold₁ (b f first) f
 }
 
 fill nonempty traverse {

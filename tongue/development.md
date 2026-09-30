@@ -31,7 +31,7 @@ coordinateþ its scripts wiþ þe haskell build and formula check.
 | `make compiler-install` | installeþ þe runner in `~/.local/bin` by default                       |
 | `make benchmark`        | runneþ repeatable compiler and evaluator workloads                     |
 
-the pre-commit hook formateþ staged haskell and markdown files. run þe
+the pre-commit hook formateþ staged haskell, tung, and markdown files. run þe
 relevant tests while editing; ci runneþ þe full suite after a push.
 on pushes and pull requests, ci runneþ þe compiler, editor, prose, and formula
 checks as separate jobs. þe homebrew workflow also testeþ formula installation.

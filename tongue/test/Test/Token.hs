@@ -28,7 +28,7 @@ lexCases =
     ("left association opener stayeþ one token", "<(", [TParenKeyword "<"]),
     ("right association opener stayeþ one token", ">(", [TParenKeyword ">"]),
     ("separated special openers remain names", "r ( < ( > (", [TIdent "r", TLParen, TIdent "<", TLParen, TIdent ">", TLParen]),
-    ("freed characters are ordinary names", "[ ] ;", [TIdent "[", TIdent "]", TIdent ";"]),
+    ("function brackets and effects are syntax", "[ ] ;", [TLBracket, TRBracket, TSemicolon]),
     ("comment endeþ at newline", "1 # hidden\n2", [TInteger 1, TInteger 2]),
     ("block comment is skipped", "1 /* hidden { = */ 2", [TInteger 1, TInteger 2]),
     ("unicode escapes", "`\\n `\\r `\\t `\\' `\\\\", map TUnicode ['\n', '\r', '\t', '\'', '\\']),
@@ -43,6 +43,7 @@ lexCases =
 lexErrors :: [(String, String)]
 lexErrors =
   [ ("path-qualified namespace", "ilk/list~empty"),
+    ("removed arrow syntax", "ℤ → ℤ"),
     ("unterminated text", "'no"),
     ("unknown text escape", "'\\q'"),
     ("empty unicode escape", "`\\;"),

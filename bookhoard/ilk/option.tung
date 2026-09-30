@@ -20,8 +20,8 @@ show ilk a option {
 graiþ a semigroup
 fill (a option) semigroup {
   let * = {
-    none, b ^ b,
-    a, none ^ a,
+    none,   b      ^ b,
+    a,      none   ^ a,
     a some, b some ^ a * b $ some
   }
 }
@@ -33,7 +33,7 @@ fill (a option) monoid {
 
 fill option functor {
   let map = {
-    none, _ ^ none,
+    none,   _ ^ none,
     a some, f ^ a f $ some
   }
 }
@@ -42,66 +42,65 @@ fill option applicative {
   let pure = some
   let apply = {
     a some, f some ^ a f $ some,
-    _, _ ^ none
+    _,      _      ^ none
   }
 }
 
 fill option monad {
   let flat = {
-    none ^ none,
+    none   ^ none,
     a some ^ a
   }
 }
 
 fill option filter {
   let filter = {
-    none, _ ^ none,
+    none, _   ^ none,
     a some, f ^ a f $ if (a some) none
   }
 }
 
 fill option cata {
   let fold₀ = {
-    none, b, _ ^ b,
+    none,   b, _ ^ b,
     a some, b, f ^ a f b
   }
   let fold₁ = {
-    none, b, _ ^ b,
+    none,   b, _ ^ b,
     a some, b, f ^ b f a
   }
 }
 
 fill option traverse {
   let traverse = {
-    none, _ ^ none pure,
+    none,   _ ^ none pure,
     a some, f ^ (a f) map some
   }
 }
 
 ## extract an option wiþ a fallback value.
-show let default: a option → a → a = {
-  none, b ^ b,
+show let default [a option, a, a] {
+  none,   b ^ b,
   a some, _ ^ a
 }
 
 ## consume an option wiþ a fallback and a present-value branch.
-show let maybe: a option → b → (a → b ! e) → b ! e = {
-  none, b, _ ^ b,
+show let maybe [a option, b, [a, b; e], b; e] {
+  none,   b, _ ^ b,
   a some, _, f ^ a f
 }
 
 ## true when an option containeþ a value.
-show let is-some: a option → 𝟚 = {
-  none ^ nay,
+show let is-some [a option, 𝟚] {
+  none   ^ nay,
   _ some ^ yea
 }
 
 ## true when an option is empty.
-show let (option: a option) is-none: 𝟚 = option is-some $ ¬
+show let is-none [option:a option, 𝟚] option is-some $ ¬
 
 ## extract an option or run a fallback computation.
-show let (option: a option, fallback: 𝟙 → a ! e) or-else: a ! e =
-  match option {
-    none ^ only fallback,
-    a some ^ a
-  }
+show let or-else [a option, [𝟙, a; e], a; e] {
+  none, fallback ^ only fallback,
+  a some, _ ^ a
+}

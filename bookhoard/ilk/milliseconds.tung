@@ -6,15 +6,15 @@ show ilk milliseconds {
   ℤ milliseconds
 }
 
-show let (t: ℤ) seconds: milliseconds =
+show let seconds [t:ℤ, milliseconds]
   t × 1000 $ milliseconds
 
-show let (t: ℤ) minutes: milliseconds =
+show let minutes [t:ℤ, milliseconds]
   t × 60 $ seconds
 
 
-show let (t: ℤ) hours: milliseconds =
+show let hours [t:ℤ, milliseconds]
   t × 60 $ minutes
 
-show let (t milliseconds: milliseconds) sleep-for: 𝟙 ! async =
+show let sleep-for [(t milliseconds):milliseconds, 𝟙; async]
   t sleep

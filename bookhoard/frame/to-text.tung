@@ -1,7 +1,7 @@
 use ilk/two.tung
 
 show frame a to-text {
-  let a to-text: text
+  let to-text [a, text]
 }
 
 fill 𝟚 to-text {

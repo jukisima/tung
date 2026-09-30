@@ -4,10 +4,10 @@ use ilk/two.tung
 
 ## a carrier whose every pair haþ an infimum.
 show frame a semilattice-lower {
-  let a ∧ a: a
-  law (a: a): a ∧ a = a
-  law (a: a, b: a): a ∧ b = b ∧ a
-  law (a: a, b: a, c: a): (a ∧ b) ∧ c = a ∧ (b ∧ c)
+  let ∧ [a, a, a]
+  law [a:a] a ∧ a = a
+  law [a:a, b:a] a ∧ b = b ∧ a
+  law [a:a, b:a, c:a] (a ∧ b) ∧ c = a ∧ (b ∧ c)
 }
 
 graiþ b semilattice-lower

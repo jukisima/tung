@@ -1,6 +1,6 @@
 use ground.tung
 
-let fibonacci: ℤ → ℤ = {
+let fibonacci [ℤ, ℤ] {
   0 ^ 0,
   1 ^ 1,
   n ^ match 0 ≤ n {
@@ -9,5 +9,5 @@ let fibonacci: ℤ → ℤ = {
   }
 }
 
-let _ main: 𝟙 ! console =
+let _ main [𝟙; console]
   40 fibonacci $ to-text $ write-line

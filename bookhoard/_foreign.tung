@@ -12,60 +12,60 @@ show-ilk task
 show deed divergent {}
 
 show deed e fail {
-  e fail: a
+  fail [e, a]
 }
 
 show deed console {
-  text write: 𝟙,
-  𝟙 read: text
+  write [text, 𝟙],
+  read [𝟙, text]
 }
 
 show deed random {
-  𝟙 random: float
+  random [𝟙, float]
 }
 
 show deed a state {
-  𝟙 get: a,
-  a set: 𝟙
+  get [𝟙, a],
+  set [a, 𝟙]
 }
 
 show deed async {
-  (𝟙 → a ! e) fork: a task ! e,
-  (a task) wait: a ! text fail,
-  (a task) fordo: 𝟙,
-  (a task) wait-for ℤ: a option ! text fail,
-  ℤ sleep: 𝟙
+  fork [[𝟙, a; e], a task; e],
+  wait [a task, a; text fail],
+  fordo [a task, 𝟙],
+  wait-for [a task, ℤ, a option; text fail],
+  sleep [ℤ, 𝟙]
 }
 
 show deed file {
-  text read-file: text ! text fail,
-  text write-file text: 𝟙 ! text fail,
-  text append-file text: 𝟙 ! text fail
+  read-file [text, text; text fail],
+  write-file [text, text, 𝟙; text fail],
+  append-file [text, text, 𝟙; text fail]
 }
 
-show let add-integer: ℤ → ℤ → ℤ = 'add-integer' fremmed
-show let subtract-integer: ℤ → ℤ → ℤ = 'subtract-integer' fremmed
-show let multiply-integer: ℤ → ℤ → ℤ = 'multiply-integer' fremmed
-show let divide-remainder-integer: ℤ → ℤ → ℤ ∏ ℤ ! text fail = 'divide-remainder-integer' fremmed
-show let add-float: float → float → float = 'add-float' fremmed
-show let subtract-float: float → float → float = 'subtract-float' fremmed
-show let multiply-float: float → float → float = 'multiply-float' fremmed
-show let divide-float: float → float → float = 'divide-float' fremmed
-show let sine-float: float → float = 'sine-float' fremmed
-show let arctan-float: float → float → float = 'arctan-float' fremmed
-show let exponent-float: float → float = 'exponent-float' fremmed
-show let logariþm-float: float → float = 'logariþm-float' fremmed
-show let ⌊: float → ℤ ! text fail = '⌊' fremmed
-show let equal-integer: ℤ → ℤ → 𝟚 = 'equal-integer' fremmed
-show let integer-to-text: ℤ → text = 'integer-to-text' fremmed
-show let float-to-text: float → text = 'float-to-text' fremmed
-show let unicode-to-integer: unicode → ℤ = 'unicode-to-integer' fremmed
-show let integer-to-unicode: ℤ → unicode ! text fail = 'integer-to-unicode' fremmed
-show let behead-text: text → (unicode ∏ text) option = 'behead-text' fremmed
-show let text-to-list: text → unicode list = 'text-to-list' fremmed
-show let list-to-text: unicode list → text = 'list-to-text' fremmed
-show let join-text: text → text → text = 'join-text' fremmed
-show let equal-text: text → text → 𝟚 = 'equal-text' fremmed
-show let equal-unicode: unicode → unicode → 𝟚 = 'equal-unicode' fremmed
-show let less-equal-text: text → text → 𝟚 = 'less-equal-text' fremmed
-show let less-equal-unicode: unicode → unicode → 𝟚 = 'less-equal-unicode' fremmed
+show let add-integer [ℤ, ℤ, ℤ] 'add-integer' fremmed
+show let subtract-integer [ℤ, ℤ, ℤ] 'subtract-integer' fremmed
+show let multiply-integer [ℤ, ℤ, ℤ] 'multiply-integer' fremmed
+show let divide-remainder-integer [ℤ, ℤ, ℤ ∏ ℤ; text fail] 'divide-remainder-integer' fremmed
+show let add-float [float, float, float] 'add-float' fremmed
+show let subtract-float [float, float, float] 'subtract-float' fremmed
+show let multiply-float [float, float, float] 'multiply-float' fremmed
+show let divide-float [float, float, float] 'divide-float' fremmed
+show let sine-float [float, float] 'sine-float' fremmed
+show let arctan-float [float, float, float] 'arctan-float' fremmed
+show let exponent-float [float, float] 'exponent-float' fremmed
+show let logariþm-float [float, float] 'logariþm-float' fremmed
+show let ⌊ [float, ℤ; text fail] '⌊' fremmed
+show let equal-integer [ℤ, ℤ, 𝟚] 'equal-integer' fremmed
+show let integer-to-text [ℤ, text] 'integer-to-text' fremmed
+show let float-to-text [float, text] 'float-to-text' fremmed
+show let unicode-to-integer [unicode, ℤ] 'unicode-to-integer' fremmed
+show let integer-to-unicode [ℤ, unicode; text fail] 'integer-to-unicode' fremmed
+show let behead-text [text, (unicode ∏ text) option] 'behead-text' fremmed
+show let text-to-list [text, unicode list] 'text-to-list' fremmed
+show let list-to-text [unicode list, text] 'list-to-text' fremmed
+show let join-text [text, text, text] 'join-text' fremmed
+show let equal-text [text, text, 𝟚] 'equal-text' fremmed
+show let equal-unicode [unicode, unicode, 𝟚] 'equal-unicode' fremmed
+show let less-equal-text [text, text, 𝟚] 'less-equal-text' fremmed
+show let less-equal-unicode [unicode, unicode, 𝟚] 'less-equal-unicode' fremmed

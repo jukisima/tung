@@ -17,4 +17,20 @@ import Test.Type qualified as Type
 import Test.Validate qualified as Validate
 
 main :: IO ()
-main = runGroups [Token.group, Parse.group, Format.group, Validate.group, Import.group, Project.group, Library.group, Type.group, Name.group, Evaluate.group, Bookhoard.group, Core.group, Diagnostic.group, Integration.group]
+main =
+  runGroups
+    [ ("token", Token.group),
+      ("parse", Parse.group),
+      ("format", Format.group),
+      ("validate", Validate.group),
+      ("import", Import.group),
+      ("project", Project.group),
+      ("library", Library.group),
+      ("type", Type.group),
+      ("name", Name.group),
+      ("evaluate", Evaluate.group),
+      ("bookhoard", Bookhoard.group),
+      ("core", Core.group),
+      ("diagnostic", Diagnostic.group),
+      ("integration", Integration.group)
+    ]

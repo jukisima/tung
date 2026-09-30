@@ -19,8 +19,8 @@ import Text.Read (readMaybe)
 import Tung
 
 data Config = Config
-  { configRuns :: Int
-  , configSize :: Int
+  { configRuns :: Int,
+    configSize :: Int
   }
 
 data BenchmarkCase
@@ -34,14 +34,14 @@ data BenchmarkCase
   deriving stock (Bounded, Enum, Eq, Show)
 
 data Sample = Sample
-  { sampleElapsedNs :: Word64
-  , sampleAllocatedBytes :: Word64
-  , samplePeakMemoryBytes :: Word64
+  { sampleElapsedNs :: Word64,
+    sampleAllocatedBytes :: Word64,
+    samplePeakMemoryBytes :: Word64
   }
 
 data SourceBundle = SourceBundle
-  { bundleSource :: String
-  , bundleImports :: Map.Map String String
+  { bundleSource :: String,
+    bundleImports :: Map.Map String String
   }
 
 main :: IO ()
@@ -53,20 +53,20 @@ main = do
       size <- positiveInteger "size" sizeText
       runChild benchmarkCase size
     _ -> do
-      Config{configRuns, configSize} <- parseConfig arguments
+      Config {configRuns, configSize} <- parseConfig arguments
       runParent configRuns configSize
 
 parseConfig :: [String] -> IO Config
 parseConfig = go (Config 3 1000)
- where
-  go config [] = pure config
-  go config ("--runs" : value : rest) = do
-    runs <- positiveInteger "runs" value
-    go config{configRuns = runs} rest
-  go config ("--size" : value : rest) = do
-    size <- positiveInteger "size" value
-    go config{configSize = size} rest
-  go _ _ = die "usage: tung-benchmark [--runs positive-integer] [--size positive-integer]"
+  where
+    go config [] = pure config
+    go config ("--runs" : value : rest) = do
+      runs <- positiveInteger "runs" value
+      go config {configRuns = runs} rest
+    go config ("--size" : value : rest) = do
+      size <- positiveInteger "size" value
+      go config {configSize = size} rest
+    go _ _ = die "usage: tung-benchmark [--runs positive-integer] [--size positive-integer]"
 
 positiveInteger :: String -> String -> IO Int
 positiveInteger label value = case readMaybe value of
@@ -155,11 +155,11 @@ runChild benchmarkCase size = do
   putStrLn
     ( intercalate
         "\t"
-        [ "tung-benchmark-sample"
-        , caseName benchmarkCase
-        , show (finished - started)
-        , show (allocated_bytes after - allocated_bytes before)
-        , show (max_mem_in_use_bytes after)
+        [ "tung-benchmark-sample",
+          caseName benchmarkCase,
+          show (finished - started),
+          show (allocated_bytes after - allocated_bytes before),
+          show (max_mem_in_use_bytes after)
         ]
     )
 
@@ -178,11 +178,11 @@ generatedBundle size =
   SourceBundle
     { bundleSource =
         unlines
-          ( ["let value0: ℤ = 0"]
-              ++ ["let value" ++ show index ++ ": ℤ = " ++ show index | index <- [1 .. size - 1]]
+          ( ["let value0 [ℤ] 0"]
+              ++ ["let value" ++ show index ++ " [ℤ] " ++ show index | index <- [1 .. size - 1]]
               ++ ["yield value" ++ show (size - 1)]
-          )
-    , bundleImports = Map.empty
+          ),
+      bundleImports = Map.empty
     }
 
 loadByspel :: FilePath -> IO SourceBundle
@@ -196,17 +196,17 @@ loadByspel relativePath = do
 
 findRepositoryRoot :: IO FilePath
 findRepositoryRoot = getCurrentDirectory >>= search
- where
-  search directory = do
-    hathBenchmark <- doesFileExist (directory </> "benchmark/fibonacci.tung")
-    hathCabal <- doesFileExist (directory </> "tongue/tung.cabal")
-    if hathBenchmark && hathCabal
-      then pure directory
-      else
-        let parent = takeDirectory directory
-         in if parent == directory
-              then die "could not find the tung repository root"
-              else search parent
+  where
+    search directory = do
+      hathBenchmark <- doesFileExist (directory </> "benchmark/fibonacci.tung")
+      hathCabal <- doesFileExist (directory </> "tongue/tung.cabal")
+      if hathBenchmark && hathCabal
+        then pure directory
+        else
+          let parent = takeDirectory directory
+           in if parent == directory
+                then die "could not find the tung repository root"
+                else search parent
 
 compileAndForce :: Bool -> SourceBundle -> IO ()
 compileAndForce runnable bundle = compileBundle runnable bundle >>= forceCore
@@ -224,14 +224,14 @@ evaluateAction runnable bundle = do
     unless ("eval ok: " `isPrefixOf` result) (die result)
 
 compileBundle :: Bool -> SourceBundle -> IO CoreProgram
-compileBundle runnable SourceBundle{bundleSource, bundleImports} =
+compileBundle runnable SourceBundle {bundleSource, bundleImports} =
   case parse bundleSource >>= elaborate of
     Left message -> die ("benchmark compilation failed: " ++ message)
     Right program -> pure program
- where
-  elaborate program
-    | runnable = elaborateProgramWithImports program bundleImports True
-    | otherwise = elaborateInteractiveProgramWithImports program bundleImports
+  where
+    elaborate program
+      | runnable = elaborateProgramWithImports program bundleImports True
+      | otherwise = elaborateInteractiveProgramWithImports program bundleImports
 
 forceCore :: CoreProgram -> IO ()
 forceCore program = void (Exception.evaluate (length (show program)))

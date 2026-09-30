@@ -1,15 +1,15 @@
 use ground.tung
 
 deed pick {
-  𝟙 pick: ℤ
+  pick [𝟙, ℤ]
 }
 
-let branch-sum: ℤ =
+let branch-sum [ℤ]
   try (only pick) + (only pick) {
     _ pick ^ (2 eftgin) + (3 eftgin)
   }
 
-let (_: 𝟙) main: 𝟙 ! console = (
+let main [_:𝟙, 𝟙; console] (
   let _ = 'multi-shot' write-line
   yield branch-sum to-text $ write-line
 )

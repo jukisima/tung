@@ -6,7 +6,7 @@ use ilk/supremal.tung
 
 graiþ a magma
 show frame a semigroup {
-  law (a: a, b: a, c: a): a * (b * c) = (a * b) * c
+  law [a:a, b:a, c:a] a * (b * c) = (a * b) * c
 }
 
 show-ilk infimal, supremal

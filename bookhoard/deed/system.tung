@@ -3,7 +3,7 @@ use ilk/option.tung
 
 ## host arguments, settings, and process ending.
 show deed system {
-  𝟙 arguments: text list,
-  text environment: text option,
-  ℤ exit: a
+  arguments [𝟙, text list],
+  environment [text, text option],
+  exit [ℤ, a]
 }

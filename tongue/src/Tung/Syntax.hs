@@ -1,29 +1,28 @@
-{- | shared surface and elaboration syntax. the parser emitteþ only surface
-forms; elaborated declarations and resolved expression/pattern constructors are
-internal forms.
--}
-module Tung.Syntax (
-  Program (..),
-  Decl (..),
-  EffectOp (..),
-  Ctor (..),
-  ShapeMember (..),
-  shapeMemberSignature,
-  shapeMemberNames,
-  ShapeNeed (..),
-  TypeAnn (..),
-  TypeExpr (..),
-  Expr (..),
-  isAnonymousMatchExpr,
-  HandlerTarget (..),
-  HandlerCase (..),
-  ReturnCase (..),
-  RecordUpdate (..),
-  Pattern (..),
-  MatchCase (..),
-  matchCaseArity,
-  matchRows,
-)
+-- | shared surface and elaboration syntax. the parser emitteþ only surface
+-- forms; elaborated declarations and resolved expression/pattern constructors are
+-- internal forms.
+module Tung.Syntax
+  ( Program (..),
+    Decl (..),
+    EffectOp (..),
+    Ctor (..),
+    ShapeMember (..),
+    shapeMemberSignature,
+    shapeMemberNames,
+    ShapeNeed (..),
+    TypeAnn (..),
+    TypeExpr (..),
+    Expr (..),
+    isAnonymousMatchExpr,
+    HandlerTarget (..),
+    HandlerCase (..),
+    ReturnCase (..),
+    RecordUpdate (..),
+    Pattern (..),
+    MatchCase (..),
+    matchCaseArity,
+    matchRows,
+  )
 where
 
 import Data.List.NonEmpty (NonEmpty (..))
@@ -60,18 +59,18 @@ data TypeAnn = TypeAnn TypeExpr [ShapeNeed] deriving (Eq, Show)
 
 data ShapeMember
   = ShapeSpec String TypeAnn
-  | ShapeLaw [(String, TypeExpr)] Expr Expr
+  | ShapeLaw [(Pattern, TypeExpr)] Expr Expr
   deriving (Eq, Show)
 
 shapeMemberSignature :: ShapeMember -> Maybe (String, TypeAnn)
 shapeMemberSignature = \case
   ShapeSpec name annotation -> Just (name, annotation)
-  ShapeLaw{} -> Nothing
+  ShapeLaw {} -> Nothing
 
 shapeMemberNames :: [ShapeMember] -> [String]
 shapeMemberNames = mapMaybe \case
   ShapeSpec name _ -> Just name
-  ShapeLaw{} -> Nothing
+  ShapeLaw {} -> Nothing
 
 data TypeExpr
   = TypeName String

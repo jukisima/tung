@@ -6,9 +6,9 @@ use frame/functor/cata.tung
 graiþ f functor, f cata
 show frame f traverse {
   graiþ m applicative
-  let (a f) traverse (a → b m): (b f) m
+  let traverse [a f, [a, b m], (b f) m]
 }
 
 graiþ f traverse, m applicative
-show let (amf: (a m) f) sequence: (a f) m =
+show let sequence [amf:(a m) f, (a f) m]
   amf traverse sameness

@@ -23,6 +23,7 @@ const fileDeclarationKeywords = new Set([
 ]);
 const closeForOpen = new Map([
   ["(", ")"],
+  ["[", "]"],
   ["r(", ")"],
   ["<(", ")"],
   [">(", ")"],

@@ -6,14 +6,14 @@ use numeric/constant.tung
 
 graiþ a divide
 show frame a elementary {
-  let a exponent: a
-  let a logariþm: a
-  let a sine: a
-  let a cosine: a
+  let exponent [a, a]
+  let logariþm [a, a]
+  let sine [a, a]
+  let cosine [a, a]
 }
 
 graiþ a elementary, a divide
-show let (a: a) tangent: a = (a sine) ÷ (a cosine)
+show let tangent [a:a, a] (a sine) ÷ (a cosine)
 
 fill float elementary {
   let exponent = exponent-float

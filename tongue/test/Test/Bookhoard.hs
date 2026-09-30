@@ -137,8 +137,8 @@ runnerEffectsCase imports =
   where
     source =
       "use ground.tung use deed/clock.tung use deed/process.tung use deed/system.tung use web/server.tung use ilk/list.tung use ilk/option.tung "
-        ++ "let (_: request) route: response = 'ok' ok "
-        ++ "let (_: 𝟙) main: 𝟙 ! system, clock, process, web = ("
+        ++ "let route [_: request, response] 'ok' ok "
+        ++ "let main [_: 𝟙, 𝟙; system, clock, process, web] ("
         ++ "let args = only arguments "
         ++ "let setting = 'TUNG_SETTING' environment "
         ++ "let stamp = only unix-time "

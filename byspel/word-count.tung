@@ -8,24 +8,24 @@ use ilk/product.tung
 use ilk/table.tung
 use ilk/text/operation.tung
 
-let (counts: text table ℤ, word: text) count-word: text table ℤ =
+let count-word [counts:text table ℤ, word:text, text table ℤ]
   match counts lookup word {
     none ^ counts put word 1,
     count some ^ counts put word (count + 1)
   }
 
-let (content: text) count-words: text table ℤ = (
+let count-words [content:text, text table ℤ] (
   let words = content words-text
   yield words fold₁ table~empty count-word
 )
 
-let (entry: text ∏ ℤ) write-count: 𝟙 ! console = (
+let write-count [entry:text ∏ ℤ, 𝟙; console] (
   let _ = (entry project₀) write
-  let _ = ': ' write
+  let _ = ':' write
   yield (entry project₁) to-text $ write-line
 )
 
-let (_: 𝟙) main: 𝟙 ! console, file, system =
+let main [_:𝟙, 𝟙; console, file, system]
   match only arguments {
     list~empty ^ 'usage: tung word-count.tung <file>' write-line,
     paþ _* _ ^ try (
@@ -33,6 +33,6 @@ let (_: 𝟙) main: 𝟙 ! console, file, system =
       let counts = content count-words
       yield (counts entries) each write-count
     ) {
-      message fail ^ 'error: ' * message $ write-line
+      message fail ^ 'error:' * message $ write-line
     }
   }

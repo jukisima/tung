@@ -3,5 +3,5 @@ use process/result.tung
 
 ## run a child process and capture its status, standard output, and standard error.
 show deed process {
-  text run-process (text list): process-result ! text fail
+  run-process [text, text list, process-result; text fail]
 }

@@ -1,7 +1,7 @@
 use ilk/two.tung
 
 show frame a zero {
-  let zero: a
+  let zero [a]
 }
 
 fill 𝟚 zero {

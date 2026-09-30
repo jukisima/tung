@@ -1,7 +1,7 @@
-show let (a: a, f: a → b ! e) call: b ! e = a f
+show let call [a:a, f:[a, b; e], b; e] a f
 
-show let (a: a, _: b) constant: a = a
+show let constant [a:a, _:b, a] a
 
-show let (f: a → b → c ! e, b: b, a: a) flip: c ! e = a f b
+show let flip [f:[a, b, c; e], b:b, a:a, c; e] a f b
 
-show let (a: a, f: a → a → b ! e) duplicate: b ! e = a f a
+show let duplicate [a:a, f:[a, a, b; e], b; e] a f a

@@ -7,7 +7,7 @@ import {
 } from "../server/analysis.ts";
 test("analysis recordeþ shown owners, members, parameters, and imports", () => {
   const source =
-    "use ground.tung graiþ a equal show frame a order-partial { let a ≤ a: 𝟚 let a < b = a ≤ b }";
+    "use ground.tung graiþ a equal show frame a order-partial { let ≤ [a, a, 𝟚] let a < b = a ≤ b }";
   const model = analyzeDocument(source, "file:///model.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
@@ -95,7 +95,7 @@ test("analysis keepeþ term and type re-exports distinct", () => {
 test("analysis attacheþ doc comments to following shown declarations", () => {
   const source = [
     "## identity value.",
-    "graiþ a equal show let (x: a) identity: a = x",
+    "graiþ a equal show let identity [x: a, a] x",
     "",
     "/**",
     " * boxed data.",
@@ -115,7 +115,7 @@ test("analysis attacheþ doc comments to following shown declarations", () => {
   );
 });
 test("local resolution preferreþ the narrowest binder scope", () => {
-  const source = "let (x: ℤ) keep: ℤ = match x { x ^ x }";
+  const source = "let keep [x: ℤ, ℤ] match x { x ^ x }";
   const model = analyzeDocument(source, "file:///scope.tung");
   const use = model.tokens.filter(({ text }) => text === "x").at(-1);
   const definition = findDefinition(model, use, use.offset);
@@ -124,6 +124,17 @@ test("local resolution preferreþ the narrowest binder scope", () => {
     definition.token.offset,
     model.tokens.filter(({ text }) => text === "x").at(-2).offset,
   );
+});
+test("positional and bracket parameters resolve in one function body", () => {
+  const source = "let a add [b: ℤ, ℤ] a + b";
+  const model = analyzeDocument(source, "file:///mixed-header.tung");
+  for (const name of ["a", "b"]) {
+    const occurrences = model.tokens.filter(({ text }) => text === name);
+    const use = occurrences.at(-1);
+    const definition = findDefinition(model, use, use.offset);
+    assert.equal(definition.role, "parameter");
+    assert.equal(definition.token.offset, occurrences[0].offset);
+  }
 });
 test("malformed pattern scope recovereþ through the end of the buffer", () => {
   const source = "let choose = { (left, right ^ right";

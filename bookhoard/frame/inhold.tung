@@ -2,5 +2,5 @@ use ilk/two.tung
 
 ## a container whose membership can be decided.
 show frame a inhold b {
-  let a ∋ b: 𝟚
+  let ∋ [a, b, 𝟚]
 }

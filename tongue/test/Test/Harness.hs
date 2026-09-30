@@ -25,12 +25,13 @@ module Test.Harness
   )
 where
 
-import Control.Monad (foldM, when)
+import Control.Monad (foldM, forM_, when)
 import Data.List (isInfixOf, isPrefixOf)
 import Data.Map.Strict qualified as Map
 import System.Environment qualified as Environment
-import System.Exit (exitFailure)
+import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (hFlush, stdout)
+import System.Process (createProcess, env, proc, waitForProcess)
 import Test.QuickCheck qualified as QuickCheck
 import Test.QuickCheck.Random qualified as QuickCheck
 import Tung
@@ -42,25 +43,32 @@ data Group = Group String [Test]
 group :: String -> [Test] -> IO Group
 group name tests = pure (Group name tests)
 
-runGroups :: [IO Group] -> IO ()
-runGroups actions = do
+runGroups :: [(String, IO Group)] -> IO ()
+runGroups groups = do
   progress <- (== Just "1") <$> Environment.lookupEnv "TUNG_TEST_PROGRESS"
   selected <- Environment.lookupEnv "TUNG_TEST_GROUP"
-  go progress selected 0 [] actions
+  case selected of
+    Nothing -> do
+      executable <- Environment.getExecutablePath
+      environment <- Environment.getEnvironment
+      forM_ (map fst groups) $ \name -> do
+        let childEnvironment = ("TUNG_TEST_GROUP", name) : filter ((/= "TUNG_TEST_GROUP") . fst) environment
+        (_, _, _, child) <- createProcess (proc executable []) {env = Just childEnvironment}
+        waitForProcess child >>= \case
+          ExitSuccess -> pure ()
+          failure -> exitWith failure
+    Just names -> go progress 0 [] [action | (name, action) <- groups, name `elem` words names]
   where
-    go _ _ count failures [] =
+    go _ count failures [] =
       if null failures
         then putStrLn ("ok (" ++ show count ++ " tests)")
         else mapM_ putStrLn (reverse failures) >> exitFailure
-    go progress selected count failures (action : rest) = do
+    go progress count failures (action : rest) = do
       Group name tests <- action
-      if maybe True (elem name . words) selected
-        then do
-          when progress (putStrLn ("running " ++ name) >> hFlush stdout)
-          found <- foldM (runTest progress name) failures (zip [1 :: Int ..] tests)
-          let nextCount = count + length tests
-          nextCount `seq` go progress selected nextCount found rest
-        else go progress selected count failures rest
+      when progress (putStrLn ("running " ++ name) >> hFlush stdout)
+      found <- foldM (runTest progress name) failures (zip [1 :: Int ..] tests)
+      let nextCount = count + length tests
+      nextCount `seq` go progress nextCount found rest
     runTest progress name failures (index, test) = do
       when progress (putStrLn (name ++ "/" ++ show index) >> hFlush stdout)
       result <- test

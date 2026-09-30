@@ -5,8 +5,8 @@ use ilk/two.tung
 ## a supremum semilattice wiþ a least value.
 graiþ a semilattice-upper
 show frame a semilattice-upper-bounded {
-  let ⟂: a
-  law (a: a): ⟂ ∨ a = a
+  let ⟂ [a]
+  law [a:a] ⟂ ∨ a = a
 }
 
 graiþ b semilattice-upper-bounded

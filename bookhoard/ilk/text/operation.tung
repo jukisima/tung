@@ -16,7 +16,7 @@ use ilk/text/structure.tung
 use ilk/two.tung
 
 ## true when text haþ no unicode code points.
-show let (text: text) is-empty-text: 𝟚 =
+show let is-empty-text [text:text, 𝟚]
   match text behead-text {
     none ^ yea,
     _ some ^ nay
@@ -27,22 +27,25 @@ fill text size {
   let text size = text text-to-list $ size
 }
 
-show let (text: text, count: ℤ) take-text: text =
+show let take-text [text:text, count:ℤ, text]
   text text-to-list $ take count $ list-to-text
 
-show let (text: text, count: ℤ) drop-text: text =
+show let drop-text [text:text, count:ℤ, text]
   text text-to-list $ drop count $ list-to-text
 
-show let (text: text) reverse-text: text =
+show let reverse-text [text:text, text]
   text text-to-list $ reverse $ list-to-text
 
-show let (character: unicode, text: text) prepend-text: text =
+show let prepend-text [character:unicode, text:text, text]
   character _* (text text-to-list) $ list-to-text
 
-show let (text: text, character: unicode) append-text: text =
+show let append-text [text:text, character:unicode, text]
   text text-to-list $ * (character singleton) $ list-to-text
 
-let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode list) list =
+let split-unicode-by [
+  list:unicode list,
+  separates:[unicode, 𝟚],
+  (unicode list) list]
   match list {
     empty ^ empty _* empty,
     character _* rest ^ match rest split-unicode-by separates {
@@ -54,25 +57,28 @@ let (list: unicode list, separates: unicode → 𝟚) split-unicode-by: (unicode
     }
   }
 
-let (list: unicode list, separator: unicode) split-unicode: (unicode list) list =
+let split-unicode [
+  list:unicode list,
+  separator:unicode,
+  (unicode list) list]
   list split-unicode-by { character ^
     character ≡ separator
   }
 
-let (unicode: unicode) is-whitespace: 𝟚 =
+let is-whitespace [unicode:unicode, 𝟚]
   <(∨, unicode ≡ `\32;, unicode ≡ `\9;, unicode ≡ `\10;, unicode ≡ `\13;)
 
 
 ## split text at each separator code point.
-show let (text: text, separator: unicode) split-text: text list =
+show let split-text [text:text, separator:unicode, text list]
   text text-to-list $ split-unicode separator $ map list-to-text
 
 ## split text on runs of common ascii whitespace.
-show let (text: text) words-text: text list =
+show let words-text [text:text, text list]
   text text-to-list $ split-unicode-by is-whitespace $ map list-to-text $ filter (is-empty-text ∘ ¬)
 
 ## join text values wiþ a separator between neighbours.
-show let join-wiþ-text: text list → text → text = {
+show let join-wiþ-text [text list, text, text] {
   empty, _ ^ '',
   text _* texts, separator ^ texts fold₁ text {
     joined, next ^ (joined * separator) * next

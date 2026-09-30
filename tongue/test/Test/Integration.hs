@@ -50,12 +50,12 @@ runnableFileCase imports path = do
 
 mainEntry :: Imports -> Test
 mainEntry imports = do
-  actual <- evaluateMainWithImports "use ground.tung let (_: 𝟙) main: 𝟙 = only yield 42" imports
+  actual <- evaluateMainWithImports "use ground.tung let main [_: 𝟙, 𝟙] only yield 42" imports
   pure $ if actual == "eval ok: only" then Nothing else Just ("main entry: " ++ actual)
 
 rejectedMain :: Imports -> Test
 rejectedMain imports = do
-  actual <- evaluateMainWithImports "use ground.tung let (_: 𝟙) main: 𝟙 = missing" imports
+  actual <- evaluateMainWithImports "use ground.tung let main [_: 𝟙, 𝟙] missing" imports
   pure $ if "type error:" `isPrefixOf` actual then Nothing else Just ("rejected main reached evaluation: " ++ actual)
 
 fibonacciSampleResult :: Imports -> Test
@@ -85,7 +85,7 @@ webServerRoundTrip imports = do
         use ilk/table.tung
         use web/server.tung
 
-        let (incoming: request) route: response ! clock = (
+        let route [incoming: request, response; clock] (
           let stamp = only unix-time
           yield match ((incoming request-meþod) ≡ 'POST') ∧ ((incoming request-target) ≡ '/echo') {
             yea ^ match ((incoming request-headers) table~lookup 'Host') {
@@ -99,7 +99,7 @@ webServerRoundTrip imports = do
           }
         )
 
-        let (_: 𝟙) main: 𝟙 ! clock, web = try
+        let main [_: 𝟙, 𝟙; clock, web] try
         """
           ++ " "
           ++ show port

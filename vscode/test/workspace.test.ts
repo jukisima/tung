@@ -10,8 +10,8 @@ test("workspace resolveþ only shown names across an import", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "dep.tung");
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(dep, "show let answer: ℤ = 42 let hidden = 0");
-  fs.writeFileSync(main, "use dep.tung let value: ℤ = answer");
+  fs.writeFileSync(dep, "show let answer [ℤ] 42 let hidden = 0");
+  fs.writeFileSync(main, "use dep.tung let value [ℤ] answer");
   const documents = { get: () => undefined, all: () => [] };
   const workspace = new WorkspaceIndex(documents);
   workspace.configure([root]);
@@ -30,7 +30,7 @@ test("workspace explicit import alias replaceeþ the default namespace", (contex
   const dep = path.join(root, "data", "dep.tung");
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
-  fs.writeFileSync(dep, "show let answer: ℤ = 42");
+  fs.writeFileSync(dep, "show let answer [ℤ] 42");
   fs.writeFileSync(main, "use data/dep.tung d yield d~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -53,7 +53,7 @@ test("workspace resolveþ and completeþ a default basename alias", (context) =>
   const dep = path.join(root, "data", "dep.tung");
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
-  fs.writeFileSync(dep, "show let answer: ℤ = 42");
+  fs.writeFileSync(dep, "show let answer [ℤ] 42");
   fs.writeFileSync(main, "use data/dep.tung yield dep~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -74,7 +74,7 @@ test("workspace default alias ignoreþ dots in import directories", (context) =>
   const dep = path.join(root, "pkg.one", "query.tung");
   const main = path.join(root, "main.tung");
   fs.mkdirSync(path.dirname(dep), { recursive: true });
-  fs.writeFileSync(dep, "show let answer: ℤ = 42");
+  fs.writeFileSync(dep, "show let answer [ℤ] 42");
   fs.writeFileSync(main, "use pkg.one/query.tung yield query~answer");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -129,7 +129,7 @@ test("workspace re-exports deeds through the type namespace", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "ask-base.tung"),
-    "show deed ask { ℤ ask: ℤ }",
+    "show deed ask { ask [ℤ, ℤ] }",
   );
   fs.writeFileSync(
     path.join(root, "ask-middle.tung"),
@@ -138,7 +138,7 @@ test("workspace re-exports deeds through the type namespace", (context) => {
   const main = path.join(root, "main.tung");
   fs.writeFileSync(
     main,
-    "use ask-middle.tung let run: ℤ → ℤ ! ask = { x ^ x ask }",
+    "use ask-middle.tung let run [ℤ, ℤ; ask] { x ^ x ask }",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);

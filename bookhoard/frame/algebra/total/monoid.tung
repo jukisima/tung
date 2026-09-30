@@ -5,10 +5,10 @@ use frame/order/semilattice-upper-bounded.tung
 
 graiþ a semigroup
 show frame a monoid {
-  let ∅: a
+  let ∅ [a]
 
-  law (a: a): ∅ * a = a
-  law (a: a): a * ∅ = a
+  law [a:a] ∅ * a = a
+  law [a:a] a * ∅ = a
 }
 
 graiþ b monoid

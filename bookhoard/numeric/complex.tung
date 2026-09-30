@@ -12,12 +12,12 @@ show ilk a complex {
   a complex a
 }
 
-show let (a complex _: a complex) real: a = a
+show let real [(a complex _):a complex, a] a
 
-show let (_ complex b: a complex) imaginary: a = b
+show let imaginary [(_ complex b):a complex, a] b
 
 graiþ a zero, a one
-show let unit: a complex = zero complex one
+show let unit [a complex] zero complex one
 
 graiþ a add
 fill (a complex) add {

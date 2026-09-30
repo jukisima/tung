@@ -4,7 +4,7 @@ use ilk/two.tung
 
 graiþ a add
 show frame a subtract {
-  let a - a: a
+  let - [a, a, a]
 }
 
 fill ℤ subtract {

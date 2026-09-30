@@ -14,30 +14,34 @@ show ilk k table v {
   ((k ∏ v) list) from-list
 }
 
-show let empty: k table v = list~empty from-list
+show let empty [k table v] list~empty from-list
 
-show let (key: k, value: v) singleton: k table v =
+show let singleton [key:k, value:v, k table v]
   key ∏ value $ _* list~empty $ from-list
 
-show let (list from-list: k table v) entries: (k ∏ v) list =
+show let entries [list from-list:k table v, (k ∏ v) list]
   list
 
 graiþ k equal
-show let (list from-list: k table v, key: k) lookup: v option =
+show let lookup [list from-list:k table v, key:k, v option]
   list find { pair ^ key ≡ (pair project₀) } $ map project₁
 
 graiþ k equal
-show let (list from-list: k table v, key: k, value: v) put: k table v =
+show let put [
+  list from-list:k table v,
+  key:k,
+  value:v,
+  k table v]
   (key ∏ value) _* (list filter { pair ^ key ≢ (pair project₀) }) $ from-list
 
 graiþ k equal
-show let (list from-list: k table v, key: k) rid: k table v =
+show let rid [list from-list:k table v, key:k, k table v]
   list filter { pair ^ key ≢ (pair project₀) } $ from-list
 
-show let (list from-list: k table v) keys: k list =
+show let keys [list from-list:k table v, k list]
   list map project₀
 
-show let (list from-list: k table v) values: v list =
+show let values [list from-list:k table v, v list]
   list map project₁
 
 graiþ k equal
@@ -62,13 +66,17 @@ fill (k table v) size {
 }
 
 graiþ k equal
-show let (first: k table v, oþer: k table v) merge: k table v =
+show let merge [first:k table v, oþer:k table v, k table v]
   (oþer entries) fold₁ first {
     table, pair ^ table put (pair project₀) (pair project₁)
   }
 
 graiþ k equal
-show let (list from-list: k table v, key: k, change: v → v ! e) adjust: k table v ! e =
+show let adjust [
+  list from-list:k table v,
+  key:k,
+  change:[v, v; e],
+  k table v; e]
   list map { pair ^ match key ≡ (pair project₀) {
       nay ^ pair,
       yea ^ pair map change

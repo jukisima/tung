@@ -11,45 +11,45 @@ group = Harness.group "name" (resolutionCases ++ [lookupCase, canonicalTypeCase,
 
 resolutionCases :: [Test]
 resolutionCases =
-  [ typeOkWith "unique imported value may be bare" "use left.tung let ok: ℤ = foo" leftOnly,
-    typeErrWith "two imported values are ambiguous" "use left.tung use right.tung let bad: ℤ = foo" both,
-    typeOkWith "qualification resolveþ value ambiguity" "use left.tung use right.tung let ok: ℤ = left~foo + right~foo" both,
+  [ typeOkWith "unique imported value may be bare" "use left.tung let ok [ℤ] foo" leftOnly,
+    typeErrWith "two imported values are ambiguous" "use left.tung use right.tung let bad [ℤ] foo" both,
+    typeOkWith "qualification resolveþ value ambiguity" "use left.tung use right.tung let ok [ℤ] left~foo + right~foo" both,
     typeErrWith "unknown qualified namespace" "use left.tung let bad = right~foo" leftOnly,
-    typeOkWith "local value shadows imported values" "use left.tung use right.tung let foo = 3 let ok: ℤ = foo" both,
-    typeOkWith "unique imported constructor may be bare" "use left.tung let ok: left~box = box" leftOnly,
+    typeOkWith "local value shadows imported values" "use left.tung use right.tung let foo = 3 let ok [ℤ] foo" both,
+    typeOkWith "unique imported constructor may be bare" "use left.tung let ok [left~box] box" leftOnly,
     typeErrWith "constructors are ambiguous too" "use left.tung use right.tung let bad = box" both,
-    typeOkWith "qualified constructor resolveþ ambiguity" "use left.tung use right.tung let ok: left~box = left~box" both,
-    typeErrWith "bare imported types are ambiguous" "use left.tung use right.tung let bad: box = left~box" both,
-    typeOkWith "qualified type resolveþ ambiguity" "use left.tung use right.tung let ok: left~box = left~box" both,
+    typeOkWith "qualified constructor resolveþ ambiguity" "use left.tung use right.tung let ok [left~box] left~box" both,
+    typeErrWith "bare imported types are ambiguous" "use left.tung use right.tung let bad [box] left~box" both,
+    typeOkWith "qualified type resolveþ ambiguity" "use left.tung use right.tung let ok [left~box] left~box" both,
     typeErrWith "exports hide unshown values" "use public.tung let bad = hidden" publicOnly,
     typeErrWith "private values stay hidden when qualified" "use public.tung let bad = public~hidden" publicOnly,
-    typeErrWith "private types stay hidden when qualified" "use private-type.tung let bad: private-type~secret = 1" privateType,
-    typeOkWith "shown values stay bare" "use public.tung let ok: ℤ = visible" publicOnly,
-    typeOkWith "qualified lookup remaineþ distinct from record access" "use public.tung let public = r(visible = 'record') let qualified: ℤ = public~visible let field: text = public.visible" publicOnly,
-    typeOkWith "record access is explicit" "let value = r(field = 1) let ok: ℤ = value.field" Map.empty,
-    typeOkWith "a qualified name can be re-exported" "use middle.tung let ok: ℤ = value + middle~value" reexported,
+    typeErrWith "private types stay hidden when qualified" "use private-type.tung let bad [private-type~secret] 1" privateType,
+    typeOkWith "shown values stay bare" "use public.tung let ok [ℤ] visible" publicOnly,
+    typeOkWith "qualified lookup remaineþ distinct from record access" "use public.tung let public = r(visible = 'record') let qualified [ℤ] public~visible let field [text] public.visible" publicOnly,
+    typeOkWith "record access is explicit" "let value = r(field = 1) let ok [ℤ] value.field" Map.empty,
+    typeOkWith "a qualified name can be re-exported" "use middle.tung let ok [ℤ] value + middle~value" reexported,
     typeErrWith "an ordinary use doth not re-export" "use closed.tung let bad = value" notReexported,
     typeErrWith "an unknown re-export is rejected" "show missing" Map.empty,
     typeErrWith "an unknown type re-export is rejected" "show-ilk missing" Map.empty,
     typeErrWith "an ambiguous bare re-export is rejected" "use left.tung use right.tung show foo" both,
-    typeErrWith "bare imported type aliases are ambiguous" "use integer-type.tung use text-type.tung let (x: token) id: token = x" aliasImports,
-    typeOkWith "qualification resolveþ type alias ambiguity" "use integer-type.tung use text-type.tung let (x: integer-type~token) integer-id: integer-type~token = x let (x: text-type~token) text-id: text-type~token = x" aliasImports,
+    typeErrWith "bare imported type aliases are ambiguous" "use integer-type.tung use text-type.tung let id [x: token, token] x" aliasImports,
+    typeOkWith "qualification resolveþ type alias ambiguity" "use integer-type.tung use text-type.tung let integer-id [x: integer-type~token, integer-type~token] x let text-id [x: text-type~token, text-type~token] x" aliasImports,
     typeErrWith "an ambiguous type re-export is rejected" "use integer-type.tung use text-type.tung show-ilk token" aliasImports,
-    typeOkWith "a type and constructor can be re-exported separately" "use data-middle.tung let ok: ℤ box = 1 box" dataReexport,
-    typeOkWith "show-ilk exports the type namespace" "use type-only.tung let ok: token = 1" selectiveReexports,
+    typeOkWith "a type and constructor can be re-exported separately" "use data-middle.tung let ok [ℤ box] 1 box" dataReexport,
+    typeOkWith "show-ilk exports the type namespace" "use type-only.tung let ok [token] 1" selectiveReexports,
     typeErrWith "show-ilk doth not export a same-spelled term" "use type-only.tung let bad = token" selectiveReexports,
-    typeOkWith "show exports the term namespace" "use term-only.tung let ok: ℤ = token" selectiveReexports,
-    typeErrWith "show doth not export a same-spelled type" "use term-only.tung let bad: token = 1" selectiveReexports,
-    typeOkWith "a frame export carrieþ methods and fill evidence" "use identity.tung let ok: ℤ = 1 identity" identityExport,
-    typeOkWith "show-ilk explicitly re-exporteþ a frame" "use identity-middle.tung let ok: ℤ = 1 identity" shapeReexport,
-    typeOkWith "an effect export carrieþ its operations" "use ask.tung let (x: ℤ) run: ℤ = try x ask { y ask ^ y }" effectExport,
-    typeOkWith "an effect export carrieþ its type-level name" "use ask.tung let (x: ℤ) run: ℤ ! ask = x ask" effectExport,
-    typeOkWith "show-ilk re-exports an effect" "use ask-middle.tung let (x: ℤ) run: ℤ ! ask = x ask" effectReexport,
-    typeErrWith "effects and data types share the type namespace" "use data.tung use effect.tung let (x: ℤ) run: ℤ ! signal = x effect~signal" typeKindCollision,
-    typeOkWith "qualification resolveþ an effect and data type collision" "use data.tung use effect.tung let (x: ℤ) run: ℤ ! effect~signal = x effect~signal" typeKindCollision,
-    typeOkWith "constructor pattern is exhaustive after re-export" "use data-middle.tung let unbox: ℤ box → ℤ = { x box ^ x }" dataWholeReexport,
-    typeOkWith "dotted filename preserveþ its short default alias" "use a.extra.tung let ok: ℤ = a~foo" dottedFileImport,
-    typeOkWith "a dotted directory doth not alter the default basename alias" "use pkg.one/query.tung let ok: ℤ = query~foo" dottedDirectoryImport
+    typeOkWith "show exports the term namespace" "use term-only.tung let ok [ℤ] token" selectiveReexports,
+    typeErrWith "show doth not export a same-spelled type" "use term-only.tung let bad [token] 1" selectiveReexports,
+    typeOkWith "a frame export carrieþ methods and fill evidence" "use identity.tung let ok [ℤ] 1 identity" identityExport,
+    typeOkWith "show-ilk explicitly re-exporteþ a frame" "use identity-middle.tung let ok [ℤ] 1 identity" shapeReexport,
+    typeOkWith "an effect export carrieþ its operations" "use ask.tung let run [x: ℤ, ℤ] try x ask { y ask ^ y }" effectExport,
+    typeOkWith "an effect export carrieþ its type-level name" "use ask.tung let run [x: ℤ, ℤ; ask] x ask" effectExport,
+    typeOkWith "show-ilk re-exports an effect" "use ask-middle.tung let run [x: ℤ, ℤ; ask] x ask" effectReexport,
+    typeErrWith "effects and data types share the type namespace" "use data.tung use effect.tung let run [x: ℤ, ℤ; signal] x effect~signal" typeKindCollision,
+    typeOkWith "qualification resolveþ an effect and data type collision" "use data.tung use effect.tung let run [x: ℤ, ℤ; effect~signal] x effect~signal" typeKindCollision,
+    typeOkWith "constructor pattern is exhaustive after re-export" "use data-middle.tung let unbox [ℤ box, ℤ] { x box ^ x }" dataWholeReexport,
+    typeOkWith "dotted filename preserveþ its short default alias" "use a.extra.tung let ok [ℤ] a~foo" dottedFileImport,
+    typeOkWith "a dotted directory doth not alter the default basename alias" "use pkg.one/query.tung let ok [ℤ] query~foo" dottedDirectoryImport
   ]
   where
     leftOnly = Map.fromList [("left.tung", moduleSource 1)]
@@ -83,23 +83,23 @@ resolutionCases =
         ]
     identityExport =
       Map.fromList
-        [ ("identity.tung", "show frame a identity { let a identity: a } fill ℤ identity { let x identity = x }")
+        [ ("identity.tung", "show frame a identity { let identity [a, a] } fill ℤ identity { let x identity = x }")
         ]
     shapeReexport =
       Map.fromList
-        [ ("identity-base.tung", "show frame a identity { let a identity: a } fill ℤ identity { let x identity = x }"),
+        [ ("identity-base.tung", "show frame a identity { let identity [a, a] } fill ℤ identity { let x identity = x }"),
           ("identity-middle.tung", "use identity-base.tung show-ilk identity-base~identity show identity-base~identity")
         ]
-    effectExport = Map.fromList [("ask.tung", "show deed ask { ℤ ask: ℤ }")]
+    effectExport = Map.fromList [("ask.tung", "show deed ask { ask [ℤ, ℤ] }")]
     effectReexport =
       Map.fromList
-        [ ("ask-base.tung", "show deed ask { ℤ ask: ℤ }"),
+        [ ("ask-base.tung", "show deed ask { ask [ℤ, ℤ] }"),
           ("ask-middle.tung", "use ask-base.tung show-ilk ask-base~ask show ask-base~ask")
         ]
     typeKindCollision =
       Map.fromList
         [ ("data.tung", "show ilk signal { signal-value }"),
-          ("effect.tung", "show deed signal { ℤ signal: ℤ }")
+          ("effect.tung", "show deed signal { signal [ℤ, ℤ] }")
         ]
     aliasImports =
       Map.fromList
@@ -110,7 +110,7 @@ resolutionCases =
     dottedDirectoryImport = Map.singleton "pkg.one/query.tung" (moduleSource 1)
 
 moduleSource :: Int -> String
-moduleSource value = "show ilk box { box } show let foo: ℤ = " ++ show value
+moduleSource value = "show ilk box { box } show let foo [ℤ] " ++ show value
 
 lookupCase :: Test
 lookupCase = case contextOf "use left.tung" imports of

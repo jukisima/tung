@@ -75,7 +75,7 @@ test("checker reuseþ one versioned session and cancellable requests", async (co
   bridge.configure(undefined, [], process.env.TUNG_EXECUTABLE);
   context.after(() => bridge.dispose());
   assert(bridge.findExecutable(), "install tung or set TUNG_EXECUTABLE");
-  const model = { text: "let value: ℤ = 1" };
+  const model = { text: "let value [ℤ] 1" };
   const checked = bridge.check(model, [], 3);
   const typed = bridge.typeOf(model, [], "value", 3);
   const formatted = bridge.format("show ilk a box {\nbox\n}\n", 3);

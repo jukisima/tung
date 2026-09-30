@@ -13,7 +13,11 @@ show ilk a ∐ b {
   b inject₁
 }
 
-show let (sum: a ∐ b, f₀: a → c ! e₀, f₁: b → c ! e₁) eiþer: c ! e₀, e₁ =
+show let eiþer [
+  sum:a ∐ b,
+  f₀:[a, c; e₀],
+  f₁:[b, c; e₁],
+  c; e₀, e₁]
   match sum {
     a inject₀ ^ a f₀,
     b inject₁ ^ b f₁
@@ -26,12 +30,12 @@ fill ∐ bifunctor {
   }
 }
 
-show let is-inject₀: a ∐ b → 𝟚 = {
+show let is-inject₀ [a ∐ b, 𝟚] {
   _ inject₀ ^ yea,
   _ inject₁ ^ nay
 }
 
-show let (sum: a ∐ b) is-inject₁: 𝟚 = sum is-inject₀ $ ¬
+show let is-inject₁ [sum:a ∐ b, 𝟚] sum is-inject₀ $ ¬
 
 fill (a ∐) functor {
   let sum map f = sum bimap sameness f

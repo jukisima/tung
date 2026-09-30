@@ -27,7 +27,7 @@ generatedIdempotence = expect "formatter is idempotent for generated structural 
       [ ["show ilk a box {", "a box", "}"],
         ["let result =", "match value {", "yea | nay ^ 1", "}"],
         ["let handled =", "try risky {", "message fail ^ 0", "}"],
-        ["frame a identity {", "let a identity: a", "law (x: a):", "x identity = x", "}"]
+        ["frame a identity {", "let identity [a, a]", "law [x:a]", "x identity = x", "}"]
       ]
 
 isIdempotent :: String -> Bool
@@ -37,7 +37,27 @@ isIdempotent source = formatSource formatted == formatted
 
 cases :: [(String, String, String)]
 cases =
-  [ ( "sort use declarations",
+  [ ( "type colons have no surrounding spaces",
+      """
+      let add [x : ℤ, y:  ℤ, ℤ] (x + y: ℤ)
+      frame a identity { law [x : a] x = x }
+      let record [r(field : ℤ)] r(field: 1)
+      let text = 'x: y' # note: untouched
+      let letter = `:
+      /* note: untouched */
+
+      """,
+      """
+      let add [x:ℤ, y:ℤ, ℤ] (x + y:ℤ)
+      frame a identity { law [x:a] x = x }
+      let record [r(field:ℤ)] r(field:1)
+      let text = 'x: y' # note: untouched
+      let letter = `:
+      /* note: untouched */
+
+      """
+    ),
+    ( "sort use declarations",
       """
       use zebra.tung zebra
       use alpha.tung
@@ -75,14 +95,14 @@ cases =
     ),
     ( "current application syntax",
       """
-      show let (x: a option, f: a → 𝟚) filter: a option = x match {
+      show let filter [x:a option, f:[a, 𝟚], a option] x match {
       a some ^ a f $ if (a some) none
       none ^ none
       }
 
       """,
       """
-      show let (x: a option, f: a → 𝟚) filter: a option = x match {
+      show let filter [x:a option, f:[a, 𝟚], a option] x match {
         a some ^ a f $ if (a some) none
         none ^ none
       }
@@ -183,60 +203,74 @@ cases =
     ),
     ( "split annotation and definition",
       """
-      show let (f0: a → b ! e0, f1: b → c ! e1) compose
-      : a → c ! e0, e1
-      = { a ^ a f0 $ f1 }
+      show let compose [f0:[a, b; e0], f1:[b, c; e1], [a, c]; e0, e1] { a ^ a f0 $ f1 }
 
       """,
       """
-      show let (f0: a → b ! e0, f1: b → c ! e1) compose
-        : a → c ! e0, e1
-        = { a ^ a f0 $ f1 }
+      show let compose [f0:[a, b; e0], f1:[b, c; e1], [a, c]; e0, e1] { a ^ a f0 $ f1 }
 
       """
     ),
     ( "body after a multiline header",
       """
-      show let (
-      value: a
-      ) identity: a =
+      show let identity [value:a, a]
       value
 
       """,
       """
-      show let (
-        value: a
-      ) identity: a =
+      show let identity [value:a, a]
         value
+
+      """
+    ),
+    ( "multiline bracket header keepeþ one indentation level",
+      """
+      show let lift₃ [
+      a₀:a₀ f,
+      a₁:a₁ f,
+      a₂:a₂ f,
+      f:[a₀, a₁, a₂, b; e],
+      b f; e]
+      >(apply, a₂, a₁, a₀, f pure)
+
+      """,
+      """
+      show let lift₃ [
+        a₀:a₀ f,
+        a₁:a₁ f,
+        a₂:a₂ f,
+        f:[a₀, a₁, a₂, b; e],
+        b f; e]
+        >(apply, a₂, a₁, a₀, f pure)
 
       """
     ),
     ( "term type ascription",
       """
-      let answer = (1 + 2: ℤ)
+      let answer = (1 + 2:ℤ)
 
       """,
       """
-      let answer = (1 + 2: ℤ)
+      let answer = (1 + 2:ℤ)
 
       """
     ),
     ( "multiline record",
       """
-      let person: r(
-      name: text,
-      age: ℤ
-      ) = r(
+      let person [r(
+      name:text,
+      age:ℤ
+      )] r(
       name = 'naoki',
       age = 35
       )
 
       """,
       """
-      let person: r(
-        name: text,
-        age: ℤ
-      ) = r(
+      let person [r(
+        name:text,
+        age:ℤ
+      )] r(
         name = 'naoki',
         age = 35
       )
@@ -266,17 +300,17 @@ cases =
     ( "multiline law header",
       """
       frame f applicative {
-      law (a: a f):
+      law [a:a f]
       a apply (identity pure) = a
-      law (a: a): a pure = a pure
+      law [a:a] a pure = a pure
       }
 
       """,
       """
       frame f applicative {
-        law (a: a f):
+        law [a:a f]
           a apply (identity pure) = a
-        law (a: a): a pure = a pure
+        law [a:a] a pure = a pure
       }
 
       """
@@ -361,21 +395,21 @@ cases =
     ( "comment useþ structural indentation",
       """
       frame a identity {
-      law (x: a):
+      law [x:a]
       # the equation.
       x identity = x
       # the next law.
-      law (x: a): x identity = x
+      law [x:a] x identity = x
       }
 
       """,
       """
       frame a identity {
-        law (x: a):
+        law [x:a]
         # the equation.
           x identity = x
         # the next law.
-        law (x: a): x identity = x
+        law [x:a] x identity = x
       }
 
       """

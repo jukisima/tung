@@ -18,7 +18,7 @@ use ilk/product.tung
 use ilk/two.tung
 
 deed e fail {
-  e fail: a
+  fail [e, a]
 }
 
 ## finite linked lists.
@@ -36,14 +36,14 @@ fill (a list) inhold a {
 }
 
 ## integer range from start to stop, inclusive.
-show let (start: ℤ, stop: ℤ) till: ℤ list =
+show let till [start:ℤ, stop:ℤ, ℤ list]
   match start ≤ stop {
     yea ^ start _* (start + 1 $ till stop),
     nay ^ empty
   }
 
 ## build a one-element list.
-show let (a: a) singleton: a list = a _* empty
+show let singleton [a:a, a list] a _* empty
 
 fill (a list) semigroup {
   let * = {
@@ -85,29 +85,29 @@ fill list filter {
   }
 }
 
-show let each: a list → (a → 𝟙 ! e) → 𝟙 ! e = {
+show let each [a list, [a, 𝟙; e], 𝟙; e] {
   list, action ^ list fold₁ only { _, a ^ a action }
 }
 
 ## first list element, if present.
-show let head: a list → a option = {
+show let head [a list, a option] {
   empty ^ none,
   first _* _ ^ first some
 }
 
 ## list wiþout its first element, if present.
-show let tail: a list → (a list) option = {
+show let tail [a list, (a list) option] {
   empty ^ none,
   _ _* rest ^ rest some
 }
 
-show let behead: a list → (a ∏ (a list)) option = {
+show let behead [a list, (a ∏ (a list)) option] {
   empty ^ none,
   first _* rest ^ (first ∏ rest) some
 }
 
 ## first count elements.
-show let (list: a list, count: ℤ) take: a list =
+show let take [list:a list, count:ℤ, a list]
   match count ≤ 0 {
     yea ^ empty,
     nay ^ match list {
@@ -117,7 +117,7 @@ show let (list: a list, count: ℤ) take: a list =
   }
 
 ## list after removing count elements.
-show let (list: a list, count: ℤ) drop: a list =
+show let drop [list:a list, count:ℤ, a list]
   match count ≤ 0 {
     yea ^ list,
     nay ^ match list {
@@ -127,7 +127,7 @@ show let (list: a list, count: ℤ) drop: a list =
   }
 
 ## first element accepted by a predicate.
-show let find: a list → (a → 𝟚 ! e) → a option ! e = {
+show let find [a list, [a, 𝟚; e], a option; e] {
   empty, _ ^ none,
   first _* rest, f ^ match first f {
     yea ^ first some,
@@ -157,43 +157,43 @@ fill (a list) size {
   let list size = list fold₁ natural~zero { n, _ ^ n suc }
 }
 
-show let (list: a list) reverse: a list =
+show let reverse [list:a list, a list]
   list fold₁ empty { outcome, a ^ a _* outcome }
 
-show let zip: a list → b list → (a ∏ b) list = {
+show let zip [a list, b list, (a ∏ b) list] {
   empty, _ | _, empty ^ empty,
   a _* a…, b _* b… ^ (a ∏ b) _* (a… zip b…)
 }
 
 ## element at a zero-based index.
-show let (list: a list, index: ℤ) at: a ! text fail = match index ≤ -1 {
-  yea ^ 'list index out of range' fail,
-  nay ^ match list drop index {
-    empty ^ 'list index out of range' fail,
-    first _* _ ^ first
+show let at [list:a list, index:ℤ, a; text fail]
+  match index ≤ -1 {
+    yea ^ 'list index out of range' fail,
+    nay ^ match list drop index {
+      empty ^ 'list index out of range' fail,
+      first _* _ ^ first
+    }
   }
-}
 
 ## final element, if present.
-show let (list: a list) last: a option =
+show let last [list:a list, a option]
   list fold₁ none { _, a ^ a some }
 
 ## repeat a value count times.
-show let (a: a, count: ℤ) replicate: a list =
+show let replicate [a:a, count:ℤ, a list]
   match count ≤ 0 {
     yea ^ empty,
     nay ^ a _* (a replicate (count - 1))
   }
 
 ## split values accepted and rejected by a predicate.
-show let partition: a list → (a → 𝟚 ! e) → (a list) ∏ (a list) ! e = {
-  list, f ^ list fold₀ (empty ∏ empty) { a, accepted ∏ rejected ^
+show let partition [list:a list, f:[a, 𝟚; e], (a list) ∏ (a list); e]
+  list fold₀ (empty ∏ empty) { a, accepted ∏ rejected ^
     (a f) if ((a _* accepted) ∏ rejected) (accepted ∏ (a _* rejected))
   }
-}
 
 ## split a list of products into two lists.
-show let (pairs: (a ∏ b) list) unzip: (a list) ∏ (b list) =
+show let unzip [pairs:(a ∏ b) list, (a list) ∏ (b list)]
   pairs fold₀ (empty ∏ empty) { a ∏ b, a… ∏ b… ^
     (a _* a…) ∏ (b _* b…)
   }

@@ -39,6 +39,8 @@ const tokenModifiers = [
 ];
 const applicationStartTexts = new Set([
   "(",
+  "[",
+  "]",
   "r(",
   "<(",
   ">(",
@@ -346,10 +348,7 @@ const collectEffect = (tokens, index, info) => {
   for (
     const segment of splitTopLevel(tokens, open + 1, close, separators.comma)
   ) {
-    collectTypedMember(tokens, segment, info, "method", [
-      "declaration",
-      "effect",
-    ]);
+    collectBracketMember(tokens, segment.start, segment.end, info, true);
   }
 };
 const collectShape = (tokens, index, info) => {
@@ -366,17 +365,8 @@ const collectShape = (tokens, index, info) => {
       if (member < 0) continue;
     }
     if (tokens[member]?.text === "let") {
-      const equals = findTopLevelText(tokens, member + 1, segment.end, "=");
-      if (equals >= 0) {
-        collectMemberLet(tokens, { start: member, end: segment.end }, info);
-      } else {
-        collectTypedMember(
-          tokens,
-          { start: member + 1, end: segment.end },
-          info,
-          "method",
-          ["declaration"],
-        );
+      if (tokens[member + 2]?.text === "[") {
+        collectBracketMember(tokens, member + 1, segment.end, info);
       }
     } else if (tokens[member]?.text === "law") {
       collectShapeLaw(tokens, segment, info);
@@ -385,14 +375,11 @@ const collectShape = (tokens, index, info) => {
 };
 const collectShapeLaw = (tokens, segment, info) => {
   const open = segment.start + 1;
-  if (tokens[open]?.text !== "(") return;
+  if (tokens[open]?.text !== "[") return;
   const close = findMatching(tokens, open);
   if (close < 0 || close >= segment.end) return;
-  markTypedParameters(tokens, open + 1, close, info);
-  const body = findTopLevelText(tokens, close + 1, segment.end, ":");
-  const equation = body < 0
-    ? -1
-    : findTopLevelText(tokens, body + 1, segment.end, "=");
+  markBracketHeader(tokens, open, close, info);
+  const equation = findTopLevelText(tokens, close + 1, segment.end, "=");
   if (equation >= 0) mark(info, equation, "operator", [], 100);
 };
 const collectFill = (tokens, index, info) => {
@@ -457,30 +444,20 @@ const markOwnerHeader = (
     mark(info, param.index, "typeParameter", ["declaration"], 100);
   }
 };
-const collectTypedMember = (
-  tokens,
-  segment,
-  info,
-  role,
-  modifiers,
-) => {
-  const colon = findTopLevelText(tokens, segment.start, segment.end, ":");
-  if (colon < 0) return;
-  const terms = headerTerms(tokens, segment.start, colon);
-  const member = defaultHeader(terms);
-  if (member.name) {
-    markTypeTerms(terms, info, new Set([member.name.index]));
-  }
-  markTypeTokens(tokens, colon + 1, segment.end, info);
-  if (!member.name) return;
-  info.functions.add(member.name.text);
-  if (modifiers.includes("effect")) info.effectOps.add(member.name.text);
-  const callable = terms.length > 1 ||
-    findTopLevelText(tokens, colon + 1, segment.end, "→") >= 0;
-  const semanticModifiers = callable && !modifiers.includes("effect")
-    ? [...modifiers, "applied"]
-    : modifiers;
-  mark(info, member.name.index, role, semanticModifiers, 100);
+const collectBracketMember = (tokens, start, end, info, effect = false) => {
+  const name = tokens[start];
+  const open = start + 1;
+  const close = findMatching(tokens, open);
+  if (name?.kind !== "name" || close < 0 || close >= end) return;
+  info.functions.add(name.text);
+  if (effect) info.effectOps.add(name.text);
+  const modifiers = effect
+    ? ["declaration", "effect"]
+    : bracketHeaderInfo(tokens, open, close, false).hasArguments
+    ? ["declaration", "applied"]
+    : ["declaration"];
+  mark(info, name.index, "method", modifiers, 100);
+  markBracketHeader(tokens, open, close, info);
 };
 const collectMemberLet = (tokens, segment, info) => {
   collectValueLet(tokens, segment.start + 1, segment.end, info, true);
@@ -496,23 +473,81 @@ const collectLet = (tokens, index, info) => {
 };
 const collectValueLet = (tokens, start, end, info, member) => {
   const equals = findTopLevelText(tokens, start, end, "=");
+  const bracket = findTopLevelText(tokens, start, equals < 0 ? end : equals, "[");
+  if (bracket >= 0 && findTopLevelText(tokens, start, bracket, ":") < 0) {
+    const close = findMatching(tokens, bracket);
+    const terms = headerTerms(tokens, start, bracket);
+    const header = defaultHeader(terms);
+    if (close > bracket && close + 1 < end && tokens[close + 1]?.text !== ":" && header.name) {
+      info.functions.add(header.name.text);
+      const bracketInfo = bracketHeaderInfo(tokens, bracket, close, header.params.length > 0);
+      const callable = bracketInfo.callable ||
+        isAnonymousFunctionValue(tokens, close + 1, end);
+      mark(
+        info,
+        header.name.index,
+        member ? "method" : callable ? "function" : "variable",
+        bracketInfo.hasArguments ? ["declaration", "applied"] : ["declaration"],
+        member ? 110 : 100,
+      );
+      markValueParameters(terms, header, info);
+      markBracketHeader(tokens, bracket, close, info);
+      return;
+    }
+  }
   if (equals < 0) return;
-  const colon = findTopLevelText(tokens, start, equals, ":");
-  const terms = headerTerms(tokens, start, colon < 0 ? equals : colon);
+  const terms = headerTerms(tokens, start, equals);
   const header = defaultHeader(terms);
-  if (colon >= 0) markTypeTokens(tokens, colon + 1, equals, info);
   if (!header.name) return;
   info.functions.add(header.name.text);
-  const annotatedFunction = colon >= 0 &&
-    findTopLevelText(tokens, colon + 1, equals, "→") >= 0;
-  const callable = terms.length > 1 || annotatedFunction ||
-    isAnonymousFunctionValue(tokens, equals + 1, end);
+  const callable = terms.length > 1 || isAnonymousFunctionValue(tokens, equals + 1, end);
   const role = member ? "method" : callable ? "function" : "variable";
   const modifiers = member && callable
     ? ["declaration", "applied"]
     : ["declaration"];
   mark(info, header.name.index, role, modifiers, member ? 110 : 100);
   markValueParameters(terms, header, info);
+};
+const bracketHeaderInfo = (tokens, open, close, hasPositional) => {
+  const semicolon = findTopLevelText(tokens, open + 1, close, ";");
+  const slotEnd = semicolon < 0 ? close : semicolon;
+  const slots = splitTopLevel(tokens, open + 1, slotEnd, separators.comma);
+  const hasArguments = hasPositional || slots.length > 1 ||
+    slots.some(({ start, end }) => findTopLevelText(tokens, start, end, ":") >= 0);
+  return {
+    hasArguments,
+    callable: hasArguments || tokens[open + 1]?.text === "[",
+  };
+};
+const markBracketHeader = (tokens, open, close, info) => {
+  const semicolon = findTopLevelText(tokens, open + 1, close, ";");
+  const argumentEnd = semicolon < 0 ? close : semicolon;
+  for (const segment of splitTopLevel(tokens, open + 1, argumentEnd, separators.comma)) {
+    const colon = findTopLevelText(tokens, segment.start, segment.end, ":");
+    if (colon >= 0) {
+      markConstructorFirstPattern(tokens, segment.start, colon, info);
+      markTypeTokens(tokens, colon + 1, segment.end, info);
+    } else {
+      markTypeTokens(tokens, segment.start, segment.end, info);
+    }
+  }
+  if (semicolon >= 0) markTypeTokens(tokens, semicolon + 1, close, info);
+};
+const markConstructorFirstPattern = (tokens, start, end, info) => {
+  const terms = patternTerms(tokens, start, end);
+  for (let index = 0; index < terms.length; index += 1) {
+    const term = terms[index];
+    const token = tokens[term.start];
+    if (token?.text === "(") {
+      markConstructorFirstPattern(tokens, term.start + 1, term.end - 1, info);
+    } else if (
+      token?.kind === "name" && token.text !== "_" &&
+      !token.text.includes("~") &&
+      !info.constructors.has(token.text)
+    ) {
+      mark(info, token.index, "parameter", ["declaration"], 90);
+    }
+  }
 };
 const markValueParameters = (terms, header, info) => {
   for (const param of header.params) {
@@ -573,7 +608,9 @@ const inferredSemantic = (token, tokens, info) => {
   }
   const name = lastQualifiedSegment(token.text);
   if (primitiveTypes.has(name)) {
-    return { type: "type", modifiers: ["defaultLibrary"] };
+    return isTypePosition(tokens, token.index)
+      ? { type: "type", modifiers: ["defaultLibrary"] }
+      : { type: "variable", modifiers: [] };
   }
   if (
     info.constructors.has(name) &&
@@ -670,12 +707,12 @@ const findTopLevelText = (tokens, start, end, text) => {
   let depth = 0;
   for (let i = start; i < end; i += 1) {
     const value = tokens[i].text;
-    if (isOpen(value)) {
+    if (depth === 0 && value === text) {
+      return i;
+    } else if (isOpen(value)) {
       depth += 1;
     } else if (isClose(value)) {
       depth -= 1;
-    } else if (depth === 0 && value === text) {
-      return i;
     }
   }
   return -1;
@@ -825,7 +862,7 @@ const isTypeFunctionPosition = (tokens, index, start) => {
   const boundary = tokens[firstAtom - 1];
   return boundary && (
     applicationStartTexts.has(boundary.text) ||
-    ["!", "→"].includes(boundary.text) ||
+    boundary.text === "!" ||
     boundary.kind === "keyword"
   );
 };
@@ -869,6 +906,7 @@ const isFunctionPosition = (tokens, index) => {
   if (firstAtom < 0) return false;
   const boundary = tokens[firstAtom - 1];
   if (!boundary) return true;
+  if (tokens[firstAtom]?.text === "[" && boundary.text === "law") return false;
   if (
     boundary.text === "$" ||
     (boundary.text === "(" && tokens[firstAtom - 2]?.text === "$")
@@ -893,7 +931,7 @@ const isSimpleAtom = (token) => {
 };
 const isTypePosition = (tokens, index) => {
   const prev = tokens[index - 1];
-  return prev && [":", "!", "→"].includes(prev.text);
+  return prev && [":", "!"].includes(prev.text);
 };
 export {
   analyze as analyzeTokens,

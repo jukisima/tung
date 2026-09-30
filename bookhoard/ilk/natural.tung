@@ -57,7 +57,7 @@ fill ℕ semiring {
   let one = zero suc
 }
 
-show let to-ℤ: ℕ → ℤ = {
-  zero ^ 0,
+show let to-ℤ [ℕ, ℤ] {
+  zero  ^ 0,
   a suc ^ 1 + (a to-ℤ)
 }

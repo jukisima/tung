@@ -1,6 +1,6 @@
 use ground.tung
 
-let (_: 𝟙) read-user: float ! console =
+let read-user [_:𝟙, float; console]
   try (only read) from-text {
     _ fail ^ (
       let _ = 'could not read a float; using 0.0' write-line
@@ -8,11 +8,11 @@ let (_: 𝟙) read-user: float ! console =
     )
   }
 
-let (_: 𝟙) main: 𝟙 ! console, random = (
+let main [_:𝟙, 𝟙; console, random] (
   let _ = 'input a float between 0.0 and 1.0' write-line
   let user = only read-user
   let hidden = only random
-  let outcome: text = match user ≤ hidden, hidden ≤ user {
+  let outcome [text] match user ≤ hidden, hidden ≤ user {
     yea, nay ^ 'lose',
     nay, yea ^ 'win',
     _, _ ^ 'draw'

@@ -3,5 +3,5 @@ use ilk/two.tung
 
 graiþ f functor
 show frame f filter {
-  let (a f) filter (a → 𝟚 ! e): a f ! e
+  let filter [a f, [a, 𝟚; e], a f; e]
 }

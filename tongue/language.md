@@ -145,13 +145,33 @@ evaluation is strict: first the function, then arguments from left to right.
 
 ## declarations and types
 
-`let` bindeþ a value. function headers use the second-is-function rule. typed
-arguments may instead precede the function name as a group.
+`let` bindeþ a value. `[type]` annotateþ a value. brackets with argument
+slots describe a curried function.
 
 ```tung
-let x add-two y = x + y
-let (x: ℤ, y: ℤ) add: ℤ = x + y
+let answer [ℤ] 42
+let add [x:ℤ, y:ℤ, ℤ] x + y
+let identity [a, a] { x ^ x }
+let x sameness = x
+let x add-after [y:ℤ, ℤ] x + y
 ```
+
+in a bracketed `let`, `pattern:type` bindeþ an argument. patterns may
+destructure constructors without grouping the whole pattern:
+`let unbox [box x:a box, a] x`. symbolic infix patterns such as `a ∏ b`
+also work without grouping. named patterns precede bare argument types.
+a bare slot giveþ a type only; it bindeth no name. use `_` before the function
+name or `_:type` in brackets to discard an argument. the final bare slot is
+the result type. one bare slot after a name annotateþ a value; after
+positional arguments, it giveþ the function result. the right-hand side
+supplieþ any bare arguments. omit the final type to infer a result after a
+named pattern. spaces around `:` are allowed; the formatter removeþ them.
+
+untyped positional arguments follow the second-is-function rule:
+`let a f b c = ...` bindeþ `a`, `b`, and `c` to `f`. append brackets to
+specify later typed arguments, a result, or effects. `let a f = ...` is a
+unary function even if `f` is also a type name. write `let a [f] ...` to
+annotate a value.
 
 local blocks are parenthesised and end with `yield`.
 
@@ -166,15 +186,17 @@ type variables are implicit. type application useþ second-is-function syntax.
 `ℤ list` applieþ `list` to `ℤ`; `a ∏ b` applieþ the binary product type.
 `let-ilk` defineþ a transparent type alias.
 
-functions use `→`. immediate effect rows follow `!` on a function arrow. a
-stored non-function value cannot carry an effect row. `func` is the binary
-pure-function type constructor: `a func b` and `a → b` agree.
-`(term: type)` constraineþ any term.
+function types use `[argument, result]`. latent effects follow a semicolon:
+`[argument, result; effect]`. several effects are comma-separated. nested
+brackets describe function arguments. a stored non-function value cannot carry
+an effect row. `func` is the binary pure-function type constructor for passing
+to a frame: `a func b` and `[a, b]` agree.
+`(term:type)` constraineþ any term.
 
 ```tung
 let-ilk a powerset = a func 𝟚
-let (f: a → b ! e, x: a) call: b ! e = x f
-let answer = (1 + 2: ℤ)
+let call [f:[a, b; e], x:a, b; e] x f
+let answer = (1 + 2:ℤ)
 ```
 
 pure inferred lets are generalised. immediately effectful right-hand sides
@@ -209,12 +231,12 @@ let chosen = match yea, nay {
   nay, _ ^ nay
 }
 
-let not: 𝟚 → 𝟚 = {
+let not [𝟚, 𝟚] {
   yea ^ nay,
   nay ^ yea
 }
 
-let classify: text → ℤ = {
+let classify [text, ℤ] {
   'yes' ^ 1,
   _ ^ 0
 }
@@ -227,11 +249,11 @@ uninhabited input such as `𝟘`.
 
 ## records
 
-records are closed. `r(field: type)` formeþ a type; `r(field = value)` formeþ a
+records are closed. `r(field:type)` formeþ a type; `r(field = value)` formeþ a
 value. an update placeþ its base after `=`. later entries set or remove fields.
 
 ```tung
-let person: r(name: text, age: ℤ) =
+let person [r(name:text, age:ℤ)]
   r(name = 'naoki', age = 35)
 let older = r(= person, age = 36)
 let public = r(= person, - age)
@@ -247,16 +269,18 @@ removal, and non-record updates are errors.
 
 `frame` declareþ a statically selected interface. `fill` provideþ evidence and
 member implementations. leading `graiþ` clauses state required evidence for a
-declaration, frame, fill, or individual member.
+declaration, frame, fill, or individual member. required members use a name
+followed by bracketed types, wiþ the result last. laws bind typed patterns in
+brackets. þeir equation beginneþ after `]`.
 
 ```tung
 frame a equal {
-  let a ≡ a: 𝟚
-  law (x: a): x ≡ x = yea
+  let ≡ [a, a, 𝟚]
+  law [x:a] x ≡ x = yea
 }
 
 graiþ a equal
-let (a: a, b: a) ≢: 𝟚 = (a ≡ b) if nay yea
+let ≢ [a:a, b:a, 𝟚] (a ≡ b) if nay yea
 
 fill 𝟚 equal {
   let ≡ = {
@@ -267,8 +291,11 @@ fill 𝟚 equal {
 }
 ```
 
-in a `law`, `=` separateþ two expressions. in a `let`, `=` beginneþ the
-definition. parentheses keep any nested `let` inside a law side.
+in a `law`, `=` separateþ two expressions. a `let` without brackets useþ `=`
+before its definition. a bracketed `let` beginneþ its definition after `]`.
+þis also applieþ to `let` implementations inside `fill`.
+law brackets require a type for each pattern. they also accept
+constructor-first patterns. parentheses keep any nested `let` inside a law side.
 
 a fill must supply each required member not supplied by a parent. a child fill
 also witnesseþ required parent frames and may define inherited members.
@@ -289,7 +316,9 @@ documentation; the compiler neither proveþ, executeþ, nor rewriteþ with them.
 
 `deed` declareþ an algebraic effect. every operation is a function. one without
 informative input takeþ `𝟙`. declaration application addeþ the effect to the
-written latent row.
+written latent row. an operation name is followed by bracketed argument types
+and a final result type. effects follow `;`. one bracketed type may instead
+name a complete function type.
 
 an effect row denoteþ an unordered, idempotent union. `e`, `e0`, and `e₁` stand
 for whole rows. `e0, e1` denoteþ their union; they need not be disjoint.
@@ -306,12 +335,12 @@ arguments. runtime handling matcheþ the effect identity.
 
 ```tung
 deed e fail {
-  e fail: a
+  fail [e, a]
 }
 
 deed a state {
-  𝟙 get: a,
-  a set: 𝟙
+  get [𝟙, a],
+  set [a, 𝟙]
 }
 ```
 
@@ -325,10 +354,10 @@ use `eftgin` when its input is unneeded.
 
 ```tung
 deed ask {
-  ℤ ask: ℤ
+  ask [ℤ, ℤ]
 }
 
-let answer: text = try 10 ask {
+let answer [text] try 10 ask {
   yield n ^ n to-text,
   n ask ^ (n + 1) eftgin
 }

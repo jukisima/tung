@@ -5,38 +5,38 @@ use frame/deedless/functor.tung
 
 graiþ f functor
 show frame f applicative {
-  let a pure: a f
-  let (a f) apply ((a → b) f): b f
+  let pure [a, a f]
+  let apply [a f, [a, b] f, b f]
 
   # sameness
-  law (a: a f):
-    a apply ((sameness: a → a) pure) = a
+  law [a:a f]
+    a apply ((sameness:[a, a]) pure) = a
 
   # homomorphism
-  law (a: a, f: a → b ! e):
+  law [a:a, f:[a, b; e]]
     (a pure) apply (f pure) = (a f) pure
 
   # composition
-  law (a: a f, f: a → b ! e, g: b → c ! e):
+  law [a:a f, f:[a, b; e], g:[b, c; e]]
     <(apply, a, f pure, g pure) = <(apply, a, f ∘ g $ pure)
 
   # interchange
-  law (a: a, fs: (a → b ! e) f):
+  law [a:a, fs:[a, b; e] f]
     (a pure) apply fs = fs map (a call)
 }
 
 graiþ f applicative
-show let (a: a f, b: b f, f: a → b → c) lift₂: c f =
+show let lift₂ [a:a f, b:b f, f:[a, b, c], c f]
   >(apply, b, a, f pure)
 
 graiþ f applicative
-show let (a: a f, b: b f, c: c f, f: a → b → c → d) lift₃: d f =
+show let lift₃ [a:a f, b:b f, c:c f, f:[a, b, c, d], d f]
   >(apply, c, b, a, f pure)
 
 graiþ f applicative
-show let (a: a f, b: b f) keep-first: a f =
+show let keep-first [a:a f, b:b f, a f]
   a lift₂ b constant
 
 graiþ f applicative
-show let (a: a f, b: b f) keep-oþer: b f =
+show let keep-oþer [a:a f, b:b f, b f]
   a lift₂ b (constant flip)

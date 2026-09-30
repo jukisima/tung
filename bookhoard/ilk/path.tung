@@ -13,14 +13,20 @@ fill paþ to-text {
   let (text paþ) to-text = text
 }
 
-show let (text₀ paþ: paþ, text₁ paþ: paþ) join-paþ: paþ =
+show let join-paþ [text₀ paþ:paþ, text₁ paþ:paþ, paþ]
   text₀ * '/' $ * text₁ $ paþ
 
-show let (text paþ: paþ) read-paþ: text ! file, text fail =
+show let read-paþ [text paþ:paþ, text; file, text fail]
   text read-file
 
-show let (text paþ: paþ, contents: text) write-paþ: 𝟙 ! file, text fail =
+show let write-paþ [
+  text paþ:paþ,
+  contents:text,
+  𝟙; file, text fail]
   text write-file contents
 
-show let (text paþ: paþ, contents: text) append-paþ: 𝟙 ! file, text fail =
+show let append-paþ [
+  text paþ:paþ,
+  contents:text,
+  𝟙; file, text fail]
   text append-file contents

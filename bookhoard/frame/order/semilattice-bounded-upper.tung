@@ -5,8 +5,9 @@ use ilk/two.tung
 ## an infimum semilattice wiþ a greatest value.
 graiþ a semilattice-lower
 show frame a semilattice-bounded-upper {
-  let ⊤: a
-  law (a: a): ⊤ ∧ a = a
+  let ⊤ [a]
+
+  law [a:a] ⊤ ∧ a = a
 }
 
 graiþ b semilattice-bounded-upper

@@ -4,7 +4,7 @@ use ilk/list.tung
 use ilk/product.tung
 
 graiþ a divide-remainder, a zero, a equal
-let (divisor: a, dividend: a) can-divide: 𝟚 =
+let can-divide [divisor:a, dividend:a, 𝟚]
   try ((dividend % divisor) project₁) ≡ zero {
     _ fail ^ nay
   }
@@ -25,7 +25,7 @@ fill fizzbuzz to-text {
   }
 }
 
-let (integer: ℤ) to-fizzbuzz: fizzbuzz =
+let to-fizzbuzz [integer:ℤ, fizzbuzz]
   match 3 can-divide integer, 5 can-divide integer {
     yea, yea ^ fizzbuzz,
     yea, nay ^ fizz,
@@ -33,5 +33,5 @@ let (integer: ℤ) to-fizzbuzz: fizzbuzz =
     nay, nay ^ integer raw
   }
 
-let _ main: 𝟙 ! console =
+let _ main [𝟙; console]
   0 till 32 $ map (to-fizzbuzz ∘ to-text) $ each write-line

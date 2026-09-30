@@ -5,6 +5,11 @@ pre-commit:
       run: ormolu --mode inplace {staged_files}
       stage_fixed: true
 
+    - name: format tung
+      glob: "**/*.tung"
+      run: cabal run --project-dir=tongue exe:tung -- --format {staged_files}
+      stage_fixed: true
+
     - name: format markdown
       glob: "**/*.md"
       run: prettier --write {staged_files}

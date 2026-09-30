@@ -17,11 +17,11 @@ show ilk a ∏ b {
   a ∏ b
 }
 
-show let (a ∏ _: a ∏ b) project₀: a = a
+show let project₀ [a ∏ _:a ∏ b, a] a
 
-show let (a ∏ b: a ∏ b) project₁: b = b
+show let project₁ [a ∏ b:a ∏ b, b] b
 
-show let (a ∏ b: a ∏ b) swap: b ∏ a = b ∏ a
+show let swap [a ∏ b:a ∏ b, b ∏ a] b ∏ a
 
 fill ∏ bifunctor {
   let (a ∏ b) bimap f g = (a f) ∏ (b g)
@@ -69,8 +69,10 @@ fill (a ∏ b) lattice {}
 graiþ a lattice-distributive, b lattice-distributive
 fill (a ∏ b) lattice-distributive {}
 
-show let (a ∏ b: a ∏ b, f: a → b → c) uncurry: c =
+show let uncurry [a ∏ b:a ∏ b, f:[a, b, c], c]
   a f b
 
-show let (a ∏ (b ∏ c): a ∏ (b ∏ c), f: a → b → c → d) uncurry₃: d =
+show let uncurry₃ [
+  a ∏ (b ∏ c):a ∏ (b ∏ c),
+  f:[a, b, c, d], d]
   a f b c

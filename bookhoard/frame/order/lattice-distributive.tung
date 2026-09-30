@@ -6,10 +6,10 @@ use frame/order/semilattice-upper.tung
 ## a lattice whose infimum and supremum distribute over each oþer.
 graiþ a lattice
 show frame a lattice-distributive {
-  law (a: a, b: a, c: a):
+  law [a:a, b:a, c:a]
     a ∧ (b ∨ c) = (a ∧ b) ∨ (a ∧ c)
 
-  law (a: a, b: a, c: a):
+  law [a:a, b:a, c:a]
     a ∨ (b ∧ c) = (a ∨ b) ∧ (a ∨ c)
 }
 

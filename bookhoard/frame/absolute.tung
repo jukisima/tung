@@ -3,7 +3,7 @@ use frame/order/less-equal.tung
 use ilk/two.tung
 
 show frame a absolute b {
-  let a absolute: b
+  let absolute [a, b]
 }
 
 fill ℤ absolute ℤ {

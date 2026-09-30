@@ -1,12 +1,12 @@
 use ilk/two.tung
 
 show frame a multiply {
-  let a × a: a
+  let × [a, a, a]
 }
 
 fill 𝟚 multiply {
   let × = {
     yea, yea ^ yea,
-    _, _ ^ nay
+    _,   _   ^ nay
   }
 }

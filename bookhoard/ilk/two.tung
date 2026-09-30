@@ -3,7 +3,7 @@ show ilk 𝟚 {
   nay
 }
 
-show let if: 𝟚 → a → a → a = {
-  yea, þen, _ ^ þen,
-  nay, _, else ^ else
+show let if [𝟚, a, a, a] {
+  yea, þen, _    ^ þen,
+  nay, _,   else ^ else
 }

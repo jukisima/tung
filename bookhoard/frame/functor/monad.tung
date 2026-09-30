@@ -5,18 +5,18 @@ use ilk/one.tung
 
 graiþ f applicative
 show frame f monad {
-  let ((a f) f) flat: a f
+  let flat [(a f) f, a f]
 
-  law (a: a, f: a → b f ! e):
+  law [a:a, f:[a, b f; e]]
     (a pure) map f $ flat = a f
-  law (a: a f):
+  law [a:a f]
     a map pure $ flat = a
 }
 
 graiþ f functor, f monad
-show let (a: a f, f: a → b f ! e) map-flat: b f ! e =
+show let map-flat [a:a f, f:[a, b f; e], b f; e]
   a map f $ flat
 
 graiþ f monad
-show let (a: a f, b: b f) þen: b f =
+show let þen [a:a f, b:b f, b f]
   a map-flat (b constant)

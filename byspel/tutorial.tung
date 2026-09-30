@@ -9,12 +9,14 @@ let list = list~empty
 let table = hashmap~empty
 
 # define variables
-let number = 42
+let number [ℤ] 42
 let text = 'hello!'
 
 # define functions
-let (a: a) sameness: a = a
-let (a: a, b: b) constant: a = a
+let sameness [a:a, a] a
+let constant [a:a, b:b, a] a
+# combine a positional argument with a typed argument and result
+let x add-after [y:ℤ, ℤ] x + y
 
 # `yield` a value from a local block
 let seven = (
@@ -40,25 +42,25 @@ ilk a option {
 }
 
 # match a value
-let ¬: 𝟚 → 𝟚 = {
+let ¬ [𝟚, 𝟚] {
   yea ^ nay,
   nay ^ yea
 }
 # or equivalently
-let (x: 𝟚) ¬′: 𝟚 = match x {
+let ¬′ [x:𝟚, 𝟚] match x {
   yea ^ nay,
   nay ^ yea
 }
 
 # define records
-let-ilk person = r(name: text, age: ℤ)
-let person: person = r(name = 'tung', age = 1)
+let-ilk person = r(name:text, age:ℤ)
+let person [person] r(name = 'tung', age = 1)
 let older = r(= person, age = 2)
 let age = older.age
 
 # define a type class
 frame a to-text {
-  let a to-text: text
+  let to-text [a, text]
 }
 
 # implement a type class
@@ -71,17 +73,17 @@ fill 𝟚 to-text {
 
 # define an effect
 deed ask {
-  ℤ ask: ℤ
+  ask [ℤ, ℤ]
 }
 
 # handle an effect
-let asked: text = try 10 ask {
+let asked [text] try 10 ask {
   yield n ^ n to-text,
   n ask ^ (n + 1) eftgin
 }
 
 # `main` is þe entry point
-let (_: 𝟙) main: 𝟙 ! console = (
+let main [_:𝟙, 𝟙; console] (
   let _ = 'hello, tung' write-line
   let _ = seven to-text $ write-line
   let _ = text write-line
