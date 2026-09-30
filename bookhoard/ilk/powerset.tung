@@ -8,7 +8,7 @@ use frame/order/semilattice-upper.tung
 use ilk/two.tung
 
 ## a powerset represented by its membership predicate.
-show let-ilk a powerset = a func 𝟚
+show let-ilk a powerset = a → 𝟚
 
 show let empty [a powerset] nay constant
 

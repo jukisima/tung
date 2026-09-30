@@ -14,7 +14,7 @@ show frame a lattice-distributive {
 }
 
 graiþ b lattice-distributive
-fill (a func b) lattice-distributive {}
+fill (a → b) lattice-distributive {}
 
 graiþ a order-total
 fill a lattice-distributive {}

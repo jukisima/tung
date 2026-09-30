@@ -4,6 +4,6 @@ show frame ⇨ semigroupoid {
   law [f:a ⇨ b, g:b ⇨ c, h:c ⇨ d] f ∘ (g ∘ h) = (f ∘ g) ∘ h
 }
 
-fill func semigroupoid {
+fill → semigroupoid {
   let f ∘ g a = a f $ g
 }

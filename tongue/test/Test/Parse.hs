@@ -42,7 +42,7 @@ accepted =
     ("type alias declaration boundary", "let-ilk count = ℤ let answer [count] 42"),
     ("yield introduceþ the final file expression", "let answer = 42 yield answer"),
     ("type alias", "let-ilk count = ℤ"),
-    ("parameterised type alias", "let-ilk a powerset = a func 𝟚"),
+    ("parameterised type alias", "let-ilk a powerset = a → 𝟚"),
     ("algebraic data", "ilk a option { none, a some }"),
     ("bracketed function type may start a constructor header", "ilk a request { [ℤ, a] ask, stop }"),
     ("empty algebraic data", "ilk 𝟘 {}"),
@@ -63,7 +63,7 @@ accepted =
     ("exported value", "show let answer = 42"),
     ("exported graiþ value", "graiþ a equal show let same [x: a, y: a, 𝟚] x ≡ y"),
     ("exported type alias", "show let-ilk count = ℤ"),
-    ("exported parameterised type alias", "show let-ilk a powerset = a func 𝟚"),
+    ("exported parameterised type alias", "show let-ilk a powerset = a → 𝟚"),
     ("exported data", "show ilk a option { none, a some }"),
     ("exported effect", "show deed ask { ask [ℤ, ℤ] }"),
     ("exported fremmed let", "show let plus [ℤ, ℤ, ℤ] 'add-integer' fremmed"),
@@ -86,7 +86,9 @@ accepted =
     ("parenthesised local block", "yield (let x = 1 yield x + 2)"),
     ("adjacent local lets", "yield (let x = 1 let y = 2 yield x + y)"),
     ("term type ascription", "let answer = (1 + 2: ℤ)"),
-    ("func is a binary type constructor", "let id [x: ℤ, ℤ] x")
+    ("arrow is a binary type constructor", "fill → semigroupoid {}"),
+    ("arrow type is right associative", "let-ilk curried = ℤ → text → ℤ"),
+    ("type application bindeþ before arrow", "let-ilk a result = a list → a option")
   ]
 
 rejected :: [(String, String)]
@@ -97,7 +99,6 @@ rejected =
     ("equals after bracketed function is rejected", "let x bad [ℤ] = x"),
     ("colon result type in fill is rejected", "frame a identity { let identity [a, a] } fill ℤ identity { let x identity: ℤ = x }"),
     ("old grouped typed let header is rejected", "ilk a ∏ b { a ∏ b } let (a ∏ b: a ∏ b, f: [a, b, c]) uncurry: c = a f b"),
-    ("arrow function type is rejected", "let-ilk unary = ℤ → ℤ"),
     ("untyped names belong before brackets", "let bad [x:] x"),
     ("colon value annotation is rejected", "let bad: ℤ = 1"),
     ("named arguments precede bare types", "let bad [a, x: b, c] x"),

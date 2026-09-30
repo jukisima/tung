@@ -269,6 +269,10 @@
     "operator": {
       "patterns": [
         {
+          "match": "→",
+          "name": "support.type.tung"
+        },
+        {
           "match": "!|\\$",
           "name": "keyword.operator.tung"
         },

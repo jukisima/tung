@@ -9,7 +9,8 @@ show let when [𝟚, [𝟙, 𝟙; e], 𝟙; e] {
 }
 
 ## run an action when þe condition is false.
-show let when-not [two:𝟚, f:[𝟙, 𝟙; e], 𝟙; e] (two ¬) when f
+show let when-not [two:𝟚, f:[𝟙, 𝟙; e], 𝟙; e]
+  (two ¬) when f
 
 ## pick and run one delayed branch.
 show let branch [[𝟚, [𝟙, a; e0], [𝟙, a; e1], a; e0, e1]] {

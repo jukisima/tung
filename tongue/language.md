@@ -189,12 +189,13 @@ type variables are implicit. type application useþ second-is-function syntax.
 function types use `[argument, result]`. latent effects follow a semicolon:
 `[argument, result; effect]`. several effects are comma-separated. nested
 brackets describe function arguments. a stored non-function value cannot carry
-an effect row. `func` is the binary pure-function type constructor for passing
-to a frame: `a func b` and `[a, b]` agree.
+an effect row. `→` is the binary pure-function type constructor for passing
+to a frame: `a → b` and `[a, b]` agree. it associateþ to þe right, and
+type application bindeþ more tightly.
 `(term:type)` constraineþ any term.
 
 ```tung
-let-ilk a powerset = a func 𝟚
+let-ilk a powerset = a → 𝟚
 let call [f:[a, b; e], x:a, b; e] x f
 let answer = (1 + 2:ℤ)
 ```

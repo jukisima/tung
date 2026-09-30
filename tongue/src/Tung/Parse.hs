@@ -976,7 +976,13 @@ finishType tokens rest = (,rest) <$> parseWhole "could not parse whole type" par
 parseTypeTokens :: P TypeExpr
 parseTypeTokens = withPosition \ts -> case splitTopLevelBang ts of
   Just _ -> Failed "effects are only allowed on function types"
-  Nothing -> parseTypeApplication ts
+  Nothing -> case splitTopLevel ts (== TArrow) of
+    Just (before, after) | not (null before) && not (null after) -> do
+      argument <- parseWhole "invalid function argument type" parseTypeApplication before
+      result <- parseWhole "invalid function result type" parseTypeTokens after
+      ty <- makeArrowType [argument] [] result
+      pure (ty, [])
+    _ -> parseTypeApplication ts
 
 makeArrowType :: [TypeExpr] -> [TypeExpr] -> TypeExpr -> Either SourceFailure TypeExpr
 makeArrowType args effects ret = do
@@ -1004,6 +1010,7 @@ parseTypeAtom = \case
   TParenKeyword "r" : rest -> parseRecordType rest
   TIdent "r" : TLParen : _ -> Failed "record opener must be written 'r(' without whitespace"
   TIdent s : rest -> Right (TypeName s, rest)
+  TArrow : rest -> Right (TypeName "→", rest)
   TLBracket : rest -> do
     (contents, closing) <- takeTopLevelUntil rest (== TRBracket) "expected ']' after function type"
     case closing of
@@ -1098,6 +1105,7 @@ headerParts = go []
 
 readHeaderTerm :: [Token] -> Maybe ([Token], [Token])
 readHeaderTerm (TIdent name : rest) = Just ([TIdent name], rest)
+readHeaderTerm (TArrow : rest) = Just ([TArrow], rest)
 readHeaderTerm (TInteger value : rest) = Just ([TInteger value], rest)
 readHeaderTerm (TText value : rest) = Just ([TText value], rest)
 readHeaderTerm (TLParen : rest) = do

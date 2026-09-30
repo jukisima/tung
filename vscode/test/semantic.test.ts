@@ -259,7 +259,7 @@ test("semantic analysis treateþ a term ascription tail as type syntax", () => {
   ]);
 });
 test("semantic analysis markeþ parameterised type alias headers", () => {
-  const source = "show let-ilk a powerset = a func 𝟚";
+  const source = "show let-ilk a powerset = a → 𝟚";
   assert.deepEqual(semanticLabelsOf(source, "powerset"), [
     "type:declaration.typeFunction",
   ]);
@@ -267,7 +267,7 @@ test("semantic analysis markeþ parameterised type alias headers", () => {
     "type:declaration",
     "type:",
   ]);
-  assert.deepEqual(semanticLabelsOf(source, "func"), ["type:applied"]);
+  assert.deepEqual(semanticLabelsOf(source, "→"), ["type:applied"]);
 });
 test("parameterised ilk heads are type functions", () => {
   const source = "ilk a list { empty }";

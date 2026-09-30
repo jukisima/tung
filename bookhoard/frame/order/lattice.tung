@@ -10,7 +10,7 @@ show frame a lattice {
 }
 
 graiþ b lattice
-fill (a func b) lattice {}
+fill (a → b) lattice {}
 
 graiþ a order-total
 fill a lattice {}

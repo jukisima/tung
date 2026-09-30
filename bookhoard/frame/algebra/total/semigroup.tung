@@ -13,7 +13,7 @@ show-ilk infimal, supremal
 show infimal, supremal
 
 graiþ b semigroup
-fill (a func b) semigroup {
+fill (a → b) semigroup {
   let f * g a = (a f) * (a g)
 }
 

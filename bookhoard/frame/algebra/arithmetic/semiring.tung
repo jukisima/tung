@@ -16,7 +16,7 @@ show frame a semiring {
 }
 
 graiþ b semiring
-fill (a func b) semiring {
+fill (a → b) semiring {
   let f + g a = (a f) + (a g)
   let _ zero = zero
   let f × g a = (a f) × (a g)

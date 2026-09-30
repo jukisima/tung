@@ -8,6 +8,6 @@ show frame ⇨ category {
   law [f:a ⇨ b] f ∘ sameness = f
 }
 
-fill func category {
+fill → category {
   let a sameness = a
 }

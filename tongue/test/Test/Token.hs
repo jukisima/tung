@@ -13,6 +13,7 @@ lexCases :: [(String, String, [Token])]
 lexCases =
   [ ("record access separateþ member names", "person.age", [TIdent "person", TDot, TIdent "age"]),
     ("case separator is syntax", "^", [TMapsTo]),
+    ("function type arrow is syntax", "ℤ → ℤ", [TIdent "ℤ", TArrow, TIdent "ℤ"]),
     ("pipe is an ordinary name", "|", [TIdent "|"]),
     ("qualified operator stayeþ one name", "list~_*", [TIdent "list~_*"]),
     ("qualified name stayeþ one name", "list~empty", [TIdent "list~empty"]),
@@ -43,7 +44,6 @@ lexCases =
 lexErrors :: [(String, String)]
 lexErrors =
   [ ("path-qualified namespace", "ilk/list~empty"),
-    ("removed arrow syntax", "ℤ → ℤ"),
     ("unterminated text", "'no"),
     ("unknown text escape", "'\\q'"),
     ("empty unicode escape", "`\\;"),

@@ -11,7 +11,7 @@ show frame a semilattice-lower {
 }
 
 graiþ b semilattice-lower
-fill (a func b) semilattice-lower {
+fill (a → b) semilattice-lower {
   let f ∧ g a = (a f) ∧ (a g)
 }
 

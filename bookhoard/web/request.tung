@@ -5,10 +5,15 @@ show ilk request {
   text request text (text table text) text
 }
 
-show let request-meþod [meþod request _ _ _:request, text] meþod
+show let request-meþod [meþod request _ _ _:request, text]
+  meþod
 
-show let request-target [_ request target _ _:request, text] target
+show let request-target [_ request target _ _:request, text]
+  target
 
-show let request-headers [_ request _ headers _:request, text table text] headers
+show let request-headers
+  [_ request _ headers _:request, text table text]
+    headers
 
-show let request-body [_ request _ _ body:request, text] body
+show let request-body [_ request _ _ body:request, text]
+  body

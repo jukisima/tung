@@ -25,7 +25,7 @@ let seven = (
 )
 
 # define a type alias
-let-ilk a powerset = a func 𝟚
+let-ilk a powerset = a → 𝟚
 
 # define algebraic data types
 ilk 𝟘 {}

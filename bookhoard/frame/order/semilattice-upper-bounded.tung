@@ -10,7 +10,7 @@ show frame a semilattice-upper-bounded {
 }
 
 graiþ b semilattice-upper-bounded
-fill (a func b) semilattice-upper-bounded {
+fill (a → b) semilattice-upper-bounded {
   let _ ⟂ = ⟂
 }
 

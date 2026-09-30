@@ -9,7 +9,7 @@ graiþ a lattice, a semilattice-bounded-upper, a semilattice-upper-bounded
 show frame a lattice-bounded {}
 
 graiþ b lattice-bounded
-fill (a func b) lattice-bounded {}
+fill (a → b) lattice-bounded {}
 
 fill 𝟚 lattice-bounded {}
 

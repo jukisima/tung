@@ -49,7 +49,7 @@ retaineth repetition without order. a
 pairþ a multiset wiþ a proof of no duplicates.
 
 tung hath neiþer quotient types nor dependent proof fields. `powerset` is
-therefore `a func 𝟚`. wrap it in `infimal` for intersection or `supremal` for
+therefore `a → 𝟚`. wrap it in `infimal` for intersection or `supremal` for
 union; no bare powerset monoid chooseþ between them.
 
 `set` and `table` expose `from-list`. `empty`, `singleton`, and `put` preserve

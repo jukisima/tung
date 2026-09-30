@@ -301,6 +301,15 @@ test("textmate separateþ function brackets and effect separator", async () => {
     ));
   }
 });
+test("textmate giveþ the binary type arrow a type scope", async () => {
+  const loaded = await loadGrammar();
+  for (const line of ["let-ilk a powerset = a → 𝟚", "fill → category {"]) {
+    const arrow = loaded.tokenizeLine(line).tokens.find(
+      ({ startIndex, endIndex }) => line.slice(startIndex, endIndex) === "→",
+    );
+    assert(arrow?.scopes.includes("support.type.tung"));
+  }
+});
 test("textmate recogniseþ the law equation marker", async () => {
   const line = "law [x: a] x identity = x";
   const tokens = (await loadGrammar()).tokenizeLine(line).tokens;

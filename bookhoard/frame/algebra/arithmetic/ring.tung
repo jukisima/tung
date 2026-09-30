@@ -9,7 +9,7 @@ show frame a ring {
 }
 
 graiþ b ring
-fill (a func b) ring {
+fill (a → b) ring {
   let f - g a = (a f) - (a g)
 }
 

@@ -603,17 +603,17 @@ unifyListsM xs ys
   | length xs == length ys = zipWithM_ unifyM xs ys
   | otherwise = failTc ("arity mismatch: [" ++ showTyList xs ++ "] vs [" ++ showTyList ys ++ "]")
 
--- pure arrows participate in application unification as the binary 'func'
+-- pure arrows participate in application unification as the binary '→'
 -- constructor. prefix capture is shared by every partially applied constructor.
 applicationView :: Ty -> Maybe (ApplicationHead, [Ty])
 applicationView (TyApplication head args) = Just (head, args)
-applicationView (TyArrow arg [] ret) = Just (ConstructorHead (StructuralConstructor "func"), [arg, ret])
+applicationView (TyArrow arg [] ret) = Just (ConstructorHead (StructuralConstructor "→"), [arg, ret])
 applicationView _ = Nothing
 
 unifyArrowApplicationM :: ApplicationHead -> [Ty] -> Ty -> EffectRow -> Ty -> Tc ()
 unifyArrowApplicationM head args arg effects ret = do
   unifyEffectsM effects []
-  unifyApplicationsM head args (ConstructorHead (StructuralConstructor "func")) [arg, ret]
+  unifyApplicationsM head args (ConstructorHead (StructuralConstructor "→")) [arg, ret]
 
 unifyApplicationsM :: ApplicationHead -> [Ty] -> ApplicationHead -> [Ty] -> Tc ()
 unifyApplicationsM x xs y ys
@@ -642,13 +642,13 @@ applyApplicationHead (VariableHead name) args = TyApplication (VariableHead name
 applyApplicationHead (ConstructorHead constructor) args = applyTypeConstructor constructor args
 
 applyTypeConstructor :: TypeConstructor -> [Ty] -> Ty
-applyTypeConstructor (StructuralConstructor name) = tyAppOrFunc name
+applyTypeConstructor (StructuralConstructor name) = tyAppOrArrow name
 applyTypeConstructor (NamedConstructor ref) = TyNamed ref
 
-tyAppOrFunc :: String -> [Ty] -> Ty
-tyAppOrFunc name [] = TyCon name
-tyAppOrFunc "func" [arg, ret] = TyFun (arg :| []) [] ret
-tyAppOrFunc name args = TyApp name args
+tyAppOrArrow :: String -> [Ty] -> Ty
+tyAppOrArrow name [] = TyCon name
+tyAppOrArrow "→" [arg, ret] = TyFun (arg :| []) [] ret
+tyAppOrArrow name args = TyApp name args
 
 unifyRecordFieldsM :: Map.Map String Ty -> Map.Map String Ty -> Tc ()
 unifyRecordFieldsM xs ys
@@ -867,7 +867,6 @@ applyReplacementTy replacement args = case replacement of
 
 atomTypeName :: String -> TcContext -> Ty
 atomTypeName name ctx
-  | name == "func" = TyCon "func"
   | isPrimitiveTypeName name = TyCon name
   | Just ([], target) <- aliasInfo name ctx = target
   | Just ref <- typeRefForName name ctx = TyNamed ref []
@@ -875,7 +874,7 @@ atomTypeName name ctx
   | otherwise = TyVar name
 
 atomAppliedTypeName :: String -> [Ty] -> TcContext -> Ty
-atomAppliedTypeName "func" args _ = tyAppOrFunc "func" args
+atomAppliedTypeName "→" args _ = tyAppOrArrow "→" args
 atomAppliedTypeName name args ctx = case aliasInfo name ctx of
   Just (params, target)
     | length params == length args -> replaceVars target (Map.fromList (zip params args))

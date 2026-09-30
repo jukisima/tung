@@ -22,5 +22,9 @@ show let ok [body:text, response] 200 respond body
 
 show let not-found [body:text, response] 404 respond body
 
-show let wiþ-header [status response headers body:response, name:text, value:text, response]
+show let wiþ-header [
+  status response headers body:response,
+  name:text,
+  value:text,
+  response]
   status response (headers put name value) body

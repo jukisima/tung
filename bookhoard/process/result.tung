@@ -3,9 +3,14 @@ show ilk process-result {
   ℤ process-result text text
 }
 
-show let process-status [status process-result _ _:process-result, ℤ]
-  status
+show let process-status
+  [status process-result _ _:process-result, ℤ]
+    status
 
-show let process-output [_ process-result output _:process-result, text] output
+show let process-output
+  [_ process-result output _:process-result, text]
+    output
 
-show let process-errors [_ process-result _ errors:process-result, text] errors
+show let process-errors
+  [_ process-result _ errors:process-result, text]
+    errors

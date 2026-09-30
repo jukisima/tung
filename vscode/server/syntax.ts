@@ -153,6 +153,10 @@ const tokenize = (text) => {
       consumeSpecialOpen();
     } else if (isNumberStart(text, offset)) {
       consumeNumber();
+    } else if (ch === "→") {
+      const [startOffset, startLine, startChar] = position();
+      advance();
+      push("name", startOffset, startLine, startChar);
     } else if (specialNameChars.has(ch)) {
       const [startOffset, startLine, startChar] = position();
       advance();
