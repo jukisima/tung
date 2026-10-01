@@ -1,24 +1,24 @@
 -- | phase-separated, validated boundary between elaboration and evaluation.
-module Tung.Core (
-  CoreProgram,
-  CoreDecl (..),
-  CoreLocalDecl (..),
-  CoreName (..),
-  LocalId (..),
-  localIdText,
-  CoreExpr (..),
-  CorePattern (..),
-  CoreReturnCase (..),
-  CoreHandlerCase (..),
-  CoreRecordUpdate (..),
-  CoreMatchCase (..),
-  ModuleInterface (..),
-  makeCoreProgramWithImports,
-  coreDeclarations,
-  coreImportDeclarations,
-  coreInterface,
-  coreImportInterface,
-)
+module Tung.Core
+  ( CoreProgram,
+    CoreDecl (..),
+    CoreLocalDecl (..),
+    CoreName (..),
+    LocalId (..),
+    localIdText,
+    CoreExpr (..),
+    CorePattern (..),
+    CoreReturnCase (..),
+    CoreHandlerCase (..),
+    CoreRecordUpdate (..),
+    CoreMatchCase (..),
+    ModuleInterface (..),
+    makeCoreProgramWithImports,
+    coreDeclarations,
+    coreImportDeclarations,
+    coreInterface,
+    coreImportInterface,
+  )
 where
 
 import Control.Monad.Trans.Class (lift)
@@ -27,14 +27,14 @@ import Data.List (find)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict qualified as Map
 import Data.Traversable (mapAccumM)
-import Tung.Identity (FillId, ModuleId (..), SymbolId (..), TermExport (..), TermKind (..))
+import Tung.Identity (InstanceId, ModuleId (..), SymbolId (..), TermExport (..), TermKind (..))
 import Tung.Name (lastQualifiedSegment)
 import Tung.Primitive (findForeignBinding, hostArity)
 import Tung.Syntax
 
 data ModuleInterface = ModuleInterface
-  { interfaceModule :: ModuleId
-  , interfaceTerms :: Map.Map SymbolId TermExport
+  { interfaceModule :: ModuleId,
+    interfaceTerms :: Map.Map SymbolId TermExport
   }
   deriving stock (Eq, Show)
 
@@ -44,8 +44,8 @@ data CoreDecl
   | CoreForeignLet TermExport String Int
   | CoreData [TermExport]
   | CoreEffect [TermExport]
-  | CoreShape SymbolId [SymbolId] [TermExport]
-  | CoreFill FillId SymbolId [(String, CoreExpr)]
+  | CoreClass SymbolId [SymbolId] [TermExport]
+  | CoreInstance InstanceId SymbolId [(String, CoreExpr)]
   deriving stock (Eq, Show)
 
 data CoreLocalDecl = CoreLocalLet LocalId CoreExpr
@@ -84,7 +84,7 @@ data CoreExpr
   | CoreTry CoreExpr (Maybe CoreReturnCase) [CoreHandlerCase]
   | CoreMatch [CoreExpr] [CoreMatchCase]
   | CoreBlock [CoreLocalDecl] CoreExpr
-  | CoreDictionary FillId SymbolId [CoreExpr] [CoreExpr]
+  | CoreDictionary InstanceId SymbolId [CoreExpr] [CoreExpr]
   deriving stock (Eq, Show)
 
 data CoreReturnCase = CoreReturnCase CorePattern CoreExpr
@@ -100,8 +100,8 @@ data CoreMatchCase = CoreMatchCase (NonEmpty CorePattern) CoreExpr
   deriving stock (Eq, Show)
 
 data CoreModule = CoreModule
-  { coreModuleDeclarations :: [CoreDecl]
-  , coreModuleInterface :: ModuleInterface
+  { coreModuleDeclarations :: [CoreDecl],
+    coreModuleInterface :: ModuleInterface
   }
   deriving stock (Eq, Show)
 
@@ -115,17 +115,17 @@ makeCoreProgramWithImports interface terms program imports = do
   declarations <- lowerCoreProgram terms program
   let root = CoreModule declarations interface
   pure (CoreProgram root importedModules)
- where
-  rootModule (CoreProgram imported _) = imported
+  where
+    rootModule (CoreProgram imported _) = imported
 
 coreDeclarations :: CoreProgram -> [CoreDecl]
-coreDeclarations (CoreProgram CoreModule{coreModuleDeclarations} _) = coreModuleDeclarations
+coreDeclarations (CoreProgram CoreModule {coreModuleDeclarations} _) = coreModuleDeclarations
 
 coreImportDeclarations :: FilePath -> CoreProgram -> Maybe [CoreDecl]
 coreImportDeclarations path (CoreProgram _ imports) = coreModuleDeclarations <$> Map.lookup path imports
 
 coreInterface :: CoreProgram -> ModuleInterface
-coreInterface (CoreProgram CoreModule{coreModuleInterface} _) = coreModuleInterface
+coreInterface (CoreProgram CoreModule {coreModuleInterface} _) = coreModuleInterface
 
 coreImportInterface :: FilePath -> CoreProgram -> Maybe ModuleInterface
 coreImportInterface path (CoreProgram _ imports) = coreModuleInterface <$> Map.lookup path imports
@@ -139,143 +139,143 @@ freshLocal :: String -> Lower LocalId
 freshLocal name = state (\index -> (BoundLocal index name, index + 1))
 
 -- lowering allocateþ unique locals and eraseþ source-only syntax. þe checker
--- hath already disambiguated imports, overloads, constructors, and frames;
+-- hath already disambiguated imports, overloads, constructors, and classes;
 -- core mappeþ declarations, expressions, patterns, and locals to þeir checked
 -- identities.
 lowerCoreProgram :: Map.Map String [TermExport] -> Program -> Either String [CoreDecl]
 lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse lowerDecl declarations) 0
- where
-  resolveOwn name matches =
-    maybe
-      (lowerFailure ("internal missing checked term '" ++ name ++ "'"))
-      pure
-      (Map.lookup name terms >>= find (matches . termExportKind))
+  where
+    resolveOwn name matches =
+      maybe
+        (lowerFailure ("internal missing checked term '" ++ name ++ "'"))
+        pure
+        (Map.lookup name terms >>= find (matches . termExportKind))
 
-  lowerDecl = \case
-    Import path _ -> pure [CoreImport path]
-    Export declaration -> lowerDecl declaration
-    ReExport{} -> pure []
-    ReExportType{} -> pure []
-    Let name (Just _) (EForeign hostKey) -> do
-      target <- resolveOwn name (== OrdinaryTerm)
-      arity <- maybe (lowerFailure ("internal unknown fremmed binding '" ++ hostKey ++ "'")) (pure . hostArity) (findForeignBinding hostKey)
-      pure [CoreForeignLet target hostKey arity]
-    Let _ _ EForeign{} -> lowerFailure "internal misplaced fremmed marker"
-    Let name _ body -> do
-      target <- resolveOwn name (== OrdinaryTerm)
-      (: []) . CoreLet target <$> lowerExpr [] body
-    TypeAlias{} -> pure []
-    DataDecl _ name constructors -> do
-      constructors2 <- traverse (lowerConstructor name) constructors
-      pure [CoreData constructors2]
-    EffectDecl{} -> lowerFailure "internal unelaborated effect"
-    ElaboratedEffect target operations -> do
-      operations2 <- traverse (lowerResolvedOperation target) operations
-      pure [CoreEffect operations2]
-    ShapeDecl{} -> lowerFailure "internal unelaborated frame"
-    ElaboratedShape target needs members -> do
-      members2 <- traverse (lowerShapeMember target) members
-      pure [CoreShape target needs members2]
-    FillDecl{} -> lowerFailure "internal unelaborated fill"
-    ElaboratedFill key frame _ _ _ members -> do
-      members2 <- traverse lowerFillMember members
-      pure [CoreFill key frame members2]
+    lowerDecl = \case
+      Import path _ -> pure [CoreImport path]
+      Export declaration -> lowerDecl declaration
+      ReExport {} -> pure []
+      ReExportType {} -> pure []
+      Let name (Just _) (EForeign hostKey) -> do
+        target <- resolveOwn name (== OrdinaryTerm)
+        arity <- maybe (lowerFailure ("internal unknown fremmed binding '" ++ hostKey ++ "'")) (pure . hostArity) (findForeignBinding hostKey)
+        pure [CoreForeignLet target hostKey arity]
+      Let _ _ EForeign {} -> lowerFailure "internal misplaced fremmed marker"
+      Let name _ body -> do
+        target <- resolveOwn name (== OrdinaryTerm)
+        (: []) . CoreLet target <$> lowerExpr [] body
+      TypeAlias {} -> pure []
+      DataDecl _ name constructors -> do
+        constructors2 <- traverse (lowerConstructor name) constructors
+        pure [CoreData constructors2]
+      EffectDecl {} -> lowerFailure "internal unelaborated effect"
+      ElaboratedEffect target operations -> do
+        operations2 <- traverse (lowerResolvedOperation target) operations
+        pure [CoreEffect operations2]
+      ClassDecl {} -> lowerFailure "internal unelaborated flock"
+      ElaboratedClass target constraints members -> do
+        members2 <- traverse (lowerClassMember target) members
+        pure [CoreClass target constraints members2]
+      InstanceDecl {} -> lowerFailure "internal unelaborated bizen"
+      ElaboratedInstance key typeClass _ _ _ members -> do
+        members2 <- traverse lowerInstanceMember members
+        pure [CoreInstance key typeClass members2]
 
-  lowerConstructor owner (Ctor name fields) =
-    resolveOwn (owner ++ "@" ++ name) (== ConstructorTerm (length fields))
+    lowerConstructor owner (Ctor name fields _) =
+      resolveOwn (owner ++ "@" ++ name) (== ConstructorTerm (length fields))
 
-  lowerResolvedOperation owner (target, EffectOp name _)
-    | EffectOperationTerm operationOwner _ <- termExportKind target
-    , operationOwner == owner =
-        pure target
-    | otherwise = lowerFailure ("internal effect operation identity mismatch for '" ++ name ++ "'")
+    lowerResolvedOperation owner (target, EffectOp name _)
+      | EffectOperationTerm operationOwner _ <- termExportKind target,
+        operationOwner == owner =
+          pure target
+      | otherwise = lowerFailure ("internal effect operation identity mismatch for '" ++ name ++ "'")
 
-  lowerFillMember = \case
-    Let name _ body -> (name,) <$> lowerExpr [] body
-    _ -> lowerFailure "internal non-let fill member"
+    lowerInstanceMember = \case
+      Let name _ body -> (name,) <$> lowerExpr [] body
+      _ -> lowerFailure "internal non-let bizen member"
 
-  lowerShapeMember owner (target, member) = case member of
-    ShapeSpec name _ -> lowerMember owner target name
-    ShapeLaw{} -> lowerFailure "internal elaborated frame law"
+    lowerClassMember owner (target, member) = case member of
+      ClassSignature name _ -> lowerMember owner target name
+      ClassLaw {} -> lowerFailure "internal elaborated flock law"
 
-  lowerMember owner target name
-    | ShapeMemberTerm memberOwner <- termExportKind target
-    , memberOwner == owner
-    , lastQualifiedSegment (symbolName (termExportTarget target)) == name =
-        pure target
-    | otherwise = lowerFailure ("internal frame member identity mismatch for '" ++ name ++ "'")
+    lowerMember owner target name
+      | ClassMemberTerm memberOwner <- termExportKind target,
+        memberOwner == owner,
+        lastQualifiedSegment (symbolName (termExportTarget target)) == name =
+          pure target
+      | otherwise = lowerFailure ("internal flock member identity mismatch for '" ++ name ++ "'")
 
-  lowerExpr locals = \case
-    ELocated _ expression -> lowerExpr locals expression
-    EInteger value -> pure (CoreInteger value)
-    EFloat value -> pure (CoreFloat value)
-    EUnicode value -> pure (CoreUnicode value)
-    EText value -> pure (CoreText value)
-    EForeign{} -> lowerFailure "internal misplaced fremmed marker"
-    EGlobal target -> pure (CoreVar (CoreGlobalName target))
-    EVar name -> case lookup name locals of
-      Just local -> pure (CoreVar (CoreLocalName local))
-      Nothing -> lowerFailure ("internal unresolved local '" ++ name ++ "'")
-    EEvidence index -> pure (CoreVar (CoreLocalName (EvidenceLocal index)))
-    EEvidenceLambda identifiers body -> do
-      body2 <- lowerExpr locals body
-      pure (CoreMatch [] [CoreMatchCase (fmap (CoreBind . EvidenceLocal) identifiers) body2])
-    EAscribe expression _ -> lowerExpr locals expression
-    EApply function arguments -> CoreApply <$> lowerExpr locals function <*> traverse (lowerExpr locals) arguments
-    ERecord fields -> CoreRecord <$> traverse (traverse (lowerExpr locals)) fields
-    EField base field -> CoreField <$> lowerExpr locals base <*> pure field
-    EUpdate base updates -> CoreUpdate <$> lowerExpr locals base <*> traverse (lowerUpdate locals) updates
-    ETry body returned cases -> CoreTry <$> lowerExpr locals body <*> traverse (lowerReturn locals) returned <*> traverse (lowerHandler locals) cases
-    EMatch scrutinees cases -> CoreMatch <$> traverse (lowerExpr locals) scrutinees <*> traverse (lowerMatch locals) cases
-    EBlock nested body -> do
-      (locals2, nested2) <- lowerLocalDecls locals nested
-      CoreBlock nested2 <$> lowerExpr locals2 body
-    EWithEvidence{} -> lowerFailure "internal unresolved type-class evidence application"
-    EDictionary key frame required parents -> do
-      required2 <- traverse (lowerExpr locals) required
-      parents2 <- traverse (lowerExpr locals) parents
-      pure (CoreDictionary key frame required2 parents2)
+    lowerExpr locals = \case
+      ELocated _ expression -> lowerExpr locals expression
+      EInteger value -> pure (CoreInteger value)
+      EFloat value -> pure (CoreFloat value)
+      EUnicode value -> pure (CoreUnicode value)
+      EText value -> pure (CoreText value)
+      EForeign {} -> lowerFailure "internal misplaced fremmed marker"
+      EGlobal target -> pure (CoreVar (CoreGlobalName target))
+      EVar name -> case lookup name locals of
+        Just local -> pure (CoreVar (CoreLocalName local))
+        Nothing -> lowerFailure ("internal unresolved local '" ++ name ++ "'")
+      EEvidence index -> pure (CoreVar (CoreLocalName (EvidenceLocal index)))
+      EEvidenceLambda identifiers body -> do
+        body2 <- lowerExpr locals body
+        pure (CoreMatch [] [CoreMatchCase (fmap (CoreBind . EvidenceLocal) identifiers) body2])
+      EAscribe expression _ -> lowerExpr locals expression
+      EApply function arguments -> CoreApply <$> lowerExpr locals function <*> traverse (lowerExpr locals) arguments
+      ERecord fields -> CoreRecord <$> traverse (traverse (lowerExpr locals)) fields
+      EField base field -> CoreField <$> lowerExpr locals base <*> pure field
+      EUpdate base updates -> CoreUpdate <$> lowerExpr locals base <*> traverse (lowerUpdate locals) updates
+      ETry body returned cases -> CoreTry <$> lowerExpr locals body <*> traverse (lowerReturn locals) returned <*> traverse (lowerHandler locals) cases
+      EMatch scrutinees cases -> CoreMatch <$> traverse (lowerExpr locals) scrutinees <*> traverse (lowerMatch locals) cases
+      EBlock nested body -> do
+        (locals2, nested2) <- lowerLocalDecls locals nested
+        CoreBlock nested2 <$> lowerExpr locals2 body
+      EWithEvidence {} -> lowerFailure "internal unresolved type-class evidence application"
+      EDictionary key class_ required parents -> do
+        required2 <- traverse (lowerExpr locals) required
+        parents2 <- traverse (lowerExpr locals) parents
+        pure (CoreDictionary key class_ required2 parents2)
 
-  lowerUpdate locals = \case
-    RecordSet name value -> CoreRecordSet name <$> lowerExpr locals value
-    RecordRemove name -> pure (CoreRecordRemove name)
+    lowerUpdate locals = \case
+      RecordSet name value -> CoreRecordSet name <$> lowerExpr locals value
+      RecordRemove name -> pure (CoreRecordRemove name)
 
-  lowerLocalDecls = mapAccumM lowerLocalDecl
-  lowerLocalDecl locals declaration = case declaration of
-    Let name _ EForeign{} -> lowerFailure ("internal fremmed local let '" ++ name ++ "'")
-    Let name _ body -> do
-      local <- freshLocal name
-      let locals2 = (name, local) : locals
-          recursiveLocals = if isAnonymousMatchExpr body then locals2 else locals
-      declaration2 <- CoreLocalLet local <$> lowerExpr recursiveLocals body
-      pure (locals2, declaration2)
-    _ -> lowerFailure "internal non-let local declaration"
+    lowerLocalDecls = mapAccumM lowerLocalDecl
+    lowerLocalDecl locals declaration = case declaration of
+      Let name _ EForeign {} -> lowerFailure ("internal fremmed local let '" ++ name ++ "'")
+      Let name _ body -> do
+        local <- freshLocal name
+        let locals2 = (name, local) : locals
+            recursiveLocals = if isAnonymousMatchExpr body then locals2 else locals
+        declaration2 <- CoreLocalLet local <$> lowerExpr recursiveLocals body
+        pure (locals2, declaration2)
+      _ -> lowerFailure "internal non-let local declaration"
 
-  lowerReturn locals (ReturnCase pattern body) = do
-    (pattern2, bindings) <- lowerPattern pattern
-    CoreReturnCase pattern2 <$> lowerExpr (bindings ++ locals) body
-  lowerHandler _ HandlerCase{} = lowerFailure "internal unresolved handler target"
-  lowerHandler locals (ResolvedHandlerCase target patterns body) = do
-    (patterns2, bindings) <- lowerPatterns patterns
-    continuation <- freshLocal "eftgin"
-    CoreHandlerCase target continuation patterns2 <$> lowerExpr (("eftgin", continuation) : bindings ++ locals) body
-  lowerMatch locals (MatchCase patterns body) = do
-    (patterns2, bindings) <- lowerPatterns patterns
-    CoreMatchCase patterns2 <$> lowerExpr (bindings ++ locals) body
+    lowerReturn locals (ReturnCase pattern body) = do
+      (pattern2, bindings) <- lowerPattern pattern
+      CoreReturnCase pattern2 <$> lowerExpr (bindings ++ locals) body
+    lowerHandler _ HandlerCase {} = lowerFailure "internal unresolved handler target"
+    lowerHandler locals (ResolvedHandlerCase target patterns body) = do
+      (patterns2, bindings) <- lowerPatterns patterns
+      continuation <- freshLocal "eftgin"
+      CoreHandlerCase target continuation patterns2 <$> lowerExpr (("eftgin", continuation) : bindings ++ locals) body
+    lowerMatch locals (MatchCase patterns body) = do
+      (patterns2, bindings) <- lowerPatterns patterns
+      CoreMatchCase patterns2 <$> lowerExpr (bindings ++ locals) body
 
-  lowerPatterns :: (Traversable patterns) => patterns Pattern -> Lower (patterns CorePattern, [(String, LocalId)])
-  lowerPatterns patterns = do
-    lowered <- traverse lowerPattern patterns
-    pure (fmap fst lowered, foldMap snd lowered)
+    lowerPatterns :: (Traversable patterns) => patterns Pattern -> Lower (patterns CorePattern, [(String, LocalId)])
+    lowerPatterns patterns = do
+      lowered <- traverse lowerPattern patterns
+      pure (fmap fst lowered, foldMap snd lowered)
 
-  lowerPattern = \case
-    PVar "_" -> pure (CoreWildcard, [])
-    PVar name -> do
-      local <- freshLocal name
-      pure (CoreBind local, [(name, local)])
-    PInteger value -> pure (CoreIntegerPattern value, [])
-    PText value -> pure (CoreTextPattern value, [])
-    PCon name _ -> lowerFailure ("internal unresolved constructor pattern '" ++ name ++ "'")
-    PConstructor target arguments -> do
-      (arguments2, bindings) <- lowerPatterns arguments
-      pure (CoreConstructorPattern target arguments2, bindings)
+    lowerPattern = \case
+      PVar "_" -> pure (CoreWildcard, [])
+      PVar name -> do
+        local <- freshLocal name
+        pure (CoreBind local, [(name, local)])
+      PInteger value -> pure (CoreIntegerPattern value, [])
+      PText value -> pure (CoreTextPattern value, [])
+      PCon name _ -> lowerFailure ("internal unresolved constructor pattern '" ++ name ++ "'")
+      PConstructor target arguments -> do
+        (arguments2, bindings) <- lowerPatterns arguments
+        pure (CoreConstructorPattern target arguments2, bindings)

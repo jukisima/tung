@@ -1,0 +1,26 @@
+use flock/algebra/arithmetic/add.tung
+use flock/algebra/arithmetic/monoid-additive.tung
+use flock/algebra/arithmetic/monoid-multiplicative.tung
+use flock/algebra/arithmetic/multiply.tung
+use flock/algebra/arithmetic/one.tung
+use flock/algebra/arithmetic/zero.tung
+use ilk/two.tung
+
+graiþ a monoid-additive, a monoid-multiplicative
+show flock semiring [a:ilk] (
+  law [a:a, b:a] a + b = b + a
+  law [a:a, b:a, c:a] a × (b + c) = (a × b) + (a × c)
+  law [a:a, b:a, c:a] (a + b) × c = (a × c) + (b × c)
+  law [a:a, b:a] zero × a = zero
+  law [a:a, b:a] a × zero = zero
+)
+
+graiþ b semiring
+bizen (a → b) semiring {
+  let f + g a ≔ (a f) + (a g)
+  let _ zero ≔ zero
+  let f × g a ≔ (a f) × (a g)
+  let _ one ≔ one
+}
+
+bizen 𝟚 semiring {}

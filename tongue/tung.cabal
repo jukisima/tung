@@ -24,6 +24,7 @@ library
     , Tung.Diagnostic
     , Tung.Evaluate
     , Tung.Format
+    , Tung.Highlight
     , Tung.Import
     , Tung.Identity
     , Tung.Library

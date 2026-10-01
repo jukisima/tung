@@ -1,0 +1,6 @@
+use ilk/two.tung
+
+## a container whose membership can be decided.
+show flock inhold [a:ilk, b:ilk] (
+  let ∋ [a, b, 𝟚]
+)

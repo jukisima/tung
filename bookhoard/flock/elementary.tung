@@ -1,0 +1,23 @@
+use _foreign.tung
+use flock/algebra/arithmetic/divide.tung
+use flock/algebra/arithmetic/multiply.tung
+use flock/algebra/arithmetic/subtract.tung
+use numeric/constant.tung
+
+graiþ a divide
+show flock elementary [a:ilk] (
+  let exponent [a, a]
+  let logariþm [a, a]
+  let sine [a, a]
+  let cosine [a, a]
+)
+
+graiþ a elementary, a divide
+show let tangent [a:a, a] (a sine) ÷ (a cosine)
+
+bizen float elementary {
+  let exponent ≔ exponent-float
+  let logariþm ≔ logariþm-float
+  let sine ≔ sine-float
+  let a cosine ≔ circumference × 0.25 $ - a $ sine
+}

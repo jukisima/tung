@@ -1,0 +1,23 @@
+use flock/order/semilattice-upper.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a supremum semilattice wiþ a least value.
+graiþ a semilattice-upper
+show flock semilattice-upper-bounded [a:ilk] (
+  let ⟂ [a]
+  law [a:a] ⟂ ∨ a = a
+)
+
+graiþ b semilattice-upper-bounded
+bizen (a → b) semilattice-upper-bounded {
+  let _ ⟂ ≔ ⟂
+}
+
+bizen 𝟚 semilattice-upper-bounded {
+  let ⟂ ≔ nay
+}
+
+bizen 𝟛 semilattice-upper-bounded {
+  let ⟂ ≔ fore
+}

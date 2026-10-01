@@ -1,18 +1,17 @@
-{- | strict call-by-value evaluation of checked 'CoreProgram' values.
-applications evaluate function then arguments left-to-right; handlers are deep
-and their captured continuations are reusable.
--}
-module Tung.Evaluate (
-  evaluate,
-  evaluateWithImports,
-  evaluateWithArgsAndImports,
-  evaluateCoreProgram,
-  evaluateMainCoreProgram,
-  evaluateMainCoreProgramWithArgs,
-  evaluateMainWithImports,
-  evaluateMainWithArgsAndImports,
-  evaluateMainBundleWithArgs,
-)
+-- | strict call-by-value evaluation of checked 'CoreProgram' values.
+-- applications evaluate function then arguments left-to-right; handlers are deep
+-- and their captured continuations are reusable.
+module Tung.Evaluate
+  ( evaluate,
+    evaluateWithImports,
+    evaluateWithArgsAndImports,
+    evaluateCoreProgram,
+    evaluateMainCoreProgram,
+    evaluateMainCoreProgramWithArgs,
+    evaluateMainWithImports,
+    evaluateMainWithArgsAndImports,
+    evaluateMainBundleWithArgs,
+  )
 where
 
 import Control.Applicative ((<|>))
@@ -38,51 +37,51 @@ import System.IO (hFlush, stdout)
 import System.Process qualified as Process
 import System.Timeout qualified as Timeout
 import Text.Read (readMaybe)
-import Tung.Core (
-  CoreDecl (..),
-  CoreExpr (..),
-  CoreHandlerCase (..),
-  CoreLocalDecl (..),
-  CoreMatchCase (..),
-  CoreName (..),
-  CorePattern (..),
-  CoreProgram,
-  CoreRecordUpdate (..),
-  CoreReturnCase (..),
-  LocalId (..),
-  ModuleInterface (..),
-  coreDeclarations,
-  coreImportDeclarations,
-  coreImportInterface,
-  coreInterface,
-  localIdText,
- )
-import Tung.Identity (FillId (..), HandlerTarget (..), ModuleId (RuntimeModule), SymbolId (..), TermExport (..), TermKind (..), renderFillId)
+import Tung.Core
+  ( CoreDecl (..),
+    CoreExpr (..),
+    CoreHandlerCase (..),
+    CoreLocalDecl (..),
+    CoreMatchCase (..),
+    CoreName (..),
+    CorePattern (..),
+    CoreProgram,
+    CoreRecordUpdate (..),
+    CoreReturnCase (..),
+    LocalId (..),
+    ModuleInterface (..),
+    coreDeclarations,
+    coreImportDeclarations,
+    coreImportInterface,
+    coreInterface,
+    localIdText,
+  )
+import Tung.Identity (HandlerTarget (..), InstanceId (..), ModuleId (RuntimeModule), SymbolId (..), TermExport (..), TermKind (..), renderInstanceId)
 import Tung.Import (ImportStack, enterImport)
 import Tung.Name (lastQualifiedSegment)
 import Tung.Parse (ParsedBundle (..), ParsedSource (..), SourceUnit (..), prepareBundle)
-import Tung.Primitive (
-  HostBinding (..),
-  HostRole (..),
-  PrimitiveFillSpec (..),
-  baseNativeBindings,
-  consConstructorId,
-  emptyConstructorId,
-  hostArity,
-  hostBindings,
-  nayConstructorId,
-  noneConstructorId,
-  onlyConstructorId,
-  primitiveFillSpecs,
-  processResultConstructorId,
-  productConstructorId,
-  renderEffectId,
-  requestConstructorId,
-  responseConstructorId,
-  someConstructorId,
-  tableConstructorId,
-  yeaConstructorId,
- )
+import Tung.Primitive
+  ( HostBinding (..),
+    HostRole (..),
+    PrimitiveInstanceSpec (..),
+    baseNativeBindings,
+    consConstructorId,
+    emptyConstructorId,
+    hostArity,
+    hostBindings,
+    nayConstructorId,
+    noneConstructorId,
+    onlyConstructorId,
+    primitiveInstanceSpecs,
+    processResultConstructorId,
+    productConstructorId,
+    renderEffectId,
+    requestConstructorId,
+    responseConstructorId,
+    someConstructorId,
+    tableConstructorId,
+    yeaConstructorId,
+  )
 import Tung.Token (SourceFailure (..), unicodeScalar)
 import Tung.Type (elaboratePrepared)
 import Tung.Web qualified as Web
@@ -107,18 +106,18 @@ data RuntimeMatchCase = RuntimeMatchCase (NE.NonEmpty CorePattern) RuntimeExpr
 
 -- primitive dictionaries retain inherited dictionaries after native lookup.
 data RuntimeDictionary
-  = FillDictionary RuntimeFill [RuntimeValue] [RuntimeDictionary]
+  = InstanceDictionary RuntimeInstance [RuntimeValue] [RuntimeDictionary]
   | PrimitiveDictionary SymbolId String [RuntimeDictionary]
 
-data RuntimeFrame = RuntimeFrame
-  { runtimeFrameParents :: [SymbolId]
-  , runtimeFrameMembers :: Set.Set String
+data RuntimeClass = RuntimeClass
+  { runtimeClassParents :: [SymbolId],
+    runtimeClassMembers :: Set.Set String
   }
 
-data RuntimeFill = RuntimeFill
-  { runtimeFillFrame :: SymbolId
-  , runtimeFillMembers :: Map.Map String RuntimeExpr
-  , runtimeFillEnv :: RuntimeEnv
+data RuntimeInstance = RuntimeInstance
+  { runtimeInstanceClass :: SymbolId,
+    runtimeInstanceMembers :: Map.Map String RuntimeExpr,
+    runtimeInstanceEnv :: RuntimeEnv
   }
 
 instance Eq RuntimeValue where
@@ -132,10 +131,10 @@ instance Eq RuntimeValue where
   _ == _ = False
 
 data RuntimeEnv = RuntimeEnv
-  { runtimeGlobals :: Map.Map TermExport RuntimeValue
-  , runtimeLocals :: Map.Map LocalId RuntimeValue
-  , runtimeFrames :: Map.Map SymbolId RuntimeFrame
-  , runtimeFills :: Map.Map FillId RuntimeFill
+  { runtimeGlobals :: Map.Map TermExport RuntimeValue,
+    runtimeLocals :: Map.Map LocalId RuntimeValue,
+    runtimeClasses :: Map.Map SymbolId RuntimeClass,
+    runtimeInstances :: Map.Map InstanceId RuntimeInstance
   }
 
 newtype RuntimeError = RuntimeError String
@@ -153,9 +152,9 @@ runEval (EvalPure result) _ = pure result
 runEval (Eval action) host = action host
 
 data RuntimeTask = RuntimeTask
-  { runtimeTaskId :: !Int
-  , runtimeTaskThread :: MVar (Maybe ThreadId)
-  , runtimeTaskResult :: MVar TaskResult
+  { runtimeTaskId :: !Int,
+    runtimeTaskThread :: MVar (Maybe ThreadId),
+    runtimeTaskResult :: MVar TaskResult
   }
 
 data TaskResult
@@ -164,11 +163,11 @@ data TaskResult
   | TaskCrashed String
 
 data RuntimeHost = RuntimeHost
-  { hostArguments :: [String]
-  , hostImportCache :: IORef RuntimeCache
-  , hostTaskSlots :: TVar Int
-  , hostNextTask :: TVar Int
-  , hostActiveTasks :: TVar (Map.Map Int RuntimeTask)
+  { hostArguments :: [String],
+    hostImportCache :: IORef RuntimeCache,
+    hostTaskSlots :: TVar Int,
+    hostNextTask :: TVar Int,
+    hostActiveTasks :: TVar (Map.Map Int RuntimeTask)
   }
 
 type RuntimeCache = Map.Map String RuntimeEnv
@@ -234,9 +233,9 @@ evaluateMainBundleWithArgs args bundle = evaluateParsedWith True args bundle run
 -- evaluation never accepteþ surface syntax directly: this function first askeþ
 -- the type checker for a mode-appropriate 'CoreProgram'.
 evaluateParsedWith :: Bool -> [String] -> ParsedBundle -> (CoreProgram -> Eval RuntimeValue) -> IO String
-evaluateParsedWith runnable arguments ParsedBundle{bundleRoot, bundleImports} action = case unitParsed bundleRoot of
+evaluateParsedWith runnable arguments ParsedBundle {bundleRoot, bundleImports} action = case unitParsed bundleRoot of
   Left failure -> pure ("parse error: " ++ failureMessage failure)
-  Right ParsedSource{parsedProgram} -> case elaboratePrepared parsedProgram bundleImports runnable of
+  Right ParsedSource {parsedProgram} -> case elaboratePrepared parsedProgram bundleImports runnable of
     Left msg -> pure ((if runnable then "type error: " else "eval error: type error: ") ++ msg)
     Right program -> runCoreProgram arguments program action
 
@@ -256,10 +255,10 @@ newRuntimeHost arguments = do
   hostTaskSlots <- newTVarIO (max 2 capabilities)
   hostNextTask <- newTVarIO 0
   hostActiveTasks <- newTVarIO Map.empty
-  pure RuntimeHost{hostArguments = arguments, ..}
+  pure RuntimeHost {hostArguments = arguments, ..}
 
 cancelActiveTasks :: RuntimeHost -> IO ()
-cancelActiveTasks host@RuntimeHost{hostActiveTasks} = do
+cancelActiveTasks host@RuntimeHost {hostActiveTasks} = do
   tasks <- Map.elems <$> readTVarIO hostActiveTasks
   unless (null tasks) do
     mapM_ cancelTaskIO tasks
@@ -283,30 +282,30 @@ evalProgramEnv importStack program declarations = evalDeclsWithImports importSta
 evalDeclsWithImports :: ImportStack -> CoreProgram -> [CoreDecl] -> RuntimeEnv -> RuntimeValue -> Eval (RuntimeEnv, RuntimeValue)
 evalDeclsWithImports importStack program declarations env lastValue = do
   importedEnv <- foldM use env declarations
-  let declarationEnv = closeRuntimeFills compiledFills (foldl' hoistRuntimeDecl importedEnv declarations)
+  let declarationEnv = closeRuntimeInstances compiledInstances (foldl' hoistRuntimeDecl importedEnv declarations)
   foldM execute (declarationEnv, lastValue) declarations
- where
-  compiledFills =
-    Map.fromList
-      [ (key, (frame, Map.fromList [(name, compileExpr member) | (name, member) <- members]))
-      | CoreFill key frame members <- declarations
-      ]
+  where
+    compiledInstances =
+      Map.fromList
+        [ (key, (class_, Map.fromList [(name, compileExpr member) | (name, member) <- members]))
+        | CoreInstance key class_ members <- declarations
+        ]
 
-  use currentEnv = \case
-    CoreImport path -> do
-      importedEnv <- evalImport importStack path program
-      pure (mergeRuntimeEnv importedEnv currentEnv)
-    _ -> pure currentEnv
+    use currentEnv = \case
+      CoreImport path -> do
+        importedEnv <- evalImport importStack path program
+        pure (mergeRuntimeEnv importedEnv currentEnv)
+      _ -> pure currentEnv
 
-  -- executable declarations remain strict and left-to-right. reclosing local
-  -- fills after each binding preserveþ their access to preceding private values.
-  execute (currentEnv, currentLast) = \case
-    CoreLet term expr -> do
-      value <- evalGlobalBoundValue term expr currentEnv
-      let nextEnv = closeRuntimeFills compiledFills (addGlobalValue term value currentEnv)
-          nextLast = if symbolName (termExportTarget term) == "_" then value else currentLast
-      pure (nextEnv, nextLast)
-    _ -> pure (currentEnv, currentLast)
+    -- executable declarations remain strict and left-to-right. reclosing local
+    -- instances after each binding preserveþ their access to preceding private values.
+    execute (currentEnv, currentLast) = \case
+      CoreLet term expr -> do
+        value <- evalGlobalBoundValue term expr currentEnv
+        let nextEnv = closeRuntimeInstances compiledInstances (addGlobalValue term value currentEnv)
+            nextLast = if symbolName (termExportTarget term) == "_" then value else currentLast
+        pure (nextEnv, nextLast)
+      _ -> pure (currentEnv, currentLast)
 
 -- runtime import caching mirrors static imports, but stores evaluated exported
 -- environments so repeated imports do not repeat module initialisation.
@@ -324,52 +323,52 @@ evalImport importStack path program = case enterImport importStack path of
         _ -> runtimeError ("internal missing checked use '" ++ path ++ "'")
 
 lookupRuntimeImport :: String -> Eval (Maybe RuntimeEnv)
-lookupRuntimeImport path = Eval $ \RuntimeHost{hostImportCache} -> RuntimeOk . Map.lookup path <$> readIORef hostImportCache
+lookupRuntimeImport path = Eval $ \RuntimeHost {hostImportCache} -> RuntimeOk . Map.lookup path <$> readIORef hostImportCache
 
 cacheRuntimeImport :: String -> RuntimeEnv -> Eval ()
-cacheRuntimeImport path env = Eval $ \RuntimeHost{hostImportCache} -> do
+cacheRuntimeImport path env = Eval $ \RuntimeHost {hostImportCache} -> do
   atomicModifyIORef' hostImportCache (\cache -> (Map.insert path env cache, ()))
   pure (RuntimeOk ())
 
 projectRuntimeInterface :: ModuleInterface -> RuntimeEnv -> RuntimeEnv
-projectRuntimeInterface ModuleInterface{interfaceTerms} RuntimeEnv{runtimeGlobals, runtimeFrames, runtimeFills} =
+projectRuntimeInterface ModuleInterface {interfaceTerms} RuntimeEnv {runtimeGlobals, runtimeClasses, runtimeInstances} =
   RuntimeEnv
-    { runtimeGlobals = Map.restrictKeys runtimeGlobals targets
-    , runtimeLocals = Map.empty
-    , runtimeFrames
-    , runtimeFills
+    { runtimeGlobals = Map.restrictKeys runtimeGlobals targets,
+      runtimeLocals = Map.empty,
+      runtimeClasses,
+      runtimeInstances
     }
- where
-  targets = Set.fromList (Map.elems interfaceTerms)
+  where
+    targets = Set.fromList (Map.elems interfaceTerms)
 
 mergeRuntimeEnv :: RuntimeEnv -> RuntimeEnv -> RuntimeEnv
 mergeRuntimeEnv left right =
   RuntimeEnv
-    { runtimeGlobals = Map.union (runtimeGlobals left) (runtimeGlobals right)
-    , runtimeLocals = Map.union (runtimeLocals left) (runtimeLocals right)
-    , runtimeFrames = Map.union (runtimeFrames left) (runtimeFrames right)
-    , runtimeFills = Map.union (runtimeFills left) (runtimeFills right)
+    { runtimeGlobals = Map.union (runtimeGlobals left) (runtimeGlobals right),
+      runtimeLocals = Map.union (runtimeLocals left) (runtimeLocals right),
+      runtimeClasses = Map.union (runtimeClasses left) (runtimeClasses right),
+      runtimeInstances = Map.union (runtimeInstances left) (runtimeInstances right)
     }
 
 -- imports and inert declarations form the module environment before any
--- top-level computation. fills are closed separately so all local fills share
+-- top-level computation. instances are closed separately so all local instances share
 -- that environment without replacing imported modules' private closures.
 hoistRuntimeDecl :: RuntimeEnv -> CoreDecl -> RuntimeEnv
 hoistRuntimeDecl env = \case
   CoreData constructors -> addConstructors constructors env
   CoreEffect operations -> addEffectOps operations env
-  CoreShape frame parents members ->
-    addShapeSelectors
+  CoreClass class_ parents members ->
+    addClassSelectors
       members
-      (env{runtimeFrames = Map.insert frame (RuntimeFrame parents (Set.fromList (map shapeMemberName members))) (runtimeFrames env)})
+      (env {runtimeClasses = Map.insert class_ (RuntimeClass parents (Set.fromList (map classMemberName members))) (runtimeClasses env)})
   CoreForeignLet term hostKey arity -> addGlobalValue term (nativeValue hostKey arity) env
   _ -> env
 
-closeRuntimeFills :: Map.Map FillId (SymbolId, Map.Map String RuntimeExpr) -> RuntimeEnv -> RuntimeEnv
-closeRuntimeFills fills env = closedEnv
- where
-  closedEnv = env{runtimeFills = Map.union localFills (runtimeFills env)}
-  localFills = Map.map (\(frame, members) -> RuntimeFill frame members closedEnv) fills
+closeRuntimeInstances :: Map.Map InstanceId (SymbolId, Map.Map String RuntimeExpr) -> RuntimeEnv -> RuntimeEnv
+closeRuntimeInstances instances env = closedEnv
+  where
+    closedEnv = env {runtimeInstances = Map.union localInstances (runtimeInstances env)}
+    localInstances = Map.map (\(class_, members) -> RuntimeInstance class_ members closedEnv) instances
 
 evalGlobalBoundValue :: TermExport -> CoreExpr -> RuntimeEnv -> Eval RuntimeValue
 evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
@@ -378,15 +377,15 @@ evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
      in pure value
   Nothing -> compileExpr expr env
 
-addShapeSelectors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
-addShapeSelectors members env = foldl' add env members
- where
-  add current term@TermExport{termExportKind = ShapeMemberTerm frame} =
-    addGlobalValue term (shapeMemberValue frame (shapeMemberName term)) current
-  add current _ = current
+addClassSelectors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
+addClassSelectors members env = foldl' add env members
+  where
+    add current term@TermExport {termExportKind = ClassMemberTerm class_} =
+      addGlobalValue term (classMemberValue class_ (classMemberName term)) current
+    add current _ = current
 
-shapeMemberName :: TermExport -> String
-shapeMemberName = lastQualifiedSegment . symbolName . termExportTarget
+classMemberName :: TermExport -> String
+classMemberName = lastQualifiedSegment . symbolName . termExportTarget
 
 compileExpr :: CoreExpr -> RuntimeExpr
 compileExpr = \case
@@ -421,18 +420,18 @@ compileExpr = \case
     let compiledDeclarations = map compileLocalDecl declarations
         compiledBody = compileExpr body
      in evalCompiledLocalDecls compiledDeclarations >=> compiledBody
-  CoreDictionary key frame required parents ->
+  CoreDictionary key class_ required parents ->
     let compiledRequired = map compileExpr required
         compiledParents = map compileExpr parents
      in \env -> do
           arguments <- traverse ($ env) compiledRequired
           parentValues <- traverse ($ env) compiledParents
-          makeDictionary key frame arguments parentValues env
+          makeDictionary key class_ arguments parentValues env
 
 evalCompiledArguments :: RuntimeValue -> [RuntimeExpr] -> RuntimeEnv -> Eval RuntimeValue
 evalCompiledArguments value arguments env = foldM step value arguments
- where
-  step function argument = argument env >>= applyOne function
+  where
+    step function argument = argument env >>= applyOne function
 
 type RuntimeRecordUpdate = Either String (String, RuntimeExpr)
 
@@ -443,20 +442,20 @@ compileRecordUpdate = \case
 
 evalCompiledRecord :: [(String, RuntimeExpr)] -> RuntimeEnv -> Map.Map String RuntimeValue -> Eval RuntimeValue
 evalCompiledRecord fields env record = VRecord <$> foldM step record fields
- where
-  step record (name, expr) = Map.insert name <$> expr env <*> pure record
+  where
+    step record (name, expr) = Map.insert name <$> expr env <*> pure record
 
 evalCompiledRecordUpdate :: RuntimeValue -> [RuntimeRecordUpdate] -> RuntimeEnv -> Eval RuntimeValue
 evalCompiledRecordUpdate value updates env = case value of
   VRecord fields -> VRecord <$> foldM step fields updates
   other -> runtimeError ("record update expected record, found " ++ showRuntimeValue other)
- where
-  step record = \case
-    Left name ->
-      if Map.member name record
-        then pure (Map.delete name record)
-        else runtimeError ("unknown record field '" ++ name ++ "'")
-    Right (name, expr) -> Map.insert name <$> expr env <*> pure record
+  where
+    step record = \case
+      Left name ->
+        if Map.member name record
+          then pure (Map.delete name record)
+          else runtimeError ("unknown record field '" ++ name ++ "'")
+      Right (name, expr) -> Map.insert name <$> expr env <*> pure record
 
 data RuntimeLocalDecl
   = RuntimeLocalLet LocalId RuntimeExpr
@@ -474,39 +473,39 @@ anonymousCoreMatchCases = \case
 
 evalCompiledLocalDecls :: [RuntimeLocalDecl] -> RuntimeEnv -> Eval RuntimeEnv
 evalCompiledLocalDecls declarations env = foldM step env declarations
- where
-  step env (RuntimeLocalLet name expr) = addLocalValue name <$> expr env <*> pure env
-  step env (RuntimeLocalMatcher name cases) =
-    let value = newMatcher cases (addLocalValue name value env)
-     in pure (addLocalValue name value env)
+  where
+    step env (RuntimeLocalLet name expr) = addLocalValue name <$> expr env <*> pure env
+    step env (RuntimeLocalMatcher name cases) =
+      let value = newMatcher cases (addLocalValue name value env)
+       in pure (addLocalValue name value env)
 
 compileMatchCases :: [CoreMatchCase] -> [RuntimeMatchCase]
 compileMatchCases = map (\(CoreMatchCase patterns body) -> RuntimeMatchCase patterns (compileExpr body))
 
 newMatcher :: [RuntimeMatchCase] -> RuntimeEnv -> RuntimeValue
 newMatcher cases env = callableValue "<function>" arity (\values -> evalMatchCases cases values env)
- where
-  arity = case cases of
-    RuntimeMatchCase patterns _ : _ -> NE.length patterns
-    [] -> 0
+  where
+    arity = case cases of
+      RuntimeMatchCase patterns _ : _ -> NE.length patterns
+      [] -> 0
 
 evalRecordField :: String -> RuntimeValue -> Eval RuntimeValue
 evalRecordField field = \case
   VRecord fields -> maybe (runtimeError ("unknown record field '" ++ field ++ "'")) pure (Map.lookup field fields)
   value -> runtimeError ("record field access expected record, found " ++ showRuntimeValue value)
 
-makeDictionary :: FillId -> SymbolId -> [RuntimeValue] -> [RuntimeValue] -> RuntimeEnv -> Eval RuntimeValue
-makeDictionary key frame arguments parentValues env = do
+makeDictionary :: InstanceId -> SymbolId -> [RuntimeValue] -> [RuntimeValue] -> RuntimeEnv -> Eval RuntimeValue
+makeDictionary key class_ arguments parentValues env = do
   parentDictionaries <- traverse expectDictionary parentValues
-  case Map.lookup key (runtimeFills env) of
-    Just fill -> pure (VDictionary (FillDictionary fill arguments parentDictionaries))
+  case Map.lookup key (runtimeInstances env) of
+    Just instance_ -> pure (VDictionary (InstanceDictionary instance_ arguments parentDictionaries))
     Nothing -> case key of
-      PrimitiveFillId{fillIdPrimitiveType}
-        | null arguments -> pure (VDictionary (PrimitiveDictionary frame fillIdPrimitiveType parentDictionaries))
-      _ -> runtimeError ("internal missing selected fill '" ++ renderFillId key ++ "'")
- where
-  expectDictionary (VDictionary dictionary) = pure dictionary
-  expectDictionary _ = runtimeError "internal parent fill value is not a dictionary"
+      PrimitiveInstanceId {instanceIdPrimitiveType}
+        | null arguments -> pure (VDictionary (PrimitiveDictionary class_ instanceIdPrimitiveType parentDictionaries))
+      _ -> runtimeError ("internal missing selected bizen '" ++ renderInstanceId key ++ "'")
+  where
+    expectDictionary (VDictionary dictionary) = pure dictionary
+    expectDictionary _ = runtimeError "internal parent bizen value is not a dictionary"
 
 evalCoreName :: CoreName -> RuntimeEnv -> Eval RuntimeValue
 evalCoreName (CoreLocalName local) env = case Map.lookup local (runtimeLocals env) of
@@ -537,70 +536,70 @@ unaryValue display action = callableValue display 1 $ \case
 nativeValue :: String -> Int -> RuntimeValue
 nativeValue name arity = callableValue ("<native " ++ name ++ ">") arity (evalNative name)
 
-shapeMemberValue :: SymbolId -> String -> RuntimeValue
-shapeMemberValue frame member = unaryValue ("<frame member " ++ member ++ ">") $ \case
-  VDictionary dictionary -> evalDictionaryMember frame member dictionary
-  _ -> runtimeError ("frame member '" ++ member ++ "' received non-dictionary evidence")
+classMemberValue :: SymbolId -> String -> RuntimeValue
+classMemberValue class_ member = unaryValue ("<flock member " ++ member ++ ">") $ \case
+  VDictionary dictionary -> evalDictionaryMember class_ member dictionary
+  _ -> runtimeError ("flock member '" ++ member ++ "' received non-dictionary evidence")
 
 evalDictionaryMember :: SymbolId -> String -> RuntimeDictionary -> Eval RuntimeValue
-evalDictionaryMember frame member dictionary =
+evalDictionaryMember class_ member dictionary =
   fromMaybe missing (dictionaryMember dictionary)
- where
-  missing = case dictionary of
-    PrimitiveDictionary frame typeName _ -> runtimeError ("primitive fill '" ++ symbolName frame ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
-    FillDictionary{} -> runtimeError ("selected fill hath no member '" ++ member ++ "'")
+  where
+    missing = case dictionary of
+      PrimitiveDictionary class_ typeName _ -> runtimeError ("primitive bizen '" ++ symbolName class_ ++ " " ++ typeName ++ "' hath no member '" ++ member ++ "'")
+      InstanceDictionary {} -> runtimeError ("selected bizen hath no member '" ++ member ++ "'")
 
-  dictionaryMember (PrimitiveDictionary owner typeName parents) =
-    (if owner == frame then pure <$> primitiveDictionaryValue owner typeName member else Nothing)
-      <|> asum (map dictionaryMember parents)
-  dictionaryMember current@(FillDictionary fill requirements parents) =
-    case Map.lookup member (runtimeFillMembers fill) of
-      Just compiledMember | fillMemberOwner fill member == Just frame -> Just do
-        let evidence = VDictionary current : requirements
-            memberEnv = foldl' addEvidence (runtimeFillEnv fill) (zip [(0 :: Int) ..] evidence)
-        compiledMember memberEnv
-      _ -> asum (map dictionaryMember parents)
+    dictionaryMember (PrimitiveDictionary owner typeName parents) =
+      (if owner == class_ then pure <$> primitiveDictionaryValue owner typeName member else Nothing)
+        <|> asum (map dictionaryMember parents)
+    dictionaryMember current@(InstanceDictionary instance_ requirements parents) =
+      case Map.lookup member (runtimeInstanceMembers instance_) of
+        Just compiledMember | instanceMemberOwner instance_ member == Just class_ -> Just do
+          let evidence = VDictionary current : requirements
+              memberEnv = foldl' addEvidence (runtimeInstanceEnv instance_) (zip [(0 :: Int) ..] evidence)
+          compiledMember memberEnv
+        _ -> asum (map dictionaryMember parents)
 
-  addEvidence env (index, value) = addLocalValue (EvidenceLocal index) value env
+    addEvidence env (index, value) = addLocalValue (EvidenceLocal index) value env
 
--- a child fill may implement an inherited member itself. the checker assigns
--- that member to the first frame in declaration order which specifies it.
-fillMemberOwner :: RuntimeFill -> String -> Maybe SymbolId
-fillMemberOwner RuntimeFill{runtimeFillFrame, runtimeFillEnv} member = go Set.empty runtimeFillFrame
- where
-  go seen frame
-    | Set.member frame seen = Nothing
-    | otherwise = case Map.lookup frame (runtimeFrames runtimeFillEnv) of
-        Nothing -> Nothing
-        Just RuntimeFrame{runtimeFrameParents, runtimeFrameMembers}
-          | Set.member member runtimeFrameMembers -> Just frame
-          | otherwise -> asum (map (go (Set.insert frame seen)) runtimeFrameParents)
+-- a child instance may implement an inherited member itself. the checker assigns
+-- that member to the first class in declaration order which specifies it.
+instanceMemberOwner :: RuntimeInstance -> String -> Maybe SymbolId
+instanceMemberOwner RuntimeInstance {runtimeInstanceClass, runtimeInstanceEnv} member = go Set.empty runtimeInstanceClass
+  where
+    go seen class_
+      | Set.member class_ seen = Nothing
+      | otherwise = case Map.lookup class_ (runtimeClasses runtimeInstanceEnv) of
+          Nothing -> Nothing
+          Just RuntimeClass {runtimeClassParents, runtimeClassMembers}
+            | Set.member member runtimeClassMembers -> Just class_
+            | otherwise -> asum (map (go (Set.insert class_ seen)) runtimeClassParents)
 
 primitiveDictionaryValue :: SymbolId -> String -> String -> Maybe RuntimeValue
-primitiveDictionaryValue frame typeName member = do
-  _ <- find matches primitiveFillSpecs
+primitiveDictionaryValue class_ typeName member = do
+  _ <- find matches primitiveInstanceSpecs
   case (typeName, member) of
     ("ℤ", "zero") -> pure (VInteger 0)
     ("float", "zero") -> pure (VFloat 0)
     ("ℤ", "one") -> pure (VInteger 1)
     ("float", "one") -> pure (VFloat 1)
     _ -> nativeValue member . hostArity <$> find ((== member) . hostName) baseNativeBindings
- where
-  matches PrimitiveFillSpec{primitiveFillShapeTarget, primitiveFillType, primitiveFillMember} =
-    primitiveFillShapeTarget == frame && primitiveFillType == typeName && primitiveFillMember == member
+  where
+    matches PrimitiveInstanceSpec {primitiveInstanceClassTarget, primitiveInstanceType, primitiveInstanceMember} =
+      primitiveInstanceClassTarget == class_ && primitiveInstanceType == typeName && primitiveInstanceMember == member
 
 -- handlers are deep because an escaping operation is rewrapped with 'handleEval'.
 -- the captured continuation is an ordinary reusable runtime value.
 evalTry :: CoreExpr -> Maybe CoreReturnCase -> [CoreHandlerCase] -> RuntimeEnv -> Eval RuntimeValue
 evalTry body returnCase cases env = handleEval (compileExpr body env)
- where
-  handleEval action = Eval $ \host -> runEval action host >>= \result -> runEval (handleRuntimeResult result) host
-  handleRuntimeResult result = case result of
-    RuntimeOk value -> evalReturnCase returnCase value env
-    RuntimeErr err -> raiseRuntime err
-    RuntimeOp effect operation args resume -> case findHandler effect operation cases of
-      Nothing -> Eval (const (pure (RuntimeOp effect operation args (handleEval . resume))))
-      Just handlerCase -> evalHandlerCase handlerCase args (handleEval . resume) env
+  where
+    handleEval action = Eval $ \host -> runEval action host >>= \result -> runEval (handleRuntimeResult result) host
+    handleRuntimeResult result = case result of
+      RuntimeOk value -> evalReturnCase returnCase value env
+      RuntimeErr err -> raiseRuntime err
+      RuntimeOp effect operation args resume -> case findHandler effect operation cases of
+        Nothing -> Eval (const (pure (RuntimeOp effect operation args (handleEval . resume))))
+        Just handlerCase -> evalHandlerCase handlerCase args (handleEval . resume) env
 
 evalReturnCase :: Maybe CoreReturnCase -> RuntimeValue -> RuntimeEnv -> Eval RuntimeValue
 evalReturnCase Nothing value _ = pure value
@@ -628,11 +627,11 @@ bindHandlerRuntimePatterns patterns values env = bindRuntimePatterns patterns va
 
 evalMatchCases :: [RuntimeMatchCase] -> [RuntimeValue] -> RuntimeEnv -> Eval RuntimeValue
 evalMatchCases cases values env = foldr step noMatch cases
- where
-  -- coverage checking should make this defensive branch unreachable for typed data.
-  noMatch = runtimeError ("non-exhaustive match " ++ show (map (NE.toList . runtimeMatchPatterns) cases) ++ " on " ++ showRuntimeValues values)
-  runtimeMatchPatterns (RuntimeMatchCase patterns _) = patterns
-  step (RuntimeMatchCase patterns body) fallback = maybe fallback body (bindRuntimePatterns (NE.toList patterns) values env)
+  where
+    -- coverage checking should make this defensive branch unreachable for typed data.
+    noMatch = runtimeError ("non-exhaustive match " ++ show (map (NE.toList . runtimeMatchPatterns) cases) ++ " on " ++ showRuntimeValues values)
+    runtimeMatchPatterns (RuntimeMatchCase patterns _) = patterns
+    step (RuntimeMatchCase patterns body) fallback = maybe fallback body (bindRuntimePatterns (NE.toList patterns) values env)
 
 bindRuntimePatterns :: [CorePattern] -> [RuntimeValue] -> RuntimeEnv -> Maybe RuntimeEnv
 bindRuntimePatterns patterns values env
@@ -653,7 +652,7 @@ bindRuntimePattern (CoreConstructorPattern constructor args) value env = case va
   _ -> Nothing
 
 -- fremmed lets reach this boundary only after their keys and full signatures
--- pass the host registry; base natives and deeds use the same host catalogue.
+-- pass the host registry; base natives and effects use the same host catalogue.
 evalNative :: String -> [RuntimeValue] -> Eval RuntimeValue
 evalNative name args = case (name, args) of
   ("add-integer", [VInteger a, VInteger b]) -> pure (VInteger (a + b))
@@ -769,10 +768,10 @@ runtimeWebRequest :: Web.Request -> RuntimeValue
 runtimeWebRequest request =
   VData
     requestConstructorId
-    [ VText (Web.requestMethod request)
-    , VText (Web.requestTarget request)
-    , runtimeWebHeaderTable (Web.requestHeaders request)
-    , VText (Web.requestBody request)
+    [ VText (Web.requestMethod request),
+      VText (Web.requestTarget request),
+      runtimeWebHeaderTable (Web.requestHeaders request),
+      VText (Web.requestBody request)
     ]
 
 runtimeWebResponse :: RuntimeValue -> Either String Web.Response
@@ -836,7 +835,7 @@ boundedInt :: Integer -> Int
 boundedInt value = fromInteger (max (toInteger (minBound :: Int)) (min (toInteger (maxBound :: Int)) value))
 
 forkConcurrent :: RuntimeValue -> Eval RuntimeValue
-forkConcurrent work = Eval $ \host@RuntimeHost{hostTaskSlots, hostNextTask, hostActiveTasks} -> do
+forkConcurrent work = Eval $ \host@RuntimeHost {hostTaskSlots, hostNextTask, hostActiveTasks} -> do
   task <- do
     runtimeTaskId <- atomically do
       ident <- readTVar hostNextTask
@@ -844,7 +843,7 @@ forkConcurrent work = Eval $ \host@RuntimeHost{hostTaskSlots, hostNextTask, host
       pure ident
     runtimeTaskThread <- newEmptyMVar
     runtimeTaskResult <- newEmptyMVar
-    let task = RuntimeTask{..}
+    let task = RuntimeTask {..}
     atomically (modifyTVar' hostActiveTasks (Map.insert runtimeTaskId task))
     background <- atomically do
       available <- readTVar hostTaskSlots
@@ -878,7 +877,7 @@ runTaskWith restore host work = do
     Right result -> TaskFinished result
 
 finishTask :: RuntimeHost -> Bool -> RuntimeTask -> TaskResult -> IO ()
-finishTask RuntimeHost{hostTaskSlots, hostActiveTasks} releaseSlot task result = do
+finishTask RuntimeHost {hostTaskSlots, hostActiveTasks} releaseSlot task result = do
   putMVar (runtimeTaskResult task) result
   atomically do
     modifyTVar' hostActiveTasks (Map.delete (runtimeTaskId task))
@@ -993,46 +992,46 @@ runtimeBool False = VData nayConstructorId []
 
 addConstructors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
 addConstructors constructors env = foldl' step env constructors
- where
-  step current term@TermExport{termExportTarget = identity, termExportKind = ConstructorTerm arity} =
-    let name = lastQualifiedSegment (symbolName identity)
-        value = if arity == 0 then VData identity [] else callableValue ("<constructor " ++ name ++ ">") arity (pure . VData identity)
-     in addGlobalValue term value current
-  step current _ = current
+  where
+    step current term@TermExport {termExportTarget = identity, termExportKind = ConstructorTerm arity} =
+      let name = lastQualifiedSegment (symbolName identity)
+          value = if arity == 0 then VData identity [] else callableValue ("<constructor " ++ name ++ ">") arity (pure . VData identity)
+       in addGlobalValue term value current
+    step current _ = current
 
 addEffectOps :: [TermExport] -> RuntimeEnv -> RuntimeEnv
 addEffectOps ops env = foldl' step env ops
- where
-  step current term@TermExport{termExportTarget = operation, termExportKind = EffectOperationTerm effect arity} =
-    let name = lastQualifiedSegment (symbolName operation)
-        value = callableValue ("<effect " ++ name ++ ">") arity (evalEffectOp effect operation)
-     in addGlobalValue term value current
-  step current _ = current
+  where
+    step current term@TermExport {termExportTarget = operation, termExportKind = EffectOperationTerm effect arity} =
+      let name = lastQualifiedSegment (symbolName operation)
+          value = callableValue ("<effect " ++ name ++ ">") arity (evalEffectOp effect operation)
+       in addGlobalValue term value current
+    step current _ = current
 
 baseRuntimeEnv :: RuntimeEnv
 baseRuntimeEnv = foldl' add base hostBindings
- where
-  base = RuntimeEnv{runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeFrames = Map.empty, runtimeFills = Map.empty}
-  add current binding = case hostRole binding of
-    BaseNative -> addGlobalValue (TermExport (runtimeSymbol name) OrdinaryTerm) (nativeValue name arity) current
-    BaseEffect effectName ->
-      let effect = runtimeSymbol effectName
-          operation = runtimeSymbol name
-          term = TermExport operation (EffectOperationTerm effect arity)
-       in addGlobalValue term (callableValue ("<effect " ++ name ++ ">") arity (evalEffectOp effect operation)) current
-    _ -> current
-   where
-    name = hostName binding
-    arity = hostArity binding
+  where
+    base = RuntimeEnv {runtimeGlobals = Map.empty, runtimeLocals = Map.empty, runtimeClasses = Map.empty, runtimeInstances = Map.empty}
+    add current binding = case hostRole binding of
+      BaseNative -> addGlobalValue (TermExport (runtimeSymbol name) OrdinaryTerm) (nativeValue name arity) current
+      BaseEffect effectName ->
+        let effect = runtimeSymbol effectName
+            operation = runtimeSymbol name
+            term = TermExport operation (EffectOperationTerm effect arity)
+         in addGlobalValue term (callableValue ("<effect " ++ name ++ ">") arity (evalEffectOp effect operation)) current
+      _ -> current
+      where
+        name = hostName binding
+        arity = hostArity binding
 
 addGlobalValue :: TermExport -> RuntimeValue -> RuntimeEnv -> RuntimeEnv
-addGlobalValue term value env@RuntimeEnv{runtimeGlobals} = env{runtimeGlobals = Map.insert term value runtimeGlobals}
+addGlobalValue term value env@RuntimeEnv {runtimeGlobals} = env {runtimeGlobals = Map.insert term value runtimeGlobals}
 
 addLocalValue :: LocalId -> RuntimeValue -> RuntimeEnv -> RuntimeEnv
-addLocalValue local value env@RuntimeEnv{runtimeLocals} = env{runtimeLocals = Map.insert local value runtimeLocals}
+addLocalValue local value env@RuntimeEnv {runtimeLocals} = env {runtimeLocals = Map.insert local value runtimeLocals}
 
 lookupGlobalValue :: TermExport -> RuntimeEnv -> Maybe RuntimeValue
-lookupGlobalValue term RuntimeEnv{runtimeGlobals} = Map.lookup term runtimeGlobals
+lookupGlobalValue term RuntimeEnv {runtimeGlobals} = Map.lookup term runtimeGlobals
 
 runtimeSymbol :: String -> SymbolId
 runtimeSymbol = SymbolId RuntimeModule
@@ -1052,8 +1051,8 @@ showRuntimeValue = \case
   VData identity [] -> lastQualifiedSegment (symbolName identity)
   VData identity args -> "(" ++ showRuntimeValues args ++ " " ++ lastQualifiedSegment (symbolName identity) ++ ")"
   VCallable display _ _ _ -> display
-  VTask{} -> "<task>"
-  VDictionary{} -> "<dictionary>"
+  VTask {} -> "<task>"
+  VDictionary {} -> "<dictionary>"
 
 showRuntimeValues :: [RuntimeValue] -> String
 showRuntimeValues = unwords . map showRuntimeValue
@@ -1063,10 +1062,10 @@ escapeTextCharacter character = fromMaybe [character] (escapedSourceCharacter ch
 
 escapeUnicodeCodePoint :: Char -> String
 escapeUnicodeCodePoint codePoint = fromMaybe fallback (escapedSourceCharacter codePoint)
- where
-  fallback
-    | isControl codePoint = "\\" ++ show (ord codePoint) ++ ";"
-    | otherwise = [codePoint]
+  where
+    fallback
+      | isControl codePoint = "\\" ++ show (ord codePoint) ++ ";"
+      | otherwise = [codePoint]
 
 escapedSourceCharacter :: Char -> Maybe String
 escapedSourceCharacter character = lookup character [('\n', "\\n"), ('\r', "\\r"), ('\t', "\\t"), ('\'', "\\'"), ('\\', "\\\\")]

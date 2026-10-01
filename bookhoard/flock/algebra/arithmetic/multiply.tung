@@ -1,0 +1,12 @@
+use ilk/two.tung
+
+show flock multiply [a:ilk] (
+  let × [a, a, a]
+)
+
+bizen 𝟚 multiply {
+  let × ≔ {
+    yea, yea ^ yea,
+    _,   _   ^ nay
+  }
+}

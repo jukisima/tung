@@ -1,0 +1,16 @@
+use flock/order/lattice.tung
+use flock/order/semilattice-bounded-upper.tung
+use flock/order/semilattice-upper-bounded.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a lattice wiþ greatest and least values.
+graiþ a lattice, a semilattice-bounded-upper, a semilattice-upper-bounded
+show flock lattice-bounded [a:ilk] ()
+
+graiþ b lattice-bounded
+bizen (a → b) lattice-bounded {}
+
+bizen 𝟚 lattice-bounded {}
+
+bizen 𝟛 lattice-bounded {}

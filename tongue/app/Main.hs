@@ -43,16 +43,16 @@ formatFile path = do
   unless (formatted == source) (writeFile path formatted)
 
 runFile :: FilePath -> [String] -> IO ()
-runFile path programArgs = withProject path \Project{projectBundle} -> do
+runFile path programArgs = withProject path \Project {projectBundle} -> do
   result <- evaluateMainBundleWithArgs programArgs projectBundle
   putStrLn result
   unless ("eval ok:" `isPrefixOf` result) exitFailure
 
 checkFile :: Bool -> FilePath -> IO ()
-checkFile runnable path = withProject path \project@Project{projectPath, projectImportPaths, projectBundle} ->
+checkFile runnable path = withProject path \project@Project {projectPath, projectImportPaths, projectBundle} ->
   case checkBundleDiagnostic runnable projectBundle of
     Nothing -> putStrLn "type ok"
-    Just diagnostic@Diagnostic{diagnosticPath} -> do
+    Just diagnostic@Diagnostic {diagnosticPath} -> do
       let ownerPath = maybe projectPath (\owner -> Map.findWithDefault owner owner projectImportPaths) diagnosticPath
           source = projectSource project
           ownerSource = maybe source (\owner -> Map.findWithDefault source owner (projectImports project)) diagnosticPath
@@ -60,7 +60,7 @@ checkFile runnable path = withProject path \project@Project{projectPath, project
       exitFailure
 
 typeOfFile :: String -> FilePath -> IO ()
-typeOfFile name path = withProject path \Project{projectBundle} ->
+typeOfFile name path = withProject path \Project {projectBundle} ->
   case typeOfBundle projectBundle name of
     Right ty -> putStrLn ("type: " ++ ty)
     Left message -> putStrLn ("type error: " ++ message) >> exitFailure
@@ -120,13 +120,13 @@ dispatchEditorRequest workers outputLock request@(requestId, version, command, _
         run `Exception.finally` modifyMVar_ workers (pure . Map.delete requestId)
       modifyMVar_ workers (pure . Map.insert requestId thread)
       putMVar gate ()
- where
-  run =
-    sendEditorResponse outputLock requestId version (editorResponse request)
-      `Exception.catch` \exception ->
-        case Exception.fromException exception of
-          Just Exception.ThreadKilled -> pure ()
-          _ -> sendEditorResponse outputLock requestId version ("checker session failed: " ++ Exception.displayException exception)
+  where
+    run =
+      sendEditorResponse outputLock requestId version (editorResponse request)
+        `Exception.catch` \exception ->
+          case Exception.fromException exception of
+            Just Exception.ThreadKilled -> pure ()
+            _ -> sendEditorResponse outputLock requestId version ("checker session failed: " ++ Exception.displayException exception)
 
 cancelEditorRequest :: MVar (Map.Map Int ThreadId) -> Int -> IO ()
 cancelEditorRequest workers requestId = do
@@ -142,6 +142,7 @@ editorResponse (_, _, command, name, (source, imports)) =
           Right ty -> "type: " ++ ty
           Left message -> "type error: " ++ message
         "format" -> "tung-format\n" ++ formatSource source
+        "highlight" -> highlightSource source
         _ -> "checker session failed: unknown command '" ++ command ++ "'"
 
 sendEditorResponse :: MVar () -> Int -> Int -> String -> IO ()
@@ -156,12 +157,12 @@ sendEditorResponse outputLock requestId version output = do
 usage :: String
 usage =
   unlines
-    [ "usage: tung <file.tung> [arguments...]"
-    , "       tung --check <file.tung>"
-    , "       tung --check-module <file.tung>"
-    , "       tung --type-of <name> <file.tung>"
-    , "       tung --format <file.tung>..."
-    , "       tung --format-stdin"
-    , "       tung --language-metadata"
-    , "       tung --library-paths [project-path]"
+    [ "usage: tung <file.tung> [arguments...]",
+      "       tung --check <file.tung>",
+      "       tung --check-module <file.tung>",
+      "       tung --type-of <name> <file.tung>",
+      "       tung --format <file.tung>...",
+      "       tung --format-stdin",
+      "       tung --language-metadata",
+      "       tung --library-paths [project-path]"
     ]

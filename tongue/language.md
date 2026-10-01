@@ -12,7 +12,7 @@ takeþ `𝟙`, returneþ `𝟙`, and useþ only runner-supported effects. the ru
 calleþ `only main` after pure module initialisation.
 
 declarations are private by default. `show` publisheþ a declaration or visible
-term. `show-ilk` publisheþ a visible type, effect, or frame. term and type
+term. `show-ilk` publisheþ a visible type, effect, or flock. term and type
 namespaces are separate. ordinary `use` doth not re-export anything.
 
 ## libraries and imports
@@ -24,8 +24,8 @@ namespace. an optional final name replaceþ it.
 use ilk/list.tung
 use ilk/table.tung hashmap
 
-let xs = list~empty
-let entries = hashmap~empty
+let xs ≔ list~empty
+let entries ≔ hashmap~empty
 ```
 
 visible imported names may remain bare when unambiguous. two different direct
@@ -36,7 +36,7 @@ qualified name still reacheþ the import.
 the host catalogue explicitly overloadeþ primitive names, such as `+` for
 integer and float, within primitive scope. direct application trieþ their
 signatures in catalogue order. as a value, the name selecteþ þe first signature.
-constructors and frame members with the same spelling remain distinct
+constructors and flock members with the same spelling remain distinct
 application candidates. later bindings shadow earlier ones of the same kind.
 
 module lookup searcheþ paths relative to the importing file, declared library roots,
@@ -106,7 +106,7 @@ to migrate from `tung.libraries`, move each repository and commit under
 
 most non-space, non-reserved characters may occur in names. `~` qualifieþ
 imports; `.` selecteþ record fields; `^` separateþ match and handler cases. type
-alias, data, effect, and frame names are unqualified. so are þeir constructors,
+alias, data, effect, and flock names are unqualified. so are þeir constructors,
 operations, and members. outside `.tung` import paths, a name may contain at
 most one `~`. its namespace and member must be nonempty and slash-free. `_*` is
 an ordinary name; there is no general infix escape. `_` discardeþ a binding or
@@ -145,14 +145,42 @@ evaluation is strict: first the function, then arguments from left to right.
 
 ## declarations and types
 
+`ilk` may name its parameters after the type, with a kind for each parameter.
+`ilk` is the kind of ordinary types. `[ilk, ilk]` is a kind from types to types.
+constructors may declare their argument types and result type in brackets.
+the result type must name the declared `ilk` with its full arity. adjacent
+constructor signatures need no commas.
+
+```tung
+ilk list [a:ilk] {
+  empty [a list]
+  _* [a, a list, a list]
+}
+```
+
+constructors may choose different result indices. a match refineþ each index
+within its own case. a type variable used only by a constructor is existential;
+it cannot escape that case.
+
+```tung
+ilk tag [a:ilk] {
+  integer [ℤ, ℤ tag]
+  textual [text, text tag]
+}
+let unpack [x:a tag, a] match x {
+  integer n ^ n,
+  textual t ^ t
+}
+```
+
 `let` bindeþ a value. `[type]` annotateþ a value. brackets with argument
 slots describe a curried function.
 
 ```tung
 let answer [ℤ] 42
 let add [x:ℤ, y:ℤ, ℤ] x + y
-let identity [a, a] { x ^ x }
-let x sameness = x
+let identity [@a:ilk, a, a] { x ^ x }
+let x sameness ≔ x
 let x add-after [y:ℤ, ℤ] x + y
 ```
 
@@ -167,9 +195,14 @@ positional arguments, it giveþ the function result. the right-hand side
 supplieþ any bare arguments. omit the final type to infer a result after a
 named pattern. spaces around `:` are allowed; the formatter removeþ them.
 
+leading `@name:ilk` declareþ a polymorphic type parameter. it contributeþ no
+value argument; calls still supply only þe written value arguments. `@` is a
+convention for type parameters now. optional argument syntax is a future task.
+type variables without `@name:ilk` remain implicit.
+
 untyped positional arguments follow the second-is-function rule:
-`let a f b c = ...` bindeþ `a`, `b`, and `c` to `f`. append brackets to
-specify later typed arguments, a result, or effects. `let a f = ...` is a
+`let a f b c ≔ ...` bindeþ `a`, `b`, and `c` to `f`. append brackets to
+specify later typed arguments, a result, or effects. `let a f ≔ ...` is a
 unary function even if `f` is also a type name. write `let a [f] ...` to
 annotate a value.
 
@@ -177,7 +210,7 @@ local blocks are parenthesised and end with `yield`.
 
 ```tung
 (
-  let six = 2 × 3
+  let six ≔ 2 × 3
   yield six + 1
 )
 ```
@@ -190,14 +223,14 @@ function types use `[argument, result]`. latent effects follow a semicolon:
 `[argument, result; effect]`. several effects are comma-separated. nested
 brackets describe function arguments. a stored non-function value cannot carry
 an effect row. `→` is the binary pure-function type constructor for passing
-to a frame: `a → b` and `[a, b]` agree. it associateþ to þe right, and
+to a flock: `a → b` and `[a, b]` agree. it associateþ to þe right, and
 type application bindeþ more tightly.
 `(term:type)` constraineþ any term.
 
 ```tung
 let-ilk a powerset = a → 𝟚
 let call [f:[a, b; e], x:a, b; e] x f
-let answer = (1 + 2:ℤ)
+let answer ≔ (1 + 2:ℤ)
 ```
 
 pure inferred lets are generalised. immediately effectful right-hand sides
@@ -227,7 +260,7 @@ anonymous function with one curried input per pattern. `^` separateþ a case fro
 its result. `|` joineþ complete alternative rows that share a result.
 
 ```tung
-let chosen = match yea, nay {
+let chosen ≔ match yea, nay {
   yea, b | b, yea ^ b,
   nay, _ ^ nay
 }
@@ -256,9 +289,9 @@ value. an update placeþ its base after `=`. later entries set or remove fields.
 ```tung
 let person [r(name:text, age:ℤ)]
   r(name = 'naoki', age = 35)
-let older = r(= person, age = 36)
-let public = r(= person, - age)
-let age = older.age
+let older ≔ r(= person, age = 36)
+let public ≔ r(= person, - age)
+let age ≔ older.age
 ```
 
 in `record.field`, `record` is a term and `field` an unqualified field name.
@@ -266,25 +299,34 @@ access chaineþ leftward: `record.outer.inner` selecteþ `outer`, then `inner`.
 field sets must match an annotated record type. duplicate labels, unknown field
 removal, and non-record updates are errors.
 
-## frames, fills, and laws
+## flocks, bizens, and laws
 
-`frame` declareþ a statically selected interface. `fill` provideþ evidence and
+| general term  | tung    |
+| ------------- | ------- |
+| type          | `ilk`   |
+| type class    | `flock` |
+| type instance | `bizen` |
+| effect        | `deed`  |
+
+`flock` putteþ its name first, then optional kinded parameters in `[]`, then
+members in `()`. `a:ilk` declareþ a type parameter. `f:[ilk, ilk]` declareþ a
+unary type constructor parameter. `bizen` provideþ evidence and
 member implementations. leading `graiþ` clauses state required evidence for a
-declaration, frame, fill, or individual member. required members use a name
+declaration, flock, bizen, or individual member. required members use a name
 followed by bracketed types, wiþ the result last. laws bind typed patterns in
 brackets. þeir equation beginneþ after `]`.
 
 ```tung
-frame a equal {
+flock equal [a:ilk] (
   let ≡ [a, a, 𝟚]
   law [x:a] x ≡ x = yea
-}
+)
 
 graiþ a equal
 let ≢ [a:a, b:a, 𝟚] (a ≡ b) if nay yea
 
-fill 𝟚 equal {
-  let ≡ = {
+bizen 𝟚 equal {
+  let ≡ ≔ {
     yea, yea ^ yea,
     nay, nay ^ yea,
     _, _ ^ nay
@@ -292,21 +334,21 @@ fill 𝟚 equal {
 }
 ```
 
-in a `law`, `=` separateþ two expressions. a `let` without brackets useþ `=`
+in a `law`, `=` separateþ two expressions. a `let` without brackets useþ `≔`
 before its definition. a bracketed `let` beginneþ its definition after `]`.
-þis also applieþ to `let` implementations inside `fill`.
+þis also applieþ to `let` implementations inside `bizen`.
 law brackets require a type for each pattern. they also accept
 constructor-first patterns. parentheses keep any nested `let` inside a law side.
 
-a fill must supply each required member not supplied by a parent. a child fill
-also witnesseþ required parent frames and may define inherited members.
-duplicate fills are incoherent.
+a bizen must supply each required member not supplied by a parent. a child bizen
+also witnesseþ required parent flocks and may define inherited members.
+duplicate bizens are incoherent.
 
-selection preferreþ the shortest inheritance path. a direct fill outrankeþ an
-inherited witness. primitive fills are fallbacks after every matching
-user-defined fill. at the best rank, repeated paths to the same fill are
+selection preferreþ the shortest inheritance path. a direct bizen outrankeþ an
+inherited witness. primitive bizens are fallbacks after every matching
+user-defined bizen. at the best rank, repeated paths to the same bizen are
 deduplicated. a structured type pattern outrankeþ a blanket pattern that it
-strictly refineþ. incomparable matching fills are ambiguous. selection dependeþ
+strictly refineþ. incomparable matching bizens are ambiguous. selection dependeþ
 only on static types, never values or import order.
 
 `law` recordeþ a type-checked equation. both sides must share a value type and

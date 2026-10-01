@@ -59,7 +59,7 @@ source text
   -> parsing and source locations
   -> structural validation
   -> project loading and the canonical import graph
-  -> type, effect, coverage, frame, and fill checking with name resolution
+  -> type, effect, coverage, flock, and bizen checking with name resolution
   -> evidence selection and explicit dictionary elaboration
   -> Core lowering and validation
   -> strict evaluation
@@ -79,6 +79,17 @@ keep these boundaries:
 keep module-local invariants in comments beside their implementation. this guide
 explaineþ relationships between modules.
 
+haskell and typescript names use conventional compiler terms. source keywords, library paths,
+and diagnostics retain tung vocabulary:
+
+| source  | haskell representation                   |
+| ------- | ---------------------------------------- |
+| `ilk`   | `DataDecl`, `KindType`, `TType`          |
+| `flock` | `ClassDecl`, `ClassRef`, `ClassMember`   |
+| `bizen` | `InstanceDecl`, `InstanceId`             |
+| `graiþ` | `ClassConstraint`, resolved `Constraint` |
+| `deed`  | `EffectDecl`, `TEffect`                  |
+
 ## projects and imports
 
 `Tung.Project` discovereþ local source bundles before checking. it applieþ þe
@@ -95,7 +106,7 @@ and module-qualified `SymbolId` values.
 
 after checking, a `ModuleInterface` projecteþ public runtime term targets and
 kinds. `TcContext` retaineþ static visibility. elaborated Core declarations
-carry þe checked frame/fill closure. private parent frames may þus cross at
+carry þe checked class/instance closure. private parent classes may þus cross at
 runtime without gaining a public name. lowering need not retain exports or
 re-exports.
 
@@ -105,12 +116,12 @@ shared module once.
 
 ## types, evidence, and evaluation
 
-`Tung.Type` owneþ hindley-milner inference, effect rows, coverage, frame
-requirements, fill selection, and dictionary elaboration. its checker is
+`Tung.Type` owneþ hindley-milner inference, effect rows, coverage, class
+constraints, instance selection, and dictionary elaboration. its checker is
 bidirectional. ordinary terms infer a value type. annotations push expected
 types inward, notably þrough anonymous multi-clause functions. inference and
-checking keep effect rows and frame requirements as separate outputs. an effect
-never serveþ as dictionary evidence; a frame need never serveþ as an effect.
+checking keep effect rows and class constraints as separate outputs. an effect
+never serveþ as dictionary evidence; a class constraint never serveþ as an effect.
 
 function types contain one input and one latent row per arrow. source headers
 and pattern rows may group consecutive pure arrows. partial application need not
@@ -133,16 +144,16 @@ elaboration bindeþ its self-reference inside each case, where final evidence
 parameters are available. this preserveþ dictionary capture þrough nested
 polymorphic bindings.
 
-fill selection followeþ þe [public ranking rules](language.md#frames-fills-and-laws).
+instance selection followeþ þe [public ranking rules](language.md#flocks-bizens-and-laws).
 equivalent imported candidates are deduplicated before comparison. elaboration
 replaceþ each selected evidence tree wiþ an explicit `EDictionary` expression
 passed by ordinary `EApply`.
 
-fill identity is structural. `FillId` recordeþ a defining namespace, frame, and
-`FillType` arguments. primitive fills use a distinct constructor. checking, core
-lowering, and evaluation compare þese values directly. þe rendered `$fill@` and
-`$primitive@` forms are only diagnostic text. þey are never parsed into compiler
-state.
+instance identity is structural. `InstanceId` recordeþ a defining namespace,
+class, and `InstanceType` arguments. primitive instances use a distinct
+constructor. checking, core lowering, and evaluation compare þese values directly.
+þe rendered `$instance@` and `$primitive@` forms are only diagnostic text.
+þey are never parsed into compiler state.
 
 after inference selecteþ a binding or constructor, each elaborated global or
 constructor reference carrieþ its canonical `SymbolId`. local references retain
@@ -150,7 +161,7 @@ spelling until Core assigneþ a `LocalId`.
 
 bare term lookup settleþ scope rank before application checking. failure doth
 not retry a shadowed import or primitive. repeated lexical bindings of one term
-kind choose þe newest one. a constructor and frame selector may share a
+kind choose þe newest one. a constructor and flock selector may share a
 spelling. same-named host primitive signatures form an explicit overload set.
 
 `Tung.Core` lowereþ elaborated syntax into separate `CoreDecl` and `CoreExpr`
@@ -159,14 +170,14 @@ each variable is a `CoreLocalName` wiþ a `LocalId` or a `CoreGlobalName` wiþ i
 resolved `SymbolId`. evaluation performeþ no local-or-global name search.
 
 lowering eraseþ locations, ascriptions, type aliases, laws, exports, and
-re-exports. it converteþ host bindings, constructor and effect arities, frames,
-fills, and dictionaries into explicit runtime forms. þe private `CoreProgram`
+re-exports. it converteþ host bindings, constructor and effect arities, flocks,
+bizens, and dictionaries into explicit runtime forms. þe private `CoreProgram`
 boundary rejecteþ unresolved locals, handler targets, and evidence applications.
-it also rejecteþ unelaborated frames and fills. þus evaluation cannot represent
+it also rejecteþ unelaborated flocks and bizens. þus evaluation cannot represent
 þose states.
 
 `Tung.Evaluate` constructeþ only þe selected Core dictionary. it performeþ no
-fill search and receiveþ no surface expressions or declarations. it runneþ
+bizen search and receiveþ no surface expressions or declarations. it runneþ
 checked Core strictly. callable values retain supplied arguments. native work
 and effect operations run only at saturation. handlers are deep; continuations
 remain reusable.
@@ -186,10 +197,19 @@ handlers for those effects instead of erasing their rows.
 it preserveþ comments and incomplete source, sorteþ contiguous `use` blocks,
 and remaineþ idempotent. it invokeþ neither parsing nor type checking.
 
-`tung --editor-session` provideþ diagnostics, inferred types, and formatting
-through a persistent stdin/stdout protocol. `tung --language-metadata` emiteþ
+`tung --editor-session` provideþ diagnostics, inferred types, highlighting,
+and formatting through a persistent stdin/stdout protocol.
+`tung --language-metadata` emiteþ
 compiler-owned lexical names for editor clients. [`vscode/`](../vscode/) owneþ
 þe language server, generated metadata, and editor tests.
+
+þe parser emiteþ source roles alongside its result. highlighting retaineþ
+partial roles on failure and retryeþ bounded declarations. it doth not check
+types or load imports. þe editor cacheþ roles per buffer version and cancelleþ
+obsolete requests. textmate supplieþ immediate lexical colours. þe tolerant
+editor model still serveþ navigation and constructor or effect resolution.
+after building both components, `npm run benchmark:highlight --workspace=tung-vscode`
+measureþ fresh and cached highlighting on library files and incomplete buffers.
 
 ## library resolver
 
@@ -224,13 +244,13 @@ resolve its source from `bookhoard/` through þe same manifest.
 
 change þe owning stage first, þen each consumer:
 
-| change                                 | required follow-up                                                                              |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| syntax or tokens                       | parser, formatter, diagnostics, language guide, byspels, tests, and `vscode/` grammar and lexer |
-| type, effect, frame, or fill semantics | type and evaluator regressions, bookhoard checking, and language guide                          |
-| runtime or host surface                | primitive catalogue, `bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary      |
-| public bookhoard api                   | doc comments, library tests, and a realistic byspel when useful                                 |
-| editor behaviour                       | `vscode/` tolerant and compiler-backed paths, typescript checks, and editor tests               |
+| change                                  | required follow-up                                                                              |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| syntax or tokens                        | parser, formatter, diagnostics, language guide, byspels, tests, and `vscode/` grammar and lexer |
+| type, effect, flock, or bizen semantics | type and evaluator regressions, bookhoard checking, and language guide                          |
+| runtime or host surface                 | primitive catalogue, `bookhoard/_foreign.tung`, exact evaluator tests, and runner boundary      |
+| public bookhoard api                    | doc comments, library tests, and a realistic byspel when useful                                 |
+| editor behaviour                        | `vscode/` tolerant and compiler-backed paths, typescript checks, and editor tests               |
 
 run narrow tests while iterating. before handoff:
 

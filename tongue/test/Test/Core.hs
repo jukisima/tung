@@ -13,7 +13,7 @@ import Tung
 group :: IO Group
 group = do
   imports <- readLibraryImports "." >>= either fail pure
-  Harness.group "core" (map (integerCase imports) integerTerms ++ map (languageCase imports) (languagePrograms ++ booleanProductPrograms) ++ [checkedImportGraph, checkedModuleInterface, checkedImportInterface, checkedReExportInterface, checkedReservedDataInterface, checkedAliasedShapeNeed, checkedVisibleShapeNeed, checkedMainCore])
+  Harness.group "core" (map (integerCase imports) integerTerms ++ map (languageCase imports) (languagePrograms ++ booleanProductPrograms) ++ [checkedImportGraph, checkedModuleInterface, checkedImportInterface, checkedReExportInterface, checkedReservedDataInterface, checkedAliasedClassConstraint, checkedVisibleClassConstraint, checkedMainCore])
 
 checkedImportGraph :: Test
 checkedImportGraph = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
@@ -23,32 +23,32 @@ checkedImportGraph = case parse source >>= (\program -> elaborateInteractiveProg
     source = "use middle.tung yield middle~value"
     imports =
       Map.fromList
-        [ ("middle.tung", "use leaf.tung show let value = leaf~value + 1"),
-          ("leaf.tung", "show let value = 6")
+        [ ("middle.tung", "use leaf.tung show let value ≔ leaf~value + 1"),
+          ("leaf.tung", "show let value ≔ 6")
         ]
 
-checkedAliasedShapeNeed :: Test
-checkedAliasedShapeNeed = checkedShapeNeed "checked frame need retaineþ a custom use alias" "child" (SymbolId (SourceModule "dep.tung") "parent") source imports
+checkedAliasedClassConstraint :: Test
+checkedAliasedClassConstraint = checkedClassConstraint "checked class need retaineþ a custom use alias" "child" (SymbolId (SourceModule "dep.tung") "parent") source imports
   where
-    source = "use dep.tung d graiþ a d~parent frame a child { let child [a, a] }"
-    imports = Map.singleton "dep.tung" "show frame a parent { let parent [a, a] }"
+    source = "use dep.tung d graiþ a d~parent flock child [a:ilk] ( let child [a, a] )"
+    imports = Map.singleton "dep.tung" "show flock parent [a:ilk] ( let parent [a, a] )"
 
-checkedVisibleShapeNeed :: Test
-checkedVisibleShapeNeed = checkedShapeNeed "checked frame need cannot select a hidden collision" "child" (SymbolId (SourceModule "public.tung") "parent") source imports
+checkedVisibleClassConstraint :: Test
+checkedVisibleClassConstraint = checkedClassConstraint "checked class need cannot select a hidden collision" "child" (SymbolId (SourceModule "public.tung") "parent") source imports
   where
-    source = "use public.tung use private.tung graiþ a parent frame a child { let child [a, a] }"
+    source = "use public.tung use private.tung graiþ a parent flock child [a:ilk] ( let child [a, a] )"
     imports =
       Map.fromList
-        [ ("public.tung", "show frame a parent { let parent [a, a] }"),
-          ("private.tung", "frame a parent { let parent [a, a] }")
+        [ ("public.tung", "show flock parent [a:ilk] ( let parent [a, a] )"),
+          ("private.tung", "flock parent [a:ilk] ( let parent [a, a] )")
         ]
 
-checkedShapeNeed :: String -> String -> SymbolId -> String -> Map.Map String String -> Test
-checkedShapeNeed name shapeName parent source imports = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
+checkedClassConstraint :: String -> String -> SymbolId -> String -> Map.Map String String -> Test
+checkedClassConstraint name className parent source imports = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
   Left message -> pure (Just (name ++ ": elaboration failed: " ++ message))
   Right program ->
-    let target = SymbolId RootModule shapeName
-        fragment = "CoreShape (" ++ show target ++ ") [" ++ show parent ++ "]"
+    let target = SymbolId RootModule className
+        fragment = "CoreClass (" ++ show target ++ ") [" ++ show parent ++ "]"
         rendered = show program
      in pure $ if fragment `isInfixOf` rendered then Nothing else Just (name ++ ": missing " ++ fragment ++ " in " ++ rendered)
 
@@ -70,13 +70,13 @@ checkedModuleInterface = case parse source >>= (\program -> elaborateInteractive
         expectedTerms =
           Map.fromList
             [ (symbol "box", exported "box@box" (ConstructorTerm 0)),
-              (symbol "identity", exported "identity@identity" (ShapeMemberTerm (symbol "identity"))),
+              (symbol "identity", exported "identity@identity" (ClassMemberTerm (symbol "identity"))),
               (symbol "value", exported "value" OrdinaryTerm)
             ]
         expected = (RootModule, expectedTerms)
      in Harness.expectEq "checked module interface recordeþ public runtime terms" expected actual
   where
-    source = "show ilk box { box } show frame a identity { let identity [a, a] } fill box identity { let x identity = x } show let value = box"
+    source = "show ilk box { box } show flock identity [a:ilk] ( let identity [a, a] ) bizen box identity { let x identity ≔ x } show let value ≔ box"
 
 checkedImportInterface :: Test
 checkedImportInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
@@ -90,14 +90,14 @@ checkedImportInterface = case parse source >>= (\program -> elaborateInteractive
           expectedTerms =
             Map.fromList
               [ (depSymbol "box", exported "box@box" (ConstructorTerm 0)),
-                (depSymbol "identity", exported "identity@identity" (ShapeMemberTerm (depSymbol "identity"))),
+                (depSymbol "identity", exported "identity@identity" (ClassMemberTerm (depSymbol "identity"))),
                 (depSymbol "value", exported "value" OrdinaryTerm)
               ]
           expected = (SourceModule "dep.tung", expectedTerms)
        in Harness.expectEq "checked import interface retaineþ its resolved module identity" expected importedSummary
   where
     source = "use dep.tung let same [dep~box] dep~value dep~identity"
-    imports = Map.singleton "dep.tung" "show ilk box { box } show frame a identity { let identity [a, a] } fill box identity { let x identity = x } show let value = box"
+    imports = Map.singleton "dep.tung" "show ilk box { box } show flock identity [a:ilk] ( let identity [a, a] ) bizen box identity { let x identity ≔ x } show let value ≔ box"
 
 checkedReExportInterface :: Test
 checkedReExportInterface = case parse source >>= (\program -> elaborateInteractiveProgramWithImports program imports) of
@@ -117,7 +117,7 @@ checkedReExportInterface = case parse source >>= (\program -> elaborateInteracti
     source = "use middle.tung yield middle~value"
     imports =
       Map.fromList
-        [ ("base.tung", "show ilk bit { off } show let value = 7"),
+        [ ("base.tung", "show ilk bit { off } show let value ≔ 7"),
           ("middle.tung", "use base.tung show base~off show base~value")
         ]
 
@@ -171,12 +171,12 @@ integerTerms = atoms ++ binary ++ nested
 
 languagePrograms :: [(String, String, String)]
 languagePrograms =
-  [ ("checked record access", "let value = r(left = 1, right = 2) yield value.right", "eval ok: 2"),
-    ("checked record update", "let value = r(left = 1, right = 2) yield r(= value, right = 3, - left)", "eval ok: r(right = 3)"),
+  [ ("checked record access", "let value ≔ r(left = 1, right = 2) yield value.right", "eval ok: 2"),
+    ("checked record update", "let value ≔ r(left = 1, right = 2) yield r(= value, right = 3, - left)", "eval ok: r(right = 3)"),
     ("checked exhaustive match", "ilk 𝟚 { yea, nay } yield match nay { yea ^ 1, nay ^ 2 }", "eval ok: 2"),
     ("checked ℤ match", "yield match 1 { 0 ^ 10, 1 ^ 20, _ ^ 30 }", "eval ok: 20"),
-    ("checked class evidence", "frame a identity { let identity [a, a] } fill ℤ identity { let x identity = x } yield 7 identity", "eval ok: 7"),
-    ("checked fill member calleþ sibling", "frame a linked { let first [a, a] let second [a, a] } fill ℤ linked { let x first = x let x second = x first } yield 7 second", "eval ok: 7"),
+    ("checked class evidence", "flock identity [a:ilk] ( let identity [a, a] ) bizen ℤ identity { let x identity ≔ x } yield 7 identity", "eval ok: 7"),
+    ("checked bizen member calleþ sibling", "flock linked [a:ilk] ( let first [a, a] let second [a, a] ) bizen ℤ linked { let x first ≔ x let x second ≔ x first } yield 7 second", "eval ok: 7"),
     ("checked empty effect", "deed marker {} yield 1", "eval ok: 1"),
     ("checked multi-shot handler", "ilk 𝟙 { only } deed choice { choose [𝟙, ℤ] } yield try only choose { choose ^ (1 eftgin) + (2 eftgin) }", "eval ok: 3"),
     ("checked non-finite floor failure", "use ground.tung yield try ('Infinity' from-text $ ⌊) { _ fail ^ 0 }", "eval ok: 0")

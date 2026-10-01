@@ -1,14 +1,14 @@
-use frame/algebra/partial/category.tung
-use frame/algebra/partial/semigroupoid.tung
-use frame/deedless/functor.tung
+use flock/algebra/partial/category.tung
+use flock/algebra/partial/semigroupoid.tung
+use flock/deedless/functor.tung
 
 ## representeþ a computation as eiþer a result or one suspended request.
-show ilk f free a {
-  a done,
-  ((f free a) f) more
+show ilk free [f:[ilk, ilk], a:ilk]  {
+  done [a, f free a]
+  more [(f free a) f, f free a]
 }
 
-show let bind = {
+show let bind ≔ {
   þing done,  next ^ þing next,
   layer more, next ^ (layer map { child ^ child bind next }) more
 }
@@ -17,18 +17,18 @@ graiþ f functor
 show let lift [af:a f, f free a]
   (af map done) more
 
-show let þing map-free change =
+show let þing map-free change ≔
   þing bind (change ∘ done)
 
 graiþ f functor
-fill (f free) functor {
-  let þing map change = þing map-free change
+bizen (f free) functor {
+  let þing map change ≔ þing map-free change
 }
 
-show let þing flat-free =
+show let þing flat-free ≔
   þing bind sameness
 
-show let node fold leaf program = match program {
+show let node fold leaf program ≔ match program {
   þing done  ^ þing leaf,
   layer more ^ (layer map { child ^ node fold leaf child }) node
 }

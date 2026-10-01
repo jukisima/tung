@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show ilk ℕ { zero }\nshow ilk truth { yea, nay }\nshow ilk a parcel { a wrap }\nshow let identity [x: ℤ, ℤ] x\nshow let answer [ℤ] 42\nshow frame a convert { let convert [a, a] }\n";
+    "show ilk ℕ { zero }\nshow ilk truth { yea, nay }\nshow ilk a parcel { a wrap }\nshow let identity [x: ℤ, ℤ] x\nshow let answer [ℤ] 42\nshow flock convert [a:ilk] ( let convert [a, a] )\n";
   const mainText =
-    "use dep.tung\nlet value [ℤ] answer\nlet count [ℕ] zero\nlet ratio [float] 1.5\nlet truth-to-text [truth, text] { yea ^ 'yea', nay ^ 'nay' }\nlet shipment [ℤ parcel] 1 wrap\nlet same [ℤ] 1 identity # \"unicode 𝟙\\n\"\nlet select [left: ℤ, middle: ℤ, right: ℤ, ℤ] middle\nlet picker = { first, second, third ^ second }\nfill ℤ convert { let x convert = x }\nshow ilk a box {\na box\n}\n";
+    "use dep.tung\nlet value [ℤ] answer\nlet count [ℕ] zero\nlet ratio [float] 1.5\nlet truth-to-text [truth, text] { yea ^ 'yea', nay ^ 'nay' }\nlet shipment [ℤ parcel] 1 wrap\nlet same [ℤ] 1 identity # \"unicode 𝟙\\n\"\nlet select [left: ℤ, middle: ℤ, right: ℤ, ℤ] middle\nlet picker ≔ { first, second, third ^ second }\nbizen ℤ convert { let x convert ≔ x }\nshow ilk a box {\na box\n}\n";
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -58,20 +58,18 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   );
   const capabilities = initialized.capabilities;
   assert.equal(capabilities.textDocumentSync.change, 2);
-  for (
-    const capability of [
-      "hoverProvider",
-      "definitionProvider",
-      "declarationProvider",
-      "implementationProvider",
-      "referencesProvider",
-      "documentSymbolProvider",
-      "workspaceSymbolProvider",
-      "foldingRangeProvider",
-      "documentFormattingProvider",
-      "documentRangeFormattingProvider",
-    ]
-  ) {
+  for (const capability of [
+    "hoverProvider",
+    "definitionProvider",
+    "declarationProvider",
+    "implementationProvider",
+    "referencesProvider",
+    "documentSymbolProvider",
+    "workspaceSymbolProvider",
+    "foldingRangeProvider",
+    "documentFormattingProvider",
+    "documentRangeFormattingProvider",
+  ]) {
     assert.equal(capabilities[capability], true, capability);
   }
   assert.equal(capabilities.semanticTokensProvider.full, true);
@@ -107,10 +105,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: depUri, version: 2 },
     contentChanges: [
       {
-        text: depText.replace(
-          "answer [ℤ] 42",
-          "answer [text] 'changed'",
-        ),
+        text: depText.replace("answer [ℤ] 42", "answer [text] 'changed'"),
       },
     ],
   });
@@ -170,7 +165,14 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     semanticAt.get(positionKey(positionOf(mainText, "convert", 1))),
     "call",
   );
-  for (const name of ["left", "middle", "right", "first", "second", "third"]) {
+  for (const name of ["left", "middle", "right"]) {
+    assert.equal(
+      semanticAt.get(positionKey(positionOf(mainText, name))),
+      undefined,
+      name,
+    );
+  }
+  for (const name of ["first", "second", "third"]) {
     assert.equal(
       semanticAt.get(positionKey(positionOf(mainText, name))),
       "parameter",
@@ -276,8 +278,8 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: mainUri },
   });
   assert(
-    folds.some(({ startLine }) =>
-      startLine === positionOf(mainText, "show").line
+    folds.some(
+      ({ startLine }) => startLine === positionOf(mainText, "show").line,
     ),
   );
   const selections = await request("textDocument/selectionRange", {
@@ -311,10 +313,7 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   connection.sendNotification("textDocument/didClose", {
     textDocument: { uri: depUri },
   });
-  const importedSource = depText.replace(
-    "answer [ℤ] 42",
-    "answer [ℤ] 'wrong'",
-  );
+  const importedSource = depText.replace("answer [ℤ] 42", "answer [ℤ] 'wrong'");
   const importedDiagnostics = nextDiagnostics(
     connection,
     depUri,
@@ -528,9 +527,8 @@ const decodedSemanticTokens = (data, tokenTypes) => {
   let character = 0;
   for (let index = 0; index < data.length; index += 5) {
     line += data[index];
-    character = data[index] === 0
-      ? character + data[index + 1]
-      : data[index + 1];
+    character =
+      data[index] === 0 ? character + data[index + 1] : data[index + 1];
     result.set(`${line}:${character}`, tokenTypes[data[index + 3]]);
   }
   return result;

@@ -12,22 +12,22 @@ import {
   useNamespace,
   useParts,
 } from "./syntax.ts";
-const ownedKinds = new Set(["ilk", "deed", "frame"]);
+const ownedKinds = new Set(["ilk", "deed", "flock"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
   use:
     "import a tung file; its last path segment is the default namespace, and an optional alias overrideeþ it.",
   show: "publish a declaration or re-export a visible term.",
   "show-ilk": "re-export a visible type.",
-  graiþ: "state the frames required by a declaration.",
+  graiþ: "state the flocks required by a declaration.",
   yield:
     "introduce a block result or handle the normal result of a `try` expression.",
-  frame: "declare a frame and its members.",
+  flock: "declare a flock and its members.",
   fremmed:
     "bind an annotated file-level let to the host function named by a preceding text key.",
-  fill: "provide evidence and member definitions for a frame.",
+  bizen: "provide evidence and member definitions for a flock.",
   law:
-    "state a type-checked equation required of a frame; equivalence is not proved.",
+    "state a type-checked equation required of a flock; equivalence is not proved.",
   deed: "declare an algebraic effect and its operations.",
   try: "handle effect operations for an expression.",
   eftgin: "continue the handled computation from an operation clause.",
@@ -71,7 +71,7 @@ const analyzeDocument = (text, uri = "") => {
     regions,
     imports,
     reexports,
-    fills: collectFills(tokens, semantic, regions),
+    instances: collectInstances(tokens, semantic, regions),
     definitions,
     occurrences: tokens.filter((token) => token.kind === "name"),
     folds: [...pairs.entries()]
@@ -82,9 +82,9 @@ const analyzeDocument = (text, uri = "") => {
       .filter(({ startLine, endLine }) => endLine > startLine),
   };
 };
-const collectFills = (tokens, semantic, regions) => {
+const collectInstances = (tokens, semantic, regions) => {
   return regions
-    .filter(({ kind }) => kind === "fill")
+    .filter(({ kind }) => kind === "bizen")
     .flatMap((region) => {
       for (
         let index = region.headerEnd - 1;
@@ -92,10 +92,10 @@ const collectFills = (tokens, semantic, regions) => {
         index -= 1
       ) {
         const role = semantic.semantic.get(index);
-        if (role?.type === "frame" && tokens[index]?.kind === "name") {
+        if (role?.type === "class" && tokens[index]?.kind === "name") {
           return [
             {
-              shapeName: lastQualifiedSegment(tokens[index].text),
+              className: lastQualifiedSegment(tokens[index].text),
               uri: "",
               range: tokenRange(tokens[index]),
               token: tokens[index],
@@ -200,7 +200,7 @@ const declarationRegions = (tokens, depths, pairs) => {
     }
     const baseDepth = depths[token.index];
     const open = ownedKinds.has(token.text)
-      ? findAtDepth(tokens, depths, token.index + 1, "{", baseDepth)
+      ? findAtDepth(tokens, depths, token.index + 1, token.text === "flock" ? "(" : "{", baseDepth)
       : -1;
     const boundary = findFileDeclarationBoundary(
       tokens,
@@ -218,6 +218,7 @@ const declarationRegions = (tokens, depths, pairs) => {
       token.index + 1,
       endIndex + 1,
       baseDepth,
+      token.text === "flock",
     );
     const shown = tokens[token.index - 1]?.text === "show";
     regions.push({
@@ -234,11 +235,11 @@ const declarationRegions = (tokens, depths, pairs) => {
   }
   return regions;
 };
-const findHeaderEnd = (tokens, depths, start, end, baseDepth) => {
+const findHeaderEnd = (tokens, depths, start, end, baseDepth, parenthesized) => {
   for (let index = start; index < end; index += 1) {
     if (
       depths[index] === baseDepth &&
-      ["=", "{"].includes(tokens[index].text)
+      ["=", "≔", "{", ...(parenthesized ? ["("] : [])].includes(tokens[index].text)
     ) return index;
   }
   return Math.max(start, end - 1);
@@ -380,7 +381,7 @@ const definitionScope = (tokens, region, local) => {
   const equals = findText(
     tokens,
     region.startIndex,
-    "=",
+    region.kind === "let" ? "≔" : "=",
     region.endIndex + 1,
   );
   return {

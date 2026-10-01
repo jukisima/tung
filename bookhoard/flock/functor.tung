@@ -1,0 +1,12 @@
+use flock/algebra/partial/category.tung
+use ilk/one.tung
+
+show flock functor [f:[ilk, ilk]] (
+  let map [a f, [a, b; e], b f; e]
+
+  law [af:a f] af map sameness = af
+)
+
+graiþ f functor
+show let void [af:a f, 𝟙 f]
+  af map {_ ^ only}

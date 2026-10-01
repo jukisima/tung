@@ -1,16 +1,16 @@
-use frame/algebra/arithmetic/add.tung
-use frame/algebra/total/magma.tung
-use frame/algebra/total/monoid.tung
-use frame/algebra/total/semigroup.tung
-use frame/equal.tung
-use frame/functor.tung
-use frame/functor/applicative.tung
-use frame/functor/cata.tung
-use frame/functor/filter.tung
-use frame/functor/monad.tung
-use frame/functor/traverse.tung
-use frame/inhold.tung
-use frame/size.tung
+use flock/algebra/arithmetic/add.tung
+use flock/algebra/total/magma.tung
+use flock/algebra/total/monoid.tung
+use flock/algebra/total/semigroup.tung
+use flock/equal.tung
+use flock/functor.tung
+use flock/functor/applicative.tung
+use flock/functor/cata.tung
+use flock/functor/filter.tung
+use flock/functor/monad.tung
+use flock/functor/traverse.tung
+use flock/inhold.tung
+use flock/size.tung
 use ilk/natural.tung
 use ilk/one.tung
 use ilk/option.tung
@@ -22,14 +22,14 @@ deed e fail {
 }
 
 ## finite linked lists.
-show ilk a list {
-  empty,
-  a _* (a list)
+show ilk list [a:ilk] {
+  empty [a list]
+  _* [a, a list, a list]
 }
 
 graiþ a equal
-fill (a list) inhold a {
-  let ∋ = {
+bizen (a list) inhold a {
+  let ∋ ≔ {
     empty, _ ^ nay,
     first _* rest, a ^ (a ≡ first) if yea (rest ∋ a)
   }
@@ -45,38 +45,38 @@ show let till [start:ℤ, stop:ℤ, ℤ list]
 ## build a one-element list.
 show let singleton [a:a, a list] a _* empty
 
-fill (a list) semigroup {
-  let * = {
+bizen (a list) semigroup {
+  let * ≔ {
     empty, list ^ list,
     first _* rest, list ^ first _* (rest * list)
   }
 }
 
-fill (a list) monoid {
-  let ∅ = empty
+bizen (a list) monoid {
+  let ∅ ≔ empty
 }
 
-fill list functor {
-  let map = {
+bizen list functor {
+  let map ≔ {
     empty, _ ^ empty,
     first _* rest, f ^ (first f) _* (rest map f)
   }
 }
 
-fill list monad {
-  let a pure = a _* empty
-  let list apply = {
+bizen list monad {
+  let a pure ≔ a _* empty
+  let list apply ≔ {
     empty ^ empty,
     first _* rest ^ (list map first) * (list apply rest)
   }
-  let flat = {
+  let flat ≔ {
     empty ^ empty,
     first _* rest ^ first * (rest flat)
   }
 }
 
-fill list filter {
-  let filter = {
+bizen list filter {
+  let filter ≔ {
     empty, _ ^ empty,
     first _* rest, f ^ match first f {
       yea ^ first _* (rest filter f),
@@ -135,26 +135,26 @@ show let find [a list, [a, 𝟚; e], a option; e] {
   }
 }
 
-fill list cata {
-  let list fold₀ b f = match list {
+bizen list cata {
+  let list fold₀ b f ≔ match list {
     empty ^ b,
     first _* rest ^ first f (rest fold₀ b f)
   }
-  let list fold₁ b f = match list {
+  let list fold₁ b f ≔ match list {
     empty ^ b,
     first _* rest ^ rest fold₁ (b f first) f
   }
 }
 
-fill list traverse {
-  let traverse = {
+bizen list traverse {
+  let traverse ≔ {
     empty, _ ^ empty pure,
     first _* rest, f ^ (first f) lift₂ (rest traverse f) _*
   }
 }
 
-fill (a list) size {
-  let list size = list fold₁ natural~zero { n, _ ^ n suc }
+bizen (a list) size {
+  let list size ≔ list fold₁ natural~zero { n, _ ^ n suc }
 }
 
 show let reverse [list:a list, a list]

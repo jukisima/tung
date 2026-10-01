@@ -3,8 +3,8 @@ use ilk/option.tung
 use ilk/product.tung
 use ilk/two.tung
 
-ilk a task {
-  a done
+ilk task [a:ilk] {
+  done [a, a task]
 }
 
 show-ilk task

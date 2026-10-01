@@ -1,14 +1,14 @@
 use _foreign.tung
-use frame/algebra/partial/semigroupoid.tung
-use frame/algebra/total/magma.tung
-use frame/algebra/total/semigroup.tung
-use frame/equal.tung
-use frame/functor.tung
-use frame/functor/cata.tung
-use frame/functor/filter.tung
-use frame/order/complement.tung
-use frame/order/semilattice-upper.tung
-use frame/size.tung
+use flock/algebra/partial/semigroupoid.tung
+use flock/algebra/total/magma.tung
+use flock/algebra/total/semigroup.tung
+use flock/equal.tung
+use flock/functor.tung
+use flock/functor/cata.tung
+use flock/functor/filter.tung
+use flock/order/complement.tung
+use flock/order/semilattice-upper.tung
+use flock/size.tung
 use ilk/list.tung
 use ilk/natural.tung
 use ilk/option.tung
@@ -23,8 +23,8 @@ show let is-empty-text [text:text, 𝟚]
   }
 
 ## count unicode code points, not bytes or utf-16 units.
-fill text size {
-  let text size = text text-to-list $ size
+bizen text size {
+  let text size ≔ text text-to-list $ size
 }
 
 show let take-text [text:text, count:ℤ, text]

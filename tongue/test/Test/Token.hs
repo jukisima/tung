@@ -13,6 +13,8 @@ lexCases :: [(String, String, [Token])]
 lexCases =
   [ ("record access separateþ member names", "person.age", [TIdent "person", TDot, TIdent "age"]),
     ("case separator is syntax", "^", [TMapsTo]),
+    ("type parameter prefix is syntax", "@a:ilk", [TAt, TIdent "a", TColon, TType]),
+    ("let definition marker is syntax", "≔", [TDefine]),
     ("function type arrow is syntax", "ℤ → ℤ", [TIdent "ℤ", TArrow, TIdent "ℤ"]),
     ("pipe is an ordinary name", "|", [TIdent "|"]),
     ("qualified operator stayeþ one name", "list~_*", [TIdent "list~_*"]),
@@ -77,17 +79,17 @@ lexError (name, source) = case lexTokens source of
 keywordToken :: String -> Token
 keywordToken = \case
   "let" -> TLet
-  "graiþ" -> TGraith
-  "show" -> TShow
-  "show-ilk" -> TShowIlk
-  "use" -> TUse
-  "let-ilk" -> TLetIlk
-  "ilk" -> TIlk
-  "deed" -> TDeed
+  "graiþ" -> TConstraints
+  "show" -> TExport
+  "show-ilk" -> TExportType
+  "use" -> TImport
+  "let-ilk" -> TTypeAlias
+  "ilk" -> TType
+  "deed" -> TEffect
   "yield" -> TYield
   "fremmed" -> TForeign
-  "frame" -> TFrame
-  "fill" -> TFill
+  "flock" -> TClass
+  "bizen" -> TInstance
   "law" -> TLaw
   "match" -> TMatch
   "try" -> TTry

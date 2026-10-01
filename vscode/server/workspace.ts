@@ -87,7 +87,7 @@ class WorkspaceIndex {
     const cached = this.cache.get(uri);
     if (cached?.text === text) return cached.model;
     const model = analyzeDocument(text, uri);
-    model.fills.forEach((fill) => (fill.uri = uri));
+    model.instances.forEach((instance) => (instance.uri = uri));
     this.cache.set(uri, { text, model });
     this.invalidateDerived();
     return model;
@@ -224,17 +224,17 @@ class WorkspaceIndex {
     if (!model || !token || token.kind !== "name") {
       return { model, token, definition: undefined };
     }
-    if (model.fills.some((fill) => fill.token.offset === token.offset)) {
-      const visibleShapes = this.resolveVisibleRole(
+    if (model.instances.some((instance) => instance.token.offset === token.offset)) {
+      const visibleClasses = this.resolveVisibleRole(
         model,
         token.text,
-        "frame",
+        "class",
       );
       return {
         model,
         token,
-        definition: visibleShapes.length === 1 ? visibleShapes[0] : undefined,
-        candidates: visibleShapes,
+        definition: visibleClasses.length === 1 ? visibleClasses[0] : undefined,
+        candidates: visibleClasses,
       };
     }
     if (model.roles.get(token.index)?.type === "property") {
@@ -306,10 +306,10 @@ class WorkspaceIndex {
     return locations;
   }
   implementations(definition) {
-    if (!definition || definition.role !== "frame") return [];
+    if (!definition || definition.role !== "class") return [];
     return this.models().flatMap((model) =>
-      model.fills
-        .filter(({ shapeName }) => shapeName === definition.bareName)
+      model.instances
+        .filter(({ className }) => className === definition.bareName)
         .map(({ uri, range }) => ({ uri, range }))
     );
   }

@@ -29,7 +29,7 @@ group = do
       : systemExplicitCase imports
       : runnerEffectsCase imports
       : primitiveCatalogueCase imports
-      : frameLayoutCase files
+      : classLayoutCase files
       : map (typeCase imports) (typeCheckRoots files imports)
       ++ map oneDataTypeCase (nub (map fst files))
 
@@ -139,9 +139,9 @@ runnerEffectsCase imports =
       "use ground.tung use deed/clock.tung use deed/process.tung use deed/system.tung use web/server.tung use ilk/list.tung use ilk/option.tung "
         ++ "let route [_: request, response] 'ok' ok "
         ++ "let main [_: 𝟙, 𝟙; system, clock, process, web] ("
-        ++ "let args = only arguments "
-        ++ "let setting = 'TUNG_SETTING' environment "
-        ++ "let stamp = only unix-time "
+        ++ "let args ≔ only arguments "
+        ++ "let setting ≔ 'TUNG_SETTING' environment "
+        ++ "let stamp ≔ only unix-time "
         ++ "yield try 8080 serve route { _ fail ^ only })"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
@@ -201,24 +201,24 @@ isDataDecl DataDecl {} = True
 isDataDecl (Export declaration) = isDataDecl declaration
 isDataDecl _ = False
 
-frameLayoutCase :: [(FilePath, String)] -> Test
-frameLayoutCase files = listToMaybe . catMaybes <$> traverse checkModule files
+classLayoutCase :: [(FilePath, String)] -> Test
+classLayoutCase files = listToMaybe . catMaybes <$> traverse checkModule files
   where
     checkModule (path, name) = do
       source <- readFile path
       pure $ case parse source of
         Left message -> Just ("parse " ++ path ++ ": " ++ message)
-        Right (Program declarations) -> checkFrames path name (concatMap frameNames declarations)
-    checkFrames path name names
-      | framePrefix `isPrefixOf` name = case names of
+        Right (Program declarations) -> checkClasses path name (concatMap classNames declarations)
+    checkClasses path name names
+      | classPrefix `isPrefixOf` name = case names of
           [name] | name == takeBaseName path -> Nothing
-          [name] -> Just (path ++ " defineþ frame '" ++ name ++ "'")
-          _ -> Just (path ++ " owneþ " ++ show (length names) ++ " frames")
+          [name] -> Just (path ++ " defineþ class '" ++ name ++ "'")
+          _ -> Just (path ++ " owneþ " ++ show (length names) ++ " classes")
       | null names = Nothing
-      | otherwise = Just (path ++ " defineþ a frame outside the frame directory")
-    framePrefix = "frame/"
+      | otherwise = Just (path ++ " defineþ a class outside the flock directory")
+    classPrefix = "flock/"
 
-frameNames :: Decl -> [String]
-frameNames (ShapeDecl _ name _ _) = [name]
-frameNames (Export declaration) = frameNames declaration
-frameNames _ = []
+classNames :: Decl -> [String]
+classNames (ClassDecl _ name _ _) = [name]
+classNames (Export declaration) = classNames declaration
+classNames _ = []

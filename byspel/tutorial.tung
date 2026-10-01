@@ -5,12 +5,12 @@ use ilk/list.tung
 use ilk/table.tung hashmap
 
 # use imported values
-let list = list~empty
-let table = hashmap~empty
+let list ≔ list~empty
+let table ≔ hashmap~empty
 
 # define variables
 let number [ℤ] 42
-let text = 'hello!'
+let text ≔ 'hello!'
 
 # define functions
 let sameness [a:a, a] a
@@ -19,8 +19,8 @@ let constant [a:a, b:b, a] a
 let x add-after [y:ℤ, ℤ] x + y
 
 # `yield` a value from a local block
-let seven = (
-  let six = 2 × 3
+let seven ≔ (
+  let six ≔ 2 × 3
   yield six + 1
 )
 
@@ -55,17 +55,17 @@ let ¬′ [x:𝟚, 𝟚] match x {
 # define records
 let-ilk person = r(name:text, age:ℤ)
 let person [person] r(name = 'tung', age = 1)
-let older = r(= person, age = 2)
-let age = older.age
+let older ≔ r(= person, age = 2)
+let age ≔ older.age
 
 # define a type class
-frame a to-text {
+flock to-text [a:ilk] (
   let to-text [a, text]
-}
+)
 
 # implement a type class
-fill 𝟚 to-text {
-  let to-text = {
+bizen 𝟚 to-text {
+  let to-text ≔ {
     yea ^ 'yea',
     nay ^ 'nay'
   }
@@ -84,8 +84,8 @@ let asked [text] try 10 ask {
 
 # `main` is þe entry point
 let main [_:𝟙, 𝟙; console] (
-  let _ = 'hello, tung' write-line
-  let _ = seven to-text $ write-line
-  let _ = text write-line
+  let _ ≔ 'hello, tung' write-line
+  let _ ≔ seven to-text $ write-line
+  let _ ≔ text write-line
   yield asked write-line
 )

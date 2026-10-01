@@ -10,7 +10,7 @@ test("workspace resolveþ only shown names across an import", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "dep.tung");
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(dep, "show let answer [ℤ] 42 let hidden = 0");
+  fs.writeFileSync(dep, "show let answer [ℤ] 42 let hidden ≔ 0");
   fs.writeFileSync(main, "use dep.tung let value [ℤ] answer");
   const documents = { get: () => undefined, all: () => [] };
   const workspace = new WorkspaceIndex(documents);
@@ -85,12 +85,12 @@ test("workspace default alias ignoreþ dots in import directories", (context) =>
 test("workspace leaveþ duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(root, "left.tung"), "show let value = 1");
-  fs.writeFileSync(path.join(root, "right.tung"), "show let value = 2");
+  fs.writeFileSync(path.join(root, "left.tung"), "show let value ≔ 1");
+  fs.writeFileSync(path.join(root, "right.tung"), "show let value ≔ 2");
   const main = path.join(root, "main.tung");
   fs.writeFileSync(
     main,
-    "use left.tung use right.tung let answer = value",
+    "use left.tung use right.tung let answer ≔ value",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -103,11 +103,11 @@ test("workspace re-exports same-spelled terms and types separately", (context) =
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "type-only.tung"),
-    "let-ilk token = ℤ let token = 1 show-ilk token",
+    "let-ilk token = ℤ let token ≔ 1 show-ilk token",
   );
   fs.writeFileSync(
     path.join(root, "term-only.tung"),
-    "let-ilk token = ℤ let token = 1 show token",
+    "let-ilk token = ℤ let token ≔ 1 show token",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -153,7 +153,7 @@ test("library modules do not become an implicit prelude", (context) => {
   fs.mkdirSync(library);
   fs.writeFileSync(
     path.join(library, "ground.tung"),
-    "show let offered = 1 let hidden = 2",
+    "show let offered ≔ 1 let hidden ≔ 2",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([], [library]);
@@ -174,7 +174,7 @@ test("library module paths keep their exact file names", (context) => {
   fs.mkdirSync(library, { recursive: true });
   fs.writeFileSync(
     path.join(library, "_foreign.tung"),
-    "show let value = 1",
+    "show let value ≔ 1",
   );
   const main = path.join(root, "main.tung");
   fs.writeFileSync(main, "use foreign.tung");
@@ -195,7 +195,7 @@ test("library roots resolve exact paths and duplicate names stay ambiguous", (co
   const main = path.join(project, "main.tung");
   const module = path.join(first, "extra.tung");
   fs.writeFileSync(main, "use extra.tung yield extra~value");
-  fs.writeFileSync(module, "show let value = 1");
+  fs.writeFileSync(module, "show let value ≔ 1");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([project], [first, second]);
   const model = workspace.model(pathToFileURL(main).href);
@@ -204,10 +204,10 @@ test("library roots resolve exact paths and duplicate names stay ambiguous", (co
     pathToFileURL(module).href,
   );
   assert(workspace.modulePaths(model.uri).includes("extra.tung"));
-  fs.writeFileSync(path.join(second, "extra.tung"), "show let value = 2");
+  fs.writeFileSync(path.join(second, "extra.tung"), "show let value ≔ 2");
   workspace.invalidateFiles();
   assert.equal(workspace.resolveImport(model, model.imports[0]), undefined);
-  fs.writeFileSync(path.join(project, "extra.tung"), "show let value = 3");
+  fs.writeFileSync(path.join(project, "extra.tung"), "show let value ≔ 3");
   workspace.invalidateFiles();
   assert.equal(
     workspace.resolveImport(model, model.imports[0])?.uri,

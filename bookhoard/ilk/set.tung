@@ -1,25 +1,25 @@
-use frame/algebra/total/monoid.tung
-use frame/algebra/total/semigroup.tung
-use frame/equal.tung
-use frame/functor/cata.tung
-use frame/functor/filter.tung
-use frame/inhold.tung
-use frame/order/complement.tung
-use frame/order/lattice-distributive.tung
-use frame/order/lattice.tung
-use frame/order/less-equal.tung
-use frame/order/order-partial.tung
-use frame/order/semilattice-lower.tung
-use frame/order/semilattice-upper-bounded.tung
-use frame/order/semilattice-upper.tung
-use frame/size.tung
+use flock/algebra/total/monoid.tung
+use flock/algebra/total/semigroup.tung
+use flock/equal.tung
+use flock/functor/cata.tung
+use flock/functor/filter.tung
+use flock/inhold.tung
+use flock/order/complement.tung
+use flock/order/lattice-distributive.tung
+use flock/order/lattice.tung
+use flock/order/less-equal.tung
+use flock/order/order-partial.tung
+use flock/order/semilattice-lower.tung
+use flock/order/semilattice-upper-bounded.tung
+use flock/order/semilattice-upper.tung
+use flock/size.tung
 use ilk/list.tung
 use ilk/powerset.tung
 use ilk/two.tung
 
 ## a list-backed finite set.
-show ilk a set {
-  (a list) from-list
+show ilk set [a:ilk] {
+  from-list [a list, a set]
 }
 
 show let empty [a set] list~empty from-list
@@ -30,8 +30,8 @@ show let singleton [a:a, a set]
 show let to-list [list from-list:a set, a list] list
 
 graiþ (a list) inhold a
-fill (a set) inhold a {
-  let (list from-list) ∋ a = list ∋ a
+bizen (a set) inhold a {
+  let (list from-list) ∋ a ≔ list ∋ a
 }
 
 graiþ (a list) inhold a
@@ -55,8 +55,8 @@ show let ∖ [set₀:a set, set₁:a set, a set]
 graiþ (a list) inhold a
 show let to-powerset [list from-list:a set, a powerset] list ∋
 
-fill (a set) size {
-  let (list from-list) size = list size
+bizen (a set) size {
+  let (list from-list) size ≔ list size
 }
 
 graiþ (a list) inhold a
@@ -66,47 +66,47 @@ let included [list₀:a list, list₁:a list, 𝟚]
   }
 
 graiþ (a list) inhold a
-fill (a set) equal {
-  let (list₀ from-list) ≡ (list₁ from-list) =
+bizen (a set) equal {
+  let (list₀ from-list) ≡ (list₁ from-list) ≔
     (list₀ included list₁) ∧ (list₁ included list₀)
 }
 
 graiþ (a list) inhold a
-fill (a set) less-equal {
-  let (list₀ from-list) ≤ (list₁ from-list) = list₀ included list₁
+bizen (a set) less-equal {
+  let (list₀ from-list) ≤ (list₁ from-list) ≔ list₀ included list₁
 }
 
 graiþ (a list) inhold a
-fill (a set) order-partial {}
+bizen (a set) order-partial {}
 
 graiþ (a list) inhold a
-fill (a set) semigroup {
-  let * = ∨
+bizen (a set) semigroup {
+  let * ≔ ∨
 }
 
 graiþ (a list) inhold a
-fill (a set) monoid {
-  let ∅ = empty
+bizen (a set) monoid {
+  let ∅ ≔ empty
 }
 
 graiþ (a set) inhold a
-fill (a set) semilattice-lower {
-  let set₀ ∧ set₁ = set₀ keep { value ^ set₁ ∋ value }
+bizen (a set) semilattice-lower {
+  let set₀ ∧ set₁ ≔ set₀ keep { value ^ set₁ ∋ value }
 }
 
 graiþ (a list) inhold a
-fill (a set) semilattice-upper {
-  let (list₀ from-list) ∨ (list₁ from-list) =
+bizen (a set) semilattice-upper {
+  let (list₀ from-list) ∨ (list₁ from-list) ≔
     list₁ fold₁ (list₀ from-list) put
 }
 
 graiþ (a list) inhold a
-fill (a set) lattice {}
+bizen (a set) lattice {}
 
 graiþ (a list) inhold a
-fill (a set) lattice-distributive {}
+bizen (a set) lattice-distributive {}
 
 graiþ (a list) inhold a
-fill (a set) semilattice-upper-bounded {
-  let ⟂ = empty
+bizen (a set) semilattice-upper-bounded {
+  let ⟂ ≔ empty
 }

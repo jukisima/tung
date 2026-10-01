@@ -1,0 +1,11 @@
+use _foreign.tung
+use ilk/product.tung
+
+## euclidean quotient and remainder computed togeþer.
+show flock divide-remainder [a:ilk] (
+  let % [a, a, a ∏ a; text fail]
+)
+
+bizen ℤ divide-remainder {
+  let % ≔ divide-remainder-integer
+}

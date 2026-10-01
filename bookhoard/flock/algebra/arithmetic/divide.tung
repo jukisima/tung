@@ -1,0 +1,11 @@
+use _foreign.tung
+
+show flock divide [a:ilk] (
+  let ÷ [a, a, a]
+)
+
+## ieee floats provide division, but rounding, infinities, and nan prevent a
+## lawful field bizen.
+bizen float divide {
+  let ÷ ≔ divide-float
+}

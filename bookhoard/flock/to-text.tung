@@ -1,0 +1,12 @@
+use ilk/two.tung
+
+show flock to-text [a:ilk] (
+  let to-text [a, text]
+)
+
+bizen 𝟚 to-text {
+  let to-text ≔ {
+    yea ^ 'yea',
+    nay ^ 'nay'
+  }
+}

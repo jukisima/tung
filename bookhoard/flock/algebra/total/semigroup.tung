@@ -1,0 +1,28 @@
+use flock/algebra/total/magma.tung
+use flock/order/semilattice-lower.tung
+use flock/order/semilattice-upper.tung
+use ilk/infimal.tung
+use ilk/supremal.tung
+
+graiþ a magma
+show flock semigroup [a:ilk] (
+  law [a:a, b:a, c:a] a * (b * c) = (a * b) * c
+)
+
+show-ilk infimal, supremal
+show infimal, supremal
+
+graiþ b semigroup
+bizen (a → b) semigroup {
+  let f * g a ≔ (a f) * (a g)
+}
+
+graiþ a semilattice-lower
+bizen (a infimal) semigroup {
+  let (a infimal) * (b infimal) ≔ (a ∧ b) infimal
+}
+
+graiþ a semilattice-upper
+bizen (a supremal) semigroup {
+  let (a supremal) * (b supremal) ≔ (a ∨ b) supremal
+}

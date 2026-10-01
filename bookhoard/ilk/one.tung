@@ -1,11 +1,11 @@
-use frame/to-text.tung
+use flock/to-text.tung
 
 show ilk 𝟙 {
-  only
+  only [𝟙]
 }
 
 show let terminal [_:a, 𝟙] only
 
-fill 𝟙 to-text {
-  let _ to-text = 'only'
+bizen 𝟙 to-text {
+  let _ to-text ≔ 'only'
 }

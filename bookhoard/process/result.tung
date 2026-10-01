@@ -1,6 +1,6 @@
 ## captured process status and standard streams.
 show ilk process-result {
-  ℤ process-result text text
+  process-result [ℤ, text, text, process-result]
 }
 
 show let process-status

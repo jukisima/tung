@@ -4,7 +4,7 @@ module Tung.Primitive
     HostRole (..),
     HostSignature (..),
     HostType (..),
-    PrimitiveFillSpec (..),
+    PrimitiveInstanceSpec (..),
     hostBindings,
     hostArity,
     hostEffectNames,
@@ -13,11 +13,11 @@ module Tung.Primitive
     effectId,
     effectOperationId,
     renderEffectId,
-    primitiveShapeId,
+    primitiveClassId,
     canonicalHostTypeName,
     hostTypeId,
     dataDeclarationRef,
-    primitiveFillSpecs,
+    primitiveInstanceSpecs,
     onlyConstructorId,
     yeaConstructorId,
     nayConstructorId,
@@ -42,7 +42,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Tung.Identity (ModuleId (..), SymbolId (..), TypeRef (..))
 import Tung.Name (importNamespace)
-import Tung.Syntax (Ctor (..), EffectOp (..), ShapeMember (..), TypeAnn (..), TypeExpr (..))
+import Tung.Syntax (ClassMember (..), Ctor (..), EffectOp (..), TypeAnn (..), TypeExpr (..))
 
 data HostType
   = HostVar String
@@ -85,35 +85,35 @@ data HostEffect = HostEffect
     hostEffectOperations :: [EffectOp]
   }
 
-data PrimitiveFillSpec = PrimitiveFillSpec
-  { primitiveFillShape :: String,
-    primitiveFillShapeTarget :: SymbolId,
-    primitiveFillType :: String,
-    primitiveFillMember :: String
+data PrimitiveInstanceSpec = PrimitiveInstanceSpec
+  { primitiveInstanceClass :: String,
+    primitiveInstanceClassTarget :: SymbolId,
+    primitiveInstanceType :: String,
+    primitiveInstanceMember :: String
   }
   deriving (Eq, Show)
 
-data PrimitiveShape = PrimitiveShape
-  { primitiveShapeSource :: FilePath,
-    primitiveShapeName :: String,
-    primitiveShapeParameters :: [String],
-    primitiveShapeRequired :: (String, TypeAnn)
+data PrimitiveClass = PrimitiveClass
+  { primitiveClassSource :: FilePath,
+    primitiveClassName :: String,
+    primitiveClassParameters :: [String],
+    primitiveClassRequired :: (String, TypeAnn)
   }
 
 data SchemaOrdering = SourceOrdering | StructuralOrdering
 
 oneData, twoData, listData, optionData, productData, tableData :: HostData
-oneData = HostData "ilk/one.tung" "𝟙" [] [Ctor "only" []]
-twoData = HostData "ilk/two.tung" "𝟚" [] [Ctor "yea" [], Ctor "nay" []]
-listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [], Ctor "_*" [TypeName "a", TypeApply "list" [TypeName "a"]]]
-optionData = HostData "ilk/option.tung" "option" ["a"] [Ctor "none" [], Ctor "some" [TypeName "a"]]
-productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName "a", TypeName "b"]]
-tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]]]
+oneData = HostData "ilk/one.tung" "𝟙" [] [Ctor "only" [] Nothing]
+twoData = HostData "ilk/two.tung" "𝟚" [] [Ctor "yea" [] Nothing, Ctor "nay" [] Nothing]
+listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [] Nothing, Ctor "_*" [TypeName "a", TypeApply "list" [TypeName "a"]] Nothing]
+optionData = HostData "ilk/option.tung" "option" ["a"] [Ctor "none" [] Nothing, Ctor "some" [TypeName "a"] Nothing]
+productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName "a", TypeName "b"] Nothing]
+tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]] Nothing]
 
 processResultData, requestData, responseData :: HostData
-processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [TypeName "ℤ", TypeName "text", TypeName "text"]]
-requestData = HostData "web/request.tung" "request" [] [Ctor "request" [TypeName "text", TypeName "text", textTable, TypeName "text"]]
-responseData = HostData "web/response.tung" "response" [] [Ctor "response" [TypeName "ℤ", textTable, TypeName "text"]]
+processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [TypeName "ℤ", TypeName "text", TypeName "text"] Nothing]
+requestData = HostData "web/request.tung" "request" [] [Ctor "request" [TypeName "text", TypeName "text", textTable, TypeName "text"] Nothing]
+responseData = HostData "web/response.tung" "response" [] [Ctor "response" [TypeName "ℤ", textTable, TypeName "text"] Nothing]
 
 textTable :: TypeExpr
 textTable = TypeApply "table" [TypeName "text", TypeName "text"]
@@ -131,75 +131,75 @@ hostData =
     responseData
   ]
 
-primitiveFillSpecs :: [PrimitiveFillSpec]
-primitiveFillSpecs =
-  [ fill typeName frame
+primitiveInstanceSpecs :: [PrimitiveInstanceSpec]
+primitiveInstanceSpecs =
+  [ instance_ typeName class_
   | (typeName, supported) <-
       [ ("ℤ", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide-remainder", "to-text"]),
         ("float", ["equal", "less-equal", "add", "zero", "subtract", "multiply", "one", "divide", "from-text", "to-text"])
       ],
-    frame@PrimitiveShape {primitiveShapeName} <- primitiveShapes,
-    primitiveShapeName `elem` supported
+    class_@PrimitiveClass {primitiveClassName} <- primitiveClasses,
+    primitiveClassName `elem` supported
   ]
   where
-    fill typeName frame@PrimitiveShape {primitiveShapeName, primitiveShapeRequired = (member, _)} =
-      PrimitiveFillSpec primitiveShapeName (primitiveShapeTarget frame) typeName member
+    instance_ typeName class_@PrimitiveClass {primitiveClassName, primitiveClassRequired = (member, _)} =
+      PrimitiveInstanceSpec primitiveClassName (primitiveClassTarget class_) typeName member
 
--- | assign þe reserved primitive identity only to a compatible frame schema.
-primitiveShapeId :: Bool -> ModuleId -> [String] -> String -> [ShapeMember] -> SymbolId
-primitiveShapeId schemaResolves owner parameters name members = case find compatible primitiveShapes of
-  Just frame | schemaResolves -> primitiveShapeTarget frame
+-- | assign þe reserved primitive identity only to a compatible class schema.
+primitiveClassId :: Bool -> ModuleId -> [String] -> String -> [ClassMember] -> SymbolId
+primitiveClassId schemaResolves owner parameters name members = case find compatible primitiveClasses of
+  Just class_ | schemaResolves -> primitiveClassTarget class_
   _
-    | any reservedOwner primitiveShapes -> SymbolId owner ("$nominal@" ++ name)
+    | any reservedOwner primitiveClasses -> SymbolId owner ("$nominal@" ++ name)
     | otherwise -> SymbolId owner name
   where
-    compatible PrimitiveShape {..} =
-      name == primitiveShapeName
-        && owner `elem` [RootModule, SourceModule primitiveShapeSource]
-        && length parameters == length primitiveShapeParameters
-        && normaliseShapeSchema parameters members == normaliseExpectedShape primitiveShapeParameters [primitiveShapeRequired]
-    reservedOwner PrimitiveShape {primitiveShapeSource, primitiveShapeName} = owner == SourceModule primitiveShapeSource && name == primitiveShapeName
+    compatible PrimitiveClass {..} =
+      name == primitiveClassName
+        && owner `elem` [RootModule, SourceModule primitiveClassSource]
+        && length parameters == length primitiveClassParameters
+        && normaliseClassSchema parameters members == normaliseExpectedClass primitiveClassParameters [primitiveClassRequired]
+    reservedOwner PrimitiveClass {primitiveClassSource, primitiveClassName} = owner == SourceModule primitiveClassSource && name == primitiveClassName
 
-primitiveShapeTarget :: PrimitiveShape -> SymbolId
-primitiveShapeTarget PrimitiveShape {primitiveShapeSource, primitiveShapeName} = SymbolId (SourceModule primitiveShapeSource) primitiveShapeName
+primitiveClassTarget :: PrimitiveClass -> SymbolId
+primitiveClassTarget PrimitiveClass {primitiveClassSource, primitiveClassName} = SymbolId (SourceModule primitiveClassSource) primitiveClassName
 
-primitiveShapes :: [PrimitiveShape]
-primitiveShapes =
-  [ frame "frame/equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two),
-    frame "frame/order/less-equal.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two),
-    frame "frame/algebra/arithmetic/add.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a")),
-    frame "frame/algebra/arithmetic/zero.tung" "zero" "zero" (variable "a"),
-    frame "frame/algebra/arithmetic/subtract.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a")),
-    frame "frame/algebra/arithmetic/multiply.tung" "multiply" "×" (arrow [variable "a", variable "a"] [] (variable "a")),
-    frame "frame/algebra/arithmetic/one.tung" "one" "one" (variable "a"),
-    frame "frame/algebra/arithmetic/divide-remainder.tung" "divide-remainder" "%" (arrow [variable "a", variable "a"] [failText] (TypeApply "∏" [variable "a", variable "a"])),
-    frame "frame/algebra/arithmetic/divide.tung" "divide" "÷" (arrow [variable "a", variable "a"] [] (variable "a")),
-    frame "frame/from-text.tung" "from-text" "from-text" (arrow [text] [failText] (variable "a")),
-    frame "frame/to-text.tung" "to-text" "to-text" (arrow [variable "a"] [] text)
+primitiveClasses :: [PrimitiveClass]
+primitiveClasses =
+  [ class_ "flock/equal.tung" "equal" "≡" (arrow [variable "a", variable "a"] [] two),
+    class_ "flock/order/less-equal.tung" "less-equal" "≤" (arrow [variable "a", variable "a"] [] two),
+    class_ "flock/algebra/arithmetic/add.tung" "add" "+" (arrow [variable "a", variable "a"] [] (variable "a")),
+    class_ "flock/algebra/arithmetic/zero.tung" "zero" "zero" (variable "a"),
+    class_ "flock/algebra/arithmetic/subtract.tung" "subtract" "-" (arrow [variable "a", variable "a"] [] (variable "a")),
+    class_ "flock/algebra/arithmetic/multiply.tung" "multiply" "×" (arrow [variable "a", variable "a"] [] (variable "a")),
+    class_ "flock/algebra/arithmetic/one.tung" "one" "one" (variable "a"),
+    class_ "flock/algebra/arithmetic/divide-remainder.tung" "divide-remainder" "%" (arrow [variable "a", variable "a"] [failText] (TypeApply "∏" [variable "a", variable "a"])),
+    class_ "flock/algebra/arithmetic/divide.tung" "divide" "÷" (arrow [variable "a", variable "a"] [] (variable "a")),
+    class_ "flock/from-text.tung" "from-text" "from-text" (arrow [text] [failText] (variable "a")),
+    class_ "flock/to-text.tung" "to-text" "to-text" (arrow [variable "a"] [] text)
   ]
   where
-    frame source name member signature = PrimitiveShape source name ["a"] (member, TypeAnn signature [])
+    class_ source name member signature = PrimitiveClass source name ["a"] (member, TypeAnn signature [])
     arrow (argument : arguments) effects result = TypeArrow (argument :| arguments) effects result
-    arrow [] _ _ = error "internal primitive frame member without an argument"
+    arrow [] _ _ = error "internal primitive flock member without an argument"
     variable = TypeName
     text = TypeName "text"
     two = TypeName "𝟚"
     failText = TypeApply "fail" [text]
 
-normaliseShapeSchema :: [String] -> [ShapeMember] -> [(String, TypeAnn)]
-normaliseShapeSchema parameters = sortOn fst . map normaliseMember . foldr required []
+normaliseClassSchema :: [String] -> [ClassMember] -> [(String, TypeAnn)]
+normaliseClassSchema parameters = sortOn fst . map normaliseMember . foldr required []
   where
-    required (ShapeSpec member annotation) rest = (member, annotation) : rest
+    required (ClassSignature member annotation) rest = (member, annotation) : rest
     required _ rest = rest
-    normaliseMember (member, TypeAnn signature needs) = (member, TypeAnn (normaliseShapeType parameters signature) needs)
+    normaliseMember (member, TypeAnn signature constraints) = (member, TypeAnn (normaliseClassType parameters signature) constraints)
 
-normaliseExpectedShape :: [String] -> [(String, TypeAnn)] -> [(String, TypeAnn)]
-normaliseExpectedShape parameters = sortOn fst . map (fmap normaliseAnnotation)
+normaliseExpectedClass :: [String] -> [(String, TypeAnn)] -> [(String, TypeAnn)]
+normaliseExpectedClass parameters = sortOn fst . map (fmap normaliseAnnotation)
   where
-    normaliseAnnotation (TypeAnn signature needs) = TypeAnn (normaliseShapeType parameters signature) needs
+    normaliseAnnotation (TypeAnn signature constraints) = TypeAnn (normaliseClassType parameters signature) constraints
 
-normaliseShapeType :: [String] -> TypeExpr -> TypeExpr
-normaliseShapeType parameters = normaliseSchemaType StructuralOrdering (numberedVariables "$" parameters)
+normaliseClassType :: [String] -> TypeExpr -> TypeExpr
+normaliseClassType parameters = normaliseSchemaType StructuralOrdering (numberedVariables "$" parameters)
 
 normaliseSchemaType :: SchemaOrdering -> [(String, String)] -> TypeExpr -> TypeExpr
 normaliseSchemaType ordering variables = go
@@ -371,17 +371,24 @@ dataDeclarationRef schemaResolves owner parameters name constructors = case find
     nominal displayName = TypeRef (SymbolId owner displayName) displayName
 
 sameHostDataSchema :: [String] -> [Ctor] -> HostData -> Bool
-sameHostDataSchema parameters constructors HostData {hostDataParameters, hostDataConstructors} =
+sameHostDataSchema parameters constructors HostData {hostDataName, hostDataParameters, hostDataConstructors} =
   length parameters == length hostDataParameters
     && normalise parameters constructors == normalise hostDataParameters hostDataConstructors
   where
-    normalise vars = sortOn constructorName . map (normaliseConstructor vars)
-    constructorName (Ctor name _) = name
+    normalise vars = sortOn constructorName . map (normaliseConstructor hostDataName vars)
+    constructorName (Ctor name _ _) = name
 
-normaliseConstructor :: [String] -> Ctor -> Ctor
-normaliseConstructor parameters (Ctor name fields) = Ctor name (map normaliseType fields)
+normaliseConstructor :: String -> [String] -> Ctor -> Ctor
+normaliseConstructor dataName parameters (Ctor name fields result) =
+  Ctor name (map normaliseType fields) normalizedResult
   where
     normaliseType = normaliseSchemaType SourceOrdering (numberedVariables "$" parameters)
+    resultType = case parameters of
+      [] -> TypeName dataName
+      _ -> TypeApply dataName (map TypeName parameters)
+    normalizedResult = case normaliseType <$> result of
+      Just ty | ty == normaliseType resultType -> Nothing
+      other -> other
 
 onlyConstructorId, yeaConstructorId, nayConstructorId :: SymbolId
 onlyConstructorId = constructorId oneData "only"
@@ -512,7 +519,7 @@ baseEffect :: String -> String -> HostBinding
 baseEffect owner name = HostBinding name (BaseEffect owner) (baseEffectSignature owner name)
 
 -- base operations enter þe static environment and therefore retain þeir full
--- first-order schema. source-dispatched operations need only runtime arity.
+-- first-order schema. source-dispatched operations constraint only runtime arity.
 baseEffectSignature :: String -> String -> HostSignature
 baseEffectSignature owner name = case findHostEffectOperation owner name of
   Just (HostEffect {hostEffectName, hostEffectParameters}, operation@(EffectOp _ (TypeArrow (argument :| arguments) effects result))) ->

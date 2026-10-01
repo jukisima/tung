@@ -1,17 +1,17 @@
-use frame/equal.tung
-use frame/functor.tung
-use frame/functor/cata.tung
-use frame/functor/filter.tung
-use frame/inhold.tung
-use frame/size.tung
+use flock/equal.tung
+use flock/functor.tung
+use flock/functor/cata.tung
+use flock/functor/filter.tung
+use flock/inhold.tung
+use flock/size.tung
 use ilk/list.tung
 use ilk/option.tung
 use ilk/product.tung
 use ilk/two.tung
 
 ## a list-backed finite association table.
-show ilk k table v {
-  ((k ∏ v) list) from-list
+show ilk table [k:ilk, v:ilk] {
+  from-list [(k ∏ v) list, k table v]
 }
 
 show let empty [k table v] list~empty from-list
@@ -45,24 +45,24 @@ show let values [list from-list:k table v, v list]
   list map project₁
 
 graiþ k equal
-fill (k table v) inhold k {
-  let table ∋ key = (table lookup key) is-some
+bizen (k table v) inhold k {
+  let table ∋ key ≔ (table lookup key) is-some
 }
 
-fill (k table) functor {
-  let (list from-list) map f =
+bizen (k table) functor {
+  let (list from-list) map f ≔
     list map { pair ^ pair map f } $ from-list
 }
 
-fill (k table) filter {
-  let (list from-list) filter predicate =
+bizen (k table) filter {
+  let (list from-list) filter predicate ≔
     list filter {
       pair ^ (pair project₁) predicate
     } $ from-list
 }
 
-fill (k table v) size {
-  let table size = (table entries) size
+bizen (k table v) size {
+  let table size ≔ (table entries) size
 }
 
 graiþ k equal

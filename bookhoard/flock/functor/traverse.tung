@@ -1,0 +1,14 @@
+use flock/algebra/partial/category.tung
+use flock/functor.tung
+use flock/functor/applicative.tung
+use flock/functor/cata.tung
+
+graiþ f functor, f cata
+show flock traverse [f:[ilk, ilk]] (
+  graiþ m applicative
+  let traverse [a f, [a, b m], (b f) m]
+)
+
+graiþ f traverse, m applicative
+show let sequence [amf:(a m) f, (a f) m]
+  amf traverse sameness

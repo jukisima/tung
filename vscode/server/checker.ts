@@ -6,11 +6,12 @@ interface PendingRequest {
   resolve: (value: string) => void;
   version: number;
 }
-interface ResponseFrame {
+interface ResponseHeader {
   requestId: number;
   version: number;
   length: number;
 }
+type SourceRole = [start: number, end: number, role: string, modifiers: string[]];
 class CompilerBridge {
   tongue: string | undefined;
   executablePath: string | undefined;
@@ -20,7 +21,7 @@ class CompilerBridge {
   pending = new Map<number, PendingRequest>();
   nextRequestId = 1;
   output = "";
-  responseFrame: ResponseFrame | undefined;
+  responseHeader: ResponseHeader | undefined;
   configure(tongue, libraryRoots: string[] = [], executablePath?: string) {
     const tongueChanged = tongue !== this.tongue;
     const executableChanged = executablePath !== this.executablePath;
@@ -50,6 +51,17 @@ class CompilerBridge {
       result: request.result.then((output) =>
         output.startsWith(formatResponseHeader)
           ? output.slice(formatResponseHeader.length)
+          : undefined
+      ),
+    };
+  }
+  highlight(source: string, version = 0) {
+    const request = this.request("highlight", source, [], "", version);
+    return {
+      ...request,
+      result: request.result.then((output): SourceRole[] | undefined =>
+        output.startsWith(highlightResponseHeader)
+          ? JSON.parse(output.slice(highlightResponseHeader.length))
           : undefined
       ),
     };
@@ -99,7 +111,7 @@ class CompilerBridge {
     });
     this.session = process;
     this.output = "";
-    this.responseFrame = undefined;
+    this.responseHeader = undefined;
     let stderr = "";
     process.stdout.setEncoding("utf8");
     process.stderr.setEncoding("utf8");
@@ -126,27 +138,27 @@ class CompilerBridge {
   consume(chunk) {
     this.output += chunk;
     while (true) {
-      if (!this.responseFrame) {
+      if (!this.responseHeader) {
         const newline = this.output.indexOf("\n");
         if (newline < 0) return;
         const header = this.output.slice(0, newline).replace(/\r$/, "");
         this.output = this.output.slice(newline + 1);
         const fields = header.split("\t");
         if (fields.length !== 4 || fields[0] !== "tung-response") continue;
-        this.responseFrame = {
+        this.responseHeader = {
           requestId: Number(fields[1]),
           version: Number(fields[2]),
           length: Number(fields[3]),
         };
       }
       const characters = Array.from(this.output);
-      if (characters.length < this.responseFrame.length + 1) return;
-      const response = characters.slice(0, this.responseFrame.length).join("");
-      this.output = characters.slice(this.responseFrame.length).join("");
+      if (characters.length < this.responseHeader.length + 1) return;
+      const response = characters.slice(0, this.responseHeader.length).join("");
+      this.output = characters.slice(this.responseHeader.length).join("");
       if (this.output.startsWith("\r\n")) this.output = this.output.slice(2);
       else if (this.output.startsWith("\n")) this.output = this.output.slice(1);
-      const { requestId, version } = this.responseFrame;
-      this.responseFrame = undefined;
+      const { requestId, version } = this.responseHeader;
+      this.responseHeader = undefined;
       const pending = this.pending.get(requestId);
       if (!pending || pending.version !== version) continue;
       this.pending.delete(requestId);
@@ -178,7 +190,7 @@ class CompilerBridge {
     for (const { resolve } of this.pending.values()) resolve(message);
     this.pending.clear();
     this.output = "";
-    this.responseFrame = undefined;
+    this.responseHeader = undefined;
     return process;
   }
   findExecutable() {
@@ -221,6 +233,7 @@ class CompilerBridge {
   }
 }
 const formatResponseHeader = "tung-format\n";
+const highlightResponseHeader = "tung-highlight\n";
 const findOnPath = () => {
   const names = process.platform === "win32" ? ["tung.exe", "tung"] : ["tung"];
   for (const directory of (process.env.PATH || "").split(path.delimiter)) {
@@ -319,6 +332,7 @@ const haskellString = (value) => {
 };
 export {
   CompilerBridge,
+  SourceRole,
   haskellString,
   parseCompilerDiagnostic,
   sessionRequest,

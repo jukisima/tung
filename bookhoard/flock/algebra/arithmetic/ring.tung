@@ -1,0 +1,18 @@
+use flock/algebra/arithmetic/semiring.tung
+use flock/algebra/arithmetic/subtract.tung
+use flock/algebra/arithmetic/zero.tung
+use ilk/two.tung
+
+graiþ a semiring, a subtract
+show flock ring [a:ilk] (
+  law [a:a] a - a = zero
+)
+
+graiþ b ring
+bizen (a → b) ring {
+  let f - g a ≔ (a f) - (a g)
+}
+
+bizen ℤ ring {}
+
+bizen 𝟚 ring {}

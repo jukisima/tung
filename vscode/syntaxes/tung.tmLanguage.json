@@ -16,18 +16,6 @@
       "include": "#import-path"
     },
     {
-      "include": "#type-export-list"
-    },
-    {
-      "include": "#export-list"
-    },
-    {
-      "include": "#data-declaration"
-    },
-    {
-      "include": "#type-after-marker"
-    },
-    {
       "include": "#declaration-keyword"
     },
     {
@@ -47,9 +35,6 @@
     },
     {
       "include": "#punctuation"
-    },
-    {
-      "include": "#name"
     }
   ],
   "repository": {
@@ -118,104 +103,10 @@
         }
       ]
     },
-    "export-list": {
-      "patterns": [
-        {
-          "begin": "\\b(show)\\b(?=\\s+(?!let-ilk\\b|let\\b|graiþ\\b|ilk\\b|deed\\b|frame\\b|fill\\b))",
-          "beginCaptures": {
-            "1": {
-              "name": "keyword.declaration.tung"
-            }
-          },
-          "end": "(?=\\b(?:use|graiþ|yield|show|show-ilk|let|let-ilk|ilk|deed|frame|fill)\\b)|$",
-          "name": "meta.export.tung"
-        }
-      ]
-    },
-    "type-export-list": {
-      "patterns": [
-        {
-          "begin": "\\b(show-ilk)\\b(?=\\s+)",
-          "beginCaptures": {
-            "1": {
-              "name": "keyword.declaration.tung"
-            }
-          },
-          "end": "(?=\\b(?:use|graiþ|yield|show|show-ilk|let|let-ilk|ilk|deed|frame|fill)\\b)|$",
-          "name": "meta.export.type.tung",
-          "patterns": [
-            {
-              "match": "[^\\s#()\\[\\]{}:,;!=$→`'@^.]+|[+\\-×÷%≤≡¬∅∏∐*]",
-              "name": "support.type.tung"
-            },
-            {
-              "match": ",",
-              "name": "punctuation.separator.tung"
-            }
-          ]
-        }
-      ]
-    },
-    "data-declaration": {
-      "patterns": [
-        {
-          "match": "\\b(ilk)\\b(\\s+)([^\\s#()\\[\\]{}:,;!=$→`'@^.]+)(\\s+)([^\\s#()\\[\\]{}:,;!=$→`'@^.]+)(?=(?:\\s+[^\\s#()\\[\\]{}:,;!=$→`'@^.]+)*\\s*\\{)",
-          "captures": {
-            "1": {
-              "name": "keyword.declaration.tung"
-            },
-            "5": {
-              "name": "support.type.tung"
-            }
-          },
-          "name": "meta.declaration.data.tung"
-        },
-        {
-          "match": "\\b(ilk)\\b(\\s+)([^\\s#()\\[\\]{}:,;!=$→`'@^.]+)(?=\\s*\\{)",
-          "captures": {
-            "1": {
-              "name": "keyword.declaration.tung"
-            },
-            "3": {
-              "name": "support.type.tung"
-            }
-          },
-          "name": "meta.declaration.data.tung"
-        }
-      ]
-    },
-    "type-after-marker": {
-      "patterns": [
-        {
-          "match": "(?<=,)(\\s*)([^\\s#()\\[\\]{}:,;!=$→`'@^.]+)(?![^,;\\]]*:)(?=[^\\]\\n]*\\])",
-          "captures": {
-            "2": {
-              "name": "support.type.tung"
-            }
-          }
-        },
-        {
-          "match": "(?<=\\[)(\\s*)([^\\s#()\\[\\]{}:,;!=$→`'@^.]+)(?![^,;\\]]*:)",
-          "captures": {
-            "2": {
-              "name": "support.type.tung"
-            }
-          }
-        },
-        {
-          "match": "(?<!\\)\\s*:)(?<=[:!;])(\\s*)([^\\s#()\\[\\]{}:,;!=$→`'@^.]+)",
-          "captures": {
-            "2": {
-              "name": "support.type.tung"
-            }
-          }
-        }
-      ]
-    },
     "declaration-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:let-ilk|let|graiþ|use|ilk|deed|frame|fill|law|show-ilk|show)\\b",
+          "match": "\\b(?:let-ilk|let|graiþ|use|ilk|deed|flock|bizen|law|show-ilk|show)\\b",
           "name": "keyword.declaration.tung"
         }
       ]
@@ -239,11 +130,11 @@
     "number": {
       "patterns": [
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])-?[0-9]+\\.[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])-?[0-9]+\\.[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])",
           "name": "constant.numeric.float.tung"
         },
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])-?[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])-?[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])",
           "name": "constant.numeric.integer.tung"
         }
       ]
@@ -251,16 +142,13 @@
     "qualified-name": {
       "patterns": [
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])([^\\s#()\\[\\]{}:,;!=$→`'@^./~]+)(~)([^\\s#()\\[\\]{}:,;!=$→`'@^./~]+)(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])([^\\s#()\\[\\]{}:,;!=$→`'@≔^./~]+)(~)([^\\s#()\\[\\]{}:,;!=$→`'@≔^./~]+)(?![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])",
           "captures": {
             "1": {
               "name": "entity.name.namespace.tung"
             },
             "2": {
               "name": "punctuation.separator.namespace.tung"
-            },
-            "3": {
-              "name": "variable.other.tung"
             }
           }
         }
@@ -277,7 +165,7 @@
           "name": "keyword.operator.tung"
         },
         {
-          "match": "=",
+          "match": "=|≔",
           "name": "keyword.operator.assignment.tung"
         },
         {
@@ -289,7 +177,7 @@
     "punctuation": {
       "patterns": [
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])(?:r|[<>])\\(",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])(?:r|[<>])\\(",
           "name": "punctuation.section.parens.begin.tung"
         },
         {
@@ -301,16 +189,8 @@
           "name": "punctuation.accessor.tung"
         },
         {
-          "match": "[:,;]",
+          "match": "[,;]",
           "name": "punctuation.separator.tung"
-        }
-      ]
-    },
-    "name": {
-      "patterns": [
-        {
-          "match": "[^\\s#()\\[\\]{}:,;!=$→`'@^.]+|[+\\-×÷%≤≡¬∅∏∐*]",
-          "name": "variable.other.tung"
         }
       ]
     }

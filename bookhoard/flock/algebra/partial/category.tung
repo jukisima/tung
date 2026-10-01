@@ -1,0 +1,13 @@
+use flock/algebra/partial/semigroupoid.tung
+
+graiþ ⇨ semigroupoid
+show flock category [⇨:[ilk, ilk, ilk]] (
+  let sameness [a ⇨ a]
+
+  law [f:a ⇨ b] sameness ∘ f = f
+  law [f:a ⇨ b] f ∘ sameness = f
+)
+
+bizen → category {
+  let a sameness ≔ a
+}

@@ -1,0 +1,7 @@
+use flock/algebra/partial/category.tung
+
+show flock functor [f:[ilk, ilk]] (
+  let map [a f, [a, b], b f]
+
+  law [af:a f] af map sameness = af
+)

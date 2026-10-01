@@ -33,14 +33,16 @@ import {
 import { languageNames } from "./syntax.ts";
 import { toFilePath, uniqueByKey, WorkspaceIndex } from "./workspace.ts";
 import {
-  buildAnalyzedSemanticRanges,
+  HighlightCache,
+  buildHighlightRanges,
   tokenModifiers,
   tokenTypes,
-} from "./semantic.ts";
+} from "./highlight.ts";
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const workspace = new WorkspaceIndex(documents);
 const compiler = new CompilerBridge();
+const highlights = new HighlightCache(compiler);
 const timers = new Map();
 const checks = new Map();
 const diagnosticReports = new Map();
@@ -131,6 +133,7 @@ connection.onInitialized(() => {
     .catch(() => {});
 });
 connection.onShutdown(() => {
+  highlights.clear();
   compiler.dispose();
   return null;
 });
@@ -425,6 +428,7 @@ documents.onDidOpen(({ document }) => {
   checkAllOpenDocuments();
 });
 documents.onDidChangeContent(({ document }) => {
+  highlights.invalidate(document.uri);
   workspace.invalidate(document.uri);
   clearTypeCache(document.uri);
   scheduleCheck(document);
@@ -440,6 +444,7 @@ documents.onDidSave(({ document }) => {
   clearTypeCache(document.uri);
 });
 documents.onDidClose(({ document }) => {
+  highlights.invalidate(document.uri);
   cancelCheck(document.uri);
   configureWorkspace();
   workspace.invalidate(document.uri);
@@ -449,19 +454,23 @@ documents.onDidClose(({ document }) => {
   refreshDiagnostics(document.uri);
   checkAllOpenDocuments();
 });
-// semantic requests are synchronous over the latest tolerant model so stale
-// compiler work cannot block highlighting after an edit.
-const semanticTokens = (uri, requestedRange = undefined) => {
-  const model = workspace.model(uri);
+// requests share one compiler parse per buffer version. navigation refineþ only
+// names whose constructor or effect identity requireþ workspace context.
+const semanticTokens = async (uri, requestedRange = undefined) => {
+  const document = documents.get(uri);
   const builder = new SemanticTokensBuilder();
-  if (!model) return builder.build();
+  if (!document) return builder.build();
+  const source = document.getText();
+  const version = document.version;
+  const roles = await highlights.get(uri, source, version);
+  if (documents.get(uri)?.version !== version) return builder.build();
   const resolve = (token) =>
     workspace.resolveAt(uri, { line: token.line, character: token.char })
       .definition;
   for (
-    const token of buildAnalyzedSemanticRanges(
-      model.tokens,
-      model.semantic,
+    const token of buildHighlightRanges(
+      source,
+      roles,
       resolve,
     )
   ) {
@@ -717,7 +726,7 @@ const completionKind = (role) => {
     {
       namespace: CompletionItemKind.Module,
       type: CompletionItemKind.TypeParameter,
-      frame: CompletionItemKind.Interface,
+      class: CompletionItemKind.Interface,
       function: CompletionItemKind.Function,
       method: CompletionItemKind.Method,
       variable: CompletionItemKind.Variable,
@@ -732,7 +741,7 @@ const symbolKind = (role) => {
     {
       namespace: SymbolKind.Namespace,
       type: SymbolKind.TypeParameter,
-      frame: SymbolKind.Interface,
+      class: SymbolKind.Interface,
       function: SymbolKind.Function,
       method: SymbolKind.Method,
       variable: SymbolKind.Variable,
@@ -826,7 +835,13 @@ const configureWorkspace = () => {
     configuredLibraryPaths,
     process.env.TUNG_PATH,
   );
-  compiler.configure(tongueDir, localLibraryRoots, configuredExecutable || undefined);
+  const executable = configuredExecutable || undefined;
+  if (compiler.tongue !== tongueDir || compiler.executablePath !== executable ||
+      compiler.libraryRoots.length !== localLibraryRoots.length ||
+      compiler.libraryRoots.some((root, index) => root !== localLibraryRoots[index])) {
+    highlights.clear();
+  }
+  compiler.configure(tongueDir, localLibraryRoots, executable);
   let declared: string[] = [];
   libraryResolutionError = undefined;
   try {

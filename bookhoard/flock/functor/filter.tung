@@ -1,0 +1,7 @@
+use flock/functor.tung
+use ilk/two.tung
+
+graiþ f functor
+show flock filter [f:[ilk, ilk]] (
+  let filter [a f, [a, 𝟚; e], a f; e]
+)

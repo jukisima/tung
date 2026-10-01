@@ -1,17 +1,17 @@
-use frame/algebra/total/magma.tung
-use frame/algebra/total/semigroup.tung
-use frame/functor.tung
-use frame/functor/applicative.tung
-use frame/functor/cata.tung
-use frame/functor/monad.tung
-use frame/functor/traverse.tung
-use frame/inhold.tung
+use flock/algebra/total/magma.tung
+use flock/algebra/total/semigroup.tung
+use flock/functor.tung
+use flock/functor/applicative.tung
+use flock/functor/cata.tung
+use flock/functor/monad.tung
+use flock/functor/traverse.tung
+use flock/inhold.tung
 use ilk/list.tung
 use ilk/option.tung
 
 ## a list wiþ a statically known first element.
-show ilk a nonempty {
-  a nonempty (a list)
+show ilk nonempty [a:ilk] {
+  nonempty [a, a list, a nonempty]
 }
 
 ## build a one-element non-empty list.
@@ -33,40 +33,40 @@ show let head [(first nonempty _):a nonempty, a] first
 show let tail [(_ nonempty rest):a nonempty, a list] rest
 
 graiþ (a list) inhold a
-fill (a nonempty) inhold a {
-  let þing ∋ a = (þing to-list) ∋ a
+bizen (a nonempty) inhold a {
+  let þing ∋ a ≔ (þing to-list) ∋ a
 }
 
-fill nonempty functor {
-  let (first nonempty rest) map f =
+bizen nonempty functor {
+  let (first nonempty rest) map f ≔
     (first f) nonempty (rest map f)
 }
 
-fill (a nonempty) semigroup {
-  let (first nonempty rest) * right =
+bizen (a nonempty) semigroup {
+  let (first nonempty rest) * right ≔
     first nonempty (rest * (right to-list))
 }
 
-fill nonempty applicative {
-  let pure = singleton
-  let (first nonempty rest) apply (f nonempty fs) =
+bizen nonempty applicative {
+  let pure ≔ singleton
+  let (first nonempty rest) apply (f nonempty fs) ≔
     (first f) nonempty (
       (rest map f) * ((first _* rest) apply fs)
     )
 }
 
-fill nonempty monad {
-  let (first nonempty rest) flat = rest fold₁ first *
+bizen nonempty monad {
+  let (first nonempty rest) flat ≔ rest fold₁ first *
 }
 
-fill nonempty cata {
-  let (first nonempty rest) fold₀ b f =
+bizen nonempty cata {
+  let (first nonempty rest) fold₀ b f ≔
     first f (rest fold₀ b f)
-  let (first nonempty rest) fold₁ b f =
+  let (first nonempty rest) fold₁ b f ≔
     rest fold₁ (b f first) f
 }
 
-fill nonempty traverse {
-  let (first nonempty rest) traverse f =
+bizen nonempty traverse {
+  let (first nonempty rest) traverse f ≔
     (first f) lift₂ (rest traverse f) nonempty
 }

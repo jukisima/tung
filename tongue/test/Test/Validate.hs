@@ -14,14 +14,14 @@ group =
 
 accepted :: [(String, String)]
 accepted =
-  [ ("distinct declarations", "ilk pair { pair } deed pulse { pulse [ℤ, ℤ] } frame a same { let same [a, a] }"),
+  [ ("distinct declarations", "ilk pair { pair } deed pulse { pulse [ℤ, ℤ] } flock same [a:ilk] ( let same [a, a] )"),
     ("explicit aliases override colliding defaults", "use ilk/list.tung data-list use syntax/list.tung syntax-list"),
     ("explicit aliases distinguish extension-sharing paths", "use a.tung one use a.extra.tung two"),
     ("explicit aliases distinguish dotted directories", "use pkg.one/query.tung one use pkg.two/query.tung two"),
-    ("labels may repeat in separate records", "let first = r(x = 1) let second = r(x = 2)"),
+    ("labels may repeat in separate records", "let first ≔ r(x = 1) let second ≔ r(x = 2)"),
     ("handler names may repeat in separate handlers", "yield try (try 1 { fail ^ 2 }) { fail ^ 3 }"),
     ("annotated fremmed let", "let plus [ℤ, ℤ, ℤ] 'add-integer' fremmed"),
-    ("shared constructor heads in law parameters", "ilk a box { a box } frame a identity { law [x box:a box, y box:a box] x = y }")
+    ("shared constructor heads in law parameters", "ilk a box { a box } flock identity [a:ilk] ( law [x box:a box, y box:a box] x = y )")
   ]
 
 rejected :: [(String, String)]
@@ -39,17 +39,17 @@ rejected =
     ("qualified effect operation name", "deed left { right~op [ℤ, ℤ] }"),
     ("duplicate effect parameter", "deed a bad a { op [a, a] }"),
     ("duplicate effect operation", "deed bad { op [ℤ, ℤ], op [ℤ, ℤ] }"),
-    ("unannotated fremmed let", "let plus = 'add-integer' fremmed"),
+    ("unannotated fremmed let", "let plus ≔ 'add-integer' fremmed"),
     ("nested fremmed marker", "let bad [r(value: ℤ)] r(value = 'add-integer' fremmed)"),
-    ("qualified frame name", "frame a left~right { let op [a, a] }"),
-    ("qualified frame member name", "frame a left { let right~op [a, a] }"),
-    ("duplicate frame parameter", "frame a bad a { let op [a, a] }"),
-    ("duplicate frame member", "frame a bad { let op [a, a] let op [a, a] }"),
-    ("duplicate frame law parameter", "frame a bad { law [x: a, x: a] x = x }"),
-    ("duplicate bracketed frame law parameter", "frame a bad { law [x: a, x: a] x = x }"),
-    ("duplicate fill member", "fill ℤ bad { let x op = x let y op = y }"),
+    ("qualified flock name", "flock left~right [a:ilk] ( let op [a, a] )"),
+    ("qualified flock member name", "flock left [a:ilk] ( let right~op [a, a] )"),
+    ("duplicate flock parameter", "flock bad [a:ilk, a:ilk] ( let op [a, a] )"),
+    ("duplicate flock member", "flock bad [a:ilk] ( let op [a, a] let op [a, a] )"),
+    ("duplicate flock law parameter", "flock bad [a:ilk] ( law [x: a, x: a] x = x )"),
+    ("duplicate bracketed flock law parameter", "flock bad [a:ilk] ( law [x: a, x: a] x = x )"),
+    ("duplicate bizen member", "bizen ℤ bad { let x op ≔ x let y op ≔ y }"),
     ("duplicate record type field", "let bad [r(x: ℤ, x: text)] r(x = 1)"),
-    ("duplicate record field", "let bad = r(x = 1, x = 2)"),
+    ("duplicate record field", "let bad ≔ r(x = 1, x = 2)"),
     ("duplicate handler case", "yield try 1 { fail ^ 2, fail ^ 3 }")
   ]
 

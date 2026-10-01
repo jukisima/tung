@@ -1,0 +1,28 @@
+use flock/equal.tung
+use flock/order/less-equal.tung
+use flock/order/order-partial.tung
+use ilk/three.tung
+use ilk/two.tung
+
+## a partial order in which every pair is comparable.
+graiþ a order-partial
+show flock order-total [a:ilk] (
+  law [a:a, b:a] ((a ≤ b) ≡ nay) ≤ (b ≤ a) = yea
+)
+
+graiþ a order-total, a less-equal
+show let compare [a:a, b:a, 𝟛]
+  (a ≤ b) if ((b ≤ a) if mid fore) aft
+
+## keep a value wiþin inclusive bounds of a total order.
+graiþ a order-total
+show let clamp [lower:a, upper:a, a:a, a] (
+  let raised ≔ (lower ≤ a) if a lower
+  yield (raised ≤ upper) if raised upper
+)
+
+bizen 𝟚 order-total {}
+
+bizen 𝟛 order-total {}
+
+bizen ℤ order-total {}

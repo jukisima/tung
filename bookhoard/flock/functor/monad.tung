@@ -1,0 +1,22 @@
+use combinator.tung
+use flock/functor.tung
+use flock/functor/applicative.tung
+use ilk/one.tung
+
+graiþ f applicative
+show flock monad [f:[ilk, ilk]] (
+  let flat [(a f) f, a f]
+
+  law [a:a, f:[a, b f; e]]
+    (a pure) map f $ flat = a f
+  law [a:a f]
+    a map pure $ flat = a
+)
+
+graiþ f functor, f monad
+show let map-flat [a:a f, f:[a, b f; e], b f; e]
+  a map f $ flat
+
+graiþ f monad
+show let þen [a:a f, b:b f, b f]
+  a map-flat (b constant)

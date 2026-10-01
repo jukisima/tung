@@ -1,10 +1,10 @@
 use combinator.tung
-use frame/algebra/partial/semigroupoid.tung
-use frame/equal.tung
-use frame/inhold.tung
-use frame/order/complement.tung
-use frame/order/semilattice-lower.tung
-use frame/order/semilattice-upper.tung
+use flock/algebra/partial/semigroupoid.tung
+use flock/equal.tung
+use flock/inhold.tung
+use flock/order/complement.tung
+use flock/order/semilattice-lower.tung
+use flock/order/semilattice-upper.tung
 use ilk/two.tung
 
 ## a powerset represented by its membership predicate.
@@ -17,8 +17,8 @@ show let universe [a powerset] yea constant
 graiþ a equal
 show let singleton [a, a powerset] ≡
 
-fill (a powerset) inhold a {
-  let powerset ∋ a = a powerset
+bizen (a powerset) inhold a {
+  let powerset ∋ a ≔ a powerset
 }
 
 graiþ a equal
@@ -31,6 +31,6 @@ show let rid [powerset:a powerset, a:a, a powerset]
 
 show let ∖ [powerset₀:a powerset, powerset₁:a powerset, a powerset] powerset₀ ∧ (powerset₁ ¬)
 
-fill (a powerset) complement {
-  let powerset ¬ = powerset ∘ ¬
+bizen (a powerset) complement {
+  let powerset ¬ ≔ powerset ∘ ¬
 }

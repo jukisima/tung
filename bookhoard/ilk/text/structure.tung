@@ -1,43 +1,43 @@
 use _foreign.tung
-use frame/algebra/total/monoid.tung
-use frame/algebra/total/semigroup.tung
-use frame/equal.tung
-use frame/order/less-equal.tung
-use frame/order/order-partial.tung
-use frame/order/order-total.tung
+use flock/algebra/total/monoid.tung
+use flock/algebra/total/semigroup.tung
+use flock/equal.tung
+use flock/order/less-equal.tung
+use flock/order/order-partial.tung
+use flock/order/order-total.tung
 use ilk/list.tung
 use ilk/option.tung
 use ilk/product.tung
 use ilk/two.tung
 
-fill text equal {
-  let ≡ = equal-text
+bizen text equal {
+  let ≡ ≔ equal-text
 }
 
-fill unicode equal {
-  let ≡ = equal-unicode
+bizen unicode equal {
+  let ≡ ≔ equal-unicode
 }
 
-fill text less-equal {
-  let ≤ = less-equal-text
+bizen text less-equal {
+  let ≤ ≔ less-equal-text
 }
 
-fill text order-partial {}
+bizen text order-partial {}
 
-fill text order-total {}
+bizen text order-total {}
 
-fill unicode less-equal {
-  let ≤ = less-equal-unicode
+bizen unicode less-equal {
+  let ≤ ≔ less-equal-unicode
 }
 
-fill unicode order-partial {}
+bizen unicode order-partial {}
 
-fill unicode order-total {}
+bizen unicode order-total {}
 
-fill text semigroup {
-  let * = join-text
+bizen text semigroup {
+  let * ≔ join-text
 }
 
-fill text monoid {
-  let ∅ = ''
+bizen text monoid {
+  let ∅ ≔ ''
 }

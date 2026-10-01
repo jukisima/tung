@@ -159,13 +159,13 @@ show let psi [f:[b, b, c], g:[a, b], x:a, y:a, c] (x g) f (y g)
 show let sage [f:[a, a], a] (f sage) f
 
 # L f x = f (x x)
-# show let f lark x = (x x) f
+# show let f lark x ≔ (x x) f
 
 # M x = x x
-# show let x mockingbird = x x
+# show let x mockingbird ≔ x x
 
 # M2 x y = (x y) (x y)
-# show let x double-mockingbird y = (y x) (y x)
+# show let x double-mockingbird y ≔ (y x) (y x)
 
 # U x y = y (x x y)
-# show let x turing y = (y (x x)) y
+# show let x turing y ≔ (y (x x)) y

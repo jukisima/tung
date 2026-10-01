@@ -1,6 +1,6 @@
 ## a þree-way ordering result.
 show ilk 𝟛 {
-  fore,
-  mid,
-  aft
+  fore [𝟛]
+  mid [𝟛]
+  aft [𝟛]
 }

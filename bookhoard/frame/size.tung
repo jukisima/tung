@@ -1,5 +1,0 @@
-use ilk/natural.tung
-
-show frame a size {
-  let size [a, ℕ]
-}

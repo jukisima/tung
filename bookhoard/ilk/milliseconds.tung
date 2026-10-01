@@ -3,7 +3,7 @@ use ilk/one.tung
 
 ## a non-normalised span measured in milliseconds.
 show ilk milliseconds {
-  ℤ milliseconds
+  milliseconds [ℤ, milliseconds]
 }
 
 show let seconds [t:ℤ, milliseconds]

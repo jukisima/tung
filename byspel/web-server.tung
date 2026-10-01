@@ -1,9 +1,9 @@
-use frame/algebra/total/magma.tung
+use flock/algebra/total/magma.tung
 use ground.tung
 use web/server.tung
 
 let route [r:request, response; console] (
-  let _ = ('request:' * (r request-target)) write-line
+  let _ ≔ ('request:' * (r request-target)) write-line
   yield match (r request-target) ≡ '/' {
     yea ^ 'hello tung\n' ok,
     nay ^ 'not found\n' not-found

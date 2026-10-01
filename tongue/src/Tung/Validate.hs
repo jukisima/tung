@@ -32,7 +32,7 @@ validateDecl :: Decl -> Either String ()
 validateDecl = \case
   Import path alias -> validateImportPath path >> traverse_ checkImportAlias alias
   Export Import {} -> Left "use cannot be shown"
-  Export FillDecl {} -> Left "fill evidence cannot be shown"
+  Export InstanceDecl {} -> Left "bizen evidence cannot be shown"
   Export declaration -> validateDecl declaration
   ReExport _ -> pure ()
   ReExportType _ -> pure ()
@@ -54,31 +54,34 @@ validateDecl = \case
     distinct ("effect '" ++ name ++ "' operation") [operationName operation | operation <- operations]
     traverse_ validateEffectOp operations
   ElaboratedEffect _ operations -> traverse_ (validateEffectOp . snd) operations
-  ShapeDecl params name needs members -> do
-    validateUnqualified "frame" name
-    distinct ("frame '" ++ name ++ "' parameter") params
-    distinct ("frame '" ++ name ++ "' member") (shapeMemberNames members)
-    traverse_ validateNeed needs
-    traverse_ validateShapeMember members
-  ElaboratedShape _ _ members -> traverse_ (validateShapeMember . snd) members
-  FillDecl types name needs members -> do
-    distinct ("fill '" ++ name ++ "' member") [memberName | Let memberName _ _ <- members]
+  ClassDecl params name constraints members -> do
+    validateUnqualified "flock" name
+    distinct ("flock '" ++ name ++ "' parameter") params
+    distinct ("flock '" ++ name ++ "' member") (classMemberNames members)
+    traverse_ validateConstraint constraints
+    traverse_ validateClassMember members
+  ElaboratedClass _ _ members -> traverse_ (validateClassMember . snd) members
+  InstanceDecl types name constraints members -> do
+    distinct ("bizen '" ++ name ++ "' member") [memberName | Let memberName _ _ <- members]
     traverse_ validateType types
-    traverse_ validateNeed needs
+    traverse_ validateConstraint constraints
     traverse_ validateDecl members
-  ElaboratedFill _ _ types name needs members -> validateDecl (FillDecl types name needs members)
+  ElaboratedInstance _ _ types name constraints members -> validateDecl (InstanceDecl types name constraints members)
 
 validateCtor :: Ctor -> Either String ()
-validateCtor (Ctor name fields) = validateUnqualified "constructor" name >> traverse_ validateType fields
+validateCtor (Ctor name fields result) = do
+  validateUnqualified "constructor" name
+  traverse_ validateType fields
+  traverse_ validateType result
 
 validateEffectOp :: EffectOp -> Either String ()
 validateEffectOp (EffectOp name operationType) = validateUnqualified "effect operation" name >> validateType operationType
 
-validateShapeMember :: ShapeMember -> Either String ()
-validateShapeMember = \case
-  ShapeSpec name annotation -> validateUnqualified "frame member" name >> validateTypeAnn annotation
-  ShapeLaw parameters left right -> do
-    distinct "frame law parameter" (concatMap (patternNames . fst) parameters)
+validateClassMember :: ClassMember -> Either String ()
+validateClassMember = \case
+  ClassSignature name annotation -> validateUnqualified "flock member" name >> validateTypeAnn annotation
+  ClassLaw parameters left right -> do
+    distinct "flock law parameter" (concatMap (patternNames . fst) parameters)
     traverse_ (validateType . snd) parameters
     validateExpr left
     validateExpr right
@@ -96,10 +99,10 @@ patternNames = \case
   PConstructor _ arguments -> concatMap patternNames arguments
 
 validateTypeAnn :: TypeAnn -> Either String ()
-validateTypeAnn (TypeAnn value needs) = validateType value >> traverse_ validateNeed needs
+validateTypeAnn (TypeAnn value constraints) = validateType value >> traverse_ validateConstraint constraints
 
-validateNeed :: ShapeNeed -> Either String ()
-validateNeed (ShapeNeed arguments _) = traverse_ validateType arguments
+validateConstraint :: ClassConstraint -> Either String ()
+validateConstraint (ClassConstraint arguments _) = traverse_ validateType arguments
 
 validateType :: TypeExpr -> Either String ()
 validateType = \case
@@ -163,7 +166,7 @@ validateUnqualified owner name
   | otherwise = Right ()
 
 constructorName :: Ctor -> String
-constructorName (Ctor name _) = name
+constructorName (Ctor name _ _) = name
 
 operationName :: EffectOp -> String
 operationName (EffectOp name _) = name

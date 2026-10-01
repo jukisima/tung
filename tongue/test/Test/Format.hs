@@ -25,9 +25,9 @@ generatedIdempotence = expect "formatter is idempotent for generated structural 
       ]
     declarations =
       [ ["show ilk a box {", "a box", "}"],
-        ["let result =", "match value {", "yea | nay ^ 1", "}"],
-        ["let handled =", "try risky {", "message fail ^ 0", "}"],
-        ["frame a identity {", "let identity [a, a]", "law [x:a]", "x identity = x", "}"]
+        ["let result ≔", "match value {", "yea | nay ^ 1", "}"],
+        ["let handled ≔", "try risky {", "message fail ^ 0", "}"],
+        ["flock identity [a:ilk] (", "let identity [a, a]", "law [x:a]", "x identity = x", ")"]
       ]
 
 isIdempotent :: String -> Bool
@@ -37,22 +37,26 @@ isIdempotent source = formatSource formatted == formatted
 
 cases :: [(String, String, String)]
 cases =
-  [ ( "type colons have no surrounding spaces",
+  [ ( "parenthesised flock body uses one indentation level",
+      "show flock add [a:ilk] (\nlet + [a, a, a]\n)\n",
+      "show flock add [a:ilk] (\n  let + [a, a, a]\n)\n"
+    ),
+    ( "type colons have no surrounding spaces",
       """
       let add [x : ℤ, y:  ℤ, ℤ] (x + y: ℤ)
-      frame a identity { law [x : a] x = x }
+      flock identity [a:ilk] ( law [x : a] x = x )
       let record [r(field : ℤ)] r(field: 1)
-      let text = 'x: y' # note: untouched
-      let letter = `:
+      let text ≔ 'x: y' # note: untouched
+      let letter ≔ `:
       /* note: untouched */
 
       """,
       """
       let add [x:ℤ, y:ℤ, ℤ] (x + y:ℤ)
-      frame a identity { law [x:a] x = x }
+      flock identity [a:ilk] ( law [x:a] x = x )
       let record [r(field:ℤ)] r(field:1)
-      let text = 'x: y' # note: untouched
-      let letter = `:
+      let text ≔ 'x: y' # note: untouched
+      let letter ≔ `:
       /* note: untouched */
 
       """
@@ -82,14 +86,14 @@ cases =
       show ilk a box {
       a box
       }
-      let text = '{not a block}' # }
+      let text ≔ '{not a block}' # }
 
       """,
       """
       show ilk a box {
         a box
       }
-      let text = '{not a block}' # }
+      let text ≔ '{not a block}' # }
 
       """
     ),
@@ -111,51 +115,51 @@ cases =
     ),
     ( "expression continuations",
       """
-      let picked =
+      let picked ≔
       match value {
       yea ^ 1,
       nay ^ 0
       }
-      let handled =
+      let handled ≔
       try risky {
       yield value ^ value,
       message fail ^ 0
       }
-      let identity =
+      let identity ≔
       { x ^ x }
 
       """,
       """
-      let picked =
+      let picked ≔
         match value {
           yea ^ 1,
           nay ^ 0
         }
-      let handled =
+      let handled ≔
         try risky {
           yield value ^ value,
           message fail ^ 0
         }
-      let identity =
+      let identity ≔
         { x ^ x }
 
       """
     ),
     ( "local result",
       """
-      let main = (
-      let first =
+      let main ≔ (
+      let first ≔
       1 + 2
-      let second = 3
+      let second ≔ 3
       yield first + second
       )
 
       """,
       """
-      let main = (
-        let first =
+      let main ≔ (
+        let first ≔
           1 + 2
-        let second = 3
+        let second ≔ 3
         yield first + second
       )
 
@@ -163,38 +167,38 @@ cases =
     ),
     ( "nested continuation",
       """
-      let fixtures =
+      let fixtures ≔
       first _*
       (second _*
       (third _* empty))
 
-      let next =
+      let next ≔
       value
 
       """,
       """
-      let fixtures =
+      let fixtures ≔
         first _*
           (second _*
             (third _* empty))
 
-      let next =
+      let next ≔
         value
 
       """
     ),
     ( "split right side",
       """
-      fill (float complex) elementary {
-      let (a complex b) sine =
+      bizen (float complex) elementary {
+      let (a complex b) sine ≔
       (((0.0 subtract-float b) complex a) exponent)
       sine-from-exponents ((b complex (0.0 subtract-float a)) exponent)
       }
 
       """,
       """
-      fill (float complex) elementary {
-        let (a complex b) sine =
+      bizen (float complex) elementary {
+        let (a complex b) sine ≔
           (((0.0 subtract-float b) complex a) exponent)
             sine-from-exponents ((b complex (0.0 subtract-float a)) exponent)
       }
@@ -247,11 +251,11 @@ cases =
     ),
     ( "term type ascription",
       """
-      let answer = (1 + 2:ℤ)
+      let answer ≔ (1 + 2:ℤ)
 
       """,
       """
-      let answer = (1 + 2:ℤ)
+      let answer ≔ (1 + 2:ℤ)
 
       """
     ),
@@ -279,7 +283,7 @@ cases =
     ),
     ( "associative sequence",
       """
-      let list = >(
+      let list ≔ >(
       _*,
       a,
       b,
@@ -288,7 +292,7 @@ cases =
 
       """,
       """
-      let list = >(
+      let list ≔ >(
         _*,
         a,
         b,
@@ -299,37 +303,37 @@ cases =
     ),
     ( "multiline law header",
       """
-      frame f applicative {
+      flock applicative [f:[ilk, ilk]] (
       law [a:a f]
       a apply (identity pure) = a
       law [a:a] a pure = a pure
-      }
+      )
 
       """,
       """
-      frame f applicative {
+      flock applicative [f:[ilk, ilk]] (
         law [a:a f]
           a apply (identity pure) = a
         law [a:a] a pure = a pure
-      }
+      )
 
       """
     ),
     ( "equals signs in strings and comments",
       """
-      let text = 'a = b' # =
-      let next = 1
+      let text ≔ 'a = b' # =
+      let next ≔ 1
 
       """,
       """
-      let text = 'a = b' # =
-      let next = 1
+      let text ≔ 'a = b' # =
+      let next ≔ 1
 
       """
     ),
     ( "decimal unicode and block comments",
       """
-      let result =
+      let result ≔
       match character {
       `\\32; ^ 1,
       _ ^ 0
@@ -337,11 +341,11 @@ cases =
       /*
         {
       */
-      let next = 1
+      let next ≔ 1
 
       """,
       """
-      let result =
+      let result ≔
         match character {
           `\\32; ^ 1,
           _ ^ 0
@@ -349,68 +353,68 @@ cases =
       /*
         {
       */
-      let next = 1
+      let next ≔ 1
 
       """
     ),
     ( "delimiters in block comments",
       """
-      let x = 1 /* { = */
-      let y = 2
+      let x ≔ 1 /* { = */
+      let y ≔ 2
       /*
         {
       */
-      let z = 3
+      let z ≔ 3
 
       """,
       """
-      let x = 1 /* { = */
-      let y = 2
+      let x ≔ 1 /* { = */
+      let y ≔ 2
       /*
         {
       */
-      let z = 3
+      let z ≔ 3
 
       """
     ),
     ("windows newlines", "ilk box {\r\nbox\r\n}\r\n", "ilk box {\n  box\n}\n"),
     ( "blank line endeþ continuation",
       """
-      show let value =
+      show let value ≔
       1
 
       ## the next declaration.
-      show let next = 2
+      show let next ≔ 2
 
       """,
       """
-      show let value =
+      show let value ≔
         1
 
       ## the next declaration.
-      show let next = 2
+      show let next ≔ 2
 
       """
     ),
     ( "comment useþ structural indentation",
       """
-      frame a identity {
+      flock identity [a:ilk] (
       law [x:a]
       # the equation.
       x identity = x
       # the next law.
       law [x:a] x identity = x
-      }
+      )
 
       """,
       """
-      frame a identity {
+      flock identity [a:ilk] (
         law [x:a]
         # the equation.
           x identity = x
         # the next law.
         law [x:a] x identity = x
-      }
+      )
 
       """
     )

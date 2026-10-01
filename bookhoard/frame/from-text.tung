@@ -1,3 +1,0 @@
-show frame a from-text {
-  let from-text [text, a; text fail]
-}

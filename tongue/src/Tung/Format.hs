@@ -83,7 +83,7 @@ formatLine state line
             Nothing
               | bracketDelta > 0
                   && any (`startsWord` code) ["let", "show let", "law"]
-                  && '=' `notElem` code ->
+                  && all (`notElem` code) ['=', '≔'] ->
                   Just (oldDepth, bracketDelta)
             Nothing -> Nothing
           headerClosed = case formatHeaderBracket state of
@@ -93,7 +93,7 @@ formatLine state line
             | startsComment = formatContinuation state
             | headerClosed = if "]" `isSuffixOf` code then 1 else 0
             | Just (base, count) <- headerBracket = max 0 (count - (depth - base))
-            | "=" `isSuffixOf` code = 1
+            | any (`isSuffixOf` code) ["=", "≔"] = 1
             | closes > 0 = 0
             | delta == 0 && lineContinues code (lineContinuation > 0) = 1
             | lineContinuation > 0 && delta == 0 = max 2 lineContinuation
@@ -140,7 +140,7 @@ leadingClosures :: String -> Int
 leadingClosures = length . takeWhile (`elem` ("})" :: String))
 
 declarationHead :: String -> Bool
-declarationHead line = any (`startsWord` line) ["use", "graiþ", "yield", "show", "show-ilk", "let", "let-ilk", "ilk", "deed", "frame", "fill", "law"]
+declarationHead line = any (`startsWord` line) ["use", "graiþ", "yield", "show", "show-ilk", "let", "let-ilk", "ilk", "deed", "flock", "bizen", "law"]
 
 commentHead :: String -> Bool
 commentHead line = "#" `isPrefixOf` line || "/*" `isPrefixOf` line
@@ -153,10 +153,10 @@ startsWord word line = case stripPrefix word line of
 
 lineContinues :: String -> Bool -> Bool
 lineContinues code continued =
-  "=" `isSuffixOf` code
+  any (`isSuffixOf` code) ["=", "≔"]
     || (startsWord "law" code && "]" `isSuffixOf` code)
     || (continued && ":" `isPrefixOf` code)
-    || ("let" `elem` words code && '=' `notElem` code)
+    || ("let" `elem` words code && all (`notElem` code) ['=', '≔'])
 
 scanLine :: LexicalState -> String -> (Int, Int, LexicalState, String)
 scanLine started input =

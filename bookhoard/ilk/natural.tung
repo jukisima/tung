@@ -1,60 +1,60 @@
-use frame/algebra/arithmetic/add.tung
-use frame/algebra/arithmetic/monoid-additive.tung
-use frame/algebra/arithmetic/monoid-multiplicative.tung
-use frame/algebra/arithmetic/multiply.tung
-use frame/algebra/arithmetic/one.tung
-use frame/algebra/arithmetic/semiring.tung
-use frame/algebra/arithmetic/zero.tung
-use frame/equal.tung
-use frame/order/less-equal.tung
-use frame/order/order-partial.tung
-use frame/order/order-total.tung
-use frame/order/semilattice-upper-bounded.tung
+use flock/algebra/arithmetic/add.tung
+use flock/algebra/arithmetic/monoid-additive.tung
+use flock/algebra/arithmetic/monoid-multiplicative.tung
+use flock/algebra/arithmetic/multiply.tung
+use flock/algebra/arithmetic/one.tung
+use flock/algebra/arithmetic/semiring.tung
+use flock/algebra/arithmetic/zero.tung
+use flock/equal.tung
+use flock/order/less-equal.tung
+use flock/order/order-partial.tung
+use flock/order/order-total.tung
+use flock/order/semilattice-upper-bounded.tung
 use ilk/two.tung
 
 show ilk ℕ {
-  zero,
-  ℕ suc
+  zero [ℕ]
+  suc [ℕ, ℕ]
 }
 
-fill ℕ equal {
-  let ≡ = {
+bizen ℕ equal {
+  let ≡ ≔ {
     zero, zero ^ yea,
     a suc, b suc ^ a ≡ b,
     _, _ ^ nay
   }
 }
 
-fill ℕ less-equal {
-  let ≤ = {
+bizen ℕ less-equal {
+  let ≤ ≔ {
     zero, _ ^ yea,
     _, zero ^ nay,
     a suc, b suc ^ a ≤ b
   }
 }
 
-fill ℕ order-partial {}
+bizen ℕ order-partial {}
 
-fill ℕ order-total {}
+bizen ℕ order-total {}
 
-fill ℕ semilattice-upper-bounded {
-  let ⟂ = zero
+bizen ℕ semilattice-upper-bounded {
+  let ⟂ ≔ zero
 }
 
-fill ℕ semiring {
-  let + = {
+bizen ℕ semiring {
+  let + ≔ {
     a, zero ^ a,
     a, b suc ^ (a + b) suc
   }
 
-  let zero = zero
+  let zero ≔ zero
 
-  let × = {
+  let × ≔ {
     _, zero ^ zero,
     a, b suc ^ a + (a × b)
   }
 
-  let one = zero suc
+  let one ≔ zero suc
 }
 
 show let to-ℤ [ℕ, ℤ] {

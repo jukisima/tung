@@ -1,16 +1,16 @@
 use _foreign.tung
-use frame/algebra/total/magma.tung
-use frame/to-text.tung
+use flock/algebra/total/magma.tung
+use flock/to-text.tung
 use ilk/one.tung
 use ilk/text/structure.tung
 
 ## a paþ kept distinct from arbitrary text at api boundaries.
 show ilk paþ {
-  text paþ
+  paþ [text, paþ]
 }
 
-fill paþ to-text {
-  let (text paþ) to-text = text
+bizen paþ to-text {
+  let (text paþ) to-text ≔ text
 }
 
 show let join-paþ [text₀ paþ:paþ, text₁ paþ:paþ, paþ]

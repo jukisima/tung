@@ -1,4 +1,4 @@
-use frame/algebra/partial/semigroupoid.tung
+use flock/algebra/partial/semigroupoid.tung
 use ground.tung
 use ilk/list.tung
 use ilk/product.tung
@@ -16,8 +16,8 @@ ilk fizzbuzz {
   ℤ raw
 }
 
-fill fizzbuzz to-text {
-  let to-text = {
+bizen fizzbuzz to-text {
+  let to-text ≔ {
     fizz ^ 'fizz',
     buzz ^ 'buzz',
     fizzbuzz ^ 'fizzbuzz',

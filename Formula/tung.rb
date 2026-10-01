@@ -29,7 +29,7 @@ class Tung < Formula
   end
 
   test do
-    source = "let value identity = value\n"
+    source = "let value identity ≔ value\n"
     assert_equal "type ok", pipe_output("#{bin}/tung --check-stdin", source).strip
   end
 end

@@ -1,4 +1,4 @@
-ilk a tree {
-  leaf,
-  a branch (a tree) (a tree)
+ilk tree [a:ilk] {
+  leaf [a tree]
+  branch [a, a tree, a tree, a tree]
 }

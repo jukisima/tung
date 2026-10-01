@@ -10,6 +10,6 @@ let branch-sum [ℤ]
   }
 
 let main [_:𝟙, 𝟙; console] (
-  let _ = 'multi-shot' write-line
+  let _ ≔ 'multi-shot' write-line
   yield branch-sum to-text $ write-line
 )

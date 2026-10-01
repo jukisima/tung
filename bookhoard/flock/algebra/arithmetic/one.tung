@@ -1,0 +1,9 @@
+use ilk/two.tung
+
+show flock one [a:ilk] (
+  let one [a]
+)
+
+bizen 𝟚 one {
+  let one ≔ yea
+}

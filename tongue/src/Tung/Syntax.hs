@@ -6,10 +6,10 @@ module Tung.Syntax
     Decl (..),
     EffectOp (..),
     Ctor (..),
-    ShapeMember (..),
-    shapeMemberSignature,
-    shapeMemberNames,
-    ShapeNeed (..),
+    ClassMember (..),
+    classMemberSignature,
+    classMemberNames,
+    ClassConstraint (..),
     TypeAnn (..),
     TypeExpr (..),
     Expr (..),
@@ -28,7 +28,7 @@ where
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
-import Tung.Identity (FillId, HandlerTarget (..), SymbolId, TermExport)
+import Tung.Identity (HandlerTarget (..), InstanceId, SymbolId, TermExport)
 import Tung.Token (SourceSpan)
 
 newtype Program = Program [Decl] deriving (Eq, Show)
@@ -43,34 +43,34 @@ data Decl
   | DataDecl [String] String [Ctor]
   | EffectDecl [String] String [EffectOp]
   | ElaboratedEffect SymbolId [(TermExport, EffectOp)]
-  | ShapeDecl [String] String [ShapeNeed] [ShapeMember]
-  | ElaboratedShape SymbolId [SymbolId] [(TermExport, ShapeMember)]
-  | FillDecl [TypeExpr] String [ShapeNeed] [Decl]
-  | ElaboratedFill FillId SymbolId [TypeExpr] String [ShapeNeed] [Decl]
+  | ClassDecl [String] String [ClassConstraint] [ClassMember]
+  | ElaboratedClass SymbolId [SymbolId] [(TermExport, ClassMember)]
+  | InstanceDecl [TypeExpr] String [ClassConstraint] [Decl]
+  | ElaboratedInstance InstanceId SymbolId [TypeExpr] String [ClassConstraint] [Decl]
   deriving (Eq, Show)
 
 data EffectOp = EffectOp String TypeExpr deriving (Eq, Show)
 
-data Ctor = Ctor String [TypeExpr] deriving (Eq, Show)
+data Ctor = Ctor String [TypeExpr] (Maybe TypeExpr) deriving (Eq, Show)
 
-data ShapeNeed = ShapeNeed [TypeExpr] String deriving (Eq, Show)
+data ClassConstraint = ClassConstraint [TypeExpr] String deriving (Eq, Show)
 
-data TypeAnn = TypeAnn TypeExpr [ShapeNeed] deriving (Eq, Show)
+data TypeAnn = TypeAnn TypeExpr [ClassConstraint] deriving (Eq, Show)
 
-data ShapeMember
-  = ShapeSpec String TypeAnn
-  | ShapeLaw [(Pattern, TypeExpr)] Expr Expr
+data ClassMember
+  = ClassSignature String TypeAnn
+  | ClassLaw [(Pattern, TypeExpr)] Expr Expr
   deriving (Eq, Show)
 
-shapeMemberSignature :: ShapeMember -> Maybe (String, TypeAnn)
-shapeMemberSignature = \case
-  ShapeSpec name annotation -> Just (name, annotation)
-  ShapeLaw {} -> Nothing
+classMemberSignature :: ClassMember -> Maybe (String, TypeAnn)
+classMemberSignature = \case
+  ClassSignature name annotation -> Just (name, annotation)
+  ClassLaw {} -> Nothing
 
-shapeMemberNames :: [ShapeMember] -> [String]
-shapeMemberNames = mapMaybe \case
-  ShapeSpec name _ -> Just name
-  ShapeLaw {} -> Nothing
+classMemberNames :: [ClassMember] -> [String]
+classMemberNames = mapMaybe \case
+  ClassSignature name _ -> Just name
+  ClassLaw {} -> Nothing
 
 data TypeExpr
   = TypeName String
@@ -99,7 +99,7 @@ data Expr
   | EMatch [Expr] [MatchCase]
   | EBlock [Decl] Expr
   | EWithEvidence Expr [Int]
-  | EDictionary FillId SymbolId [Expr] [Expr]
+  | EDictionary InstanceId SymbolId [Expr] [Expr]
   deriving (Eq, Show)
 
 -- transparent wrappers do not change whether a let body is a recursive

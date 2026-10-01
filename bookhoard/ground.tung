@@ -1,38 +1,38 @@
 use _foreign.tung
 use control.tung
-use frame/algebra/arithmetic/add.tung
-use frame/algebra/arithmetic/divide-remainder.tung
-use frame/algebra/arithmetic/divide.tung
-use frame/algebra/arithmetic/euclidean.tung
-use frame/algebra/arithmetic/field.tung
-use frame/algebra/arithmetic/monoid-additive.tung
-use frame/algebra/arithmetic/monoid-multiplicative.tung
-use frame/algebra/arithmetic/multiply.tung
-use frame/algebra/arithmetic/one.tung one-frame
-use frame/algebra/arithmetic/ring.tung
-use frame/algebra/arithmetic/semiring.tung
-use frame/algebra/arithmetic/subtract.tung
-use frame/algebra/arithmetic/zero.tung zero-frame
-use frame/elementary.tung
-use frame/equal.tung
-use frame/from-text.tung
-use frame/functor.tung
-use frame/functor/applicative.tung
-use frame/functor/bifunctor.tung
-use frame/functor/monad.tung
-use frame/inhold.tung
-use frame/order/complement.tung
-use frame/order/lattice-bounded.tung
-use frame/order/lattice-distributive.tung
-use frame/order/lattice.tung
-use frame/order/less-equal.tung
-use frame/order/order-partial.tung
-use frame/order/order-total.tung
-use frame/order/semilattice-bounded-upper.tung
-use frame/order/semilattice-lower.tung
-use frame/order/semilattice-upper-bounded.tung
-use frame/order/semilattice-upper.tung
-use frame/to-text.tung
+use flock/algebra/arithmetic/add.tung
+use flock/algebra/arithmetic/divide-remainder.tung
+use flock/algebra/arithmetic/divide.tung
+use flock/algebra/arithmetic/euclidean.tung
+use flock/algebra/arithmetic/field.tung
+use flock/algebra/arithmetic/monoid-additive.tung
+use flock/algebra/arithmetic/monoid-multiplicative.tung
+use flock/algebra/arithmetic/multiply.tung
+use flock/algebra/arithmetic/one.tung one-flock
+use flock/algebra/arithmetic/ring.tung
+use flock/algebra/arithmetic/semiring.tung
+use flock/algebra/arithmetic/subtract.tung
+use flock/algebra/arithmetic/zero.tung zero-flock
+use flock/elementary.tung
+use flock/equal.tung
+use flock/from-text.tung
+use flock/functor.tung
+use flock/functor/applicative.tung
+use flock/functor/bifunctor.tung
+use flock/functor/monad.tung
+use flock/inhold.tung
+use flock/order/complement.tung
+use flock/order/lattice-bounded.tung
+use flock/order/lattice-distributive.tung
+use flock/order/lattice.tung
+use flock/order/less-equal.tung
+use flock/order/order-partial.tung
+use flock/order/order-total.tung
+use flock/order/semilattice-bounded-upper.tung
+use flock/order/semilattice-lower.tung
+use flock/order/semilattice-upper-bounded.tung
+use flock/order/semilattice-upper.tung
+use flock/to-text.tung
 use ilk/float.tung
 use ilk/integer.tung
 use ilk/one.tung
@@ -43,7 +43,7 @@ use ilk/zero.tung
 
 ## write text followed by a newline.
 show let write-line [text:text, 𝟙; console] (
-  let _ = text write
+  let _ ≔ text write
   yield '\n' write
 )
 

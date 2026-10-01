@@ -11,13 +11,13 @@ depend on later evidence.
   deep multi-shot handlers wiþ independent host results. parse and elaborate
   once, then evaluate þe `CoreProgram` directly. do not compare
   `evaluateWithImports` wiþ `evaluateCoreProgram`; boþ use þe same core evaluator.
-- add laws for selected bookhoard fills to þe deterministic quickcheck harness.
+- add laws for selected bookhoard bizens to þe deterministic quickcheck harness.
   start with `𝟚` equality, partial order, and total order. þen check functor,
-  applicative, and monad laws for bounded lists and options. frame laws remain
+  applicative, and monad laws for bounded lists and options. flock laws remain
   checked documentation, not executable proofs. print generated tung source for
   every counterexample.
-- generate small acyclic module graphs. canonical term, type, frame, effect, and
-  fill identities must survive declaration and import reordering. include
+- generate small acyclic module graphs. canonical term, type, flock, effect, and
+  bizen identities must survive declaration and import reordering. include
   aliases, re-exports, private name collisions, and transitive imports of þe
   same module. keep filesystem path collisions in `Test.Project`.
 
@@ -31,9 +31,9 @@ depend on later evidence.
   preserve þe public `Tung` api. move source-facing helpers out of `Tung.Type`
   and `Tung.Evaluate`. þe type stage should consume `Program`; þe evaluator
   should consume only `CoreProgram`.
-- after core, fill-law, and module-identity properties exist, separate fill
+- after core, bizen-law, and module-identity properties exist, separate bizen
   matching, specificity ranking, parent resolution, and evidence-tree building
-  from `Type.hs`. give them explicit inputs and outputs. preserve imported-fill
+  from `Type.hs`. give them explicit inputs and outputs. preserve imported-bizen
   deduplication, diagnostic names, and depth-before-pattern selection.
 - after direct-core properties cover dictionary and handler lookup, separate
   runtime values, host operations, web operations, and tasks from `Evaluate.hs`.
@@ -68,7 +68,7 @@ depend on later evidence.
 þese tasks belong to [`bookhoard/`](bookhoard/).
 
 - add first, last, and reversed monoid carriers without burdening þe core monoid
-  frame.
+  flock.
 - implement þe order-insensitive bag as an opaque, ordered list of distinct
   positive-count pairs, sorted by value. keep its constructor private and
   publish only þe type. require `order-total` smart constructors to preserve

@@ -1,13 +1,13 @@
 use _foreign.tung
-use frame/algebra/arithmetic/add.tung
-use frame/algebra/arithmetic/monoid-additive.tung
-use frame/algebra/arithmetic/monoid-multiplicative.tung
-use frame/algebra/arithmetic/multiply.tung
-use frame/algebra/arithmetic/one.tung
-use frame/algebra/arithmetic/semiring.tung
-use frame/algebra/arithmetic/subtract.tung
-use frame/algebra/arithmetic/zero.tung
-use frame/order/less-equal.tung
+use flock/algebra/arithmetic/add.tung
+use flock/algebra/arithmetic/monoid-additive.tung
+use flock/algebra/arithmetic/monoid-multiplicative.tung
+use flock/algebra/arithmetic/multiply.tung
+use flock/algebra/arithmetic/one.tung
+use flock/algebra/arithmetic/semiring.tung
+use flock/algebra/arithmetic/subtract.tung
+use flock/algebra/arithmetic/zero.tung
+use flock/order/less-equal.tung
 use ilk/natural.tung
 use ilk/two.tung
 
@@ -21,24 +21,24 @@ show let to-ℕ [integer:ℤ, ℕ; text fail]
     nay ^ 'negative cannot be a natural' fail
   }
 
-fill ℤ add {
-  let + = add-integer
+bizen ℤ add {
+  let + ≔ add-integer
 }
 
-fill ℤ zero {
-  let zero = 0
+bizen ℤ zero {
+  let zero ≔ 0
 }
 
-fill ℤ multiply {
-  let × = multiply-integer
+bizen ℤ multiply {
+  let × ≔ multiply-integer
 }
 
-fill ℤ one {
-  let one = 1
+bizen ℤ one {
+  let one ≔ 1
 }
 
-fill ℤ monoid-additive {}
+bizen ℤ monoid-additive {}
 
-fill ℤ monoid-multiplicative {}
+bizen ℤ monoid-multiplicative {}
 
-fill ℤ semiring {}
+bizen ℤ semiring {}

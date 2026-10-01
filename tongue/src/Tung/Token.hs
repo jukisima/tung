@@ -3,7 +3,7 @@
 -- | source lexer. a name containeþ any non-space character not reserved by
 -- 'specialNameChars'; literals and comments are consumed before name parsing.
 module Tung.Token
-  ( Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBracket, TRBracket, TLBrace, TRBrace, TColon, TComma, TSemicolon, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar),
+  ( Token (TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TConstraints, TExport, TExportType, TImport, TTypeAlias, TType, TEffect, TYield, TForeign, TClass, TInstance, TLaw, TMatch, TTry, TLParen, TRParen, TLBracket, TRBracket, TLBrace, TRBrace, TColon, TComma, TSemicolon, TDot, TMapsTo, TArrow, TBang, TEquals, TDefine, TDollar, TAt),
     SourceSpan (..),
     LocatedToken (..),
     tokenSpan,
@@ -12,6 +12,7 @@ module Tung.Token
     lexTokens,
     lexLocatedTokens,
     lexLocatedTokensDetailed,
+    lexLocatedPrefix,
     keywordNames,
     languageKeywordNames,
     specialNameChars,
@@ -56,17 +57,17 @@ data TokenKind
   | KTUnicode Char
   | KTText String
   | KTLet
-  | KTGraith
-  | KTShow
-  | KTShowIlk
-  | KTUse
-  | KTLetIlk
-  | KTIlk
-  | KTDeed
+  | KTConstraints
+  | KTExport
+  | KTExportType
+  | KTImport
+  | KTTypeAlias
+  | KTType
+  | KTEffect
   | KTYield
   | KTForeign
-  | KTFrame
-  | KTFill
+  | KTClass
+  | KTInstance
   | KTLaw
   | KTMatch
   | KTTry
@@ -85,7 +86,9 @@ data TokenKind
   | KTArrow
   | KTBang
   | KTEquals
+  | KTDefine
   | KTDollar
+  | KTAt
   deriving (Eq, Show)
 
 instance Eq Token where
@@ -124,19 +127,19 @@ pattern TParenKeyword name <- Token _ (KTParenKeyword name)
   where
     TParenKeyword name = Token Nothing (KTParenKeyword name)
 
-pattern TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBracket, TRBracket, TLBrace, TRBrace, TColon, TComma, TSemicolon, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar :: Token
+pattern TLet, TConstraints, TExport, TExportType, TImport, TTypeAlias, TType, TEffect, TYield, TForeign, TClass, TInstance, TLaw, TMatch, TTry, TLParen, TRParen, TLBracket, TRBracket, TLBrace, TRBrace, TColon, TComma, TSemicolon, TDot, TMapsTo, TArrow, TBang, TEquals, TDefine, TDollar, TAt :: Token
 pattern TLet <- Token _ KTLet where TLet = Token Nothing KTLet
-pattern TGraith <- Token _ KTGraith where TGraith = Token Nothing KTGraith
-pattern TShow <- Token _ KTShow where TShow = Token Nothing KTShow
-pattern TShowIlk <- Token _ KTShowIlk where TShowIlk = Token Nothing KTShowIlk
-pattern TUse <- Token _ KTUse where TUse = Token Nothing KTUse
-pattern TLetIlk <- Token _ KTLetIlk where TLetIlk = Token Nothing KTLetIlk
-pattern TIlk <- Token _ KTIlk where TIlk = Token Nothing KTIlk
-pattern TDeed <- Token _ KTDeed where TDeed = Token Nothing KTDeed
+pattern TConstraints <- Token _ KTConstraints where TConstraints = Token Nothing KTConstraints
+pattern TExport <- Token _ KTExport where TExport = Token Nothing KTExport
+pattern TExportType <- Token _ KTExportType where TExportType = Token Nothing KTExportType
+pattern TImport <- Token _ KTImport where TImport = Token Nothing KTImport
+pattern TTypeAlias <- Token _ KTTypeAlias where TTypeAlias = Token Nothing KTTypeAlias
+pattern TType <- Token _ KTType where TType = Token Nothing KTType
+pattern TEffect <- Token _ KTEffect where TEffect = Token Nothing KTEffect
 pattern TYield <- Token _ KTYield where TYield = Token Nothing KTYield
 pattern TForeign <- Token _ KTForeign where TForeign = Token Nothing KTForeign
-pattern TFrame <- Token _ KTFrame where TFrame = Token Nothing KTFrame
-pattern TFill <- Token _ KTFill where TFill = Token Nothing KTFill
+pattern TClass <- Token _ KTClass where TClass = Token Nothing KTClass
+pattern TInstance <- Token _ KTInstance where TInstance = Token Nothing KTInstance
 pattern TLaw <- Token _ KTLaw where TLaw = Token Nothing KTLaw
 pattern TMatch <- Token _ KTMatch where TMatch = Token Nothing KTMatch
 pattern TTry <- Token _ KTTry where TTry = Token Nothing KTTry
@@ -154,9 +157,11 @@ pattern TMapsTo <- Token _ KTMapsTo where TMapsTo = Token Nothing KTMapsTo
 pattern TArrow <- Token _ KTArrow where TArrow = Token Nothing KTArrow
 pattern TBang <- Token _ KTBang where TBang = Token Nothing KTBang
 pattern TEquals <- Token _ KTEquals where TEquals = Token Nothing KTEquals
+pattern TDefine <- Token _ KTDefine where TDefine = Token Nothing KTDefine
 pattern TDollar <- Token _ KTDollar where TDollar = Token Nothing KTDollar
+pattern TAt <- Token _ KTAt where TAt = Token Nothing KTAt
 
-{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TGraith, TShow, TShowIlk, TUse, TLetIlk, TIlk, TDeed, TYield, TForeign, TFrame, TFill, TLaw, TMatch, TTry, TLParen, TRParen, TLBracket, TRBracket, TLBrace, TRBrace, TColon, TComma, TSemicolon, TDot, TMapsTo, TArrow, TBang, TEquals, TDollar #-}
+{-# COMPLETE TIdent, TInteger, TFloat, TUnicode, TText, TParenKeyword, TLet, TConstraints, TExport, TExportType, TImport, TTypeAlias, TType, TEffect, TYield, TForeign, TClass, TInstance, TLaw, TMatch, TTry, TLParen, TRParen, TLBracket, TRBracket, TLBrace, TRBrace, TColon, TComma, TSemicolon, TDot, TMapsTo, TArrow, TBang, TEquals, TDefine, TDollar, TAt #-}
 
 tokenSpan :: Token -> Maybe SourceSpan
 tokenSpan (Token cursor _) = (\(TokenCursor span _ _) -> span) <$> cursor
@@ -195,9 +200,23 @@ lexLocatedTokensDetailed source =
     Left err ->
       let offset = offsets IntMap.! M.errorOffset (NE.head (M.bundleErrors err))
        in Left (SourceFailure (Just (SourceSpan offset offset)) (M.errorBundlePretty err))
-    Right toks -> Right (withCursors 0 (map convertSpan toks))
+    Right toks -> Right (locateTokens source toks)
   where
-    offsets = IntMap.fromList (zip [0 ..] (scanl (+) 0 (map utf16Width source)))
+    offsets = utf16Offsets source
+
+-- editor clients retain complete tokens before an unfinished literal or comment.
+-- the token rules are identical to the strict lexer above.
+lexLocatedPrefix :: String -> [LocatedToken]
+lexLocatedPrefix source =
+  either (const []) (locateTokens source) (M.parse (spaceConsumer *> many (M.try locatedTokenParser)) "source" source)
+
+utf16Offsets :: String -> IntMap.IntMap Int
+utf16Offsets source = IntMap.fromList (zip [0 ..] (scanl (+) 0 (map utf16Width source)))
+
+locateTokens :: String -> [LocatedToken] -> [LocatedToken]
+locateTokens source toks = withCursors 0 (map convertSpan toks)
+  where
+    offsets = utf16Offsets source
     convertSpan LocatedToken {locatedSpan = SourceSpan start end, locatedToken} =
       let span = SourceSpan (offsets IntMap.! start) (offsets IntMap.! end)
        in LocatedToken span (withTokenSpan span locatedToken)
@@ -253,7 +272,9 @@ singleTokenParser =
       TArrow <$ C.char '→',
       TBang <$ C.char '!',
       TEquals <$ C.char '=',
-      TDollar <$ C.char '$'
+      TDefine <$ C.char '≔',
+      TDollar <$ C.char '$',
+      TAt <$ C.char '@'
     ]
 
 integerParser :: Lexer Integer
@@ -357,17 +378,17 @@ keywordOrIdent name = fromMaybe (TIdent name) (lookup name keywordTokens)
 keywordTokens :: [(String, Token)]
 keywordTokens =
   [ ("let", TLet),
-    ("graiþ", TGraith),
-    ("show", TShow),
-    ("show-ilk", TShowIlk),
-    ("use", TUse),
-    ("let-ilk", TLetIlk),
-    ("ilk", TIlk),
-    ("deed", TDeed),
+    ("graiþ", TConstraints),
+    ("show", TExport),
+    ("show-ilk", TExportType),
+    ("use", TImport),
+    ("let-ilk", TTypeAlias),
+    ("ilk", TType),
+    ("deed", TEffect),
     ("yield", TYield),
     ("fremmed", TForeign),
-    ("frame", TFrame),
-    ("fill", TFill),
+    ("flock", TClass),
+    ("bizen", TInstance),
     ("law", TLaw),
     ("match", TMatch),
     ("try", TTry)
@@ -377,4 +398,4 @@ isNameChar :: Char -> Bool
 isNameChar c = not (isSpace c) && c `notElem` specialNameChars
 
 specialNameChars :: [Char]
-specialNameChars = "#()[]{}:,;!=$→`'@^."
+specialNameChars = "#()[]{}:,;!=$→≔`'@^."

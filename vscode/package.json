@@ -13,6 +13,7 @@
     "bundle": "esbuild client/extension.ts server/main.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outdir=bundle --outbase=.",
     "check": "tsc --project tsconfig.json --noEmit",
     "test": "npm run build --silent && npm run check:metadata --silent && node tool/run-tests.mjs",
+    "benchmark:highlight": "node tool/benchmark-highlight.mjs",
     "check:metadata": "node tool/update-language-metadata.mjs --check",
     "update:metadata": "node tool/update-language-metadata.mjs",
     "package": "node -e \"require('node:fs').mkdirSync('dist', { recursive: true })\" && vsce package --no-dependencies --readme-path readme.md --allow-missing-repository --skip-license --out dist/tung-vscode.vsix",
@@ -72,11 +73,6 @@
     },
     "semanticTokenTypes": [
       {
-        "id": "frame",
-        "superType": "type",
-        "description": "tung frame name"
-      },
-      {
         "id": "call",
         "superType": "variable",
         "description": "term used in tung function position"
@@ -89,7 +85,7 @@
       },
       {
         "id": "typeFunction",
-        "description": "parameterised type or frame declaration"
+        "description": "parameterised type or flock declaration"
       },
       {
         "id": "effect",
@@ -117,7 +113,7 @@
             "support.type.effect",
             "support.type"
           ],
-          "frame": [
+          "class": [
             "support.type.tung",
             "support.type"
           ],
@@ -172,7 +168,7 @@
           "type:tung": {
             "italic": false
           },
-          "frame:tung": {
+          "class:tung": {
             "italic": false
           },
           "call.applied:tung": {
@@ -181,7 +177,7 @@
           "type.applied:tung": {
             "italic": true
           },
-          "frame.applied:tung": {
+          "class.applied:tung": {
             "italic": true
           },
           "typeParameter.applied:tung": {
@@ -190,7 +186,7 @@
           "type.typeFunction:tung": {
             "italic": true
           },
-          "frame.typeFunction:tung": {
+          "class.typeFunction:tung": {
             "italic": true
           }
         }

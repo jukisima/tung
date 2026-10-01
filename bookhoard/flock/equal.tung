@@ -1,0 +1,25 @@
+use ilk/three.tung
+use ilk/two.tung
+
+show flock equal [a:ilk] (
+  let ≡ [a, a, 𝟚]
+)
+
+graiþ a equal
+show let ≢ [a:a, b:a, 𝟚] (a ≡ b) if nay yea
+
+bizen 𝟚 equal {
+  let ≡ ≔ {
+    yea, yea | nay, nay ^ yea,
+    _,   _              ^ nay
+  }
+}
+
+bizen 𝟛 equal {
+  let ≡ ≔ {
+    fore, fore ^ yea,
+    mid,  mid  ^ yea,
+    aft,  aft  ^ yea,
+    _,    _    ^ nay
+  }
+}

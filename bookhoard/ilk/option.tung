@@ -1,25 +1,25 @@
-use frame/algebra/total/magma.tung
-use frame/algebra/total/monoid.tung
-use frame/algebra/total/semigroup.tung
-use frame/functor.tung
-use frame/functor/applicative.tung
-use frame/functor/cata.tung
-use frame/functor/filter.tung
-use frame/functor/monad.tung
-use frame/functor/traverse.tung
-use frame/order/complement.tung
+use flock/algebra/total/magma.tung
+use flock/algebra/total/monoid.tung
+use flock/algebra/total/semigroup.tung
+use flock/functor.tung
+use flock/functor/applicative.tung
+use flock/functor/cata.tung
+use flock/functor/filter.tung
+use flock/functor/monad.tung
+use flock/functor/traverse.tung
+use flock/order/complement.tung
 use ilk/one.tung
 use ilk/two.tung
 
 ## optional value.
-show ilk a option {
-  none,
-  a some
+show ilk option [a:ilk] {
+  none [a option]
+  some [a, a option]
 }
 
 graiþ a semigroup
-fill (a option) semigroup {
-  let * = {
+bizen (a option) semigroup {
+  let * ≔ {
     none,   b      ^ b,
     a,      none   ^ a,
     a some, b some ^ a * b $ some
@@ -27,52 +27,52 @@ fill (a option) semigroup {
 }
 
 graiþ a semigroup
-fill (a option) monoid {
-  let ∅ = none
+bizen (a option) monoid {
+  let ∅ ≔ none
 }
 
-fill option functor {
-  let map = {
+bizen option functor {
+  let map ≔ {
     none,   _ ^ none,
     a some, f ^ a f $ some
   }
 }
 
-fill option applicative {
-  let pure = some
-  let apply = {
+bizen option applicative {
+  let pure ≔ some
+  let apply ≔ {
     a some, f some ^ a f $ some,
     _,      _      ^ none
   }
 }
 
-fill option monad {
-  let flat = {
+bizen option monad {
+  let flat ≔ {
     none   ^ none,
     a some ^ a
   }
 }
 
-fill option filter {
-  let filter = {
+bizen option filter {
+  let filter ≔ {
     none, _   ^ none,
     a some, f ^ a f $ if (a some) none
   }
 }
 
-fill option cata {
-  let fold₀ = {
+bizen option cata {
+  let fold₀ ≔ {
     none,   b, _ ^ b,
     a some, b, f ^ a f b
   }
-  let fold₁ = {
+  let fold₁ ≔ {
     none,   b, _ ^ b,
     a some, b, f ^ b f a
   }
 }
 
-fill option traverse {
-  let traverse = {
+bizen option traverse {
+  let traverse ≔ {
     none,   _ ^ none pure,
     a some, f ^ (a f) map some
   }

@@ -3,7 +3,7 @@ use ilk/text/structure.tung
 
 ## an http response wiþ its status, headers, and utf-8 body.
 show ilk response {
-  ℤ response (text table text) text
+  response [ℤ, text table text, text, response]
 }
 
 show let response-status [status response _ _:response, ℤ]

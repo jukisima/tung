@@ -9,8 +9,8 @@ const declarationKeywords = new Set([
   "let-ilk",
   "ilk",
   "deed",
-  "frame",
-  "fill",
+  "flock",
+  "bizen",
 ]);
 const fileDeclarationKeywords = new Set([
   "use",
@@ -246,32 +246,32 @@ const splitTopLevel = (tokens, start, end, separators) => {
 // opener begins a local pattern, and a missing body terminator extends to EOF.
 const patternArmRegions = (tokens) => {
   const regions = [];
-  const frames = [{ patternStart: 0, openArms: [] }];
-  const closeArms = (frame, bodyEnd) => {
-    for (const arm of frame.openArms) arm.bodyEnd = bodyEnd;
-    frame.openArms = [];
+  const scopes = [{ patternStart: 0, openArms: [] }];
+  const closeArms = (scope, bodyEnd) => {
+    for (const arm of scope.openArms) arm.bodyEnd = bodyEnd;
+    scope.openArms = [];
   };
   for (const token of tokens) {
     if (isOpen(token.text)) {
-      frames.push({ patternStart: token.index + 1, openArms: [] });
+      scopes.push({ patternStart: token.index + 1, openArms: [] });
       continue;
     }
-    const frame = frames.at(-1);
+    const scope = scopes.at(-1);
     if (token.text === "^") {
       const arm = {
-        patternStart: frame.patternStart,
+        patternStart: scope.patternStart,
         pipe: token,
         bodyEnd: tokens.length,
       };
       regions.push(arm);
-      frame.openArms.push(arm);
-      frame.patternStart = token.index + 1;
-    } else if (token.text === "," && frame.openArms.length) {
-      closeArms(frame, token.index);
-      frame.patternStart = token.index + 1;
+      scope.openArms.push(arm);
+      scope.patternStart = token.index + 1;
+    } else if (token.text === "," && scope.openArms.length) {
+      closeArms(scope, token.index);
+      scope.patternStart = token.index + 1;
     } else if (isClose(token.text)) {
-      closeArms(frame, token.index);
-      if (frames.length > 1) frames.pop();
+      closeArms(scope, token.index);
+      if (scopes.length > 1) scopes.pop();
     }
   }
   return regions;
@@ -288,7 +288,7 @@ const splitDeclarations = (
   const baseDepth = depths[start] ?? 0;
   const segments = [];
   let segmentStart = -1;
-  let awaitingGraithLet = false;
+  let awaitingConstrainedLet = false;
   for (let index = start; index < end; index += 1) {
     const token = tokens[index];
     if (
@@ -298,9 +298,9 @@ const splitDeclarations = (
     if (token.text === "graiþ") {
       if (segmentStart >= 0) segments.push({ start: segmentStart, end: index });
       segmentStart = index;
-      awaitingGraithLet = true;
-    } else if (token.text === "let" && awaitingGraithLet) {
-      awaitingGraithLet = false;
+      awaitingConstrainedLet = true;
+    } else if (token.text === "let" && awaitingConstrainedLet) {
+      awaitingConstrainedLet = false;
     } else {
       if (segmentStart >= 0) segments.push({ start: segmentStart, end: index });
       segmentStart = index;

@@ -7,7 +7,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
     "show ilk a box {",
     "a box",
     "}",
-    "let value = {",
+    "let value ≔ {",
     "x ^ x",
     "}",
     "",
@@ -16,7 +16,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
     "show ilk a box {",
     "  a box",
     "}",
-    "let value = {",
+    "let value ≔ {",
     "  x ^ x",
     "}",
     "",
@@ -31,7 +31,7 @@ test("range formatting returneþ requested full lines from formatted source", ()
         start: { line: 3, character: 0 },
         end: { line: 5, character: 1 },
       },
-      newText: "let value = {\n  x ^ x\n}",
+      newText: "let value ≔ {\n  x ^ x\n}",
     },
   );
 });

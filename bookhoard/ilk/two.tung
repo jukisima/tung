@@ -1,6 +1,6 @@
 show ilk 𝟚 {
-  yea,
-  nay
+  yea [𝟚]
+  nay [𝟚]
 }
 
 show let if [𝟚, a, a, a] {

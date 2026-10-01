@@ -1,0 +1,9 @@
+use ilk/two.tung
+
+show flock zero [a:ilk] (
+  let zero [a]
+)
+
+bizen 𝟚 zero {
+  let zero ≔ nay
+}
