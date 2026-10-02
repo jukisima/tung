@@ -1,9 +1,8 @@
 use flock/algebra/total/monoid.tung
 use flock/algebra/total/semigroup.tung
 
-graiþ a monoid
-show flock group [a:ilk] (
+show flock group [byzen a monoid] {
   let / [a, a, a]
 
   law [a:a] a / a = ∅
-)
+}

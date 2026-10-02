@@ -24,8 +24,8 @@ namespace. an optional final name replaceþ it.
 use ilk/list.tung
 use ilk/table.tung hashmap
 
-let xs ≔ list~empty
-let entries ≔ hashmap~empty
+let xs [] list~empty
+let entries [] hashmap~empty
 ```
 
 visible imported names may remain bare when unambiguous. two different direct
@@ -135,9 +135,9 @@ a f $ g b     # g (f a) b
 `$` groupeþ its left expression and useþ the next atom as the function. `$(`
 starteþ a function-first segment.
 
-`<(f, a, b, c)` lowereþ to `(a f b) f c`. `>(f, a, b, c)` lowereþ to
-`a f (b f c)`. each requireþ a combining function and at least two values. `r(`,
-`<(`, and `>(` are single opening delimiters. the parenthesis must touch the
+`<{f, a, b, c}` lowereþ to `(a f b) f c`. `>{f, a, b, c}` lowereþ to
+`a f (b f c)`. each requireþ a combining function and at least two values. `r{`,
+`<{`, and `>{` are single opening delimiters. the brace must touch the
 marker.
 
 partial application is pure. latent effects run only after saturation.
@@ -145,14 +145,17 @@ evaluation is strict: first the function, then arguments from left to right.
 
 ## declarations and types
 
-`ilk` may name its parameters after the type, with a kind for each parameter.
-`ilk` is the kind of ordinary types. `[ilk, ilk]` is a kind from types to types.
+`ilk` putteþ its name first, then kinded parameters and a final `*` in brackets.
+its constructors go in `{}`. a type wiþ no parameters useþ `[*]`.
+`*` is the kind of ordinary types. `[*, *]` is a kind from types to types.
+only a standalone `*` is kind syntax. names such as `_*` remain ordinary names.
+the magma operation is `·`.
 constructors may declare their argument types and result type in brackets.
 the result type must name the declared `ilk` with its full arity. adjacent
 constructor signatures need no commas.
 
 ```tung
-ilk list [a:ilk] {
+ilk list [a:*, *] {
   empty [a list]
   _* [a, a list, a list]
 }
@@ -163,11 +166,11 @@ within its own case. a type variable used only by a constructor is existential;
 it cannot escape that case.
 
 ```tung
-ilk tag [a:ilk] {
+ilk tag [a:*, *] {
   integer [ℤ, ℤ tag]
   textual [text, text tag]
 }
-let unpack [x:a tag, a] match x {
+let unpack [@a:*, x:a tag, a] match x {
   integer n ^ n,
   textual t ^ t
 }
@@ -179,14 +182,14 @@ slots describe a curried function.
 ```tung
 let answer [ℤ] 42
 let add [x:ℤ, y:ℤ, ℤ] x + y
-let identity [@a:ilk, a, a] { x ^ x }
-let x sameness ≔ x
+let identity [@a:*, a, a] { x ^ x }
+let x sameness [] x
 let x add-after [y:ℤ, ℤ] x + y
 ```
 
 in a bracketed `let`, `pattern:type` bindeþ an argument. patterns may
 destructure constructors without grouping the whole pattern:
-`let unbox [box x:a box, a] x`. symbolic infix patterns such as `a ∏ b`
+`let unbox [@a:*, box x:a box, a] x`. symbolic infix patterns such as `a ∏ b`
 also work without grouping. named patterns precede bare argument types.
 a bare slot giveþ a type only; it bindeth no name. use `_` before the function
 name or `_:type` in brackets to discard an argument. the final bare slot is
@@ -195,14 +198,70 @@ positional arguments, it giveþ the function result. the right-hand side
 supplieþ any bare arguments. omit the final type to infer a result after a
 named pattern. spaces around `:` are allowed; the formatter removeþ them.
 
-leading `@name:ilk` declareþ a polymorphic type parameter. it contributeþ no
-value argument; calls still supply only þe written value arguments. `@` is a
-convention for type parameters now. optional argument syntax is a future task.
-type variables without `@name:ilk` remain implicit.
+leading `@name:kind` declareþ a polymorphic type parameter. use `@a:*` for
+an ordinary type and `@f:[*, *]` for a unary type constructor.
+type declarations use `name:kind` wiþout `@`.
+every type variable in a written annotation must be declared or already in
+scope. `byzen` requirements may introduce parameters as described below.
+this includeþ type constructor variables and effect-row variables.
+unknown names are errors. an unannotated `let x identity [] x` may still infer
+a polymorphic type.
+
+an anonymous function bound by `let` may call itself, with or without an
+annotation. other initialisers see preceding bindings, including a preceding
+binding with the same name. an unguarded self-reference is an error.
+
+data, alias, effect, and flock parameters scope over þeir declarations.
+flock methods, constructors, and laws may introduce local leading `@` parameters.
+local parameters cannot redeclare þeir owner parameters.
+an instance declareþ its variables before `:`, then its head:
+`bizen [@a:*]:(a list) equal {...}`.
+these variables scope over its head, requirements, and members. a constructor such as
+`pack [@a:*, a, packed]` declareþ an existential payload when matched.
+
+calls may supply declared type parameters explicitly. `@text` passeþ a named
+type; `@(text list)` passeþ a compound type. type arguments select header
+parameters in declaration order, including those introduced by `byzen`,
+regardless of their position among value arguments. omitted trailing type
+arguments are inferred. each supplied type must have the declared parameter's
+kind, including when the parameter is unused. type arguments are
+erased before evaluation:
+
+```tung
+let f [@a:*, @b:*, x:a, _:b, a] x
+'x' f empty
+'x' f @text empty
+'x' f @text @(text list) empty
+```
+
+declared type parameters are in scope in the body. a call may forward them
+with `@a`. explicit type input requireþ a declared header parameter or a value
+wiþ an explicitly quantified type.
+
+inside a function type, leading `@name:kind` bindeth an explicit universal
+quantifier. its scope is that bracketed type. quantifiers may occur in arguments
+or results, at any rank:
+
+```tung
+let both [f:[@a:*, a, a], r{number:ℤ, word:text}]
+  r{number=1 f, word='x' f}
+let make [_:ℤ, [@a:*, a, a]] {x ^ x}
+```
+
+`both` requireþ a function that workeþ for every `a`. each use of `f`
+instantiateþ it independently. `make` returneþ such a function. a monomorphic
+function cannot satisfy either quantified type. nested binders shadow outer
+type variables; other free variables retain their outer meaning.
+
+higher-rank types require explicit annotations. inference remaineth predicative:
+it doth not instantiate an inferred type variable wiþ a universally quantified
+type. passing an anonymous function checkeþ its arguments against the expected
+signature. quantifiers create no runtime arguments. nested class constraints
+are not supported.
 
 untyped positional arguments follow the second-is-function rule:
-`let a f b c ≔ ...` bindeþ `a`, `b`, and `c` to `f`. append brackets to
-specify later typed arguments, a result, or effects. `let a f ≔ ...` is a
+`let a f b c [] ...` bindeþ `a`, `b`, and `c` to `f`. replace `[]` to
+specify later typed arguments, a result, or effects. `let a f [] ...` is a
 unary function even if `f` is also a type name. write `let a [f] ...` to
 annotate a value.
 
@@ -210,14 +269,18 @@ local blocks are parenthesised and end with `yield`.
 
 ```tung
 (
-  let six ≔ 2 × 3
+  let six [] 2 × 3
   yield six + 1
 )
 ```
 
-type variables are implicit. type application useþ second-is-function syntax.
+type application useþ second-is-function syntax.
 `ℤ list` applieþ `list` to `ℤ`; `a ∏ b` applieþ the binary product type.
-`let-ilk` defineþ a transparent type alias.
+`let` wiþ a final `*` in its brackets defineþ a transparent type alias.
+preceding inputs declare type parameters and þeir kinds:
+`let powerset [a:*, *] a → 𝟚`. a non-parameterised alias useþ `[*]`, as in
+`let count [*] ℤ`. alias headers accept no value arguments, effects, or
+class constraints. the body is a type expression; it is not evaluated.
 
 function types use `[argument, result]`. latent effects follow a semicolon:
 `[argument, result; effect]`. several effects are comma-separated. nested
@@ -228,9 +291,9 @@ type application bindeþ more tightly.
 `(term:type)` constraineþ any term.
 
 ```tung
-let-ilk a powerset = a → 𝟚
-let call [f:[a, b; e], x:a, b; e] x f
-let answer ≔ (1 + 2:ℤ)
+let powerset [a:*, *] a → 𝟚
+let call [@a:*, @b:*, @e:*, f:[a, b; e], x:a, b; e] x f
+let answer [] (1 + 2:ℤ)
 ```
 
 pure inferred lets are generalised. immediately effectful right-hand sides
@@ -245,7 +308,7 @@ parameter retaineþ its type constraints.
 follow the ordinary sequence rule.
 
 ```tung
-ilk a option {
+ilk option [a:*, *] {
   none,
   a some
 }
@@ -255,12 +318,12 @@ constructor application is curried. patterns may bind variables, use `_`, match
 exact integer or text literals, or destructure constructors. each binder may
 occur only once in a pattern row.
 
-`match` consumeþ one or more comma-separated scrutinees. bare braces form an
+`match` consumeþ one or more comma-separated scrutinees. `{...}` formeþ an
 anonymous function with one curried input per pattern. `^` separateþ a case from
 its result. `|` joineþ complete alternative rows that share a result.
 
 ```tung
-let chosen ≔ match yea, nay {
+let chosen [] match yea, nay {
   yea, b | b, yea ^ b,
   nay, _ ^ nay
 }
@@ -283,15 +346,15 @@ uninhabited input such as `𝟘`.
 
 ## records
 
-records are closed. `r(field:type)` formeþ a type; `r(field = value)` formeþ a
+records are closed. `r{field:type}` formeþ a type; `r{field = value}` formeþ a
 value. an update placeþ its base after `=`. later entries set or remove fields.
 
 ```tung
-let person [r(name:text, age:ℤ)]
-  r(name = 'naoki', age = 35)
-let older ≔ r(= person, age = 36)
-let public ≔ r(= person, - age)
-let age ≔ older.age
+let person [r{name:text, age:ℤ}]
+  r{name = 'naoki', age = 35}
+let older [] r{= person, age = 36}
+let public [] r{= person, - age}
+let age [] older.age
 ```
 
 in `record.field`, `record` is a term and `field` an unqualified field name.
@@ -309,24 +372,41 @@ removal, and non-record updates are errors.
 | effect        | `deed`  |
 
 `flock` putteþ its name first, then optional kinded parameters in `[]`, then
-members in `()`. `a:ilk` declareþ a type parameter. `f:[ilk, ilk]` declareþ a
-unary type constructor parameter. `bizen` provideþ evidence and
-member implementations. leading `graiþ` clauses state required evidence for a
-declaration, flock, bizen, or individual member. required members use a name
+members in `{}`. `a:*` declareþ a type parameter. `f:[*, *]` declareþ a
+unary type constructor parameter. `bizen [parameters]:head {...}` provideþ
+evidence and member implementations. its brackets contain `@name:kind` parameters
+and `byzen requirement` entries. empty brackets may be omitted: `bizen:ℤ ring {}`
+and `bizen []:ℤ ring {}` mean the same. the head keepeþ
+second-is-function order: `bizen:ℤ convert text {...}`.
+`byzen a equal` in a declaration header stateþ required evidence.
+headers contain `byzen` requirements first, then type parameters, then value
+arguments. each section is optional. requirements cannot follow type parameters
+or value arguments. flock and bizen headers have no value arguments.
+an unbound name in a requirement becomeþ a type parameter. its kind comeþ from
+the required flock, including imported flocks. scoped parameters and visible
+types keep þeir existing meanings. an explicit parameter may shadow a visible
+type. repeating a kind already determined by requirements is an error.
+a compound requirement may leave some kinds undetermined;
+an explicit annotation may supply the missing information. unconstrained parameters
+still need an explicit kind. conflicting required kinds are errors.
+parameters follow þeir first occurrence in the header.
+required members use a name
 followed by bracketed types, wiþ the result last. laws bind typed patterns in
 brackets. þeir equation beginneþ after `]`.
 
 ```tung
-flock equal [a:ilk] (
+flock equal [a:*] {
   let ≡ [a, a, 𝟚]
   law [x:a] x ≡ x = yea
-)
+}
 
-graiþ a equal
-let ≢ [a:a, b:a, 𝟚] (a ≡ b) if nay yea
+let ≢ [byzen a equal, a:a, b:a, 𝟚] (a ≡ b) if nay yea
 
-bizen 𝟚 equal {
-  let ≡ ≔ {
+flock applicative [byzen f functor] {...}
+bizen [byzen b ring, @a:*]:[a, b] ring {...}
+
+bizen:𝟚 equal {
+  let ≡ [] {
     yea, yea ^ yea,
     nay, nay ^ yea,
     _, _ ^ nay
@@ -334,8 +414,9 @@ bizen 𝟚 equal {
 }
 ```
 
-in a `law`, `=` separateþ two expressions. a `let` without brackets useþ `≔`
-before its definition. a bracketed `let` beginneþ its definition after `]`.
+in a `law`, `=` separateþ two expressions. every `let` requireþ brackets.
+`[]` inferreþ the whole annotation; `[type]` annotateþ a value.
+the definition beginneþ directly after `]`.
 þis also applieþ to `let` implementations inside `bizen`.
 law brackets require a type for each pattern. they also accept
 constructor-first patterns. parentheses keep any nested `let` inside a law side.
@@ -343,6 +424,7 @@ constructor-first patterns. parentheses keep any nested `let` inside a law side.
 a bizen must supply each required member not supplied by a parent. a child bizen
 also witnesseþ required parent flocks and may define inherited members.
 duplicate bizens are incoherent.
+an annotated member must satisfy its own signature and the required method type.
 
 selection preferreþ the shortest inheritance path. a direct bizen outrankeþ an
 inherited witness. primitive bizens are fallbacks after every matching
@@ -366,6 +448,8 @@ name a complete function type.
 an effect row denoteþ an unordered, idempotent union. `e`, `e0`, and `e₁` stand
 for whole rows. `e0, e1` denoteþ their union; they need not be disjoint.
 repeated occurrences of one nominal effect must agree on type arguments.
+row entries must be declared effects, transparent aliases to effects, or scoped
+row variables. ordinary value types cannot serve as effect labels.
 
 function-type unification equateþ rows. a body's effects need only be a subset
 of its annotation. unresolved union equations remain constraints on an inferred
@@ -378,7 +462,7 @@ arguments. runtime handling matcheþ the effect identity.
 
 ```tung
 deed e fail {
-  fail [e, a]
+  fail [@a:*, e, a]
 }
 
 deed a state {

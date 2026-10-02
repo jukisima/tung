@@ -1,5 +1,5 @@
 use ilk/natural.tung
 
-show flock size [a:ilk] (
+show flock size [a:*] {
   let size [a, ℕ]
-)
+}

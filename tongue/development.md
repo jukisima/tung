@@ -82,13 +82,14 @@ explaineþ relationships between modules.
 haskell and typescript names use conventional compiler terms. source keywords, library paths,
 and diagnostics retain tung vocabulary:
 
-| source  | haskell representation                   |
-| ------- | ---------------------------------------- |
-| `ilk`   | `DataDecl`, `KindType`, `TType`          |
-| `flock` | `ClassDecl`, `ClassRef`, `ClassMember`   |
-| `bizen` | `InstanceDecl`, `InstanceId`             |
-| `graiþ` | `ClassConstraint`, resolved `Constraint` |
-| `deed`  | `EffectDecl`, `TEffect`                  |
+| source             | haskell representation                   |
+| ------------------ | ---------------------------------------- |
+| `ilk`              | `DataDecl`, `TType`                      |
+| `*`                | `KindType`, `TKindStar`                  |
+| `flock`            | `ClassDecl`, `ClassRef`, `ClassMember`   |
+| `bizen`            | `InstanceDecl`, `InstanceId`             |
+| `byzen constraint` | `ClassConstraint`, resolved `Constraint` |
+| `deed`             | `EffectDecl`, `TEffect`                  |
 
 ## projects and imports
 
@@ -116,12 +117,58 @@ shared module once.
 
 ## types, evidence, and evaluation
 
+`Tung.Kind` checkeþ kinds after imports and before term inference. ordered
+headers put `byzen` requirements before type parameters and value arguments.
+they retain parameter kinds and requirements. requirements introduce
+unbound parameters and unify þeir kinds with class signatures. repeated explicit
+declarations are errors. import contexts carry the same kinds under visible
+names. the parser and editor need no type checking to highlight these headers.
+class requirements and member signatures are checked in dependency order.
+each type is kind-checked and normalised in one traversal.
+
 `Tung.Type` owneþ hindley-milner inference, effect rows, coverage, class
 constraints, instance selection, and dictionary elaboration. its checker is
 bidirectional. ordinary terms infer a value type. annotations push expected
-types inward, notably þrough anonymous multi-clause functions. inference and
-checking keep effect rows and class constraints as separate outputs. an effect
-never serveþ as dictionary evidence; a class constraint never serveþ as an effect.
+types inward þrough functions, matches, local blocks, and record fields.
+inference and checking keep effect rows and class constraints as separate
+outputs. an effect never serveþ as dictionary evidence; a class constraint never
+serveþ as an effect.
+
+explicit higher-rank function types retain nested `TyForall` binders. checking
+skolemiseþ an expected quantifier; use instantiateþ an outer quantifier. argument
+checking passeth known quantified signatures inward. unification compareþ two
+quantified types under shared fresh skolems, and inference holes cannot absorb
+a quantifier. binder kinds participate in this comparison. substitutions avoid
+capture and free-variable collection excludeþ bound names. each quantified check
+rejecteþ skolems escaping þrough earlier metas, constructor variables, or effect
+rows. core lowering eraseþ þe quantifiers.
+
+rigid type variables use `SkolemId`, distinct from nominal types. GADT patterns
+may refine universal skolems inside a branch. existential skolems remain rigid
+and cannot escape that branch. diagnostic spellings never determine these roles.
+
+`Specified` retaineth declared type-parameter order and kinds beside a binding
+scheme.
+explicit type application substituteþ supplied types before checking value
+arguments, after checking their kinds with `Tung.Kind`. omitted parameters
+instantiate normally. scoped aliases tie `@a` in a body to its rigid annotation
+variable. the parser separateþ type inputs from value inputs; both Core lowering
+and evidence elaboration erase type inputs.
+
+written type variables require a lexical binder. declaration parameters and
+leading `@` parameters provide scope; unknown type names cannot be generalised
+implicitly. `TypeHole` distinguishþ parser-generated annotation holes from
+written names. ordinary inferred lets still use hindley-milner generalisation.
+constructor, law, and instance binders are retained in the surface tree and
+checked before elaboration.
+instance method annotations are checked universally, þen instantiated against
+the specialised class method. their declared names scope over the method body.
+
+the higher-rank discipline followeþ standard
+[bidirectional checking](https://research.cs.queensu.ca/home/jana/papers/bidir/):
+infer ordinary expressions, check introductions against annotations, and keep
+skolems scoped. this is a design reference. the combined extensions to kinds,
+GADTs, effects, and instances do not yet have a soundness proof.
 
 function types contain one input and one latent row per arrow. source headers
 and pattern rows may group consecutive pure arrows. partial application need not
@@ -129,8 +176,11 @@ split an internal argument array. type applications carry an explicit variable
 or constructor head. constructor unification shareþ prefix capture with þe
 binary pure-function constructor.
 
-effect labels and row variables have distinct representations. unresolved union
-equalities remain with generalised schemes. þe solver propagateþ upper bounds.
+effect labels and row variables have distinct representations.
+type and effect annotations share one type converter; aliases preserve nominal
+effect identities. row validation rejecteþ ordinary value types as labels.
+unresolved union equalities remain with generalised schemes.
+þe solver propagateþ upper bounds.
 it rejecteþ incompatible labels without choosing a variable to absorb a union.
 generalisation excludeþ free environment variables, including þose in retained
 row constraints. repeated nominal effects in a row must agree on type arguments.
@@ -143,6 +193,8 @@ an inferred recursive function is checked once against a monomorphic self type.
 elaboration bindeþ its self-reference inside each case, where final evidence
 parameters are available. this preserveþ dictionary capture þrough nested
 polymorphic bindings.
+annotated functions use the same recursion rule. strict initialisers cannot
+see their own binding. global and local evaluation share `compileBoundValue`.
 
 instance selection followeþ þe [public ranking rules](language.md#flocks-bizens-and-laws).
 equivalent imported candidates are deduplicated before comparison. elaboration

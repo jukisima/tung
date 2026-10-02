@@ -1,10 +1,9 @@
 use flock/algebra/partial/category.tung
 use flock/algebra/partial/semigroupoid.tung
 
-graiþ ⇨ category
-show flock groupoid [⇨:[ilk, ilk, ilk]] (
-  let invert [a ⇨ b, b ⇨ a]
+show flock groupoid [byzen ⇨ category] {
+  let invert [@a:*, @b:*, a ⇨ b, b ⇨ a]
 
-  law [f:a ⇨ b] f ∘ (f invert) = sameness
-  law [f:a ⇨ b] (f invert) ∘ f = sameness
-)
+  law [@a:*, @b:*, f:a ⇨ b] f ∘ (f invert) = sameness
+  law [@a:*, @b:*, f:a ⇨ b] (f invert) ∘ f = sameness
+}

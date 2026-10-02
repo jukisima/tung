@@ -12,31 +12,25 @@ use flock/order/semilattice-lower.tung
 use flock/order/semilattice-upper-bounded.tung
 use flock/order/semilattice-upper.tung
 
-show flock cata [f:[ilk, ilk]] (
-  let fold₀ [a f, b, [a, b, b; e], b; e]
-  let fold₁ [a f, b, [b, a, b; e], b; e]
-)
+show flock cata [f:[*, *]] {
+  let fold₀ [@a:*, @b:*, @e:*, a f, b, [a, b, b; e], b; e]
+  let fold₁ [@a:*, @b:*, @e:*, a f, b, [b, a, b; e], b; e]
+}
 
-graiþ a monoid, f cata
-show let …* [l:a f, a] l fold₀ ∅ *
+show let …* [byzen a monoid, byzen f cata, l:a f, a] l fold₀ ∅ ·
 
 ## map values into a monoid and combine þem.
-graiþ b monoid, f cata
-show let fold-map [af:a f, f:[a, b; e], b; e]
-  af fold₁ ∅ { folded, a ^ folded * (a f) }
+show let fold-map [byzen b monoid, byzen f cata, @a:*, @e:*, af:a f, f:[a, b; e], b; e]
+  af fold₁ ∅ { folded, a ^ folded · (a f) }
 
 ## combine every value wiþ ∧; an empty collection yieldeþ ⊤.
-graiþ f cata, a semilattice-bounded-upper
-show let …∧ [af:a f, a] af fold₁ ⊤ ∧
+show let …∧ [byzen f cata, byzen a semilattice-bounded-upper, af:a f, a] af fold₁ ⊤ ∧
 
 ## combine every value wiþ ∨; an empty collection yieldeþ ⟂.
-graiþ f cata, a semilattice-upper-bounded
-show let …∨ [af:a f, a] af fold₁ ⟂ ∨
+show let …∨ [byzen f cata, byzen a semilattice-upper-bounded, af:a f, a] af fold₁ ⟂ ∨
 
 ## add every value in a foldable collection.
-graiþ f cata, a monoid-additive
-show let …+ [af:a f, a] af fold₁ zero +
+show let …+ [byzen f cata, byzen a monoid-additive, af:a f, a] af fold₁ zero +
 
 ## multiply every value in a foldable collection.
-graiþ f cata, a monoid-multiplicative
-show let …× [af:a f, a] af fold₁ one ×
+show let …× [byzen f cata, byzen a monoid-multiplicative, af:a f, a] af fold₁ one ×

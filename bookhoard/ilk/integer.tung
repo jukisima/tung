@@ -21,24 +21,24 @@ show let to-ℕ [integer:ℤ, ℕ; text fail]
     nay ^ 'negative cannot be a natural' fail
   }
 
-bizen ℤ add {
-  let + ≔ add-integer
+bizen:ℤ add {
+  let + [] add-integer
 }
 
-bizen ℤ zero {
-  let zero ≔ 0
+bizen:ℤ zero {
+  let zero [] 0
 }
 
-bizen ℤ multiply {
-  let × ≔ multiply-integer
+bizen:ℤ multiply {
+  let × [] multiply-integer
 }
 
-bizen ℤ one {
-  let one ≔ 1
+bizen:ℤ one {
+  let one [] 1
 }
 
-bizen ℤ monoid-additive {}
+bizen:ℤ monoid-additive {}
 
-bizen ℤ monoid-multiplicative {}
+bizen:ℤ monoid-multiplicative {}
 
-bizen ℤ semiring {}
+bizen:ℤ semiring {}

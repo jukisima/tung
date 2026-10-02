@@ -10,34 +10,34 @@ use ilk/option.tung
 use ilk/product.tung
 use ilk/two.tung
 
-bizen text equal {
-  let ≡ ≔ equal-text
+bizen:text equal {
+  let ≡ [] equal-text
 }
 
-bizen unicode equal {
-  let ≡ ≔ equal-unicode
+bizen:unicode equal {
+  let ≡ [] equal-unicode
 }
 
-bizen text less-equal {
-  let ≤ ≔ less-equal-text
+bizen:text less-equal {
+  let ≤ [] less-equal-text
 }
 
-bizen text order-partial {}
+bizen:text order-partial {}
 
-bizen text order-total {}
+bizen:text order-total {}
 
-bizen unicode less-equal {
-  let ≤ ≔ less-equal-unicode
+bizen:unicode less-equal {
+  let ≤ [] less-equal-unicode
 }
 
-bizen unicode order-partial {}
+bizen:unicode order-partial {}
 
-bizen unicode order-total {}
+bizen:unicode order-total {}
 
-bizen text semigroup {
-  let * ≔ join-text
+bizen:text semigroup {
+  let · [] join-text
 }
 
-bizen text monoid {
-  let ∅ ≔ ''
+bizen:text monoid {
+  let ∅ [] ''
 }

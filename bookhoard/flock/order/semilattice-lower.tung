@@ -3,19 +3,17 @@ use flock/order/order-total.tung
 use ilk/two.tung
 
 ## a carrier whose every pair haþ an infimum.
-show flock semilattice-lower [a:ilk] (
+show flock semilattice-lower [a:*] {
   let ∧ [a, a, a]
   law [a:a] a ∧ a = a
   law [a:a, b:a] a ∧ b = b ∧ a
   law [a:a, b:a, c:a] (a ∧ b) ∧ c = a ∧ (b ∧ c)
-)
-
-graiþ b semilattice-lower
-bizen (a → b) semilattice-lower {
-  let f ∧ g a ≔ (a f) ∧ (a g)
 }
 
-graiþ a order-total
-bizen a semilattice-lower {
-  let a ∧ b ≔ (a ≤ b) if a b
+bizen [byzen b semilattice-lower, @a:*]:(a → b) semilattice-lower {
+  let f ∧ g a [] (a f) ∧ (a g)
+}
+
+bizen [byzen a order-total]:a semilattice-lower {
+  let a ∧ b [] (a ≤ b) if a b
 }

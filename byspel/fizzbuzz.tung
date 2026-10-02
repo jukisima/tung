@@ -3,21 +3,20 @@ use ground.tung
 use ilk/list.tung
 use ilk/product.tung
 
-graiþ a divide-remainder, a zero, a equal
-let can-divide [divisor:a, dividend:a, 𝟚]
+let can-divide [byzen a divide-remainder, byzen a zero, byzen a equal, divisor:a, dividend:a, 𝟚]
   try ((dividend % divisor) project₁) ≡ zero {
     _ fail ^ nay
   }
 
-ilk fizzbuzz {
+ilk fizzbuzz [*] {
   fizz,
   buzz,
   fizzbuzz,
   ℤ raw
 }
 
-bizen fizzbuzz to-text {
-  let to-text ≔ {
+bizen:fizzbuzz to-text {
+  let to-text [] {
     fizz ^ 'fizz',
     buzz ^ 'buzz',
     fizzbuzz ^ 'fizzbuzz',

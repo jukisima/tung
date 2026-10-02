@@ -96,9 +96,7 @@ class WorkspaceIndex {
     if (this.modelsCache) return this.modelsCache;
     const uris = new Set(this.workspaceFileUris());
     for (const document of this.documents.all()) uris.add(document.uri);
-    this.modelsCache = [...uris].map((uri) => this.model(uri)).filter(
-      Boolean,
-    );
+    this.modelsCache = [...uris].map((uri) => this.model(uri)).filter(Boolean);
     return this.modelsCache;
   }
   workspaceFileUris() {
@@ -106,9 +104,7 @@ class WorkspaceIndex {
     const roots = new Set([...this.roots, ...this.libraryRoots]);
     const files = [];
     for (const root of roots) collectFiles(root, files);
-    this.fileUris = [
-      ...new Set(files.map((file) => pathToFileURL(file).href)),
-    ];
+    this.fileUris = [...new Set(files.map((file) => pathToFileURL(file).href))];
     this.filesDirty = false;
     return this.fileUris;
   }
@@ -119,9 +115,10 @@ class WorkspaceIndex {
     }
     const models = this.models();
     const byPath = new Map(
-      models.map((
+      models.map((candidate) => [
+        normalPath(toFilePath(candidate.uri)),
         candidate,
-      ) => [normalPath(toFilePath(candidate.uri)), candidate]),
+      ]),
     );
     const from = toFilePath(model.uri);
     if (from) {
@@ -156,21 +153,17 @@ class WorkspaceIndex {
     const shownImports = model.imports
       .filter(({ exported }) => exported)
       .flatMap((imported) =>
-        this.publicDefinitions(
-          this.resolveImport(model, imported),
-          nextSeen,
-        )
+        this.publicDefinitions(this.resolveImport(model, imported), nextSeen),
       );
     const reexported = model.reexports.flatMap(({ name, kind }) =>
       this.resolveVisible(model, name, nextSeen).filter(({ role }) =>
-        kind === "type" ? role === "type" : termRoles.has(role)
-      )
+        kind === "type" ? role === "type" : termRoles.has(role),
+      ),
     );
-    const definitions = uniqueByKey([
-      ...own,
-      ...shownImports,
-      ...reexported,
-    ], definitionKey);
+    const definitions = uniqueByKey(
+      [...own, ...shownImports, ...reexported],
+      definitionKey,
+    );
     if (seen.size === 0) {
       this.publicDefinitionsCache.set(model.uri, definitions);
     }
@@ -182,27 +175,29 @@ class WorkspaceIndex {
     if (split >= 0) {
       const qualifier = name.slice(0, split);
       const bare = name.slice(split + 1);
-      const imported = model.imports.find(({ namespace }) =>
-        namespace === qualifier
+      const imported = model.imports.find(
+        ({ namespace }) => namespace === qualifier,
       );
       if (imported) {
         return this.publicDefinitions(
           this.resolveImport(model, imported),
           seen,
-        ).filter((definition) =>
-          definition.bareName === bare && visibleRole(definition)
+        ).filter(
+          (definition) =>
+            definition.bareName === bare && visibleRole(definition),
         );
       }
-      return model.definitions.filter(
-        ({ bareName, containerName }) =>
-          bareName === bare && containerName === qualifier,
-      ).filter(
-        visibleRole,
-      );
+      return model.definitions
+        .filter(
+          ({ bareName, containerName }) =>
+            bareName === bare && containerName === qualifier,
+        )
+        .filter(visibleRole);
     }
     const own = model.definitions.filter(
       (definition) =>
-        !definition.local && definition.bareName === name &&
+        !definition.local &&
+        definition.bareName === name &&
         visibleRole(definition),
     );
     if (own.length) return own;
@@ -211,9 +206,10 @@ class WorkspaceIndex {
         this.publicDefinitions(
           this.resolveImport(model, imported),
           seen,
-        ).filter((definition) =>
-          definition.bareName === name && visibleRole(definition)
-        )
+        ).filter(
+          (definition) =>
+            definition.bareName === name && visibleRole(definition),
+        ),
       ),
       definitionKey,
     );
@@ -224,7 +220,9 @@ class WorkspaceIndex {
     if (!model || !token || token.kind !== "name") {
       return { model, token, definition: undefined };
     }
-    if (model.instances.some((instance) => instance.token.offset === token.offset)) {
+    if (
+      model.instances.some((instance) => instance.token.offset === token.offset)
+    ) {
       const visibleClasses = this.resolveVisibleRole(
         model,
         token.text,
@@ -241,6 +239,17 @@ class WorkspaceIndex {
       return { model, token, definition: undefined };
     }
     const local = findDefinition(model, token, token.offset);
+    if (local?.inferredRequirement && !token.text.includes("~")) {
+      const types = this.resolveVisibleRole(model, token.text, "type");
+      if (types.length) {
+        return {
+          model,
+          token,
+          definition: types.length === 1 ? types[0] : undefined,
+          candidates: types,
+        };
+      }
+    }
     if (local?.role === "parameter" && !token.text.includes("~")) {
       const constructors = this.resolveVisibleRole(
         model,
@@ -294,8 +303,7 @@ class WorkspaceIndex {
       includeDeclaration &&
       !locations.some(
         ({ uri, range }) =>
-          uri === definition.uri &&
-          sameRange(range, definition.selectionRange),
+          uri === definition.uri && sameRange(range, definition.selectionRange),
       )
     ) {
       locations.unshift({
@@ -310,7 +318,7 @@ class WorkspaceIndex {
     return this.models().flatMap((model) =>
       model.instances
         .filter(({ className }) => className === definition.bareName)
-        .map(({ uri, range }) => ({ uri, range }))
+        .map(({ uri, range }) => ({ uri, range })),
     );
   }
   importSources(model, seen = new Set()) {
@@ -369,23 +377,23 @@ class WorkspaceIndex {
       const file = toFilePath(model.uri);
       if (!file || file === current) continue;
       if (current) {
-        result.add(
-          normalPath(path.relative(path.dirname(current), file)),
-        );
+        result.add(normalPath(path.relative(path.dirname(current), file)));
       }
       for (const root of this.libraryRoots) {
         const relative = path.relative(root, file);
         if (
-          relative && !relative.startsWith(".." + path.sep) &&
-          relative !== ".." && !path.isAbsolute(relative)
+          relative &&
+          !relative.startsWith(".." + path.sep) &&
+          relative !== ".." &&
+          !path.isAbsolute(relative)
         ) {
           result.add(normalPath(relative));
         }
       }
     }
     return [...result]
-      .filter((name) =>
-        name && (!name.startsWith("../") || name.endsWith(".tung"))
+      .filter(
+        (name) => name && (!name.startsWith("../") || name.endsWith(".tung")),
       )
       .sort();
   }
@@ -422,8 +430,10 @@ const primitive = (name, role) => {
   };
 };
 const definitionKey = (definition) => {
-  return definition.id ||
-    `${definition.uri}:${definition.token?.offset}:${definition.bareName}`;
+  return (
+    definition.id ||
+    `${definition.uri}:${definition.token?.offset}:${definition.bareName}`
+  );
 };
 const uniqueByKey = (items, keyOf = (item) => item) => {
   const seen = new Set();

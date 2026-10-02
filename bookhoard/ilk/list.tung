@@ -1,3 +1,4 @@
+use deed/fail.tung
 use flock/algebra/arithmetic/add.tung
 use flock/algebra/total/magma.tung
 use flock/algebra/total/monoid.tung
@@ -17,19 +18,14 @@ use ilk/option.tung
 use ilk/product.tung
 use ilk/two.tung
 
-deed e fail {
-  fail [e, a]
-}
-
 ## finite linked lists.
-show ilk list [a:ilk] {
+show ilk list [a:*, *] {
   empty [a list]
   _* [a, a list, a list]
 }
 
-graiþ a equal
-bizen (a list) inhold a {
-  let ∋ ≔ {
+bizen [byzen a equal]:(a list) inhold a {
+  let ∋ [] {
     empty, _ ^ nay,
     first _* rest, a ^ (a ≡ first) if yea (rest ∋ a)
   }
@@ -43,40 +39,40 @@ show let till [start:ℤ, stop:ℤ, ℤ list]
   }
 
 ## build a one-element list.
-show let singleton [a:a, a list] a _* empty
+show let singleton [@a:*, a:a, a list] a _* empty
 
-bizen (a list) semigroup {
-  let * ≔ {
+bizen [@a:*]:(a list) semigroup {
+  let · [] {
     empty, list ^ list,
-    first _* rest, list ^ first _* (rest * list)
+    first _* rest, list ^ first _* (rest · list)
   }
 }
 
-bizen (a list) monoid {
-  let ∅ ≔ empty
+bizen [@a:*]:(a list) monoid {
+  let ∅ [] empty
 }
 
-bizen list functor {
-  let map ≔ {
+bizen:list functor {
+  let map [] {
     empty, _ ^ empty,
     first _* rest, f ^ (first f) _* (rest map f)
   }
 }
 
-bizen list monad {
-  let a pure ≔ a _* empty
-  let list apply ≔ {
+bizen:list monad {
+  let a pure [] a _* empty
+  let list apply [] {
     empty ^ empty,
-    first _* rest ^ (list map first) * (list apply rest)
+    first _* rest ^ (list map first) · (list apply rest)
   }
-  let flat ≔ {
+  let flat [] {
     empty ^ empty,
-    first _* rest ^ first * (rest flat)
+    first _* rest ^ first · (rest flat)
   }
 }
 
-bizen list filter {
-  let filter ≔ {
+bizen:list filter {
+  let filter [] {
     empty, _ ^ empty,
     first _* rest, f ^ match first f {
       yea ^ first _* (rest filter f),
@@ -85,29 +81,29 @@ bizen list filter {
   }
 }
 
-show let each [a list, [a, 𝟙; e], 𝟙; e] {
+show let each [@a:*, @e:*, a list, [a, 𝟙; e], 𝟙; e] {
   list, action ^ list fold₁ only { _, a ^ a action }
 }
 
 ## first list element, if present.
-show let head [a list, a option] {
+show let head [@a:*, a list, a option] {
   empty ^ none,
   first _* _ ^ first some
 }
 
 ## list wiþout its first element, if present.
-show let tail [a list, (a list) option] {
+show let tail [@a:*, a list, (a list) option] {
   empty ^ none,
   _ _* rest ^ rest some
 }
 
-show let behead [a list, (a ∏ (a list)) option] {
+show let behead [@a:*, a list, (a ∏ (a list)) option] {
   empty ^ none,
   first _* rest ^ (first ∏ rest) some
 }
 
 ## first count elements.
-show let take [list:a list, count:ℤ, a list]
+show let take [@a:*, list:a list, count:ℤ, a list]
   match count ≤ 0 {
     yea ^ empty,
     nay ^ match list {
@@ -117,7 +113,7 @@ show let take [list:a list, count:ℤ, a list]
   }
 
 ## list after removing count elements.
-show let drop [list:a list, count:ℤ, a list]
+show let drop [@a:*, list:a list, count:ℤ, a list]
   match count ≤ 0 {
     yea ^ list,
     nay ^ match list {
@@ -127,7 +123,7 @@ show let drop [list:a list, count:ℤ, a list]
   }
 
 ## first element accepted by a predicate.
-show let find [a list, [a, 𝟚; e], a option; e] {
+show let find [@a:*, @e:*, a list, [a, 𝟚; e], a option; e] {
   empty, _ ^ none,
   first _* rest, f ^ match first f {
     yea ^ first some,
@@ -135,38 +131,38 @@ show let find [a list, [a, 𝟚; e], a option; e] {
   }
 }
 
-bizen list cata {
-  let list fold₀ b f ≔ match list {
+bizen:list cata {
+  let list fold₀ b f [] match list {
     empty ^ b,
     first _* rest ^ first f (rest fold₀ b f)
   }
-  let list fold₁ b f ≔ match list {
+  let list fold₁ b f [] match list {
     empty ^ b,
     first _* rest ^ rest fold₁ (b f first) f
   }
 }
 
-bizen list traverse {
-  let traverse ≔ {
+bizen:list traverse {
+  let traverse [] {
     empty, _ ^ empty pure,
     first _* rest, f ^ (first f) lift₂ (rest traverse f) _*
   }
 }
 
-bizen (a list) size {
-  let list size ≔ list fold₁ natural~zero { n, _ ^ n suc }
+bizen [@a:*]:(a list) size {
+  let list size [] list fold₁ natural~zero { n, _ ^ n suc }
 }
 
-show let reverse [list:a list, a list]
+show let reverse [@a:*, list:a list, a list]
   list fold₁ empty { outcome, a ^ a _* outcome }
 
-show let zip [a list, b list, (a ∏ b) list] {
+show let zip [@a:*, @b:*, a list, b list, (a ∏ b) list] {
   empty, _ | _, empty ^ empty,
   a _* a…, b _* b… ^ (a ∏ b) _* (a… zip b…)
 }
 
 ## element at a zero-based index.
-show let at [list:a list, index:ℤ, a; text fail]
+show let at [@a:*, list:a list, index:ℤ, a; text fail]
   match index ≤ -1 {
     yea ^ 'list index out of range' fail,
     nay ^ match list drop index {
@@ -176,24 +172,24 @@ show let at [list:a list, index:ℤ, a; text fail]
   }
 
 ## final element, if present.
-show let last [list:a list, a option]
+show let last [@a:*, list:a list, a option]
   list fold₁ none { _, a ^ a some }
 
 ## repeat a value count times.
-show let replicate [a:a, count:ℤ, a list]
+show let replicate [@a:*, a:a, count:ℤ, a list]
   match count ≤ 0 {
     yea ^ empty,
     nay ^ a _* (a replicate (count - 1))
   }
 
 ## split values accepted and rejected by a predicate.
-show let partition [list:a list, f:[a, 𝟚; e], (a list) ∏ (a list); e]
+show let partition [@a:*, @e:*, list:a list, f:[a, 𝟚; e], (a list) ∏ (a list); e]
   list fold₀ (empty ∏ empty) { a, accepted ∏ rejected ^
     (a f) if ((a _* accepted) ∏ rejected) (accepted ∏ (a _* rejected))
   }
 
 ## split a list of products into two lists.
-show let unzip [pairs:(a ∏ b) list, (a list) ∏ (b list)]
+show let unzip [@a:*, @b:*, pairs:(a ∏ b) list, (a list) ∏ (b list)]
   pairs fold₀ (empty ∏ empty) { a ∏ b, a… ∏ b… ^
     (a _* a…) ∏ (b _* b…)
   }

@@ -2,15 +2,15 @@ use flock/functor/cata.tung
 use ground.tung
 use ilk/list.tung
 
-ilk team {
+ilk team [*] {
   norþ,
   souþ,
   east,
   west
 }
 
-bizen team to-text {
-  let to-text ≔ {
+bizen:team to-text {
+  let to-text [] {
     norþ ^ 'norþ',
     souþ ^ 'souþ',
     east ^ 'east',
@@ -18,25 +18,25 @@ bizen team to-text {
   }
 }
 
-let-ilk game = r(away:team, away-score:ℤ, home:team, home-score:ℤ)
+let game [*] r{away:team, away-score:ℤ, home:team, home-score:ℤ}
 
-let-ilk scoreline = r(
+let scoreline [*] r{
   away:team,
   away-points:ℤ,
   away-score:ℤ,
   home:team,
   home-points:ℤ,
   home-score:ℤ
-)
+}
 
-let-ilk cancelled-game = r(away:team, home:team, reason:text)
+let cancelled-game [*] r{away:team, home:team, reason:text}
 
-ilk match-result {
+ilk match-result [*] {
   scoreline finished,
   cancelled-game cancelled
 }
 
-let-ilk standing = r(played:ℤ, points:ℤ, team:team)
+let standing [*] r{played:ℤ, points:ℤ, team:team}
 
 let same-team [left:team, right:team, 𝟚] match left, right {
   norþ, norþ ^ yea,
@@ -53,46 +53,46 @@ let checked-score [score:ℤ, ℤ; text fail]
   }
 
 let scoreline-of [game:game, scoreline; text fail] (
-  let home-score ≔ game.home-score checked-score
-  let away-score ≔ game.away-score checked-score
+  let home-score [] game.home-score checked-score
+  let away-score [] game.away-score checked-score
   yield match home-score ≤ away-score, away-score ≤ home-score {
-    yea, yea ^ r(
+    yea, yea ^ r{
       away = game.away,
       away-points = 1,
       away-score = away-score,
       home = game.home,
       home-points = 1,
       home-score = home-score
-    ),
-    nay, yea ^ r(
+    },
+    nay, yea ^ r{
       away = game.away,
       away-points = 0,
       away-score = away-score,
       home = game.home,
       home-points = 3,
       home-score = home-score
-    ),
-    yea, nay ^ r(
+    },
+    yea, nay ^ r{
       away = game.away,
       away-points = 3,
       away-score = away-score,
       home = game.home,
       home-points = 0,
       home-score = home-score
-    ),
+    },
     nay, nay ^ 'scores are not ordered' fail
   }
 )
 
 let settle [game:game, match-result]
   try game scoreline-of $ finished {
-    reason fail ^ r(away = game.away, home = game.home, reason = reason) cancelled
+    reason fail ^ r{away = game.away, home = game.home, reason = reason} cancelled
   }
 
 let start [game:game, match-result task; random, async] (
-  let delay ≔ try ((only random) × 30.0) ⌊ { _ fail ^ 0 }
+  let delay [] try ((only random) × 30.0) ⌊ { _ fail ^ 0 }
   yield { _ ^ (
-      let _ ≔ delay sleep
+      let _ [] delay sleep
       yield game settle
     ) } fork
 )
@@ -101,16 +101,16 @@ let add-result [standing:standing, outcome:match-result, standing]
   match outcome {
     _ cancelled ^ standing,
     scoreline finished ^ match standing.team same-team scoreline.home, standing.team same-team scoreline.away {
-      yea, _ ^ r(
+      yea, _ ^ r{
         = standing,
         played = standing.played + 1,
         points = standing.points + scoreline.home-points
-      ),
-      nay, yea ^ r(
+      },
+      nay, yea ^ r{
         = standing,
         played = standing.played + 1,
         points = standing.points + scoreline.away-points
-      ),
+      },
       nay, nay ^ standing
     }
   }
@@ -121,29 +121,29 @@ let apply-result [standings:standing list, outcome:match-result, standing list]
 let print-result [outcome:match-result, 𝟙; console]
   match outcome {
     scoreline finished ^ (
-      let _ ≔ scoreline.home to-text $ write
-      let _ ≔ ' ' write
-      let _ ≔ scoreline.home-score to-text $ write
-      let _ ≔ ' - ' write
-      let _ ≔ scoreline.away-score to-text $ write
-      let _ ≔ ' ' write
+      let _ [] scoreline.home to-text $ write
+      let _ [] ' ' write
+      let _ [] scoreline.home-score to-text $ write
+      let _ [] ' - ' write
+      let _ [] scoreline.away-score to-text $ write
+      let _ [] ' ' write
       yield scoreline.away to-text $ write-line
     ),
     cancelled-game cancelled ^ (
-      let _ ≔ cancelled-game.home to-text $ write
-      let _ ≔ ' - ' write
-      let _ ≔ cancelled-game.away to-text $ write
-      let _ ≔ ':cancelled:' write
+      let _ [] cancelled-game.home to-text $ write
+      let _ [] ' - ' write
+      let _ [] cancelled-game.away to-text $ write
+      let _ [] ':cancelled:' write
       yield cancelled-game.reason write-line
     )
   }
 
 let print-standing [standing:standing, 𝟙; console] (
-  let _ ≔ standing.team to-text $ write
-  let _ ≔ ':' write
-  let _ ≔ standing.points to-text $ write
-  let _ ≔ ' points from ' write
-  let _ ≔ (standing.played to-text) write
+  let _ [] standing.team to-text $ write
+  let _ [] ':' write
+  let _ [] standing.points to-text $ write
+  let _ [] ' points from ' write
+  let _ [] (standing.played to-text) write
   yield match standing.played ≤ 1 {
     yea ^ ' game' write-line,
     nay ^ ' games' write-line
@@ -151,34 +151,34 @@ let print-standing [standing:standing, 𝟙; console] (
 )
 
 let fixtures [game list]
-  >(_*,
-    r(home = norþ, home-score = 3, away = souþ, away-score = 1),
-    r(home = east, home-score = 2, away = west, away-score = 2),
-    r(home = souþ, home-score = -1, away = east, away-score = 4),
-    r(home = west, home-score = 1, away = norþ, away-score = 2),
+  >{_*,
+    r{home = norþ, home-score = 3, away = souþ, away-score = 1},
+    r{home = east, home-score = 2, away = west, away-score = 2},
+    r{home = souþ, home-score = -1, away = east, away-score = 4},
+    r{home = west, home-score = 1, away = norþ, away-score = 2},
     empty
-  )
+  }
 
 let initial-standings [standing list]
-  >(_*,
-    r(team = norþ, played = 0, points = 0),
-    r(team = souþ, played = 0, points = 0),
-    r(team = east, played = 0, points = 0),
-    r(team = west, played = 0, points = 0),
+  >{_*,
+    r{team = norþ, played = 0, points = 0},
+    r{team = souþ, played = 0, points = 0},
+    r{team = east, played = 0, points = 0},
+    r{team = west, played = 0, points = 0},
     empty
-  )
+  }
 
 let main [_:𝟙, 𝟙; console, random, async] (
-  let _ ≔ 'launching match jobs' write-line
-  let tasks ≔ fixtures map start
-  let results ≔ try tasks map wait {
+  let _ [] 'launching match jobs' write-line
+  let tasks [] fixtures map start
+  let results [] try tasks map wait {
     _ fail ^ empty
   }
   let standings [standing list] results fold₁ initial-standings apply-result
-  let _ ≔ '' write-line
-  let _ ≔ 'results' write-line
-  let _ ≔ results each print-result
-  let _ ≔ '' write-line
-  let _ ≔ 'standings' write-line
+  let _ [] '' write-line
+  let _ [] 'results' write-line
+  let _ [] results each print-result
+  let _ [] '' write-line
+  let _ [] 'standings' write-line
   yield standings each print-standing
 )

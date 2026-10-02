@@ -4,17 +4,14 @@ use flock/order/semilattice-lower.tung
 use flock/order/semilattice-upper.tung
 
 ## a lattice whose infimum and supremum distribute over each oþer.
-graiþ a lattice
-show flock lattice-distributive [a:ilk] (
+show flock lattice-distributive [byzen a lattice] {
   law [a:a, b:a, c:a]
     a ∧ (b ∨ c) = (a ∧ b) ∨ (a ∧ c)
 
   law [a:a, b:a, c:a]
     a ∨ (b ∧ c) = (a ∨ b) ∧ (a ∨ c)
-)
+}
 
-graiþ b lattice-distributive
-bizen (a → b) lattice-distributive {}
+bizen [byzen b lattice-distributive, @a:*]:(a → b) lattice-distributive {}
 
-graiþ a order-total
-bizen a lattice-distributive {}
+bizen [byzen a order-total]:a lattice-distributive {}

@@ -1,5 +1,5 @@
 ## captured process status and standard streams.
-show ilk process-result {
+show ilk process-result [*] {
   process-result [ℤ, text, text, process-result]
 }
 

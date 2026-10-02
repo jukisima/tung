@@ -1,15 +1,15 @@
 use ground.tung
 
 let answer [_:𝟙, ℤ; async] (
-  let _ ≔ 1000 sleep
-  let left ≔ { _ ^ 20 } fork
-  let right ≔ { _ ^ 22 } fork
+  let _ [] 1000 sleep
+  let left [] { _ ^ 20 } fork
+  let right [] { _ ^ 22 } fork
   yield try (left wait) + (right wait) {
     _ fail ^ 0
   }
 )
 
 let main [_:𝟙, 𝟙; console, async] (
-  let _ ≔ 'async' write-line
+  let _ [] 'async' write-line
   yield only answer $ to-text $ write-line
 )

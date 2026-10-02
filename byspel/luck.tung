@@ -3,15 +3,15 @@ use ground.tung
 let read-user [_:𝟙, float; console]
   try (only read) from-text {
     _ fail ^ (
-      let _ ≔ 'could not read a float; using 0.0' write-line
+      let _ [] 'could not read a float; using 0.0' write-line
       yield 0.0
     )
   }
 
 let main [_:𝟙, 𝟙; console, random] (
-  let _ ≔ 'input a float between 0.0 and 1.0' write-line
-  let user ≔ only read-user
-  let hidden ≔ only random
+  let _ [] 'input a float between 0.0 and 1.0' write-line
+  let user [] only read-user
+  let hidden [] only random
   let outcome [text] match user ≤ hidden, hidden ≤ user {
     yea, nay ^ 'lose',
     nay, yea ^ 'win',

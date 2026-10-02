@@ -13,8 +13,8 @@ test("token depths recover from an unmatched close", () => {
 });
 
 test("bracket lookups agree for nested and unmatched delimiters", () => {
-  const tokens = tokenize("(r(value) { unmatched ) } )");
-  const opening = tokens.filter(({ text }) => ["(", "r(", "{"].includes(text));
+  const tokens = tokenize("(r{value} { unmatched ) } )");
+  const opening = tokens.filter(({ text }) => ["(", "r{", "{"].includes(text));
   const closing = tokens.filter(({ text }) => [")", "}"].includes(text));
 
   assert.deepEqual(

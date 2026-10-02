@@ -7,7 +7,7 @@ import {
 } from "../server/analysis.ts";
 test("analysis recordeþ shown owners, members, parameters, and imports", () => {
   const source =
-    "use ground.tung graiþ a equal show flock order-partial [a:ilk] ( let ≤ [a, a, 𝟚] let a < b ≔ a ≤ b )";
+    "use ground.tung show flock order-partial [byzen a equal] { let ≤ [a, a, 𝟚] let a < b [] a ≤ b }";
   const model = analyzeDocument(source, "file:///model.tung");
   assert.deepEqual(
     model.imports.map(({ path }) => path),
@@ -22,7 +22,9 @@ test("analysis recordeþ shown owners, members, parameters, and imports", () => 
   assert(
     model.definitions.some(
       ({ name, role, exported, containerName }) =>
-        name === "≤" && role === "method" && exported &&
+        name === "≤" &&
+        role === "method" &&
+        exported &&
         containerName === "order-partial",
     ),
   );
@@ -32,8 +34,8 @@ test("analysis recordeþ shown owners, members, parameters, and imports", () => 
     ),
   );
 });
-test("flock parameters resolve inside the parenthesised body", () => {
-  const source = "flock add [a:ilk] ( let + [a, a, a] ) let outside ≔ a";
+test("class parameters resolve inside the braced body", () => {
+  const source = "flock add [a:*] { let + [a, a, a] } let outside [] a";
   const model = analyzeDocument(source, "file:///flock.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "a");
   const inside = findDefinition(model, occurrences[1], occurrences[1].offset);
@@ -43,6 +45,60 @@ test("flock parameters resolve inside the parenthesised body", () => {
     findDefinition(model, occurrences.at(-1), occurrences.at(-1).offset),
     undefined,
   );
+});
+test("instance parameters resolve in requirements, the head, and members", () => {
+  const source = [
+    "bizen [byzen a parent]:[a, a] identity {",
+    "  let identity [[a, a], [a, a]] { x ^ x }",
+    "}",
+    "let outside [] a",
+  ].join("\n");
+  const model = analyzeDocument(source, "file:///instance.tung");
+  const occurrences = model.tokens.filter(({ text }) => text === "a");
+  for (const token of occurrences.slice(1, -1)) {
+    const definition = findDefinition(model, token);
+    assert.equal(definition?.role, "typeParameter");
+    assert.equal(definition?.token.offset, occurrences[0].offset);
+  }
+  assert.equal(findDefinition(model, occurrences.at(-1)), undefined);
+  assert.deepEqual(
+    model.instances.map(({ className }) => className),
+    ["identity"],
+  );
+  assert.equal(
+    model.definitions.find(({ name }) => name === "identity")?.role,
+    "method",
+  );
+});
+test("instances without parameter brackets retain their class and members", () => {
+  for (const prefix of ["bizen:", "bizen []:"]) {
+    const model = analyzeDocument(
+      `${prefix}[ℤ, ℤ] ring { let f - g x [] (x f) - (x g) }`,
+      "file:///instance.tung",
+    );
+    assert.deepEqual(
+      model.instances.map(({ className }) => className),
+      ["ring"],
+    );
+    assert.equal(
+      model.definitions.find(({ name }) => name === "-")?.role,
+      "method",
+    );
+  }
+});
+test("requirement parameters respect nested types and owner scope", () => {
+  const source =
+    "flock child [byzen [a, b] parent] { let f [byzen a same, a, b] }";
+  const model = analyzeDocument(source);
+  for (const name of ["a", "b"]) {
+    const uses = model.tokens.filter((token) => token.text === name);
+    const binders = model.definitions.filter(
+      (definition) => definition.name === name,
+    );
+    assert.equal(binders.length, 1);
+    for (const token of uses)
+      assert.equal(findDefinition(model, token)?.token.offset, uses[0].offset);
+  }
 });
 test("analysis recordeþ foreign import paths", () => {
   const source = "use _foreign.tung\nuse flock/algebra/arithmetic/field.tung";
@@ -107,12 +163,12 @@ test("analysis keepeþ term and type re-exports distinct", () => {
 test("analysis attacheþ doc comments to following shown declarations", () => {
   const source = [
     "## identity value.",
-    "graiþ a equal show let identity [x: a, a] x",
+    "show let identity [byzen a equal, x: a, a] x",
     "",
     "/**",
     " * boxed data.",
     " */",
-    "show ilk a box { a box }",
+    "show ilk box [a:*, *] { a box }",
   ].join("\n");
   const model = analyzeDocument(source, "file:///docs.tung");
   assert.equal(
@@ -120,8 +176,8 @@ test("analysis attacheþ doc comments to following shown declarations", () => {
     "identity value.",
   );
   assert.equal(
-    model.definitions.find(({ name, role }) =>
-      name === "box" && role === "type"
+    model.definitions.find(
+      ({ name, role }) => name === "box" && role === "type",
     ).documentation,
     "boxed data.",
   );
@@ -149,7 +205,7 @@ test("positional and bracket parameters resolve in one function body", () => {
   }
 });
 test("malformed pattern scope recovereþ through the end of the buffer", () => {
-  const source = "let choose ≔ { (left, right ^ right";
+  const source = "let choose [] { (left, right ^ right";
   const model = analyzeDocument(source, "file:///incomplete-pattern.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "right");
   const use = occurrences.at(-1);
@@ -158,7 +214,7 @@ test("malformed pattern scope recovereþ through the end of the buffer", () => {
   assert.equal(definition.scopeEnd, source.length);
 });
 test("an unmatched inner delimiter doth not leak a pattern scope", () => {
-  const source = "let choose ≔ { (left, right ^ right } let outside ≔ right";
+  const source = "let choose [] { (left, right ^ right ) let outside [] right";
   const model = analyzeDocument(source, "file:///recovered-pattern.tung");
   const occurrences = model.tokens.filter(({ text }) => text === "right");
   const innerDefinition = findDefinition(
@@ -167,14 +223,14 @@ test("an unmatched inner delimiter doth not leak a pattern scope", () => {
     occurrences[1].offset,
   );
   assert.equal(innerDefinition.token.offset, occurrences[0].offset);
-  assert.equal(innerDefinition.scopeEnd, source.indexOf("}"));
+  assert.equal(innerDefinition.scopeEnd, source.indexOf(")"));
   assert.equal(
     findDefinition(model, occurrences[2], occurrences[2].offset),
     undefined,
   );
 });
 test("token lookup excludeþ the character after a token", () => {
-  const model = analyzeDocument("let answer ≔ 42", "file:///token.tung");
+  const model = analyzeDocument("let answer [] 42", "file:///token.tung");
   assert.equal(
     tokenAtPosition(model, { line: 0, character: 4 }).text,
     "answer",

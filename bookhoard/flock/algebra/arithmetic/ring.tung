@@ -3,16 +3,14 @@ use flock/algebra/arithmetic/subtract.tung
 use flock/algebra/arithmetic/zero.tung
 use ilk/two.tung
 
-graiþ a semiring, a subtract
-show flock ring [a:ilk] (
+show flock ring [byzen a semiring, byzen a subtract] {
   law [a:a] a - a = zero
-)
-
-graiþ b ring
-bizen (a → b) ring {
-  let f - g a ≔ (a f) - (a g)
 }
 
-bizen ℤ ring {}
+bizen [byzen b ring, @a:*]:[a, b] ring {
+  let f - g a [] (a f) - (a g)
+}
 
-bizen 𝟚 ring {}
+bizen:ℤ ring {}
+
+bizen:𝟚 ring {}

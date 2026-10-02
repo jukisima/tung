@@ -1,9 +1,9 @@
 use ilk/two.tung
 
-show flock one [a:ilk] (
+show flock one [a:*] {
   let one [a]
-)
+}
 
-bizen 𝟚 one {
-  let one ≔ yea
+bizen:𝟚 one {
+  let one [] yea
 }

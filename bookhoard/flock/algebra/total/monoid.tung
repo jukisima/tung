@@ -3,25 +3,21 @@ use flock/algebra/total/semigroup.tung
 use flock/order/semilattice-bounded-upper.tung
 use flock/order/semilattice-upper-bounded.tung
 
-graiþ a semigroup
-show flock monoid [a:ilk] (
+show flock monoid [byzen a semigroup] {
   let ∅ [a]
 
-  law [a:a] ∅ * a = a
-  law [a:a] a * ∅ = a
-)
-
-graiþ b monoid
-bizen (a → b) monoid {
-  let _ ∅ ≔ ∅
+  law [a:a] ∅ · a = a
+  law [a:a] a · ∅ = a
 }
 
-graiþ a semilattice-bounded-upper
-bizen (a infimal) monoid {
-  let ∅ ≔ ⊤ infimal
+bizen [byzen b monoid, @a:*]:[a, b] monoid {
+  let _ ∅ [] ∅
 }
 
-graiþ a semilattice-upper-bounded
-bizen (a supremal) monoid {
-  let ∅ ≔ ⟂ supremal
+bizen [byzen a semilattice-bounded-upper]:(a infimal) monoid {
+  let ∅ [] ⊤ infimal
+}
+
+bizen [byzen a semilattice-upper-bounded]:(a supremal) monoid {
+  let ∅ [] ⟂ supremal
 }

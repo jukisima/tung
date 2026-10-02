@@ -1,5 +1,5 @@
 ## a þree-way ordering result.
-show ilk 𝟛 {
+show ilk 𝟛 [*] {
   fore [𝟛]
   mid [𝟛]
   aft [𝟛]

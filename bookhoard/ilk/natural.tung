@@ -12,49 +12,49 @@ use flock/order/order-total.tung
 use flock/order/semilattice-upper-bounded.tung
 use ilk/two.tung
 
-show ilk ℕ {
+show ilk ℕ [*] {
   zero [ℕ]
   suc [ℕ, ℕ]
 }
 
-bizen ℕ equal {
-  let ≡ ≔ {
+bizen:ℕ equal {
+  let ≡ [] {
     zero, zero ^ yea,
     a suc, b suc ^ a ≡ b,
     _, _ ^ nay
   }
 }
 
-bizen ℕ less-equal {
-  let ≤ ≔ {
+bizen:ℕ less-equal {
+  let ≤ [] {
     zero, _ ^ yea,
     _, zero ^ nay,
     a suc, b suc ^ a ≤ b
   }
 }
 
-bizen ℕ order-partial {}
+bizen:ℕ order-partial {}
 
-bizen ℕ order-total {}
+bizen:ℕ order-total {}
 
-bizen ℕ semilattice-upper-bounded {
-  let ⟂ ≔ zero
+bizen:ℕ semilattice-upper-bounded {
+  let ⟂ [] zero
 }
 
-bizen ℕ semiring {
-  let + ≔ {
+bizen:ℕ semiring {
+  let + [] {
     a, zero ^ a,
     a, b suc ^ (a + b) suc
   }
 
-  let zero ≔ zero
+  let zero [] zero
 
-  let × ≔ {
+  let × [] {
     _, zero ^ zero,
     a, b suc ^ a + (a × b)
   }
 
-  let one ≔ zero suc
+  let one [] zero suc
 }
 
 show let to-ℤ [ℕ, ℤ] {

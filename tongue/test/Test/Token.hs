@@ -13,8 +13,9 @@ lexCases :: [(String, String, [Token])]
 lexCases =
   [ ("record access separateþ member names", "person.age", [TIdent "person", TDot, TIdent "age"]),
     ("case separator is syntax", "^", [TMapsTo]),
-    ("type parameter prefix is syntax", "@a:ilk", [TAt, TIdent "a", TColon, TType]),
-    ("let definition marker is syntax", "≔", [TDefine]),
+    ("type parameter prefix is syntax", "@a", [TAt, TIdent "a"]),
+    ("kind star is syntax", "*", [TKindStar]),
+    ("kind marker leaveþ compound names intact", "@a:* _* …* magma~·", [TAt, TIdent "a", TColon, TKindStar, TIdent "_*", TIdent "…*", TIdent "magma~·"]),
     ("function type arrow is syntax", "ℤ → ℤ", [TIdent "ℤ", TArrow, TIdent "ℤ"]),
     ("pipe is an ordinary name", "|", [TIdent "|"]),
     ("qualified operator stayeþ one name", "list~_*", [TIdent "list~_*"]),
@@ -27,10 +28,11 @@ lexCases =
     ("double minus remaineþ a name", "--1", [TIdent "--1"]),
     ("list prepend is one name", "_*", [TIdent "_*"]),
     ("backslash is an ordinary name", "\\\\", [TIdent "\\\\"]),
-    ("record opener stayeþ one token", "r(", [TParenKeyword "r"]),
-    ("left association opener stayeþ one token", "<(", [TParenKeyword "<"]),
-    ("right association opener stayeþ one token", ">(", [TParenKeyword ">"]),
-    ("separated special openers remain names", "r ( < ( > (", [TIdent "r", TLParen, TIdent "<", TLParen, TIdent ">", TLParen]),
+    ("record opener stayeþ one token", "r{", [TBraceKeyword "r"]),
+    ("anonymous function opener is a brace", "{", [TLBrace]),
+    ("left association opener stayeþ one token", "<{", [TBraceKeyword "<"]),
+    ("right association opener stayeþ one token", ">{", [TBraceKeyword ">"]),
+    ("separated special openers remain names", "r { < { > {", [TIdent "r", TLBrace, TIdent "<", TLBrace, TIdent ">", TLBrace]),
     ("function brackets and effects are syntax", "[ ] ;", [TLBracket, TRBracket, TSemicolon]),
     ("comment endeþ at newline", "1 # hidden\n2", [TInteger 1, TInteger 2]),
     ("block comment is skipped", "1 /* hidden { = */ 2", [TInteger 1, TInteger 2]),
@@ -79,17 +81,16 @@ lexError (name, source) = case lexTokens source of
 keywordToken :: String -> Token
 keywordToken = \case
   "let" -> TLet
-  "graiþ" -> TConstraints
   "show" -> TExport
   "show-ilk" -> TExportType
   "use" -> TImport
-  "let-ilk" -> TTypeAlias
   "ilk" -> TType
   "deed" -> TEffect
   "yield" -> TYield
   "fremmed" -> TForeign
   "flock" -> TClass
   "bizen" -> TInstance
+  "byzen" -> TConstraint
   "law" -> TLaw
   "match" -> TMatch
   "try" -> TTry

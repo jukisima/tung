@@ -1,4 +1,4 @@
-ilk tree [a:ilk] {
+ilk tree [a:*, *] {
   leaf [a tree]
   branch [a, a tree, a tree, a tree]
 }

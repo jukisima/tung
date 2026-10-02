@@ -1,3 +1,5 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- | shared host ABI catalogues for the checker/runtime boundary.
 module Tung.Primitive
   ( HostBinding (..),
@@ -42,7 +44,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Tung.Identity (ModuleId (..), SymbolId (..), TypeRef (..))
 import Tung.Name (importNamespace)
-import Tung.Syntax (ClassMember (..), Ctor (..), EffectOp (..), TypeAnn (..), TypeExpr (..))
+import Tung.Syntax (ClassMember (..), Ctor (..), EffectOp (..), TypeAnn (..), TypeExpr (..), parameterNames, unknownParameters)
 
 data HostType
   = HostVar String
@@ -103,17 +105,17 @@ data PrimitiveClass = PrimitiveClass
 data SchemaOrdering = SourceOrdering | StructuralOrdering
 
 oneData, twoData, listData, optionData, productData, tableData :: HostData
-oneData = HostData "ilk/one.tung" "𝟙" [] [Ctor "only" [] Nothing]
-twoData = HostData "ilk/two.tung" "𝟚" [] [Ctor "yea" [] Nothing, Ctor "nay" [] Nothing]
-listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [] Nothing, Ctor "_*" [TypeName "a", TypeApply "list" [TypeName "a"]] Nothing]
-optionData = HostData "ilk/option.tung" "option" ["a"] [Ctor "none" [] Nothing, Ctor "some" [TypeName "a"] Nothing]
-productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [TypeName "a", TypeName "b"] Nothing]
-tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]] Nothing]
+oneData = HostData "ilk/one.tung" "𝟙" [] [Ctor "only" [] [] Nothing]
+twoData = HostData "ilk/two.tung" "𝟚" [] [Ctor "yea" [] [] Nothing, Ctor "nay" [] [] Nothing]
+listData = HostData "ilk/list.tung" "list" ["a"] [Ctor "empty" [] [] Nothing, Ctor "_*" [] [TypeName "a", TypeApply "list" [TypeName "a"]] Nothing]
+optionData = HostData "ilk/option.tung" "option" ["a"] [Ctor "none" [] [] Nothing, Ctor "some" [] [TypeName "a"] Nothing]
+productData = HostData "ilk/product.tung" "∏" ["a", "b"] [Ctor "∏" [] [TypeName "a", TypeName "b"] Nothing]
+tableData = HostData "ilk/table.tung" "table" ["k", "v"] [Ctor "from-list" [] [TypeApply "list" [TypeApply "∏" [TypeName "k", TypeName "v"]]] Nothing]
 
 processResultData, requestData, responseData :: HostData
-processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [TypeName "ℤ", TypeName "text", TypeName "text"] Nothing]
-requestData = HostData "web/request.tung" "request" [] [Ctor "request" [TypeName "text", TypeName "text", textTable, TypeName "text"] Nothing]
-responseData = HostData "web/response.tung" "response" [] [Ctor "response" [TypeName "ℤ", textTable, TypeName "text"] Nothing]
+processResultData = HostData "process/result.tung" "process-result" [] [Ctor "process-result" [] [TypeName "ℤ", TypeName "text", TypeName "text"] Nothing]
+requestData = HostData "web/request.tung" "request" [] [Ctor "request" [] [TypeName "text", TypeName "text", textTable, TypeName "text"] Nothing]
+responseData = HostData "web/response.tung" "response" [] [Ctor "response" [] [TypeName "ℤ", textTable, TypeName "text"] Nothing]
 
 textTable :: TypeExpr
 textTable = TypeApply "table" [TypeName "text", TypeName "text"]
@@ -199,17 +201,24 @@ normaliseExpectedClass parameters = sortOn fst . map (fmap normaliseAnnotation)
     normaliseAnnotation (TypeAnn signature constraints) = TypeAnn (normaliseClassType parameters signature) constraints
 
 normaliseClassType :: [String] -> TypeExpr -> TypeExpr
-normaliseClassType parameters = normaliseSchemaType StructuralOrdering (numberedVariables "$" parameters)
+normaliseClassType parameters ty = normaliseSchemaType StructuralOrdering (numberedVariables "$" parameters) (unquantified ty)
+  where
+    unquantified (TypeForall _ body) = body
+    unquantified body = body
 
 normaliseSchemaType :: SchemaOrdering -> [(String, String)] -> TypeExpr -> TypeExpr
 normaliseSchemaType ordering variables = go
   where
     normaliseName name = fromMaybe name (lookup name variables)
     go = \case
+      TypeHole ident -> TypeHole ident
       TypeName name -> TypeName (normaliseName name)
       TypeApply name arguments -> TypeApply (normaliseName name) (map go arguments)
       TypeRecord fields -> TypeRecord (orderFields (map (fmap go) fields))
       TypeArrow arguments effects result -> TypeArrow (fmap go arguments) (orderEffects (map go effects)) (go result)
+      TypeForall (parameterNames -> names) body ->
+        let local = numberedVariables ("$bound" ++ show (length variables) ++ "_") names
+         in TypeForall (unknownParameters (map snd local)) (normaliseSchemaType ordering (local ++ filter ((`notElem` names) . fst) variables) body)
     orderFields = case ordering of
       SourceOrdering -> id
       StructuralOrdering -> sortOn fst
@@ -272,18 +281,21 @@ normaliseEffectSchema isConcrete parameters operations = sortOn effectOperationN
   where
     shared = numberedVariables "$parameter" parameters
     normaliseOperation operation@(EffectOp name signature) =
-      let implicit = filter (`notElem` parameters) (operationVariables isConcrete operation)
-          variables = shared ++ numberedVariables "$local" implicit
-       in EffectOp name (normaliseSchemaType StructuralOrdering variables signature)
+      let (names, body) = case signature of TypeForall (parameterNames -> declared) inner -> (declared, inner); _ -> (operationVariables isConcrete operation, signature)
+          local = filter (`notElem` parameters) names
+          variables = shared ++ numberedVariables "$local" local
+       in EffectOp name (normaliseSchemaType StructuralOrdering variables body)
 
 operationVariables :: (String -> Bool) -> EffectOp -> [String]
 operationVariables isConcrete (EffectOp _ signature) = nub (typeVariables signature)
   where
     typeVariables = \case
+      TypeHole _ -> []
       TypeName name -> [name | isHostTypeVariable name]
       TypeApply name arguments -> [name | isHostTypeVariable name] ++ concatMap typeVariables arguments
       TypeRecord fields -> concatMap (typeVariables . snd) fields
       TypeArrow arguments effects result -> concatMap typeVariables (foldr (:) [result] arguments) ++ concatMap effectVariables effects
+      TypeForall (parameterNames -> names) body -> filter (`notElem` names) (typeVariables body)
     effectVariables = \case
       TypeName name -> [name | isEffectVariable name]
       TypeApply _ arguments -> concatMap typeVariables arguments
@@ -376,11 +388,11 @@ sameHostDataSchema parameters constructors HostData {hostDataName, hostDataParam
     && normalise parameters constructors == normalise hostDataParameters hostDataConstructors
   where
     normalise vars = sortOn constructorName . map (normaliseConstructor hostDataName vars)
-    constructorName (Ctor name _ _) = name
+    constructorName (Ctor name _ _ _) = name
 
 normaliseConstructor :: String -> [String] -> Ctor -> Ctor
-normaliseConstructor dataName parameters (Ctor name fields result) =
-  Ctor name (map normaliseType fields) normalizedResult
+normaliseConstructor dataName parameters (Ctor name names fields result) =
+  Ctor name names (map normaliseType fields) normalizedResult
   where
     normaliseType = normaliseSchemaType SourceOrdering (numberedVariables "$" parameters)
     resultType = case parameters of

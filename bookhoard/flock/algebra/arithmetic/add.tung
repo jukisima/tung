@@ -1,11 +1,11 @@
 use ilk/two.tung
 
-show flock add [a:ilk] (
+show flock add [a:*] {
   let + [a, a, a]
-)
+}
 
-bizen 𝟚 add {
-  let + ≔ {
+bizen:𝟚 add {
+  let + [] {
     yea, nay | nay, yea ^ yea,
     _, _ ^ nay
   }

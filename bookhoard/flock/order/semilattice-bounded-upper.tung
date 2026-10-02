@@ -3,22 +3,20 @@ use ilk/three.tung
 use ilk/two.tung
 
 ## an infimum semilattice wiþ a greatest value.
-graiþ a semilattice-lower
-show flock semilattice-bounded-upper [a:ilk] (
+show flock semilattice-bounded-upper [byzen a semilattice-lower] {
   let ⊤ [a]
 
   law [a:a] ⊤ ∧ a = a
-)
-
-graiþ b semilattice-bounded-upper
-bizen (a → b) semilattice-bounded-upper {
-  let _ ⊤ ≔ ⊤
 }
 
-bizen 𝟚 semilattice-bounded-upper {
-  let ⊤ ≔ yea
+bizen [byzen b semilattice-bounded-upper, @a:*]:(a → b) semilattice-bounded-upper {
+  let _ ⊤ [] ⊤
 }
 
-bizen 𝟛 semilattice-bounded-upper {
-  let ⊤ ≔ aft
+bizen:𝟚 semilattice-bounded-upper {
+  let ⊤ [] yea
+}
+
+bizen:𝟛 semilattice-bounded-upper {
+  let ⊤ [] aft
 }

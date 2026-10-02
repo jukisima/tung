@@ -3,12 +3,9 @@ use flock/functor.tung
 use flock/functor/applicative.tung
 use flock/functor/cata.tung
 
-graiþ f functor, f cata
-show flock traverse [f:[ilk, ilk]] (
-  graiþ m applicative
-  let traverse [a f, [a, b m], (b f) m]
-)
+show flock traverse [byzen f functor, byzen f cata] {
+  let traverse [byzen m applicative, @a:*, @b:*, a f, [a, b m], (b f) m]
+}
 
-graiþ f traverse, m applicative
-show let sequence [amf:(a m) f, (a f) m]
+show let sequence [byzen f traverse, byzen m applicative, @a:*, amf:(a m) f, (a f) m]
   amf traverse sameness

@@ -1,3 +1,5 @@
-show flock from-text [a:ilk] (
+use deed/fail.tung
+
+show flock from-text [a:*] {
   let from-text [text, a; text fail]
-)
+}

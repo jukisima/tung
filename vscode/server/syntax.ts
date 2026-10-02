@@ -4,17 +4,9 @@ import generatedLanguageNames from "../generated/language-names.json";
 const keywords = new Set(generatedLanguageNames.keywords);
 const primitiveTypes = new Set(generatedLanguageNames.primitiveTypes);
 const specialNameChars = new Set([...generatedLanguageNames.specialNameChars]);
-const declarationKeywords = new Set([
-  "let",
-  "let-ilk",
-  "ilk",
-  "deed",
-  "flock",
-  "bizen",
-]);
+const declarationKeywords = new Set(["let", "ilk", "deed", "flock", "bizen"]);
 const fileDeclarationKeywords = new Set([
   "use",
-  "graiþ",
   "law",
   "yield",
   "show",
@@ -24,9 +16,9 @@ const fileDeclarationKeywords = new Set([
 const closeForOpen = new Map([
   ["(", ")"],
   ["[", "]"],
-  ["r(", ")"],
-  ["<(", ")"],
-  [">(", ")"],
+  ["r{", "}"],
+  ["<{", "}"],
+  [">{", "}"],
   ["{", "}"],
 ]);
 const closingDelimiters = new Set(closeForOpen.values());
@@ -77,7 +69,7 @@ const tokenize = (text) => {
     while (!atEnd() && isNameChar(current())) advance();
     const value = text.slice(startOffset, offset);
     push(
-      keywords.has(value) ? "keyword" : "name",
+      value === "*" ? "punctuation" : keywords.has(value) ? "keyword" : "name",
       startOffset,
       startLine,
       startChar,
@@ -200,7 +192,8 @@ const tokenStructure = (tokens) => {
       depth = Math.max(0, depth - 1);
       const open = stack.at(-1);
       if (
-        open !== undefined && matchingClose(tokens[open].text) === token.text
+        open !== undefined &&
+        matchingClose(tokens[open].text) === token.text
       ) {
         stack.pop();
         forward.set(open, token.index);
@@ -277,34 +270,21 @@ const patternArmRegions = (tokens) => {
   return regions;
 };
 
-// a leading graiþ and its following let form one member declaration.
-const splitDeclarations = (
-  tokens,
-  start,
-  end,
-  heads = new Set(["let", "graiþ"]),
-) => {
+const splitDeclarations = (tokens, start, end, heads = new Set(["let"])) => {
   const depths = tokenDepths(tokens);
   const baseDepth = depths[start] ?? 0;
   const segments = [];
   let segmentStart = -1;
-  let awaitingConstrainedLet = false;
   for (let index = start; index < end; index += 1) {
     const token = tokens[index];
     if (
-      depths[index] !== baseDepth || token.kind !== "keyword" ||
+      depths[index] !== baseDepth ||
+      token.kind !== "keyword" ||
       !heads.has(token.text)
-    ) continue;
-    if (token.text === "graiþ") {
-      if (segmentStart >= 0) segments.push({ start: segmentStart, end: index });
-      segmentStart = index;
-      awaitingConstrainedLet = true;
-    } else if (token.text === "let" && awaitingConstrainedLet) {
-      awaitingConstrainedLet = false;
-    } else {
-      if (segmentStart >= 0) segments.push({ start: segmentStart, end: index });
-      segmentStart = index;
-    }
+    )
+      continue;
+    if (segmentStart >= 0) segments.push({ start: segmentStart, end: index });
+    segmentStart = index;
   }
   if (segmentStart >= 0) segments.push({ start: segmentStart, end });
   return segments;
@@ -322,9 +302,33 @@ const findFileDeclarationBoundary = (
     if (
       tokens[index].kind === "keyword" &&
       fileDeclarationKeywords.has(tokens[index].text)
-    ) return index;
+    )
+      return index;
   }
   return tokens.length;
+};
+
+const findInstanceHeader = (tokens, start) => {
+  let open;
+  let close;
+  let colon = start;
+  if (tokens[start]?.text === "[") {
+    open = start;
+    close = findMatching(tokens, start);
+    if (close < 0) return undefined;
+    colon = close + 1;
+  }
+  if (tokens[colon]?.text !== ":") return undefined;
+  const end = findFileDeclarationBoundary(tokens, start);
+  const head = colon + 1;
+  for (let index = head; index < end; index += 1) {
+    if (tokens[index].text === "{") return { open, close, head, body: index };
+    if (!isOpen(tokens[index].text)) continue;
+    const matching = findMatching(tokens, index);
+    if (matching < 0) return undefined;
+    index = matching;
+  }
+  return undefined;
 };
 
 const useParts = (tokens, useIndex, depths = tokenDepths(tokens)) => {
@@ -340,16 +344,16 @@ const useParts = (tokens, useIndex, depths = tokenDepths(tokens)) => {
     pathTokens.push(tokens[index]);
     index += 1;
     while (
-      index + 1 < end && tokens[index]?.text === "." &&
+      index + 1 < end &&
+      tokens[index]?.text === "." &&
       ["name", "keyword"].includes(tokens[index + 1]?.kind)
     ) {
       pathTokens.push(tokens[index], tokens[index + 1]);
       index += 2;
     }
   }
-  const aliasToken = index < end && tokens[index]?.kind === "name"
-    ? tokens[index]
-    : undefined;
+  const aliasToken =
+    index < end && tokens[index]?.kind === "name" ? tokens[index] : undefined;
   return { pathTokens, aliasToken };
 };
 
@@ -371,6 +375,7 @@ export {
   bracketPairs,
   declarationKeywords,
   findFileDeclarationBoundary,
+  findInstanceHeader,
   findMatching,
   findOpening,
   isClose,

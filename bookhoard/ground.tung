@@ -43,7 +43,7 @@ use ilk/zero.tung
 
 ## write text followed by a newline.
 show let write-line [text:text, 𝟙; console] (
-  let _ ≔ text write
+  let _ [] text write
   yield '\n' write
 )
 

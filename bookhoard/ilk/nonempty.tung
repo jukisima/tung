@@ -10,63 +10,62 @@ use ilk/list.tung
 use ilk/option.tung
 
 ## a list wiþ a statically known first element.
-show ilk nonempty [a:ilk] {
+show ilk nonempty [a:*, *] {
   nonempty [a, a list, a nonempty]
 }
 
 ## build a one-element non-empty list.
-show let singleton [a:a, a nonempty]
+show let singleton [@a:*, a:a, a nonempty]
   a nonempty empty
 
 ## expose a non-empty list as an ordinary list.
-show let to-list [(first nonempty rest):a nonempty, a list]
+show let to-list [@a:*, (first nonempty rest):a nonempty, a list]
   first _* rest
 
 ## make a non-empty list when þe input haþ a first element.
-show let from-list [a list, (a nonempty) option] {
+show let from-list [@a:*, a list, (a nonempty) option] {
   empty ^ none,
   first _* rest ^ (first nonempty rest) some
 }
 
-show let head [(first nonempty _):a nonempty, a] first
+show let head [@a:*, (first nonempty _):a nonempty, a] first
 
-show let tail [(_ nonempty rest):a nonempty, a list] rest
+show let tail [@a:*, (_ nonempty rest):a nonempty, a list] rest
 
-graiþ (a list) inhold a
-bizen (a nonempty) inhold a {
-  let þing ∋ a ≔ (þing to-list) ∋ a
+bizen [byzen (a list) inhold a]:(a nonempty) inhold a {
+  let þing ∋ a [] (þing to-list) ∋ a
 }
 
-bizen nonempty functor {
-  let (first nonempty rest) map f ≔
+bizen:nonempty functor {
+  let (first nonempty rest) map f []
     (first f) nonempty (rest map f)
 }
 
-bizen (a nonempty) semigroup {
-  let (first nonempty rest) * right ≔
-    first nonempty (rest * (right to-list))
+bizen [@a:*]:(a nonempty) semigroup {
+  let (first nonempty rest) · right []
+    first nonempty (rest · (right to-list))
 }
 
-bizen nonempty applicative {
-  let pure ≔ singleton
-  let (first nonempty rest) apply (f nonempty fs) ≔
+bizen:nonempty applicative {
+  let pure [] singleton
+  let (first nonempty rest) apply (f nonempty fs) []
     (first f) nonempty (
-      (rest map f) * ((first _* rest) apply fs)
+      (rest map f) · ((first _* rest) apply fs)
     )
 }
 
-bizen nonempty monad {
-  let (first nonempty rest) flat ≔ rest fold₁ first *
+bizen:nonempty monad {
+  let (first nonempty rest) flat [] rest fold₁ first ·
 }
 
-bizen nonempty cata {
-  let (first nonempty rest) fold₀ b f ≔
+bizen:nonempty cata {
+  let (first nonempty rest) fold₀ b f []
     first f (rest fold₀ b f)
-  let (first nonempty rest) fold₁ b f ≔
+  let (first nonempty rest) fold₁ b f []
     rest fold₁ (b f first) f
 }
 
-bizen nonempty traverse {
-  let (first nonempty rest) traverse f ≔
+bizen:nonempty traverse {
+  let (first nonempty rest) traverse f []
     (first f) lift₂ (rest traverse f) nonempty
 }

@@ -1,9 +1,9 @@
-show ilk 𝟚 {
+show ilk 𝟚 [*] {
   yea [𝟚]
   nay [𝟚]
 }
 
-show let if [𝟚, a, a, a] {
+show let if [@a:*, 𝟚, a, a, a] {
   yea, þen, _    ^ þen,
   nay, _,   else ^ else
 }

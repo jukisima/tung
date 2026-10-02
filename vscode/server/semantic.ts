@@ -3,6 +3,7 @@
 import {
   declarationKeywords,
   findFileDeclarationBoundary,
+  findInstanceHeader,
   findMatching,
   findOpening,
   isClose,
@@ -19,22 +20,15 @@ const applicationStartTexts = new Set([
   "(",
   "[",
   "]",
-  "r(",
-  "<(",
-  ">(",
+  "r{",
+  "{",
+  "<{",
+  ">{",
   "{",
   ":",
   ",",
   "^",
   "=",
-  "≔",
-]);
-const constraintEndKeywords = new Set([
-  "let",
-  "flock",
-  "bizen",
-  "show",
-  "show-ilk",
 ]);
 const separators = {
   comma: new Set([","]),
@@ -122,49 +116,16 @@ const collectImport = (tokens, index, info) => {
     mark(info, aliasToken.index, "namespace", ["declaration"], 110);
   }
 };
-const collectConstraints = (tokens, index, info) => {
-  let end = tokens.length;
-  let depth = 0;
-  for (let i = index + 1; i < tokens.length; i += 1) {
-    const value = tokens[i].text;
-    if (isOpen(value)) depth += 1;
-    else if (isClose(value)) depth -= 1;
-    else if (depth === 0 && (constraintEndKeywords.has(value) || value === ":")) {
-      end = i;
-      break;
-    }
-  }
-  for (const segment of splitTopLevel(
-    tokens,
-    index + 1,
-    end,
-    separators.comma,
-  )) {
-    const terms = headerTerms(tokens, segment.start, segment.end);
-    const requirement = defaultHeader(terms);
-    markTypeTerms(
-      terms,
-      info,
-      new Set(requirement.name ? [requirement.name.index] : []),
-    );
-    if (requirement.name) {
-      mark(
-        info,
-        requirement.name.index,
-        "class",
-        terms.length > 1 ? ["applied"] : [],
-        85,
-      );
-    }
-  }
-};
-const collectTypeAlias = (tokens, index, info) => {
-  const equals = findNextText(tokens, index + 1, "=");
-  if (equals < 0) return;
-  const terms = headerTerms(tokens, index + 1, equals);
-  markOwnerHeader(info, defaultHeader(terms), info.types, "type");
-  const end = findFileDeclarationBoundary(tokens, equals + 1);
-  markTypeTokens(tokens, equals + 1, end, info);
+const markConstraint = (tokens, start, end, info) => {
+  const terms = headerTerms(tokens, start, end);
+  const requirement = defaultHeader(terms);
+  markTypeTerms(
+    terms,
+    info,
+    new Set(requirement.name ? [requirement.name.index] : []),
+  );
+  if (requirement.name)
+    mark(info, requirement.name.index, "class", ["applied"], 85);
 };
 const collectData = (tokens, index, info) => {
   if (tokens[index - 1]?.text === ":") return;
@@ -172,37 +133,32 @@ const collectData = (tokens, index, info) => {
   if (!body) return;
   const { open, close } = body;
   const owner = tokens[index + 1];
-  if (owner?.kind === "name" && tokens[index + 2]?.text === "[") {
-    const paramsEnd = findMatching(tokens, index + 2);
-    if (paramsEnd < 0 || paramsEnd >= open) return;
-    const params = splitTopLevel(tokens, index + 3, paramsEnd, separators.comma)
-      .map(({ start }) => tokens[start])
-      .filter((token) => token?.kind === "name");
-    markOwnerHeader(info, { name: owner, params }, info.types, "type");
-    for (const { start, end } of splitTopLevel(
-      tokens,
-      index + 3,
-      paramsEnd,
-      separators.comma,
-    )) {
-      markTypeTokens(tokens, start + 2, end, info);
-    }
-    collectSignatureConstructors(tokens, open + 1, close, info);
-    return;
-  }
-  const terms = headerTerms(tokens, index + 1, open);
-  const header = defaultHeader(terms);
-  markOwnerHeader(info, header, info.types, "type");
-  if (tokens[open + 2]?.text === "[") {
-    collectSignatureConstructors(tokens, open + 1, close, info);
-    return;
-  }
+  const paramsOpen = index + 2;
+  if (owner?.kind !== "name" || tokens[paramsOpen]?.text !== "[") return;
+  const paramsEnd = findMatching(tokens, paramsOpen);
+  if (paramsEnd < 0 || paramsEnd >= open) return;
+  const parameters = splitTopLevel(
+    tokens,
+    paramsOpen + 1,
+    paramsEnd,
+    separators.comma,
+  );
+  const params = parameters
+    .map(({ start }) => tokens[start])
+    .filter((token) => token?.kind === "name");
+  markOwnerHeader(info, { name: owner, params }, info.types, "type");
+  for (const { start, end } of parameters)
+    markTypeTokens(tokens, start + 2, end, info);
   for (const segment of splitTopLevel(
     tokens,
     open + 1,
     close,
     separators.comma,
   )) {
+    if (tokens[segment.start + 1]?.text === "[") {
+      collectSignatureConstructors(tokens, segment.start, segment.end, info);
+      continue;
+    }
     const terms = headerTerms(tokens, segment.start, segment.end);
     const ctorHeader = defaultHeader(terms);
     if (ctorHeader.name) {
@@ -220,11 +176,11 @@ const collectSignatureConstructors = (tokens, start, end, info) => {
     const close = findMatching(tokens, i + 1);
     if (close < 0 || close >= end) break;
     info.constructors.add(name.text);
-    if (splitTopLevel(tokens, i + 2, close, separators.comma).length > 1) {
+    if (bracketHeaderInfo(tokens, i + 1, close, false).hasArguments) {
       info.callableConstructors.add(name.text);
     }
     mark(info, name.index, "enumMember", ["declaration"], 100);
-    markTypeTokens(tokens, i + 2, close, info);
+    markBracketHeader(tokens, i + 1, close, info);
     i = close;
   }
 };
@@ -248,32 +204,37 @@ const collectEffect = (tokens, index, info) => {
   }
 };
 const collectClass = (tokens, index, info) => {
-  const body = declarationBody(tokens, index + 1, "(");
+  const body = declarationBody(tokens, index + 1);
   if (!body) return;
   const { open, close } = body;
   const owner = tokens[index + 1];
   if (owner?.kind !== "name") return;
   const paramsOpen = index + 2;
-  const paramsClose = tokens[paramsOpen]?.text === "["
-    ? findMatching(tokens, paramsOpen)
-    : -1;
-  const parameters = paramsClose > paramsOpen && paramsClose < open
-    ? splitTopLevel(tokens, paramsOpen + 1, paramsClose, separators.comma)
-    : [];
-  markOwnerHeader(info, {
-    name: owner,
-    params: parameters.map(({ start }) => tokens[start]).filter(Boolean),
-  }, info.classes, "class");
+  const paramsClose =
+    tokens[paramsOpen]?.text === "[" ? findMatching(tokens, paramsOpen) : -1;
+  const parameters =
+    paramsClose > paramsOpen && paramsClose < open
+      ? splitTopLevel(tokens, paramsOpen + 1, paramsClose, separators.comma)
+      : [];
+  markOwnerHeader(
+    info,
+    {
+      name: owner,
+      params: parameters
+        .map(({ start }) => tokens[start])
+        .filter((token) => token?.kind === "name"),
+    },
+    info.classes,
+    "class",
+  );
   for (const { start, end } of parameters) {
-    markTypeTokens(tokens, start + 2, end, info);
+    if (tokens[start]?.text === "byzen")
+      markConstraint(tokens, start + 1, end, info);
+    else markTypeTokens(tokens, start + 2, end, info);
   }
-  const heads = new Set(["let", "graiþ", "law"]);
+  const heads = new Set(["let", "law"]);
   for (const segment of splitDeclarations(tokens, open + 1, close, heads)) {
     let member = segment.start;
-    if (tokens[member]?.text === "graiþ") {
-      member = findTopLevelText(tokens, member + 1, segment.end, "let");
-      if (member < 0) continue;
-    }
     if (tokens[member]?.text === "let") {
       if (tokens[member + 2]?.text === "[") {
         collectBracketMember(tokens, member + 1, segment.end, info);
@@ -293,39 +254,27 @@ const collectClassLaw = (tokens, segment, info) => {
   if (equation >= 0) mark(info, equation, "operator", [], 100);
 };
 const collectInstance = (tokens, index, info) => {
-  const body = declarationBody(tokens, index + 1);
-  if (!body) return;
-  const { open, close } = body;
-  const terms = headerTerms(tokens, index + 1, open);
+  const headerRegion = findInstanceHeader(tokens, index + 1);
+  if (!headerRegion) return;
+  const {
+    open: paramsOpen,
+    close: paramsClose,
+    head,
+    body: open,
+  } = headerRegion;
+  const close = findMatching(tokens, open);
+  if (close < 0) return;
+  const terms = headerTerms(tokens, head, open);
   const header = defaultHeader(terms);
   markTypeTerms(terms, info, new Set(header.name ? [header.name.index] : []));
-  if (header.name) {
-    mark(
-      info,
-      header.name.index,
-      "class",
-      terms.length > 1 ? ["applied"] : [],
-      70,
-    );
-  }
-  for (const segment of splitDeclarations(tokens, open + 1, close)) {
-    if (tokens[segment.start] && tokens[segment.start].text === "let") {
-      collectMemberLet(tokens, segment, info);
-    } else if (tokens[segment.start]?.text === "graiþ") {
-      const member = findTopLevelText(
-        tokens,
-        segment.start + 1,
-        segment.end,
-        "let",
-      );
-      if (member >= 0) {
-        collectMemberLet(tokens, { start: member, end: segment.end }, info);
-      }
-    }
-  }
+  if (header.name) mark(info, header.name.index, "class", ["applied"], 70);
+  if (paramsOpen !== undefined)
+    markBracketHeader(tokens, paramsOpen, paramsClose, info);
+  for (const segment of splitDeclarations(tokens, open + 1, close))
+    collectMemberLet(tokens, segment, info);
 };
-const declarationBody = (tokens, start, delimiter = "{") => {
-  const open = findNextText(tokens, start, delimiter);
+const declarationBody = (tokens, start) => {
+  const open = findNextText(tokens, start, "{");
   const close = open < 0 ? -1 : findMatching(tokens, open);
   return close < 0 ? undefined : { open, close };
 };
@@ -378,13 +327,7 @@ const collectLet = (tokens, index, info) => {
   );
 };
 const collectValueLet = (tokens, start, end, info, member) => {
-  const equals = findTopLevelText(tokens, start, end, "≔");
-  const bracket = findTopLevelText(
-    tokens,
-    start,
-    equals < 0 ? end : equals,
-    "[",
-  );
+  const bracket = findTopLevelText(tokens, start, end, "[");
   if (bracket >= 0 && findTopLevelText(tokens, start, bracket, ":") < 0) {
     const close = findMatching(tokens, bracket);
     const terms = headerTerms(tokens, start, bracket);
@@ -395,6 +338,32 @@ const collectValueLet = (tokens, start, end, info, member) => {
       tokens[close + 1]?.text !== ":" &&
       header.name
     ) {
+      const items = splitTopLevel(tokens, bracket + 1, close, separators.comma);
+      const result = items.at(-1);
+      if (
+        result &&
+        result.end === result.start + 1 &&
+        tokens[result.start]?.text === "*"
+      ) {
+        markOwnerHeader(
+          info,
+          {
+            name: header.name,
+            params: items
+              .slice(0, -1)
+              .map(
+                ({ start }) =>
+                  tokens[tokens[start]?.text === "@" ? start + 1 : start],
+              )
+              .filter((token) => token?.kind === "name"),
+          },
+          info.types,
+          "type",
+        );
+        markTypeTokens(tokens, bracket + 1, close, info);
+        markTypeTokens(tokens, close + 1, end, info);
+        return;
+      }
       info.functions.add(header.name.text);
       const bracketInfo = bracketHeaderInfo(
         tokens,
@@ -417,18 +386,6 @@ const collectValueLet = (tokens, start, end, info, member) => {
       return;
     }
   }
-  if (equals < 0) return;
-  const terms = headerTerms(tokens, start, equals);
-  const header = defaultHeader(terms);
-  if (!header.name) return;
-  info.functions.add(header.name.text);
-  const callable =
-    terms.length > 1 || isAnonymousFunctionValue(tokens, equals + 1, end);
-  const role = member ? "method" : callable ? "function" : "variable";
-  const modifiers =
-    member && callable ? ["declaration", "applied"] : ["declaration"];
-  mark(info, header.name.index, role, modifiers, member ? 110 : 100);
-  markValueParameters(terms, header, info);
 };
 const bracketHeaderInfo = (tokens, open, close, hasPositional) => {
   const semicolon = findTopLevelText(tokens, open + 1, close, ";");
@@ -438,7 +395,7 @@ const bracketHeaderInfo = (tokens, open, close, hasPositional) => {
     open + 1,
     slotEnd,
     separators.comma,
-  ).filter(({ start }) => tokens[start]?.text !== "@");
+  ).filter(({ start }) => !["@", "byzen"].includes(tokens[start]?.text));
   const hasArguments =
     hasPositional ||
     slots.length > 1 ||
@@ -460,12 +417,14 @@ const markBracketHeader = (tokens, open, close, info) => {
     separators.comma,
   )) {
     const colon = findTopLevelText(tokens, segment.start, segment.end, ":");
-    if (tokens[segment.start]?.text === "@" && colon >= 0) {
+    if (tokens[segment.start]?.text === "byzen") {
+      markConstraint(tokens, segment.start + 1, segment.end, info);
+    } else if (tokens[segment.start]?.text === "@") {
       const parameter = tokens[segment.start + 1];
       if (parameter?.kind === "name") {
         mark(info, parameter.index, "typeParameter", ["declaration"], 100);
+        if (colon >= 0) markTypeTokens(tokens, colon + 1, segment.end, info);
       }
-      markTypeTokens(tokens, colon + 1, segment.end, info);
     } else if (colon >= 0) {
       markConstructorFirstPattern(tokens, segment.start, colon, info);
       markTypeTokens(tokens, colon + 1, segment.end, info);
@@ -503,8 +462,6 @@ const markValueParameters = (terms, header, info) => {
 };
 const declarationCollectors = {
   use: collectImport,
-  graiþ: collectConstraints,
-  "let-ilk": collectTypeAlias,
   ilk: collectData,
   deed: collectEffect,
   flock: collectClass,
@@ -638,7 +595,7 @@ const headerTerms = (tokens, start, end) => {
     ) {
       break;
     }
-    if (token.text === "(") {
+    if (isOpen(token.text)) {
       const close = findMatching(tokens, i);
       const termEnd = close >= 0 && close < end ? close + 1 : i + 1;
       terms.push({ tokens: tokens.slice(i, termEnd), name: undefined });
@@ -840,7 +797,4 @@ const isTypePosition = (tokens, index) => {
   const prev = tokens[index - 1];
   return prev && [":", "!"].includes(prev.text);
 };
-export {
-  analyze as analyzeTokens,
-  semanticRole,
-};
+export { analyze as analyzeTokens, semanticRole };

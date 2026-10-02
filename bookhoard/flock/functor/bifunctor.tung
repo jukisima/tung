@@ -2,12 +2,18 @@ use flock/algebra/partial/category.tung
 use flock/algebra/partial/semigroupoid.tung
 
 ## a binary type constructor covariant in boþ arguments.
-show flock bifunctor [f:[ilk, ilk, ilk]] (
-  let bimap [a f b, [a, c; e₀], [b, d; e₁], c f d; e₀, e₁]
+show flock bifunctor [f:[*, *, *]] {
+  let bimap [@a:*, @b:*, @c:*, @d:*, @e₀:*, @e₁:*, a f b, [a, c; e₀], [b, d; e₁], c f d; e₀, e₁]
 
-  law [þing:a f b]
+  law [@a:*, @b:*, þing:a f b]
     þing bimap (sameness:[a, a]) (sameness:[b, b]) = þing
 
-  law [þing:a₀ f a₁, f₀:[a₀, b₀], f₁:[a₁, b₁], g₀:[b₀, c₀], g₁:[b₁, c₁]]
-    (þing bimap f₀ f₁) bimap g₀ g₁ = þing bimap (f₀ ∘ g₀) (f₁ ∘ g₁)
-)
+  law [
+    @a₀:*, @a₁:*, @b₀:*, @b₁:*, @c₀:*, @c₁:*,
+    þing:a₀ f a₁,
+    f₀:[a₀, b₀],
+    f₁:[a₁, b₁],
+    g₀:[b₀, c₀],
+    g₁:[b₁, c₁]
+  ] (þing bimap f₀ f₁) bimap g₀ g₁ = þing bimap (f₀ ∘ g₀) (f₁ ∘ g₁)
+}

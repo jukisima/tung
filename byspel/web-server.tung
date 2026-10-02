@@ -3,7 +3,7 @@ use ground.tung
 use web/server.tung
 
 let route [r:request, response; console] (
-  let _ ≔ ('request:' * (r request-target)) write-line
+  let _ [] ('request:' · (r request-target)) write-line
   yield match (r request-target) ≡ '/' {
     yea ^ 'hello tung\n' ok,
     nay ^ 'not found\n' not-found
@@ -12,5 +12,5 @@ let route [r:request, response; console] (
 
 let main [_:𝟙, 𝟙; console, web]
   try 8080 serve route {
-    message fail ^ 'web server:' * message $ write-line
+    message fail ^ 'web server:' · message $ write-line
   }

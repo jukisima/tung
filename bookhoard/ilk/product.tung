@@ -13,66 +13,61 @@ use flock/order/lattice.tung
 use flock/order/semilattice-lower.tung
 use flock/order/semilattice-upper.tung
 
-show ilk ∏ [a:ilk, b:ilk] {
+show ilk ∏ [a:*, b:*, *] {
   ∏ [a, b, a ∏ b]
 }
 
-show let project₀ [a ∏ _:a ∏ b, a] a
+show let project₀ [@a:*, @b:*, a ∏ _:a ∏ b, a] a
 
-show let project₁ [a ∏ b:a ∏ b, b] b
+show let project₁ [@a:*, @b:*, a ∏ b:a ∏ b, b] b
 
-show let swap [a ∏ b:a ∏ b, b ∏ a] b ∏ a
+show let swap [@a:*, @b:*, a ∏ b:a ∏ b, b ∏ a] b ∏ a
 
-bizen ∏ bifunctor {
-  let (a ∏ b) bimap f g ≔ (a f) ∏ (b g)
+bizen:∏ bifunctor {
+  let (a ∏ b) bimap f g [] (a f) ∏ (b g)
 }
 
-bizen (a ∏) functor {
-  let þing map f ≔ þing bimap sameness f
+bizen [@a:*]:(a ∏) functor {
+  let þing map f [] þing bimap sameness f
 }
 
-graiþ a monoid
-bizen (a ∏) applicative {
-  let b pure ≔ ∅ ∏ b
-  let (a0 ∏ b) apply (a1 ∏ f) ≔ (a0 * a1) ∏ (b f)
+bizen [byzen a monoid]:(a ∏) applicative {
+  let b pure [] ∅ ∏ b
+  let (a0 ∏ b) apply (a1 ∏ f) [] (a0 · a1) ∏ (b f)
 }
 
-graiþ a monoid
-bizen (a ∏) monad {
-  let (a ∏ (b ∏ c)) flat ≔
-    (a * b) ∏ c
+bizen [byzen a monoid]:(a ∏) monad {
+  let (a ∏ (b ∏ c)) flat []
+    (a · b) ∏ c
 }
 
-bizen (a ∏) cata {
-  let (_ ∏ a) fold₀ b f ≔ a f b
-  let (_ ∏ a) fold₁ b f ≔ b f a
+bizen [@a:*]:(a ∏) cata {
+  let (_ ∏ a) fold₀ b f [] a f b
+  let (_ ∏ a) fold₁ b f [] b f a
 }
 
-bizen (a ∏) traverse {
-  let (a ∏ b) traverse f ≔
+bizen [@a:*]:(a ∏) traverse {
+  let (a ∏ b) traverse f []
     (b f) map (a ∏)
 }
 
-graiþ a semilattice-lower, b semilattice-lower
-bizen (a ∏ b) semilattice-lower {
-  let (a₀ ∏ b₀) ∧ (a₁ ∏ b₁) ≔ (a₀ ∧ a₁) ∏ (b₀ ∧ b₁)
+bizen [byzen a semilattice-lower, byzen b semilattice-lower]:(a ∏ b) semilattice-lower {
+  let (a₀ ∏ b₀) ∧ (a₁ ∏ b₁) [] (a₀ ∧ a₁) ∏ (b₀ ∧ b₁)
 }
 
-graiþ a semilattice-upper, b semilattice-upper
-bizen (a ∏ b) semilattice-upper {
-  let (a₀ ∏ b₀) ∨ (a₁ ∏ b₁) ≔ (a₀ ∨ a₁) ∏ (b₀ ∨ b₁)
+bizen [byzen a semilattice-upper, byzen b semilattice-upper]:(a ∏ b) semilattice-upper {
+  let (a₀ ∏ b₀) ∨ (a₁ ∏ b₁) [] (a₀ ∨ a₁) ∏ (b₀ ∨ b₁)
 }
 
-graiþ a lattice, b lattice
-bizen (a ∏ b) lattice {}
+bizen [byzen a lattice, byzen b lattice]:(a ∏ b) lattice {}
 
-graiþ a lattice-distributive, b lattice-distributive
-bizen (a ∏ b) lattice-distributive {}
+bizen [byzen a lattice-distributive, byzen b lattice-distributive]:(a ∏ b) lattice-distributive {}
 
-show let uncurry [a ∏ b:a ∏ b, f:[a, b, c], c]
+show let uncurry [@a:*, @b:*, @c:*, a ∏ b:a ∏ b, f:[a, b, c], c]
   a f b
 
 show let uncurry₃ [
+  @a:*, @b:*, @c:*, @d:*,
   a ∏ (b ∏ c):a ∏ (b ∏ c),
-  f:[a, b, c, d], d]
-  a f b c
+  f:[a, b, c, d], d
+] a f b c

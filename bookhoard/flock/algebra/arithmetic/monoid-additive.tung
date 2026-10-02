@@ -2,11 +2,10 @@ use flock/algebra/arithmetic/add.tung
 use flock/algebra/arithmetic/zero.tung
 use ilk/two.tung
 
-graiþ a add, a zero
-show flock monoid-additive [a:ilk] (
+show flock monoid-additive [byzen a add, byzen a zero] {
   law [a:a, b:a, c:a] a + (b + c) = (a + b) + c
   law [a:a] zero + a = a
   law [a:a] a + zero = a
-)
+}
 
-bizen 𝟚 monoid-additive {}
+bizen:𝟚 monoid-additive {}

@@ -23,8 +23,8 @@ show let is-empty-text [text:text, 𝟚]
   }
 
 ## count unicode code points, not bytes or utf-16 units.
-bizen text size {
-  let text size ≔ text text-to-list $ size
+bizen:text size {
+  let text size [] text text-to-list $ size
 }
 
 show let take-text [text:text, count:ℤ, text]
@@ -40,7 +40,7 @@ show let prepend-text [character:unicode, text:text, text]
   character _* (text text-to-list) $ list-to-text
 
 show let append-text [text:text, character:unicode, text]
-  text text-to-list $ * (character singleton) $ list-to-text
+  text text-to-list $ · (character singleton) $ list-to-text
 
 let split-unicode-by [
   list:unicode list,
@@ -66,7 +66,7 @@ let split-unicode [
   }
 
 let is-whitespace [unicode:unicode, 𝟚]
-  <(∨, unicode ≡ `\32;, unicode ≡ `\9;, unicode ≡ `\10;, unicode ≡ `\13;)
+  <{∨, unicode ≡ `\32;, unicode ≡ `\9;, unicode ≡ `\10;, unicode ≡ `\13;}
 
 
 ## split text at each separator code point.
@@ -81,6 +81,6 @@ show let words-text [text:text, text list]
 show let join-wiþ-text [text list, text, text] {
   empty, _ ^ '',
   text _* texts, separator ^ texts fold₁ text {
-    joined, next ^ (joined * separator) * next
+    joined, next ^ (joined · separator) · next
   }
 }

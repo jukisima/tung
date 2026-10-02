@@ -5,8 +5,11 @@ import {
   bracketPairs,
   declarationKeywords,
   findFileDeclarationBoundary,
+  findInstanceHeader,
+  findMatching,
   lastQualifiedSegment,
   patternArmRegions,
+  splitTopLevel,
   tokenDepths,
   tokenize,
   useNamespace,
@@ -15,26 +18,23 @@ import {
 const ownedKinds = new Set(["ilk", "deed", "flock"]);
 const localRoles = new Set(["parameter", "typeParameter"]);
 const keywordHelp = {
-  use:
-    "import a tung file; its last path segment is the default namespace, and an optional alias overrideeþ it.",
+  use: "import a tung file; its last path segment is the default namespace, and an optional alias overrideeþ it.",
   show: "publish a declaration or re-export a visible term.",
   "show-ilk": "re-export a visible type.",
-  graiþ: "state the flocks required by a declaration.",
   yield:
     "introduce a block result or handle the normal result of a `try` expression.",
   flock: "declare a flock and its members.",
   fremmed:
     "bind an annotated file-level let to the host function named by a preceding text key.",
   bizen: "provide evidence and member definitions for a flock.",
-  law:
-    "state a type-checked equation required of a flock; equivalence is not proved.",
+  byzen: "require a flock instance; its arguments determine parameter kinds.",
+  law: "state a type-checked equation required of a flock; equivalence is not proved.",
   deed: "declare an algebraic effect and its operations.",
   try: "handle effect operations for an expression.",
   eftgin: "continue the handled computation from an operation clause.",
   match: "match one or more values against exhaustive pattern rows.",
-  let: "bind a value or curried function.",
+  let: "bind a value, curried function, or type alias.",
   ilk: "declare an algebraic data type.",
-  "let-ilk": "declare a type alias.",
 };
 const analyzeDocument = (text, uri = "") => {
   const tokens = tokenize(text);
@@ -56,6 +56,7 @@ const analyzeDocument = (text, uri = "") => {
     ...patternDefinitions(tokens, semantic),
     ...semanticDefinitions(text, tokens, semantic, depths, regions),
   ]);
+  collectRequirementDefinitions(tokens, roles, semantic, regions, definitions);
   definitions.forEach((definition, id) => {
     definition.id = `${uri}:${definition.token.offset}:${id}`;
     definition.uri = uri;
@@ -146,9 +147,9 @@ const collectDocComments = (text) => {
       text: cleanBlockDoc(match[1]),
     });
   }
-  return docs.filter(({ text }) => text).sort((a, b) =>
-    a.startOffset - b.startOffset
-  );
+  return docs
+    .filter(({ text }) => text)
+    .sort((a, b) => a.startOffset - b.startOffset);
 };
 const cleanBlockDoc = (text) => {
   return cleanDoc(
@@ -199,27 +200,33 @@ const declarationRegions = (tokens, depths, pairs) => {
       continue;
     }
     const baseDepth = depths[token.index];
-    const open = ownedKinds.has(token.text)
-      ? findAtDepth(tokens, depths, token.index + 1, token.text === "flock" ? "(" : "{", baseDepth)
-      : -1;
+    const open =
+      token.text === "bizen"
+        ? (findInstanceHeader(tokens, token.index + 1)?.body ?? -1)
+        : ownedKinds.has(token.text)
+          ? findAtDepth(tokens, depths, token.index + 1, "{", baseDepth)
+          : -1;
     const boundary = findFileDeclarationBoundary(
       tokens,
       token.index + 1,
       depths,
       baseDepth,
     );
-    const endIndex = open >= 0 && pairs.has(open)
-      ? pairs.get(open)
-      : Math.max(token.index, boundary - 1);
+    const endIndex =
+      open >= 0 && pairs.has(open)
+        ? pairs.get(open)
+        : Math.max(token.index, boundary - 1);
     const endToken = tokens[endIndex] || tokens.at(-1) || token;
-    const headerEnd = findHeaderEnd(
-      tokens,
-      depths,
-      token.index + 1,
-      endIndex + 1,
-      baseDepth,
-      token.text === "flock",
-    );
+    const headerEnd =
+      token.text === "bizen" && open >= 0
+        ? open
+        : findHeaderEnd(
+            tokens,
+            depths,
+            token.index + 1,
+            endIndex + 1,
+            baseDepth,
+          );
     const shown = tokens[token.index - 1]?.text === "show";
     regions.push({
       kind: token.text,
@@ -235,12 +242,13 @@ const declarationRegions = (tokens, depths, pairs) => {
   }
   return regions;
 };
-const findHeaderEnd = (tokens, depths, start, end, baseDepth, parenthesized) => {
+const findHeaderEnd = (tokens, depths, start, end, baseDepth) => {
   for (let index = start; index < end; index += 1) {
-    if (
-      depths[index] === baseDepth &&
-      ["=", "≔", "{", ...(parenthesized ? ["("] : [])].includes(tokens[index].text)
-    ) return index;
+    if (depths[index] === baseDepth && tokens[index].text === "[") {
+      const close = findMatching(tokens, index);
+      if (close >= 0) return close + 1;
+    }
+    if (depths[index] === baseDepth && tokens[index].text === "{") return index;
   }
   return Math.max(start, end - 1);
 };
@@ -265,10 +273,8 @@ const collectImports = (tokens, depths) => {
 const collectReexports = (tokens, depths) => {
   const reexports = [];
   for (const token of tokens) {
-    if (
-      !["show", "show-ilk"].includes(token.text) ||
-      depths[token.index] !== 0
-    ) continue;
+    if (!["show", "show-ilk"].includes(token.text) || depths[token.index] !== 0)
+      continue;
     const next = tokens[token.index + 1];
     if (!next || next.kind !== "name") continue;
     const end = findFileDeclarationBoundary(
@@ -294,37 +300,39 @@ const semanticDefinitions = (text, tokens, semantic, depths, regions) => {
     if (!role.modifiers.includes("declaration")) continue;
     const token = tokens[index];
     if (
-      !token || token.kind !== "name" || token.text === "_" ||
+      !token ||
+      token.kind !== "name" ||
+      token.text === "_" ||
       role.type === "namespace"
     ) {
       continue;
     }
     const region = smallestRegion(regions, token.offset);
-    const owner = region && ownedKinds.has(region.kind) &&
-        token.index > region.headerEnd
-      ? region
-      : enclosingOwner(regions, region, token.offset);
+    const owner =
+      region && ownedKinds.has(region.kind) && token.index > region.headerEnd
+        ? region
+        : enclosingOwner(regions, region, token.offset);
     const local = localRoles.has(role.type);
-    const primary = region && token.index > region.startIndex &&
+    const primary =
+      region &&
+      token.index > region.startIndex &&
       token.index <= region.headerEnd;
-    const exported = !local &&
+    const exported =
+      !local &&
       Boolean(
         (region?.shown && primary) ||
-          (owner?.shown &&
-            ["enumMember", "method", "function"].includes(
-              role.type,
-            )),
+        (owner?.shown &&
+          ["enumMember", "method", "function"].includes(role.type)),
       );
-    const scope = definitionScope(tokens, region, local);
+    const scope = definitionScope(tokens, region, role.type);
     definitions.push({
       name: token.text,
       bareName: lastQualifiedSegment(token.text),
       role: role.type,
       modifiers: role.modifiers,
-      callableConstructor: role.type === "enumMember" &&
-        semantic.callableConstructors.has(
-          lastQualifiedSegment(token.text),
-        ),
+      callableConstructor:
+        role.type === "enumMember" &&
+        semantic.callableConstructors.has(lastQualifiedSegment(token.text)),
       token,
       range: tokenRange(token),
       selectionRange: tokenRange(token),
@@ -343,8 +351,8 @@ const semanticDefinitions = (text, tokens, semantic, depths, regions) => {
 const patternDefinitions = (tokens, semantic) => {
   const definitions = [];
   for (const { patternStart, pipe, bodyEnd } of patternArmRegions(tokens)) {
-    const endOffset = tokens[bodyEnd]?.offset ??
-      tokens.at(-1)?.endOffset ?? pipe.endOffset;
+    const endOffset =
+      tokens[bodyEnd]?.offset ?? tokens.at(-1)?.endOffset ?? pipe.endOffset;
     for (const token of tokens.slice(patternStart, pipe.index)) {
       const role = semantic.semantic.get(token.index);
       if (
@@ -374,36 +382,110 @@ const patternDefinitions = (tokens, semantic) => {
   }
   return definitions;
 };
-const definitionScope = (tokens, region, local) => {
+const definitionScope = (tokens, region, role) => {
   const documentEnd = tokens.at(-1)?.endOffset || 0;
-  if (!local) return { start: 0, end: documentEnd };
+  if (!localRoles.has(role)) return { start: 0, end: documentEnd };
   if (!region) return { start: 0, end: documentEnd };
-  const equals = findText(
-    tokens,
-    region.startIndex,
-    region.kind === "let" ? "≔" : "=",
-    region.endIndex + 1,
-  );
   return {
-    start: equals >= 0 ? tokens[equals].endOffset : region.startOffset,
+    start:
+      role === "typeParameter"
+        ? region.startOffset
+        : (tokens[region.headerEnd]?.offset ?? region.startOffset),
     end: region.endOffset,
   };
+};
+// requirements introduce syntactic binder candidates. workspace lookup resolveþ
+// imported concrete types before these candidates; no kind checking is needed.
+const collectRequirementDefinitions = (
+  tokens,
+  roles,
+  semantic,
+  regions,
+  definitions,
+) => {
+  const byName = new Map();
+  for (const definition of definitions) {
+    const entries = byName.get(definition.name) || [];
+    entries.push(definition);
+    byName.set(definition.name, entries);
+  }
+  for (const region of regions) {
+    let open = region.startIndex + 1;
+    while (open < region.headerEnd && tokens[open]?.text !== "[") open += 1;
+    if (open >= region.headerEnd) continue;
+    const close = findMatching(tokens, open);
+    if (close < 0) continue;
+    for (const { start, end } of splitTopLevel(
+      tokens,
+      open + 1,
+      close,
+      new Set([",", ";"]),
+    )) {
+      if (tokens[start]?.text !== "byzen") continue;
+      for (let next = start + 1; next < end; next += 1) {
+        const token = tokens[next];
+        if (
+          token.kind !== "name" ||
+          token.text.includes("~") ||
+          roles.get(token.index)?.type !== "typeParameter" ||
+          semantic.types.has(token.text) ||
+          semantic.effects.has(token.text) ||
+          (byName.get(token.text) || []).some(
+            (definition) =>
+              definition.name === token.text &&
+              ["typeParameter", "type", "class"].includes(definition.role) &&
+              definition.scopeStart <= token.offset &&
+              token.offset <= definition.scopeEnd,
+          )
+        )
+          continue;
+        roles.set(token.index, {
+          type: "typeParameter",
+          modifiers: ["declaration"],
+        });
+        const definition = {
+          name: token.text,
+          bareName: token.text,
+          role: "typeParameter",
+          modifiers: ["declaration"],
+          token,
+          range: tokenRange(token),
+          selectionRange: tokenRange(token),
+          scopeStart: region.startOffset,
+          scopeEnd: region.endOffset,
+          local: true,
+          exported: false,
+          topLevel: false,
+          inferredRequirement: true,
+          detail: "type parameter from byzen",
+        };
+        definitions.push(definition);
+        const entries = byName.get(token.text) || [];
+        entries.push(definition);
+        byName.set(token.text, entries);
+      }
+    }
+  }
 };
 const declarationDetail = (text, tokens, token, region, role) => {
   if (!region) return `${role} ${lastQualifiedSegment(token.text)}`;
   const end = tokens[region.headerEnd]?.offset ?? token.endOffset;
-  const header = text.slice(region.startOffset, end).replace(/\s+/g, " ")
+  const header = text
+    .slice(region.startOffset, end)
+    .replace(/\s+/g, " ")
     .trim();
   return header || `${role} ${lastQualifiedSegment(token.text)}`;
 };
 const smallestRegion = (regions, offset, kind = undefined) => {
   return regions
-    .filter((region) =>
-      (!kind || region.kind === kind) &&
-      region.startOffset <= offset && offset <= region.endOffset
+    .filter(
+      (region) =>
+        (!kind || region.kind === kind) &&
+        region.startOffset <= offset &&
+        offset <= region.endOffset,
     )
-    .sort((a, b) =>
-      a.endOffset - a.startOffset - (b.endOffset - b.startOffset)
+    .sort(
+      (a, b) => a.endOffset - a.startOffset - (b.endOffset - b.startOffset),
     )[0];
 };
 const enclosingOwner = (regions, region, offset) => {
@@ -415,22 +497,15 @@ const enclosingOwner = (regions, region, offset) => {
         offset <= candidate.endOffset &&
         candidate !== region,
     )
-    .sort((a, b) =>
-      a.endOffset - a.startOffset - (b.endOffset - b.startOffset)
+    .sort(
+      (a, b) => a.endOffset - a.startOffset - (b.endOffset - b.startOffset),
     )[0];
 };
 const ownerName = (tokens, semantic, owner) => {
   if (!owner) return undefined;
-  for (
-    let index = owner.startIndex + 1;
-    index <= owner.headerEnd;
-    index += 1
-  ) {
+  for (let index = owner.startIndex + 1; index <= owner.headerEnd; index += 1) {
     const role = semantic.semantic.get(index);
-    if (
-      role?.modifiers.includes("declaration") &&
-      !localRoles.has(role.type)
-    ) {
+    if (role?.modifiers.includes("declaration") && !localRoles.has(role.type)) {
       return tokens[index].text;
     }
   }
@@ -450,8 +525,9 @@ const findDefinition = (model, token, offset = token?.offset) => {
       const aWidth = a.scopeEnd - a.scopeStart;
       const bWidth = b.scopeEnd - b.scopeStart;
       if (aWidth !== bWidth) return aWidth - bWidth;
-      return Math.abs(offset - a.token.offset) -
-        Math.abs(offset - b.token.offset);
+      return (
+        Math.abs(offset - a.token.offset) - Math.abs(offset - b.token.offset)
+      );
     })[0];
 };
 const tokenAtPosition = (model, position) => {
@@ -481,12 +557,6 @@ const findAtDepth = (tokens, depths, start, text, depth) => {
     if (depths[index] === depth && tokens[index].text === text) {
       return index;
     }
-  }
-  return -1;
-};
-const findText = (tokens, start, text, end = tokens.length) => {
-  for (let index = start; index < end; index += 1) {
-    if (tokens[index].text === text) return index;
   }
   return -1;
 };

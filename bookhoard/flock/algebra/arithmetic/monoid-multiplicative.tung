@@ -2,11 +2,10 @@ use flock/algebra/arithmetic/multiply.tung
 use flock/algebra/arithmetic/one.tung
 use ilk/two.tung
 
-graiþ a multiply, a one
-show flock monoid-multiplicative [a:ilk] (
+show flock monoid-multiplicative [byzen a multiply, byzen a one] {
   law [a:a, b:a, c:a] a × (b × c) = (a × b) × c
   law [a:a] one × a = a
   law [a:a] a × one = a
-)
+}
 
-bizen 𝟚 monoid-multiplicative {}
+bizen:𝟚 monoid-multiplicative {}

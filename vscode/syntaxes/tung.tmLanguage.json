@@ -106,7 +106,7 @@
     "declaration-keyword": {
       "patterns": [
         {
-          "match": "\\b(?:let-ilk|let|graiþ|use|ilk|deed|flock|bizen|law|show-ilk|show)\\b",
+          "match": "\\b(?:let|use|ilk|deed|flock|bizen|byzen|law|show-ilk|show)\\b",
           "name": "keyword.declaration.tung"
         }
       ]
@@ -130,11 +130,11 @@
     "number": {
       "patterns": [
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])-?[0-9]+\\.[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])-?[0-9]+\\.[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
           "name": "constant.numeric.float.tung"
         },
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])-?[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])-?[0-9]+(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
           "name": "constant.numeric.integer.tung"
         }
       ]
@@ -142,7 +142,7 @@
     "qualified-name": {
       "patterns": [
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])([^\\s#()\\[\\]{}:,;!=$→`'@≔^./~]+)(~)([^\\s#()\\[\\]{}:,;!=$→`'@≔^./~]+)(?![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])",
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])([^\\s#()\\[\\]{}:,;!=$→`'@^./~]+)(~)([^\\s#()\\[\\]{}:,;!=$→`'@^./~]+)(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
           "captures": {
             "1": {
               "name": "entity.name.namespace.tung"
@@ -161,11 +161,15 @@
           "name": "support.type.tung"
         },
         {
+          "match": "@|(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])\\*(?![^\\s#()\\[\\]{}:,;!=$→`'@^.])",
+          "name": "keyword.other.tung"
+        },
+        {
           "match": "!|\\$",
           "name": "keyword.operator.tung"
         },
         {
-          "match": "=|≔",
+          "match": "=",
           "name": "keyword.operator.assignment.tung"
         },
         {
@@ -177,8 +181,8 @@
     "punctuation": {
       "patterns": [
         {
-          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@≔^.])(?:r|[<>])\\(",
-          "name": "punctuation.section.parens.begin.tung"
+          "match": "(?<![^\\s#()\\[\\]{}:,;!=$→`'@^.])(?:r|[<>])\\{",
+          "name": "punctuation.section.braces.begin.tung"
         },
         {
           "match": "[()\\[\\]{}]",

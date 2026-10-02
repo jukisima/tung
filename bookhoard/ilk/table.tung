@@ -10,69 +10,64 @@ use ilk/product.tung
 use ilk/two.tung
 
 ## a list-backed finite association table.
-show ilk table [k:ilk, v:ilk] {
+show ilk table [k:*, v:*, *] {
   from-list [(k ∏ v) list, k table v]
 }
 
-show let empty [k table v] list~empty from-list
+show let empty [@k:*, @v:*, k table v] list~empty from-list
 
-show let singleton [key:k, value:v, k table v]
+show let singleton [@k:*, @v:*, key:k, value:v, k table v]
   key ∏ value $ _* list~empty $ from-list
 
-show let entries [list from-list:k table v, (k ∏ v) list]
+show let entries [@k:*, @v:*, list from-list:k table v, (k ∏ v) list]
   list
 
-graiþ k equal
-show let lookup [list from-list:k table v, key:k, v option]
+show let lookup [byzen k equal, @v:*, list from-list:k table v, key:k, v option]
   list find { pair ^ key ≡ (pair project₀) } $ map project₁
 
-graiþ k equal
-show let put [
+show let put [byzen k equal, @v:*,
   list from-list:k table v,
   key:k,
   value:v,
-  k table v]
-  (key ∏ value) _* (list filter { pair ^ key ≢ (pair project₀) }) $ from-list
+  k table v
+] (key ∏ value) _* (list filter { pair ^ key ≢ (pair project₀) }) $ from-list
 
-graiþ k equal
-show let rid [list from-list:k table v, key:k, k table v]
+show let rid [byzen k equal, @v:*, list from-list:k table v, key:k, k table v]
   list filter { pair ^ key ≢ (pair project₀) } $ from-list
 
-show let keys [list from-list:k table v, k list]
+show let keys [@k:*, @v:*, list from-list:k table v, k list]
   list map project₀
 
-show let values [list from-list:k table v, v list]
+show let values [@k:*, @v:*, list from-list:k table v, v list]
   list map project₁
 
-graiþ k equal
-bizen (k table v) inhold k {
-  let table ∋ key ≔ (table lookup key) is-some
+bizen [ byzen k equal, @v:*]:(k table v) inhold k {
+  let table ∋ key [] (table lookup key) is-some
 }
 
-bizen (k table) functor {
-  let (list from-list) map f ≔
+bizen [@k:*]:(k table) functor {
+  let (list from-list) map f []
     list map { pair ^ pair map f } $ from-list
 }
 
-bizen (k table) filter {
-  let (list from-list) filter predicate ≔
+bizen [@k:*]:(k table) filter {
+  let (list from-list) filter predicate []
     list filter {
       pair ^ (pair project₁) predicate
     } $ from-list
 }
 
-bizen (k table v) size {
-  let table size ≔ (table entries) size
+bizen [@k:*, @v:*]:(k table v) size {
+  let table size [] (table entries) size
 }
 
-graiþ k equal
-show let merge [first:k table v, oþer:k table v, k table v]
+show let merge [byzen k equal, @v:*, first:k table v, oþer:k table v, k table v]
   (oþer entries) fold₁ first {
     table, pair ^ table put (pair project₀) (pair project₁)
   }
 
-graiþ k equal
-show let adjust [
+show let adjust [byzen k equal,
+  @e:*, @v:*,
   list from-list:k table v,
   key:k,
   change:[v, v; e],

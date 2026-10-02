@@ -1,14 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- manifest libraries supply ordinary module roots without compiler-owned names.
-module Tung.Library (
-  resolveLibraryRoots,
-  readLibraryImportFiles,
-  readLibraryImports,
-) where
+module Tung.Library
+  ( resolveLibraryRoots,
+    readLibraryImportFiles,
+    readLibraryImports,
+  )
+where
 
 import Control.Exception (finally)
-import Control.Monad (foldM)
+import Control.Monad (foldM, forM)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except (ExceptT (..), runExceptT, throwE)
+import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, put)
 import Data.Aeson (FromJSON (parseJSON), withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Key
@@ -29,8 +33,8 @@ import System.IO.Error (tryIOError)
 import System.Process (readProcessWithExitCode)
 
 data Library = Library
-  { libraryName :: String
-  , librarySource :: LibrarySource
+  { libraryName :: String,
+    librarySource :: LibrarySource
   }
 
 data LibrarySource
@@ -57,8 +61,8 @@ instance FromJSON Manifest where
     rejectUnknown "manifest" ["dependencies"] fields
     dependencies <- fields .: "dependencies" :: Parser Aeson.Value
     Manifest <$> withObject "dependencies" (traverse parseEntry . KeyMap.toAscList) dependencies
-   where
-    parseEntry (name, source) = (Key.toString name,) <$> parseJSON source
+    where
+      parseEntry (name, source) = (Key.toString name,) <$> parseJSON source
 
 rejectUnknown :: String -> [String] -> Aeson.Object -> Parser ()
 rejectUnknown context allowed fields =
@@ -67,21 +71,26 @@ rejectUnknown context allowed fields =
     unknown : _ -> fail ("unknown " ++ context ++ " field '" ++ unknown ++ "'")
 
 data LibraryUse = LibraryUse
-  { useName :: String
-  , useSource :: LibrarySource
-  , useManifest :: FilePath
+  { useName :: String,
+    useSource :: LibrarySource,
+    useManifest :: FilePath
   }
 
 data SourceKey = RepositoryKey String FilePath | PathKey FilePath
   deriving stock (Eq, Ord)
 
 data Resolved = Resolved
-  { usesByName :: Map.Map String LibraryUse
-  , usesBySource :: Map.Map SourceKey LibraryUse
+  { usesByName :: Map.Map String LibraryUse,
+    usesBySource :: Map.Map SourceKey LibraryUse
   }
 
 emptyResolved :: Resolved
 emptyResolved = Resolved Map.empty Map.empty
+
+type Resolver = StateT Resolved (ExceptT String IO)
+
+resolveIO :: IO (Either String a) -> Resolver a
+resolveIO = lift . ExceptT
 
 manifestName :: FilePath
 manifestName = "tung.yaml"
@@ -95,7 +104,7 @@ resolveLibraryRoots owner = do
   pinned <- case manifest of
     Left message -> pure (Left message)
     Right Nothing -> pure (Right [])
-    Right (Just path) -> fmap (fmap snd) (resolveManifest (takeDirectory path </> ".tung" </> "libraries") emptyResolved path)
+    Right (Just path) -> runExceptT (evalStateT (resolveManifest (takeDirectory path </> ".tung" </> "libraries") path) emptyResolved)
   case pinned of
     Left message -> pure (Left message)
     Right roots -> do
@@ -115,35 +124,30 @@ readLibraryImports :: FilePath -> IO (Either String (Map.Map String String))
 readLibraryImports owner =
   readLibraryImportFiles owner >>= \case
     Left message -> pure (Left message)
-    Right files -> do
-      unique <- foldM add (Right Map.empty) files
-      case unique of
-        Left message -> pure (Left message)
-        Right paths -> do
-          sources <- traverse readSource paths
-          pure (sequence sources)
- where
-  add (Left message) _ = pure (Left message)
-  add (Right paths) (path, name) = pure $ case Map.lookup name paths of
-    Nothing -> Right (Map.insert name path paths)
-    Just other -> Left ("library module '" ++ name ++ "' occurs at both '" ++ other ++ "' and '" ++ path ++ "'")
-  readSource path = do
-    result <- tryIOError (Text.readFile path)
-    pure (either (\failure -> Left ("cannot read library module '" ++ path ++ "': " ++ show failure)) (Right . Text.unpack) result)
+    Right files -> case foldM add Map.empty files of
+      Left message -> pure (Left message)
+      Right paths -> fmap sequence (traverse readSource paths)
+  where
+    add paths (path, name) = case Map.lookup name paths of
+      Nothing -> Right (Map.insert name path paths)
+      Just other -> Left ("library module '" ++ name ++ "' occurs at both '" ++ other ++ "' and '" ++ path ++ "'")
+    readSource path = do
+      result <- tryIOError (Text.readFile path)
+      pure (either (\failure -> Left ("cannot read library module '" ++ path ++ "': " ++ show failure)) (Right . Text.unpack) result)
 
 findManifest :: FilePath -> IO (Either String (Maybe FilePath))
 findManifest owner = do
   absolute <- makeAbsolute owner
   file <- doesFileExist absolute
   search (if file then takeDirectory absolute else absolute)
- where
-  search directory = do
-    manifest <- manifestAt directory
-    case manifest of
-      Right Nothing ->
-        let parent = takeDirectory directory
-         in if parent == directory then pure (Right Nothing) else search parent
-      result -> pure result
+  where
+    search directory = do
+      manifest <- manifestAt directory
+      case manifest of
+        Right Nothing ->
+          let parent = takeDirectory directory
+           in if parent == directory then pure (Right Nothing) else search parent
+        result -> pure result
 
 manifestAt :: FilePath -> IO (Either String (Maybe FilePath))
 manifestAt directory = do
@@ -155,35 +159,21 @@ manifestAt directory = do
     then pure (Left ("replace '" ++ legacy ++ "' with '" ++ path ++ "'"))
     else if present then Right . Just <$> canonicalizePath path else pure (Right Nothing)
 
-resolveManifest :: FilePath -> Resolved -> FilePath -> IO (Either String (Resolved, [FilePath]))
-resolveManifest cache resolved manifest =
-  readManifest manifest >>= \case
-    Left message -> pure (Left message)
-    Right libraries -> go resolved [] libraries
- where
-  go known roots [] = pure (Right (known, roots))
-  go known roots (library : rest) = do
-    resolveSource manifest (librarySource library) >>= \case
-      Left message -> pure (Left message)
-      Right source -> do
-        let use = LibraryUse (libraryName library) source manifest
-        case registerUse known use of
-          Left message -> pure (Left message)
-          Right (alreadyResolved, next)
-            | alreadyResolved -> go next roots rest
-            | otherwise ->
-                libraryRoot cache (libraryName library) source >>= \case
-                  Left message -> pure (Left message)
-                  Right root -> do
-                    nested <- manifestAt root
-                    dependencies <-
-                      case nested of
-                        Left message -> pure (Left message)
-                        Right (Just path) -> resolveManifest cache next path
-                        Right Nothing -> pure (Right (next, []))
-                    case dependencies of
-                      Left message -> pure (Left message)
-                      Right (afterChildren, children) -> go afterChildren (roots ++ [root] ++ children) rest
+resolveManifest :: FilePath -> FilePath -> Resolver [FilePath]
+resolveManifest cache manifest = do
+  libraries <- resolveIO (readManifest manifest)
+  fmap concat $ forM libraries \Library {libraryName, librarySource} -> do
+    source <- resolveIO (resolveSource manifest librarySource)
+    known <- get
+    (alreadyResolved, next) <- either (lift . throwE) pure (registerUse known (LibraryUse libraryName source manifest))
+    put next
+    if alreadyResolved
+      then pure []
+      else do
+        root <- resolveIO (libraryRoot cache libraryName source)
+        nested <- resolveIO (manifestAt root)
+        children <- maybe (pure []) (resolveManifest cache) nested
+        pure (root : children)
 
 registerUse :: Resolved -> LibraryUse -> Either String (Bool, Resolved)
 registerUse known use = do
@@ -201,8 +191,8 @@ registerUse known use = do
   let alreadyResolved = Map.member key (usesBySource known)
       updated =
         Resolved
-          { usesByName = Map.insertWith (\_ earlier -> earlier) (useName use) use (usesByName known)
-          , usesBySource = Map.insertWith (\_ earlier -> earlier) key use (usesBySource known)
+          { usesByName = Map.insertWith (\_ earlier -> earlier) (useName use) use (usesByName known),
+            usesBySource = Map.insertWith (\_ earlier -> earlier) key use (usesBySource known)
           }
   pure (alreadyResolved, updated)
 
@@ -249,31 +239,31 @@ readManifest path = do
     Right (Right (warnings, Manifest entries))
       | not (null warnings) -> Left (path ++ ": " ++ intercalate "; " (map show warnings))
       | otherwise -> traverse validateEntry entries
- where
-  validateEntry (name, source)
-    | not (validName name) = Left (path ++ ": invalid library name '" ++ name ++ "'")
-    | otherwise = Library name <$> validateSource name source
-  validateSource name = \case
-    GitSource repository commit subdirectory
-      | null repository -> Left (path ++ ": library '" ++ name ++ "' hath an empty repository")
-      | not (validCommit commit) -> Left (path ++ ": library '" ++ name ++ "' needeth a full 40- or 64-digit hexadecimal commit hash")
-      | isAbsolute subdirectory || ".." `elem` splitDirectories subdirectory -> Left (path ++ ": library '" ++ name ++ "' hath an invalid subdirectory")
-      | otherwise -> Right (GitSource repository (map toLower commit) (normalise subdirectory))
-    PathSource directory
-      | null directory -> Left (path ++ ": library '" ++ name ++ "' hath an empty path")
-      | otherwise -> Right (PathSource directory)
-  validName name = not (null name) && all (\character -> character `elem` (['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9'] ++ "-_")) name
-  validCommit commit = length commit `elem` [40, 64] && all isHexDigit commit
+  where
+    validateEntry (name, source)
+      | not (validName name) = Left (path ++ ": invalid library name '" ++ name ++ "'")
+      | otherwise = Library name <$> validateSource name source
+    validateSource name = \case
+      GitSource repository commit subdirectory
+        | null repository -> Left (path ++ ": library '" ++ name ++ "' hath an empty repository")
+        | not (validCommit commit) -> Left (path ++ ": library '" ++ name ++ "' needeth a full 40- or 64-digit hexadecimal commit hash")
+        | isAbsolute subdirectory || ".." `elem` splitDirectories subdirectory -> Left (path ++ ": library '" ++ name ++ "' hath an invalid subdirectory")
+        | otherwise -> Right (GitSource repository (map toLower commit) (normalise subdirectory))
+      PathSource directory
+        | null directory -> Left (path ++ ": library '" ++ name ++ "' hath an empty path")
+        | otherwise -> Right (PathSource directory)
+    validName name = not (null name) && all (\character -> character `elem` (['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9'] ++ "-_")) name
+    validCommit commit = length commit `elem` [40, 64] && all isHexDigit commit
 
 repositoryAt :: FilePath -> String -> String
 repositoryAt manifest repository
   | isAbsolute repository = normalise repository
   | "://" `isInfixOf` repository || scpStyle repository = repository
   | otherwise = normalise (takeDirectory manifest </> repository)
- where
-  scpStyle value = case break (== ':') value of
-    (host, ':' : _) -> not (null host) && all (/= '/') host
-    _ -> False
+  where
+    scpStyle value = case break (== ':') value of
+      (host, ':' : _) -> not (null host) && all (/= '/') host
+      _ -> False
 
 resolveSource :: FilePath -> LibrarySource -> IO (Either String LibrarySource)
 resolveSource manifest = \case
@@ -371,8 +361,8 @@ git directory arguments = do
     Left failure -> Left ("cannot run git " ++ intercalate " " command ++ ": " ++ show failure)
     Right (ExitSuccess, output, _) -> Right (trim output)
     Right (ExitFailure _, _, errorMessage) -> Left ("git " ++ intercalate " " command ++ ": " ++ trim errorMessage)
- where
-  trim = Text.unpack . Text.strip . Text.pack
+  where
+    trim = Text.unpack . Text.strip . Text.pack
 
 discover :: FilePath -> FilePath -> IO (Either String [FilePath])
 discover root relative = do
@@ -383,12 +373,12 @@ discover root relative = do
     Right entries -> do
       children <- traverse visit (sort entries)
       pure (concat <$> sequence children)
- where
-  visit entry
-    | entry == ".git" || entry == ".tung" = pure (Right [])
-    | otherwise = do
-        let name = relative </> entry
-        directory <- doesDirectoryExist (root </> name)
-        if directory
-          then discover root name
-          else pure (Right [name | takeExtension name == ".tung"])
+  where
+    visit entry
+      | entry == ".git" || entry == ".tung" = pure (Right [])
+      | otherwise = do
+          let name = relative </> entry
+          directory <- doesDirectoryExist (root </> name)
+          if directory
+            then discover root name
+            else pure (Right [name | takeExtension name == ".tung"])

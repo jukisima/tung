@@ -5,12 +5,38 @@ import * as path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { WorkspaceIndex } from "../server/workspace.ts";
+test("requirements keep imported types and introduce unbound parameters", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-requirement-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, "dep.tung"), "show ilk box [*] {box}");
+  const main = path.join(root, "main.tung");
+  fs.writeFileSync(
+    main,
+    "use dep.tung flock child [byzen box same, byzen a same] {let f [a, a]}",
+  );
+  const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
+  workspace.configure([root]);
+  const model = workspace.model(pathToFileURL(main).href);
+  const box = model.tokens.find((token) => token.text === "box");
+  const resolved = workspace.resolveAt(model.uri, {
+    line: box.line,
+    character: box.char,
+  }).definition;
+  assert.equal(resolved?.role, "type");
+  assert.equal(resolved?.uri, pathToFileURL(path.join(root, "dep.tung")).href);
+  const uses = model.tokens.filter((token) => token.text === "a");
+  const binder = workspace.resolveAt(model.uri, {
+    line: uses.at(-1).line,
+    character: uses.at(-1).char,
+  }).definition;
+  assert.equal(binder?.token.offset, uses[0].offset);
+});
 test("workspace resolveþ only shown names across an import", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-workspace-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dep = path.join(root, "dep.tung");
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(dep, "show let answer [ℤ] 42 let hidden ≔ 0");
+  fs.writeFileSync(dep, "show let answer [ℤ] 42 let hidden [] 0");
   fs.writeFileSync(main, "use dep.tung let value [ℤ] answer");
   const documents = { get: () => undefined, all: () => [] };
   const workspace = new WorkspaceIndex(documents);
@@ -38,9 +64,9 @@ test("workspace explicit import alias replaceeþ the default namespace", (contex
   assert.equal(workspace.resolveVisible(model, "d~answer").length, 1);
   assert.equal(workspace.resolveVisible(model, "dep~answer").length, 0);
   const labels = new Set(
-    workspace.completions(model.uri, { line: 0, character: 40 }).map(
-      ({ completionName, bareName }) => completionName || bareName,
-    ),
+    workspace
+      .completions(model.uri, { line: 0, character: 40 })
+      .map(({ completionName, bareName }) => completionName || bareName),
   );
   assert(labels.has("d~answer"));
   assert(!labels.has("dep~answer"));
@@ -61,9 +87,9 @@ test("workspace resolveþ and completeþ a default basename alias", (context) =>
   assert.equal(workspace.resolveVisible(model, "dep~answer").length, 1);
   assert.equal(workspace.resolveVisible(model, "ilk/dep~answer").length, 0);
   const labels = new Set(
-    workspace.completions(model.uri, { line: 0, character: 40 }).map(
-      ({ completionName, bareName }) => completionName || bareName,
-    ),
+    workspace
+      .completions(model.uri, { line: 0, character: 40 })
+      .map(({ completionName, bareName }) => completionName || bareName),
   );
   assert(labels.has("dep~answer"));
   assert(!labels.has("ilk/dep~answer"));
@@ -85,13 +111,10 @@ test("workspace default alias ignoreþ dots in import directories", (context) =>
 test("workspace leaveþ duplicate imported bare names ambiguous", (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tung-ambiguous-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(root, "left.tung"), "show let value ≔ 1");
-  fs.writeFileSync(path.join(root, "right.tung"), "show let value ≔ 2");
+  fs.writeFileSync(path.join(root, "left.tung"), "show let value [] 1");
+  fs.writeFileSync(path.join(root, "right.tung"), "show let value [] 2");
   const main = path.join(root, "main.tung");
-  fs.writeFileSync(
-    main,
-    "use left.tung use right.tung let answer ≔ value",
-  );
+  fs.writeFileSync(main, "use left.tung use right.tung let answer [] value");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
   const model = workspace.model(pathToFileURL(main).href);
@@ -103,11 +126,11 @@ test("workspace re-exports same-spelled terms and types separately", (context) =
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, "type-only.tung"),
-    "let-ilk token = ℤ let token ≔ 1 show-ilk token",
+    "let token [*] ℤ let token [] 1 show-ilk token",
   );
   fs.writeFileSync(
     path.join(root, "term-only.tung"),
-    "let-ilk token = ℤ let token ≔ 1 show token",
+    "let token [*] ℤ let token [] 1 show token",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([root]);
@@ -153,14 +176,14 @@ test("library modules do not become an implicit prelude", (context) => {
   fs.mkdirSync(library);
   fs.writeFileSync(
     path.join(library, "ground.tung"),
-    "show let offered ≔ 1 let hidden ≔ 2",
+    "show let offered [] 1 let hidden [] 2",
   );
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([], [library]);
   const completions = workspace.primitiveCompletions();
   const labels = new Set(
-    completions.map(({ completionName, bareName }) =>
-      completionName || bareName
+    completions.map(
+      ({ completionName, bareName }) => completionName || bareName,
     ),
   );
   assert(!labels.has("offered"));
@@ -172,10 +195,7 @@ test("library module paths keep their exact file names", (context) => {
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const library = path.join(root, "library");
   fs.mkdirSync(library, { recursive: true });
-  fs.writeFileSync(
-    path.join(library, "_foreign.tung"),
-    "show let value ≔ 1",
-  );
+  fs.writeFileSync(path.join(library, "_foreign.tung"), "show let value [] 1");
   const main = path.join(root, "main.tung");
   fs.writeFileSync(main, "use foreign.tung");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
@@ -195,7 +215,7 @@ test("library roots resolve exact paths and duplicate names stay ambiguous", (co
   const main = path.join(project, "main.tung");
   const module = path.join(first, "extra.tung");
   fs.writeFileSync(main, "use extra.tung yield extra~value");
-  fs.writeFileSync(module, "show let value ≔ 1");
+  fs.writeFileSync(module, "show let value [] 1");
   const workspace = new WorkspaceIndex({ get: () => undefined, all: () => [] });
   workspace.configure([project], [first, second]);
   const model = workspace.model(pathToFileURL(main).href);
@@ -204,10 +224,10 @@ test("library roots resolve exact paths and duplicate names stay ambiguous", (co
     pathToFileURL(module).href,
   );
   assert(workspace.modulePaths(model.uri).includes("extra.tung"));
-  fs.writeFileSync(path.join(second, "extra.tung"), "show let value ≔ 2");
+  fs.writeFileSync(path.join(second, "extra.tung"), "show let value [] 2");
   workspace.invalidateFiles();
   assert.equal(workspace.resolveImport(model, model.imports[0]), undefined);
-  fs.writeFileSync(path.join(project, "extra.tung"), "show let value ≔ 3");
+  fs.writeFileSync(path.join(project, "extra.tung"), "show let value [] 3");
   workspace.invalidateFiles();
   assert.equal(
     workspace.resolveImport(model, model.imports[0])?.uri,

@@ -69,8 +69,7 @@ connection.onInitialize((params) => {
   configuredExecutable = params.initializationOptions?.executablePath;
   configuredLibraryPaths = params.initializationOptions?.libraryPaths;
   canRegisterWatchedFiles = Boolean(
-    params.capabilities?.workspace?.didChangeWatchedFiles
-      ?.dynamicRegistration,
+    params.capabilities?.workspace?.didChangeWatchedFiles?.dynamicRegistration,
   );
   canRefreshSemanticTokens = Boolean(
     params.capabilities?.workspace?.semanticTokens?.refreshSupport,
@@ -125,10 +124,7 @@ connection.onInitialized(() => {
   if (!canRegisterWatchedFiles) return;
   connection.client
     .register(DidChangeWatchedFilesNotification.type, {
-      watchers: [
-        { globPattern: "**/*.tung" },
-        { globPattern: "**/tung.yaml" },
-      ],
+      watchers: [{ globPattern: "**/*.tung" }, { globPattern: "**/tung.yaml" }],
     })
     .catch(() => {});
 });
@@ -138,9 +134,8 @@ connection.onShutdown(() => {
   return null;
 });
 connection.onRequest("tung/executable", () => compiler.findExecutable());
-connection.onRequest(
-  "tung/libraryPath",
-  () => localLibraryRoots.join(path.delimiter),
+connection.onRequest("tung/libraryPath", () =>
+  localLibraryRoots.join(path.delimiter),
 );
 process.on("exit", () => compiler.dispose());
 connection.onNotification(
@@ -161,8 +156,8 @@ connection.onNotification(
 );
 connection.onDidChangeWatchedFiles(({ changes }) => {
   if (
-    changes.some(({ uri }) =>
-      path.basename(toFilePath(uri) || "") === "tung.yaml"
+    changes.some(
+      ({ uri }) => path.basename(toFilePath(uri) || "") === "tung.yaml",
     )
   ) {
     configureWorkspace();
@@ -173,22 +168,20 @@ connection.onDidChangeWatchedFiles(({ changes }) => {
   scheduleSemanticRefresh();
 });
 connection.languages.semanticTokens.on(({ textDocument }) =>
-  semanticTokens(textDocument.uri)
+  semanticTokens(textDocument.uri),
 );
 connection.languages.semanticTokens.onRange(({ textDocument, range }) =>
-  semanticTokens(textDocument.uri, range)
+  semanticTokens(textDocument.uri, range),
 );
 connection.onCompletion(({ textDocument, position }) => {
   const model = workspace.model(textDocument.uri);
   if (!model) return [];
   if (inUsePath(model, position)) {
-    return workspace
-      .modulePaths(textDocument.uri)
-      .map((label) => ({
-        label,
-        kind: CompletionItemKind.Module,
-        detail: "tung module",
-      }));
+    return workspace.modulePaths(textDocument.uri).map((label) => ({
+      label,
+      kind: CompletionItemKind.Module,
+      detail: "tung module",
+    }));
   }
   const prefix = completionPrefix(model, position);
   const definitions = [
@@ -197,8 +190,9 @@ connection.onCompletion(({ textDocument, position }) => {
   ];
   const definitionItems = definitions
     .map((definition) => definitionCompletion(definition))
-    .filter(({ label }) =>
-      !prefix || label.startsWith(prefix) || label.includes(`.${prefix}`)
+    .filter(
+      ({ label }) =>
+        !prefix || label.startsWith(prefix) || label.includes(`.${prefix}`),
     );
   const keywordItems = languageNames.keywords
     .filter((name) => !prefix || name.startsWith(prefix))
@@ -216,8 +210,8 @@ connection.onHover(async ({ textDocument, position }, cancellation) => {
   const resolved = workspace.resolveAt(textDocument.uri, position);
   if (resolved.definition) {
     const definition = resolved.definition;
-    const header = definition.detail ||
-      `${definition.role} ${definition.bareName}`;
+    const header =
+      definition.detail || `${definition.role} ${definition.bareName}`;
     const inferred = await inspectType(definition, cancellation);
     const docText = definition.documentation
       ? `${definition.documentation}\n\n`
@@ -229,15 +223,13 @@ connection.onHover(async ({ textDocument, position }, cancellation) => {
       range: nameRange(resolved.token),
       contents: {
         kind: MarkupKind.Markdown,
-        value: `${docText}\`\`\`tung\n${header}\n\`\`\`\n\n${
-          roleDescription(definition)
-        }${typeText}`,
+        value: `${docText}\`\`\`tung\n${header}\n\`\`\`\n\n${roleDescription(
+          definition,
+        )}${typeText}`,
       },
     };
   }
-  if (
-    resolved.token?.kind === "keyword" && keywordHelp[resolved.token.text]
-  ) {
+  if (resolved.token?.kind === "keyword" && keywordHelp[resolved.token.text]) {
     return {
       range: tokenRange(resolved.token),
       contents: {
@@ -251,19 +243,19 @@ connection.onHover(async ({ textDocument, position }, cancellation) => {
     .find(({ bareName }) => bareName === resolved.token?.text);
   return primitive
     ? {
-      range: nameRange(resolved.token),
-      contents: { kind: MarkupKind.Markdown, value: primitive.detail },
-    }
+        range: nameRange(resolved.token),
+        contents: { kind: MarkupKind.Markdown, value: primitive.detail },
+      }
     : null;
 });
 connection.onDefinition(({ textDocument, position }) =>
-  definitionLocation(textDocument.uri, position)
+  definitionLocation(textDocument.uri, position),
 );
 connection.onDeclaration(({ textDocument, position }) =>
-  definitionLocation(textDocument.uri, position)
+  definitionLocation(textDocument.uri, position),
 );
 connection.onTypeDefinition(({ textDocument, position }) =>
-  definitionLocation(textDocument.uri, position)
+  definitionLocation(textDocument.uri, position),
 );
 connection.onImplementation(({ textDocument, position }) => {
   const { definition } = workspace.resolveAt(textDocument.uri, position);
@@ -290,7 +282,8 @@ connection.onDocumentSymbol(({ textDocument }) => {
     name: definition.bareName,
     detail: definition.detail,
     kind: symbolKind(definition.role),
-    range: smallestRegion(model.regions, definition.token.offset)?.range ||
+    range:
+      smallestRegion(model.regions, definition.token.offset)?.range ||
       definition.range,
     selectionRange: definition.selectionRange,
   }));
@@ -302,10 +295,7 @@ connection.onWorkspaceSymbol(({ query }) => {
       .filter(
         (definition) =>
           !definition.local &&
-          (!wanted ||
-            definition.bareName.toLocaleLowerCase().includes(
-              wanted,
-            )),
+          (!wanted || definition.bareName.toLocaleLowerCase().includes(wanted)),
       )
       .map((definition) => ({
         name: definition.bareName,
@@ -315,7 +305,7 @@ connection.onWorkspaceSymbol(({ query }) => {
           range: definition.selectionRange,
         },
         containerName: definition.containerName,
-      }))
+      })),
   );
 });
 connection.onPrepareRename(({ textDocument, position }) => {
@@ -345,8 +335,8 @@ connection.onRenameRequest(({ textDocument, position, newName }) => {
   }
   return { changes };
 });
-connection.onFoldingRanges(({ textDocument }) =>
-  workspace.model(textDocument.uri)?.folds || []
+connection.onFoldingRanges(
+  ({ textDocument }) => workspace.model(textDocument.uri)?.folds || [],
 );
 connection.onSelectionRanges(({ textDocument, positions }) => {
   const model = workspace.model(textDocument.uri);
@@ -359,11 +349,13 @@ connection.onDocumentLinks(({ textDocument }) => {
   return model.imports.flatMap((imported) => {
     const target = workspace.resolveImport(model, imported);
     return target
-      ? [{
-        range: imported.range,
-        target: target.uri,
-        tooltip: `open ${imported.path}`,
-      }]
+      ? [
+          {
+            range: imported.range,
+            target: target.uri,
+            tooltip: `open ${imported.path}`,
+          },
+        ]
       : [];
   });
 });
@@ -383,14 +375,12 @@ connection.onDocumentFormatting(async ({ textDocument }) => {
     ? []
     : [{ range: fullRange(result.document), newText: result.formatted }];
 });
-connection.onDocumentRangeFormatting(
-  async ({ textDocument, range }) => {
-    const result = await formatDocument(textDocument.uri);
-    if (!result) return [];
-    const edit = formatRangeEdit(result.source, result.formatted, range);
-    return edit ? [edit] : [];
-  },
-);
+connection.onDocumentRangeFormatting(async ({ textDocument, range }) => {
+  const result = await formatDocument(textDocument.uri);
+  if (!result) return [];
+  const edit = formatRangeEdit(result.source, result.formatted, range);
+  return edit ? [edit] : [];
+});
 connection.onSignatureHelp(({ textDocument, position }) => {
   const model = workspace.model(textDocument.uri);
   if (!model) return null;
@@ -398,8 +388,7 @@ connection.onSignatureHelp(({ textDocument, position }) => {
     .filter(
       (token) =>
         token.line < position.line ||
-        (token.line === position.line &&
-          token.char < position.character),
+        (token.line === position.line && token.char < position.character),
     )
     .at(-1);
   if (!before) return null;
@@ -414,9 +403,11 @@ connection.onSignatureHelp(({ textDocument, position }) => {
     return null;
   }
   return {
-    signatures: [{
-      label: resolved.definition.detail || resolved.definition.bareName,
-    }],
+    signatures: [
+      {
+        label: resolved.definition.detail || resolved.definition.bareName,
+      },
+    ],
     activeSignature: 0,
     activeParameter: 0,
   };
@@ -467,13 +458,7 @@ const semanticTokens = async (uri, requestedRange = undefined) => {
   const resolve = (token) =>
     workspace.resolveAt(uri, { line: token.line, character: token.char })
       .definition;
-  for (
-    const token of buildHighlightRanges(
-      source,
-      roles,
-      resolve,
-    )
-  ) {
+  for (const token of buildHighlightRanges(source, roles, resolve)) {
     if (requestedRange && !rangeContainsLine(requestedRange, token.line)) {
       continue;
     }
@@ -497,8 +482,9 @@ const scheduleSemanticRefresh = (delay = semanticRefreshDelay) => {
   semanticRefreshTimer = setTimeout(() => {
     semanticRefreshTimer = undefined;
     if (canRefreshSemanticTokens) {
-      Promise.resolve(connection.languages.semanticTokens.refresh())
-        .catch(() => {});
+      Promise.resolve(connection.languages.semanticTokens.refresh()).catch(
+        () => {},
+      );
     }
   }, delay);
 };
@@ -572,7 +558,7 @@ const inspectType = (definition, cancellation = undefined) => {
       output
         .split(/\r?\n/)
         .find((line) => line.startsWith("type: "))
-        ?.slice(6)
+        ?.slice(6),
     ),
   };
   typeCache.set(key, entry);
@@ -592,19 +578,18 @@ const clearTypeCache = (uri) => {
 };
 const publish = (document, diagnostic) => {
   const previous = diagnosticReports.get(document.uri);
-  const message = typeof diagnostic === "string"
-    ? diagnostic
-    : diagnostic?.message;
+  const message =
+    typeof diagnostic === "string" ? diagnostic : diagnostic?.message;
   const owner = diagnosticOwner(document, diagnostic);
   const items = message
     ? [
-      {
-        range: errorRange(owner, diagnostic),
-        severity: DiagnosticSeverity.Error,
-        source: "tung",
-        message,
-      },
-    ]
+        {
+          range: errorRange(owner, diagnostic),
+          severity: DiagnosticSeverity.Error,
+          source: "tung",
+          message,
+        },
+      ]
     : [];
   if (items.length) {
     diagnosticReports.set(document.uri, {
@@ -624,8 +609,9 @@ const diagnosticOwner = (document, diagnostic) => {
     const imported = workspace.importModel(root, diagnostic.path);
     if (imported) {
       const open = documents.get(imported.uri);
-      return open ||
-        TextDocument.create(imported.uri, "tung", 0, imported.text);
+      return (
+        open || TextDocument.create(imported.uri, "tung", 0, imported.text)
+      );
     }
   }
   return document;
@@ -657,9 +643,8 @@ const errorRange = (document, diagnostic) => {
       end: document.positionAt(diagnostic.end),
     };
   }
-  const message = typeof diagnostic === "string"
-    ? diagnostic
-    : diagnostic?.message || "";
+  const message =
+    typeof diagnostic === "string" ? diagnostic : diagnostic?.message || "";
   const parseAt = /^parse error:\s+source:(\d+):(\d+):/m.exec(message);
   if (parseAt) {
     const start = {
@@ -673,7 +658,8 @@ const errorRange = (document, diagnostic) => {
   }
   const model = workspace.model(document.uri);
   const name = diagnosticName(message);
-  const token = name &&
+  const token =
+    name &&
     model?.tokens.find(
       (candidate) =>
         candidate.text === name || candidate.text.endsWith(`.${name}`),
@@ -717,8 +703,8 @@ const definitionCompletion = (definition) => {
     sortText: definition.local
       ? `0-${label}`
       : definition.primitive
-      ? `2-${label}`
-      : `1-${label}`,
+        ? `2-${label}`
+        : `1-${label}`,
   };
 };
 const completionKind = (role) => {
@@ -752,14 +738,15 @@ const symbolKind = (role) => {
   );
 };
 const roleDescription = (definition) => {
-  const where = definition.uri && toFilePath(definition.uri)
-    ? `defined in \`${path.basename(toFilePath(definition.uri))}\``
-    : "";
+  const where =
+    definition.uri && toFilePath(definition.uri)
+      ? `defined in \`${path.basename(toFilePath(definition.uri))}\``
+      : "";
   const visibility = definition.exported
     ? "shown"
     : definition.local
-    ? "local"
-    : "private";
+      ? "local"
+      : "private";
   return [visibility, definition.role, where].filter(Boolean).join(" · ");
 };
 const selectionRange = (model, position) => {
@@ -770,8 +757,7 @@ const selectionRange = (model, position) => {
   const containing = [...model.pairs.entries()]
     .filter(
       ([open, close]) =>
-        model.tokens[open].offset <=
-          (token?.offset ?? model.text.length) &&
+        model.tokens[open].offset <= (token?.offset ?? model.text.length) &&
         (token?.endOffset ?? model.text.length) <=
           model.tokens[close].endOffset,
     )
@@ -807,8 +793,10 @@ const rangeContainsLine = (range, line) => {
   return range.start.line <= line && line <= range.end.line;
 };
 const positionInRange = (position, range) => {
-  return comparePosition(range.start, position) <= 0 &&
-    comparePosition(position, range.end) <= 0;
+  return (
+    comparePosition(range.start, position) <= 0 &&
+    comparePosition(position, range.end) <= 0
+  );
 };
 const comparePosition = (left, right) => {
   return left.line - right.line || left.character - right.character;
@@ -816,17 +804,13 @@ const comparePosition = (left, right) => {
 const offsetAt = (text, position) => {
   const lines = text.split(/\r\n|\r|\n/);
   let offset = 0;
-  for (
-    let line = 0;
-    line < Math.min(position.line, lines.length);
-    line += 1
-  ) {
+  for (let line = 0; line < Math.min(position.line, lines.length); line += 1) {
     offset += lines[line].length + 1;
   }
   return offset + position.character;
 };
 const validName = (name) => {
-  return Boolean(name) && !/[\s#(){}:,|!=.$→`']/u.test(name);
+  return Boolean(name) && name !== "*" && !/[\s#(){}:,|!=.$→`']/u.test(name);
 };
 const configureWorkspace = () => {
   tongueDir = findTongueDir(configuredTongue);
@@ -836,16 +820,23 @@ const configureWorkspace = () => {
     process.env.TUNG_PATH,
   );
   const executable = configuredExecutable || undefined;
-  if (compiler.tongue !== tongueDir || compiler.executablePath !== executable ||
-      compiler.libraryRoots.length !== localLibraryRoots.length ||
-      compiler.libraryRoots.some((root, index) => root !== localLibraryRoots[index])) {
+  if (
+    compiler.tongue !== tongueDir ||
+    compiler.executablePath !== executable ||
+    compiler.libraryRoots.length !== localLibraryRoots.length ||
+    compiler.libraryRoots.some(
+      (root, index) => root !== localLibraryRoots[index],
+    )
+  ) {
     highlights.clear();
   }
   compiler.configure(tongueDir, localLibraryRoots, executable);
   let declared: string[] = [];
   libraryResolutionError = undefined;
   try {
-    const openProjects = documents.all().map(({ uri }) => toFilePath(uri))
+    const openProjects = documents
+      .all()
+      .map(({ uri }) => toFilePath(uri))
       .filter(Boolean);
     declared = readDeclaredLibraryPaths(
       compiler.findExecutable(),

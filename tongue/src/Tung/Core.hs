@@ -181,7 +181,7 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
         members2 <- traverse lowerInstanceMember members
         pure [CoreInstance key typeClass members2]
 
-    lowerConstructor owner (Ctor name fields _) =
+    lowerConstructor owner (Ctor name _ fields _) =
       resolveOwn (owner ++ "@" ++ name) (== ConstructorTerm (length fields))
 
     lowerResolvedOperation owner (target, EffectOp name _)
@@ -221,6 +221,7 @@ lowerCoreProgram terms (Program declarations) = evalStateT (concat <$> traverse 
         body2 <- lowerExpr locals body
         pure (CoreMatch [] [CoreMatchCase (fmap (CoreBind . EvidenceLocal) identifiers) body2])
       EAscribe expression _ -> lowerExpr locals expression
+      ETypeApply expression _ -> lowerExpr locals expression
       EApply function arguments -> CoreApply <$> lowerExpr locals function <*> traverse (lowerExpr locals) arguments
       ERecord fields -> CoreRecord <$> traverse (traverse (lowerExpr locals)) fields
       EField base field -> CoreField <$> lowerExpr locals base <*> pure field

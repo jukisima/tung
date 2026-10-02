@@ -8,70 +8,62 @@ use flock/algebra/arithmetic/subtract.tung
 use flock/algebra/arithmetic/zero.tung
 use flock/elementary.tung
 
-show ilk complex [a:ilk] {
+show ilk complex [a:*, *] {
   complex [a, a, a complex]
 }
 
-show let real [(a complex _):a complex, a] a
+show let real [@a:*, (a complex _):a complex, a] a
 
-show let imaginary [(_ complex b):a complex, a] b
+show let imaginary [@a:*, (_ complex b):a complex, a] b
 
-graiþ a zero, a one
-show let unit [a complex] zero complex one
+show let unit [byzen a zero, byzen a one, a complex] zero complex one
 
-graiþ a add
-bizen (a complex) add {
-  let (a complex b) + (c complex d) ≔ (a + c) complex (b + d)
+bizen [byzen a add]:(a complex) add {
+  let (a complex b) + (c complex d) [] (a + c) complex (b + d)
 }
 
-graiþ a zero
-bizen (a complex) zero {
-  let zero ≔ zero complex zero
+bizen [byzen a zero]:(a complex) zero {
+  let zero [] zero complex zero
 }
 
-graiþ a subtract
-bizen (a complex) subtract {
-  let (a complex b) - (c complex d) ≔ (a - c) complex (b - d)
+bizen [byzen a subtract]:(a complex) subtract {
+  let (a complex b) - (c complex d) [] (a - c) complex (b - d)
 }
 
-graiþ a subtract, a multiply
-bizen (a complex) multiply {
-  let (a complex b) × (c complex d) ≔ ((a × c) - (b × d)) complex ((a × d) + (b × c))
+bizen [byzen a subtract, byzen a multiply]:(a complex) multiply {
+  let (a complex b) × (c complex d) [] ((a × c) - (b × d)) complex ((a × d) + (b × c))
 }
 
-graiþ a one, a zero
-bizen (a complex) one {
-  let one ≔ one complex zero
+bizen [byzen a one, byzen a zero]:(a complex) one {
+  let one [] one complex zero
 }
 
-graiþ a subtract, a multiply, a divide
-bizen (a complex) divide {
-  let (a complex b) ÷ (c complex d) ≔  (
-    let e ≔ c × c $ + (d × d)
+bizen [byzen a subtract, byzen a multiply, byzen a divide]:(a complex) divide {
+  let (a complex b) ÷ (c complex d) []  (
+    let e [] c × c $ + (d × d)
     yield ((a × c) + (b × d) $ ÷ e) complex ((b × c) - (a × d) $ ÷ e)
   )
 }
 
-graiþ a add, a multiply
-bizen (a complex) absolute a {
-  let (a complex b) absolute ≔ (a × a) + (b × b)
+bizen [byzen a add, byzen a multiply]:(a complex) absolute a {
+  let (a complex b) absolute [] (a × a) + (b × b)
 }
 
-bizen (float complex) elementary {
-  let (a complex b) exponent ≔ (
-    let c ≔ a exponent
+bizen:(float complex) elementary {
+  let (a complex b) exponent [] (
+    let c [] a exponent
     yield (c × (b cosine)) complex (c × (b sine))
   )
-  let (a complex b) logariþm ≔ ((a × a) + (b × b) $ logariþm) complex (a arctan-float b)
-  let (a complex b) sine ≔ (
-    let positive ≔ ((zero - b) complex a) exponent
-    let negative ≔ (b complex (zero - a)) exponent
+  let (a complex b) logariþm [] ((a × a) + (b × b) $ logariþm) complex (a arctan-float b)
+  let (a complex b) sine [] (
+    let positive [] ((zero - b) complex a) exponent
+    let negative [] (b complex (zero - a)) exponent
     yield (((positive imaginary) - (negative imaginary)) × 0.5)
     complex (((negative real) - (positive real)) × 0.5)
   )
-  let (a complex b) cosine ≔ (
-    let positive ≔ ((zero - b) complex a) exponent
-    let negative ≔ (b complex (zero - a)) exponent
+  let (a complex b) cosine [] (
+    let positive [] ((zero - b) complex a) exponent
+    let negative [] (b complex (zero - a)) exponent
     yield (((positive real) + (negative real)) × 0.5)
     complex (((positive imaginary) + (negative imaginary)) × 0.5)
   )

@@ -27,6 +27,7 @@ library
     , Tung.Highlight
     , Tung.Import
     , Tung.Identity
+    , Tung.Kind
     , Tung.Library
     , Tung.Metadata
     , Tung.Name

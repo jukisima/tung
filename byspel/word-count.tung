@@ -15,13 +15,13 @@ let count-word [counts:text table ℤ, word:text, text table ℤ]
   }
 
 let count-words [content:text, text table ℤ] (
-  let words ≔ content words-text
+  let words [] content words-text
   yield words fold₁ table~empty count-word
 )
 
 let write-count [entry:text ∏ ℤ, 𝟙; console] (
-  let _ ≔ (entry project₀) write
-  let _ ≔ ':' write
+  let _ [] (entry project₀) write
+  let _ [] ':' write
   yield (entry project₁) to-text $ write-line
 )
 
@@ -29,10 +29,10 @@ let main [_:𝟙, 𝟙; console, file, system]
   match only arguments {
     list~empty ^ 'usage: tung word-count.tung <file>' write-line,
     paþ _* _ ^ try (
-      let content ≔ paþ read-file
-      let counts ≔ content count-words
+      let content [] paþ read-file
+      let counts [] content count-words
       yield (counts entries) each write-count
     ) {
-      message fail ^ 'error:' * message $ write-line
+      message fail ^ 'error:' · message $ write-line
     }
   }

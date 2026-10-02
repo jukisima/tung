@@ -1,11 +1,11 @@
 use ilk/two.tung
 
-show flock to-text [a:ilk] (
+show flock to-text [a:*] {
   let to-text [a, text]
-)
+}
 
-bizen 𝟚 to-text {
-  let to-text ≔ {
+bizen:𝟚 to-text {
+  let to-text [] {
     yea ^ 'yea',
     nay ^ 'nay'
   }

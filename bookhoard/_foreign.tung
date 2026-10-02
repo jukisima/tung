@@ -1,9 +1,11 @@
+use deed/fail.tung
 use ilk/list.tung
+use ilk/one.tung
 use ilk/option.tung
 use ilk/product.tung
 use ilk/two.tung
 
-ilk task [a:ilk] {
+ilk task [a:*, *] {
   done [a, a task]
 }
 
@@ -11,9 +13,8 @@ show-ilk task
 
 show deed divergent {}
 
-show deed e fail {
-  fail [e, a]
-}
+show-ilk fail
+show fail
 
 show deed console {
   write [text, 𝟙],
@@ -30,10 +31,10 @@ show deed a state {
 }
 
 show deed async {
-  fork [[𝟙, a; e], a task; e],
-  wait [a task, a; text fail],
-  fordo [a task, 𝟙],
-  wait-for [a task, ℤ, a option; text fail],
+  fork [@a:*, @e:*, [𝟙, a; e], a task; e],
+  wait [@a:*, a task, a; text fail],
+  fordo [@a:*, a task, 𝟙],
+  wait-for [@a:*, a task, ℤ, a option; text fail],
   sleep [ℤ, 𝟙]
 }
 

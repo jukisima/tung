@@ -1,7 +1,15 @@
-show let call [@a:ilk, @b:ilk, a:a, f:[a, b; e], b; e] a f
+show let call [@a:*, @b:*, @e:*, a:a, f:[a, b; e], b; e]
+  a f
 
-show let constant [@a:ilk, @b:ilk, a:a, _:b, a] a
+show let constant [@a:*, @b:*, a:a, _:b, a]
+  a
 
-show let flip [@a:ilk, @b:ilk, @c:ilk, f:[a, b, c; e], b:b, a:a, c; e] a f b
+show let flip [
+  @a:*, @b:*, @c:*, @e:*,
+  f:[a, b, c; e], b:b, a:a, c; e
+] a f b
 
-show let duplicate [@a:ilk, @b:ilk, a:a, f:[a, a, b; e], b; e] a f a
+show let duplicate [
+  @a:*, @b:*, @e:*,
+  a:a, f:[a, a, b; e], b; e
+] a f a

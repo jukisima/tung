@@ -3,14 +3,11 @@ use flock/order/semilattice-lower.tung
 use flock/order/semilattice-upper.tung
 
 ## a carrier wiþ compatible infimum and supremum semilattices.
-graiþ a semilattice-lower, a semilattice-upper
-show flock lattice [a:ilk] (
+show flock lattice [byzen a semilattice-lower, byzen a semilattice-upper] {
   law [a:a, b:a] a ∧ (a ∨ b) = a
   law [a:a, b:a] a ∨ (a ∧ b) = a
-)
+}
 
-graiþ b lattice
-bizen (a → b) lattice {}
+bizen [byzen b lattice, @a:*]:(a → b) lattice {}
 
-graiþ a order-total
-bizen a lattice {}
+bizen [byzen a order-total]:a lattice {}

@@ -1,0 +1,8 @@
+use ilk/product.tung
+
+# natural transformation
+let ⇒ [f:[*, *], g:[*, *], a:*, *]
+  [a f, a g]
+
+let apply2 [@a:*, @b:*, f:[@a:*, a, a], a ∏ b:a ∏ b, a ∏ b]
+  (a f) ∏ (b f)

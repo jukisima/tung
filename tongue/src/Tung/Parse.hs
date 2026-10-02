@@ -16,14 +16,15 @@ module Tung.Parse
   )
 where
 
-import Control.Monad (foldM, when)
+import Control.Monad (foldM, unless, when)
+import Data.Bifunctor (first)
 import Data.Char (isAlphaNum)
 import Data.Either (fromRight)
 import Data.Foldable (toList, traverse_)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Lazy qualified as Map
-import Data.Maybe (isNothing, mapMaybe, maybeToList)
+import Data.Maybe (isJust, isNothing, mapMaybe)
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
@@ -39,8 +40,6 @@ data FunctionResult = FunctionResult
   deriving (Eq, Show)
 
 data HeaderSlot = BoundSlot Pattern TypeExpr | BareSlot TypeExpr
-
-data KindExpr = KindType | KindArrow KindExpr KindExpr | KindUnknown deriving (Eq)
 
 -- parsing emitteþ source roles alongside its value. diagnostics remain strict;
 -- editor clients can retain the roles preceding an incomplete expression.
@@ -166,7 +165,6 @@ parseDeclGroup = withPosition \case
     pure ([d], rest)
 
 parseExportGroup :: P [Decl]
-parseExportGroup (TConstraints : _) = Failed "show must follow graiþ requirements"
 parseExportGroup ts = case parseReExportNames ts of
   Parsed (names, rest) -> pure (map ReExport names, rest)
   Failed _ -> do
@@ -193,60 +191,22 @@ parseReExportNames = go []
 parseDecl :: P Decl
 parseDecl = \case
   TImport : rest -> parseImport rest
-  TConstraints : rest -> parseConstraintDecl rest
-  TLet : rest -> parseLetDecl [] rest
-  TTypeAlias : rest -> parseTypeAlias rest
+  TLet : rest -> parseLetDecl rest
   TType : rest -> parseData rest
   TEffect : rest -> parseEffect rest
-  TClass : rest -> parseClass [] rest
-  TInstance : rest -> parseInstance [] rest
+  TClass : rest -> parseClass rest
+  TInstance : rest -> parseInstance rest
   _ -> Failed "expected declaration"
 
-parseConstraintDecl :: P Decl
-parseConstraintDecl ts = do
-  (constraints, rest) <- parseConstraintPrefix isConstraintEnd expected ts
-  let (exported, declaration) = case rest of
-        TExport : after -> (True, after)
-        _ -> (False, rest)
-  (parsed, remaining) <- case declaration of
-    TLet : rest2 -> parseLetDecl constraints rest2
-    TClass : rest2 -> parseClass constraints rest2
-    TInstance : rest2 -> parseInstance constraints rest2
-    _ -> Failed expected
-  pure (if exported then Export parsed else parsed, remaining)
-  where
-    expected = "expected 'let', 'flock' or 'bizen' after graiþ"
-
-isConstraintEnd :: Token -> Bool
-isConstraintEnd = \case
-  TLet -> True
-  TClass -> True
-  TInstance -> True
-  TExport -> True
-  TExportType -> True
-  _ -> False
-
-parseConstraintLet :: P Decl
-parseConstraintLet ts = do
-  (constraints, rest) <- parseConstraintPrefix (\case TLet -> True; _ -> False) "expected 'let' after graiþ" ts
-  case rest of
-    TLet : rest2 -> parseLetDecl constraints rest2
-    _ -> Failed "expected 'let' after graiþ"
-
-parseConstraintPrefix :: (Token -> Bool) -> String -> [Token] -> Result ([ClassConstraint], [Token])
-parseConstraintPrefix stop message ts = do
-  (constraintTokens, rest) <- takeTopLevelUntil ts stop message
-  constraints <- parseClassConstraintsWhole constraintTokens
-  pure (constraints, rest)
-
--- let parsing accepteþ named and positional headers and constraint prefixes, then
+-- let parsing accepteþ named and positional bracketed headers, then
 -- lowers every parameter list to an anonymous match.
-parseLetDecl :: [ClassConstraint] -> P Decl
-parseLetDecl constraints = \case
-  token@(TIdent _) : rest -> parseLet constraints token rest
-  ts@(TInteger _ : _) -> parsePositionalLet constraints ts
-  ts@(TLParen : _) -> parsePositionalLet constraints ts
-  _ -> Failed "expected let binding"
+parseLetDecl :: P Decl
+parseLetDecl ts = do
+  (header, rest) <- takeTopLevelUntil ts (== TLBracket) "let requireþ a bracketed header; use '[]' to infer its type"
+  (patterns, name) <- functionHeader header
+  case rest of
+    TLBracket : after -> parseBracketLet name patterns after
+    _ -> Failed "expected '[' after let header"
 
 parseImport :: P Decl
 parseImport ts = do
@@ -266,16 +226,6 @@ parseImportPath (TIdent first : rest) = go first rest
     go path remaining = Parsed (path, remaining)
 parseImportPath _ = Failed "expected use path"
 
-parseTypeAlias :: P Decl
-parseTypeAlias ts = do
-  (header, rest) <- takeTopLevelUntil ts (\case TEquals -> True; _ -> False) "expected '=' after let-ilk header"
-  (params, name) <- parseParamHeader "let-ilk" header
-  case rest of
-    TEquals : body -> do
-      (target, remaining) <- parseTypeUntilFileBoundary body
-      pure (TypeAlias params name target, remaining)
-    _ -> Failed "expected '=' after let-ilk header"
-
 parseTypeUntilFileBoundary :: P TypeExpr
 parseTypeUntilFileBoundary ts =
   parseTypeUntilTopLevelOrEnd ts isBoundary "unterminated type"
@@ -286,9 +236,7 @@ parseTypeUntilFileBoundary ts =
 startsFileDeclaration :: Token -> Bool
 startsFileDeclaration = \case
   TImport -> True
-  TConstraints -> True
   TLet -> True
-  TTypeAlias -> True
   TType -> True
   TEffect -> True
   TClass -> True
@@ -297,92 +245,96 @@ startsFileDeclaration = \case
   TExportType -> True
   _ -> False
 
-parseLet :: [ClassConstraint] -> Token -> P Decl
-parseLet constraints name = \case
-  TDefine : rest -> parseLetBody name (implicitLetAnn constraints []) [] rest
-  TEquals : _ -> Failed "let definition useþ '≔'"
-  TLBracket : rest -> parseBracketLet constraints name [] rest
-  ts -> parsePositionalLet constraints (name : ts)
-
-parsePositionalLet :: [ClassConstraint] -> P Decl
-parsePositionalLet constraints ts = do
-  (header, rest) <- takeTopLevelUntil ts isHeaderBoundary "expected '≔' after let header"
-  (patterns, name) <- functionHeader header
-  case rest of
-    TLBracket : after -> parseBracketLet constraints name patterns after
-    TDefine : body -> parseLetBody name (implicitLetAnn constraints (replicate (length patterns) Nothing)) patterns body
-    TEquals : _ -> Failed "let definition useþ '≔'"
-    _ -> Failed "expected '≔' after let header"
-  where
-    isHeaderBoundary = \case
-      TLBracket -> True
-      TEquals -> True
-      TDefine -> True
-      _ -> False
-
-parseBracketLet :: [ClassConstraint] -> Token -> [Pattern] -> P Decl
-parseBracketLet constraints name positional ts = do
+parseBracketLet :: Token -> [Pattern] -> P Decl
+parseBracketLet name positional ts = do
   (header, closing) <- takeTopLevelUntil ts (== TRBracket) "expected ']' after let header"
-  (slots, result, effects) <- parseLetBracket (not (null positional)) header
+  items <- headerItems (fst (splitBracketEffects header))
   case closing of
     TRBracket : TEquals : _ -> Failed "bracketed let header doth not use '='"
-    TRBracket : TDefine : _ -> Failed "bracketed let header doth not use '≔'"
+    TRBracket : body | not (null items) && last items == [TKindStar] -> parseAliasLet name positional header body
     TRBracket : body -> do
+      (entries, slots, result, effects) <- parseLetBracket header
       let arguments = replicate (length positional) Nothing ++ map slotType slots
           patterns = positional ++ [pat | BoundSlot pat _ <- slots]
       annotation <- case result of
-        Just ty -> Just <$> functionLetAnn constraints arguments (FunctionResult ty effects)
+        Just ty -> Just <$> functionLetAnn entries arguments (FunctionResult ty effects)
         Nothing
-          | null effects -> Parsed (implicitLetAnn constraints arguments)
+          | null effects -> Parsed (implicitLetAnn entries arguments)
           | otherwise -> Failed "effect row requireþ a result type"
+      unless (null entries || isJust annotation) (Failed "type parameters requireþ a type annotation")
       parseLetBody name annotation patterns body
     _ -> Failed "expected ']' after let header"
   where
     slotType (BoundSlot _ ty) = Just ty
     slotType (BareSlot ty) = Just ty
 
-parseLetBracket :: Bool -> [Token] -> Result ([HeaderSlot], Maybe TypeExpr, [TypeExpr])
-parseLetBracket hasPositional tokens = do
+-- a star result selecteþ a type-level declaration before value-header parsing.
+-- its named inputs are kinds, so no runtime arguments or effect row are created.
+parseAliasLet :: Token -> [Pattern] -> [Token] -> P Decl
+parseAliasLet token@(TIdent name) positional header body = do
+  unless (null positional) (Failed "type alias requireþ a named header without value arguments or constraints")
+  let (parameterTokens, effects) = splitBracketEffects header
+  unless (isNothing effects) (Failed "type alias header cannot have effects")
+  items <- splitBracketItems parameterTokens
+  params <- traverse (parseKindedParameter "type alias" . dropOptionalAt) (init items)
+  markRole "type" (["declaration"] ++ ["typeFunction" | not (null params)]) token
+  traverse_ (markRole "keyword" []) (last items)
+  (target, remaining) <- parseTypeUntilFileBoundary body
+  pure (TypeAlias params name target, remaining)
+  where
+    dropOptionalAt (TAt : rest) = rest
+    dropOptionalAt rest = rest
+parseAliasLet _ _ _ _ = Failed "expected type alias name"
+
+parseLetBracket :: [Token] -> Result ([TypeHeaderEntry], [HeaderSlot], Maybe TypeExpr, [TypeExpr])
+parseLetBracket tokens = do
   let (slotTokens, effectTokens) = splitBracketEffects tokens
-  items <- splitBracketItems slotTokens
-  -- type parameters are declarations, not runtime arguments or result slots.
-  let (parameterItems, argumentItems) = span startsTypeParameter items
-  names <- traverse parseTypeParameter parameterItems
-  if any startsTypeParameter argumentItems
-    then Failed "type parameters must precede value arguments"
-    else pure ()
-  if length names /= Set.size (Set.fromList names)
-    then Failed "type parameters must have distinct names"
-    else pure ()
+  items <- headerItems slotTokens
+  (entries, argumentItems) <- parseHeaderPrefix items
   slots <- traverse parseHeaderSlot argumentItems
   effects <- maybe (Parsed []) (withEffect . parseBracketTypes) effectTokens
   let (arguments, result) = case reverse slots of
         BareSlot ty : rest -> (reverse rest, Just ty)
         _ -> (slots, Nothing)
-  if null arguments && not hasPositional && isNothing result
-    then Failed "function header requireþ at least one argument"
-    else
-      if hasBoundAfterBare arguments
-        then Failed "named arguments must precede bare argument types"
-        else Parsed (arguments, result, effects)
+  if hasBoundAfterBare arguments
+    then Failed "named arguments must precede bare argument types"
+    else Parsed (entries, arguments, result, effects)
   where
     hasBoundAfterBare = go False
     go _ [] = False
     go _ (BareSlot _ : rest) = go True rest
     go seenBare (BoundSlot _ _ : rest) = seenBare || go False rest
-    startsTypeParameter (TAt : _) = True
-    startsTypeParameter _ = False
 
-parseTypeParameter :: [Token] -> Result String
-parseTypeParameter [TAt, token@(TIdent name), TColon, kind@TType]
-  | name /= "_" && not (isQualifiedName name) && name `notElem` primitiveTypeNames = do
-      markRole "type" ["declaration"] token
-      markRole "type" [] kind
-      pure name
-parseTypeParameter _ = Failed "type parameter must have the form '@name:ilk'"
+-- every header putteþ requirements before type parameters, then value slots.
+-- kind checking later resolveþ requirements against imported class signatures.
+parseHeaderPrefix :: [[Token]] -> Result ([TypeHeaderEntry], [[Token]])
+parseHeaderPrefix items = do
+  (requirements, rest) <- parseRequirementPrefix items
+  let (prefix, remaining) = span startsTypeParameter rest
+  parameters <- traverse (fmap Parameter . parseKindedParameter "polymorphic" . drop 1) prefix
+  let names = parameterNames (headerParameters parameters)
+  when (any startsTypeParameter remaining) (Failed "type parameters must precede value arguments")
+  when (length names /= Set.size (Set.fromList names)) (Failed "type parameters must have distinct names")
+  pure (requirements ++ parameters, remaining)
+
+parseRequirementPrefix :: [[Token]] -> Result ([TypeHeaderEntry], [[Token]])
+parseRequirementPrefix items = do
+  let (prefix, remaining) = span startsRequirement items
+  when (any startsRequirement remaining) (Failed "byzen constraints must precede type parameters and value arguments")
+  requirements <- traverse requirement prefix
+  pure (requirements, remaining)
+  where
+    startsRequirement (TConstraint : _) = True
+    startsRequirement _ = False
+    requirement (TConstraint : tokens) = Requirement <$> parseWhole "invalid class constraint" parseClassConstraint tokens
+    requirement _ = Failed "expected byzen constraint"
+
+headerItems :: [Token] -> Result [[Token]]
+headerItems [] = pure []
+headerItems tokens = splitBracketItems tokens
 
 parseHeaderSlot :: [Token] -> Result HeaderSlot
-parseHeaderSlot (TAt : _) = Failed "type parameter must have the form '@name:ilk'"
+parseHeaderSlot (TAt : _) = Failed "type parameters and constraints must precede arguments"
 parseHeaderSlot tokens = case splitTopLevelColon tokens of
   Just (patternTokens, typeTokens) -> do
     pat <- plainBinders (parseHeaderPattern patternTokens)
@@ -420,20 +372,25 @@ parseHeaderPatternArguments tokens = do
 
 parseLetBody :: Token -> Maybe TypeAnn -> [Pattern] -> P Decl
 parseLetBody token@(TIdent name) ann params ts = do
-  let callable = not (null params) || case ann of Just (TypeAnn TypeArrow {} _) -> True; _ -> False
+  let callable = not (null params) || maybe False (functionType . (\(TypeAnn ty _) -> ty)) ann
   markRole (if callable then "function" else "variable") (["declaration"] ++ ["applied" | callable]) token
   (e, rest) <- parseExpr ts
   when (not callable && isAnonymousMatchExpr e) (markRole "function" ["declaration", "applied"] token)
   pure (Let name ann (lambdaIfParams params e), rest)
 parseLetBody _ _ _ _ = Failed "expected let name"
 
-functionLetAnn :: [ClassConstraint] -> [Maybe TypeExpr] -> FunctionResult -> Result TypeAnn
+functionType :: TypeExpr -> Bool
+functionType TypeArrow {} = True
+functionType (TypeForall _ body) = functionType body
+functionType _ = False
+
+functionLetAnn :: [TypeHeaderEntry] -> [Maybe TypeExpr] -> FunctionResult -> Result TypeAnn
 functionLetAnn constraints [] FunctionResult {functionResultType = result, functionResultEffects = []} = Parsed (TypeAnn result constraints)
 functionLetAnn _ [] _ = Failed "effect annotation requireþ function arguments"
 functionLetAnn constraints argTypes FunctionResult {..} =
   TypeAnn <$> makeArrowType (instanceMissingTypes argTypes) functionResultEffects functionResultType <*> pure constraints
 
-implicitLetAnn :: [ClassConstraint] -> [Maybe TypeExpr] -> Maybe TypeAnn
+implicitLetAnn :: [TypeHeaderEntry] -> [Maybe TypeExpr] -> Maybe TypeAnn
 implicitLetAnn [] [] = Nothing
 implicitLetAnn [] argTypes | all isNothing argTypes = Nothing
 implicitLetAnn constraints argTypes = Just (TypeAnn ty constraints)
@@ -449,39 +406,45 @@ instanceMissingTypes = zipWith instance_ [0 :: Int ..]
     instance_ n Nothing = implicitTypeAt n
 
 implicitTypeAt :: Int -> TypeExpr
-implicitTypeAt n = TypeName ("t" ++ show n)
+implicitTypeAt = TypeHole
 
 parseData :: P Decl
 parseData ts = do
-  (header, body) <- parseHeaderBody "ilk" ts
-  (params, name, kinds) <- parseDataHeader header
+  (header, rest) <- takeTopLevelUntil ts (== TLBracket) "expected bracketed ilk header"
+  (contents, closing) <- case rest of
+    TLBracket : after -> takeTopLevelUntil after (== TRBracket) "expected ']' after ilk header"
+    _ -> Failed "expected bracketed ilk header"
+  body <- case closing of
+    TRBracket : TLBrace : after -> pure after
+    _ -> Failed "expected '{' after ilk header"
+  let fullHeader = header ++ [TLBracket] ++ contents ++ [TRBracket]
+  (params, name) <- parseDataHeader fullHeader
   markHeaderName "type" (["declaration"] ++ ["typeFunction" | not (null params)]) header
   (ctors, rest) <- parseCtors body
-  if null kinds && not (null params)
-    then pure ()
-    else traverse_ (checkConstructorKinds name kinds) ctors
   pure (DataDecl params name ctors, rest)
 
-parseDataHeader :: [Token] -> Result ([String], String, [(String, KindExpr)])
+parseDataHeader :: [Token] -> Result ([TypeParameter], String)
 parseDataHeader (TIdent name : TLBracket : rest) = do
   (contents, closing) <- takeTopLevelUntil rest (== TRBracket) "expected ']' after ilk parameters"
-  params <- splitBracketItems contents >>= traverse (parseKindedParameter "ilk")
+  items <- splitBracketItems contents
+  unless (last items == [TKindStar]) (Failed "ilk header requireþ a final *")
+  traverse_ (markRole "keyword" []) (last items)
+  params <- traverse (parseKindedParameter "ilk") (init items)
   case closing of
-    [TRBracket] -> Parsed (map fst params, name, params)
+    [TRBracket] -> Parsed (params, name)
     _ -> Failed "unexpected tokens after ilk parameters"
-parseDataHeader header = do
-  (params, name) <- parseParamHeader "ilk" header
-  pure (params, name, [])
+parseDataHeader _ = Failed "ilk requireþ a name and kinded bracketed header"
 
 parseKindedParameter :: String -> [Token] -> Result (String, KindExpr)
-parseKindedParameter _ (token@(TIdent name) : TColon : kind) = do
-  markRole "type" ["declaration"] token
-  parsed <- parseKind kind
-  pure (name, parsed)
+parseKindedParameter _ (token@(TIdent name) : TColon : kind)
+  | name /= "_" && not (isQualifiedName name) && name `notElem` primitiveTypeNames = do
+      markRole "type" ["declaration"] token
+      parsed <- parseKind kind
+      pure (name, parsed)
 parseKindedParameter declaration _ = Failed (declaration ++ " parameters require a name and kind")
 
 parseKind :: [Token] -> Result KindExpr
-parseKind [token@TType] = markRole "type" [] token >> pure KindType
+parseKind [token@TKindStar] = markRole "keyword" [] token >> pure KindType
 parseKind (TLBracket : rest) = do
   (contents, closing) <- takeTopLevelUntil rest (== TRBracket) "expected ']' after kind"
   case closing of
@@ -491,40 +454,7 @@ parseKind (TLBracket : rest) = do
         result : argument : others -> Parsed (foldr KindArrow result (reverse (argument : others)))
         _ -> Failed "kind arrow requireþ an argument and result"
     _ -> Failed "unexpected tokens after kind"
-parseKind _ = Failed "expected ilk or bracketed kind arrow"
-
-checkConstructorKinds :: String -> [(String, KindExpr)] -> Ctor -> Result ()
-checkConstructorKinds dataName declaredParameters (Ctor _ fields result) =
-  checkSignatureKinds "constructor" (Just dataName) declaredParameters (fields ++ maybeToList result)
-
--- check local kinds while the declared parameters are still available. other
--- type constructors are resolved later, so their kinds remain unknown here.
-checkSignatureKinds :: String -> Maybe String -> [(String, KindExpr)] -> [TypeExpr] -> Result ()
-checkSignatureKinds owner self declaredParameters = traverse_ (checkTypeKind KindType)
-  where
-    parameters = Map.fromList declaredParameters
-    selfKind = foldr KindArrow KindType (map snd declaredParameters)
-    kindOf (TypeName name) = Parsed (headKind name)
-    kindOf (TypeApply name args) = do
-      argKinds <- traverse kindOf args
-      foldM apply (headKind name) argKinds
-    kindOf (TypeRecord fields) = traverse_ (checkTypeKind KindType . snd) fields >> pure KindType
-    kindOf (TypeArrow arguments effects resultType) = do
-      traverse_ (checkTypeKind KindType) (NE.toList arguments ++ effects ++ [resultType])
-      pure KindType
-    checkTypeKind expected ty = do
-      actual <- kindOf ty
-      if actual == expected || actual == KindUnknown then pure () else Failed (owner ++ " type hath the wrong kind")
-    apply (KindArrow expected resultKind) actual
-      | expected == actual || actual == KindUnknown = Parsed resultKind
-      | otherwise = Failed (owner ++ " type argument hath the wrong kind")
-    apply KindUnknown _ = Parsed KindUnknown
-    apply KindType _ = Failed ("too many type arguments in " ++ owner ++ " signature")
-    headKind name
-      | Just name == self = selfKind
-      | name == "→" = KindArrow KindType (KindArrow KindType KindType)
-      | name `elem` primitiveTypeNames = KindType
-      | otherwise = Map.findWithDefault KindUnknown name parameters
+parseKind _ = Failed "expected * or bracketed kind arrow"
 
 parseEffect :: P Decl
 parseEffect ts = do
@@ -532,11 +462,11 @@ parseEffect ts = do
   (ops, rest) <- parseEffectOps body
   pure (EffectDecl params name ops, rest)
 
-parseParamHeaderBody :: String -> [Token] -> Result ([String], String, [Token])
+parseParamHeaderBody :: String -> [Token] -> Result ([TypeParameter], String, [Token])
 parseParamHeaderBody kind ts = do
   (header, body) <- parseHeaderBody kind ts
   (params, name) <- parseParamHeader kind header
-  pure (params, name, body)
+  pure (unknownParameters params, name, body)
 
 parseHeaderBody :: String -> [Token] -> Result ([Token], [Token])
 parseHeaderBody kind ts = do
@@ -568,78 +498,73 @@ parseEffectOp :: P EffectOp
 parseEffectOp (token@(TIdent name) : TLBracket : ts) = do
   markRole "method" ["declaration", "effect"] token
   (header, closing) <- takeTopLevelUntil ts (== TRBracket) "expected ']' after effect operation type"
-  annotation <- parseBareSignature [] header
-  let TypeAnn ty _ = annotation
+  annotation <- parseBareSignature header
+  let TypeAnn ty entries = annotation
+  unless (null (headerRequirements entries)) (Failed "effect operation constraints are not supported")
+  let operationType = quantifiedType (headerParameters entries) ty
   case closing of
-    TRBracket : rest -> Parsed (EffectOp name ty, rest)
+    TRBracket : rest -> Parsed (EffectOp name operationType, rest)
     _ -> Failed "expected ']' after effect operation type"
 parseEffectOp _ = Failed "expected bracketed effect operation"
 
-parseClass :: [ClassConstraint] -> P Decl
-parseClass constraints (token@(TIdent name) : header) = do
+parseClass :: P Decl
+parseClass (token@(TIdent name) : header) = do
   markRole "class" (["declaration"] ++ ["typeFunction" | case header of TLBracket : _ -> True; _ -> False]) token
-  (params, body) <- case header of
-    TLParen : rest -> Parsed ([], rest)
+  (entries, body) <- case header of
+    TLBrace : rest -> Parsed ([], rest)
     TLBracket : rest -> do
       (contents, closing) <- takeTopLevelUntil rest (== TRBracket) "expected ']' after flock parameters"
-      parameters <- splitBracketItems contents >>= traverse (parseKindedParameter "flock")
+      items <- headerItems contents
+      (requirements, remaining) <- parseRequirementPrefix items
+      parameters <- traverse (fmap Parameter . parseKindedParameter "flock") remaining
+      let entries = requirements ++ parameters
       case closing of
-        TRBracket : TLParen : members -> Parsed (parameters, members)
-        _ -> Failed "expected '(' after flock parameters"
-    _ -> Failed "expected '(' or kinded parameters after flock name"
+        TRBracket : TLBrace : members -> Parsed (entries, members)
+        _ -> Failed "expected '{' after flock parameters"
+    _ -> Failed "expected '{' or kinded parameters after flock name"
   (members, rest) <- parseClassMembers body
-  traverse_ (checkClassMemberKinds params) members
   case rest of
-    TRParen : following -> pure (ClassDecl (map fst params) name constraints members, following)
-    _ -> Failed "expected ')' after flock body"
-parseClass _ _ = Failed "flock declaration requireþ a name and parenthesised body"
-
-checkClassMemberKinds :: [(String, KindExpr)] -> ClassMember -> Result ()
-checkClassMemberKinds params (ClassSignature _ (TypeAnn signature _)) =
-  checkSignatureKinds "flock member" Nothing params [signature]
-checkClassMemberKinds params (ClassLaw patterns _ _) =
-  checkSignatureKinds "flock law" Nothing params (map snd patterns)
-
-parseClassConstraints :: P [ClassConstraint]
-parseClassConstraints = go []
-  where
-    go acc [] = Parsed (reverse acc, [])
-    go acc (TComma : rest) = go acc rest
-    go acc input = do
-      (parts, rest) <- takeTopLevelUntilOrEnd input (\case TComma -> True; _ -> False)
-      (constraint, _) <- parseClassConstraint parts
-      go (constraint : acc) (dropComma rest)
-
-parseClassConstraintsWhole :: [Token] -> Result [ClassConstraint]
-parseClassConstraintsWhole [] = Parsed []
-parseClassConstraintsWhole tokens = parseWhole "unexpected tokens after graiþ" parseClassConstraints tokens
+    TRBrace : following -> pure (ClassDecl entries name members, following)
+    _ -> Failed "expected '}' after flock body"
+parseClass _ = Failed "flock declaration requireþ a name and braced body"
 
 parseClassConstraint :: P ClassConstraint
-parseClassConstraint [] = Failed "empty graiþ"
+parseClassConstraint [] = Failed "empty class constraint"
 parseClassConstraint ts = do
-  (argTerms, name) <- maybeToEither "invalid graiþ" (headerFromTokens ts)
+  (argTerms, name) <- maybeToEither "invalid class constraint" (headerFromTokens ts)
   args <- typesFromHeaderTerms argTerms
   markHeaderName "class" ["applied"] ts
   pure (ClassConstraint args name, [])
 
-parseInstance :: [ClassConstraint] -> P Decl
-parseInstance constraints ts = do
-  (header, body) <- parseHeaderBody "bizen" ts
+parseInstance :: P Decl
+parseInstance ts = do
+  (entries, headTokens) <- case ts of
+    TColon : after -> pure ([], after)
+    TLBracket : after -> do
+      (contents, closing) <- takeTopLevelUntil after (== TRBracket) "expected ']' after bizen parameters"
+      items <- headerItems contents
+      (entries, remaining) <- parseHeaderPrefix items
+      unless (null remaining) (Failed "bizen header accepteþ only @ parameters and byzen constraints")
+      case closing of
+        TRBracket : TColon : headTokens -> pure (entries, headTokens)
+        _ -> Failed "expected ':' after bizen parameters"
+    _ -> Failed "bizen requireþ ':' or bracketed parameters"
+  (header, rest) <- takeHeaderTokens "bizen" headTokens
   (tyTerms, className) <- maybeToEither "bizen declaration requireþ a flock name" (headerFromTokens header)
   tyArgs <- typesFromHeaderTerms tyTerms
   markHeaderName "class" ["applied"] header
-  case tyArgs of
-    [] -> Failed "bizen declaration requireþ at least one type argument"
-    _ -> pure ()
-  (ds, rest) <- parseLocalDeclsWith (memberRole . parseLocalDecl) body
-  case rest of
-    TRBrace : rest2 -> pure (InstanceDecl tyArgs className constraints ds, rest2)
+  when (null tyArgs) (Failed "bizen declaration requireþ at least one type argument")
+  body <- case rest of
+    TLBrace : after -> pure after
+    _ -> Failed "expected '{' after bizen head"
+  (ds, following) <- parseLocalDeclsWith (memberRole . parseLocalDecl) body
+  case following of
+    TRBrace : after -> pure (InstanceDecl entries tyArgs className ds, after)
     _ -> Failed "expected '}' after bizen body"
 
 parseLocalDecl :: P Decl
 parseLocalDecl = \case
-  TConstraints : rest -> parseConstraintLet rest
-  TLet : rest -> parseLetDecl [] rest
+  TLet : rest -> parseLetDecl rest
   _ -> Failed "expected local let"
 
 parseLocalDecls :: P [Decl]
@@ -648,7 +573,6 @@ parseLocalDecls = parseLocalDeclsWith parseLocalDecl
 parseLocalDeclsWith :: P Decl -> P [Decl]
 parseLocalDeclsWith parser ts = case ts of
   TLet : _ -> next
-  TConstraints : _ -> next
   _ -> pure ([], ts)
   where
     next = do
@@ -669,18 +593,22 @@ parseCtors = parseCommaListUntil isRightBrace parseCtor
 parseCtor :: P Ctor
 parseCtor (token@(TIdent name) : TLBracket : ts) = do
   (contents, closing) <- takeTopLevelUntil ts (== TRBracket) "expected ']' after constructor type"
-  types <- parseBracketTypes contents
+  items <- splitBracketItems contents
+  (entries, remaining) <- parseHeaderPrefix items
+  unless (null (headerRequirements entries)) (Failed "constructor constraints are not supported")
+  types <- traverse (parseWhole "unexpected tokens in constructor type" parseTypeTokens) remaining
+  let parameters = headerParameters entries
   case (reverse types, closing) of
     (result : reversedFields, TRBracket : rest) -> do
       markRole (if null reversedFields then "enumMember" else "function") ["declaration", "constructor"] token
-      pure (Ctor name (reverse reversedFields) (Just result), rest)
+      pure (Ctor name parameters (reverse reversedFields) (Just result), rest)
     _ -> Failed "constructor signature requireþ a result type"
 parseCtor ts = do
   (parts, rest) <- takeCtorTokens ts
   (argTerms, name) <- maybeToEither ("invalid constructor '" ++ showTokens parts ++ "' before " ++ showTokenHead rest) (headerFromTokens parts)
   fields <- typesFromHeaderTerms argTerms
   markHeaderName (if null fields then "enumMember" else "function") ["declaration", "constructor"] parts
-  pure (Ctor name fields Nothing, rest)
+  pure (Ctor name [] fields Nothing, rest)
 
 showTokens :: [Token] -> String
 showTokens = unwords . map showToken
@@ -701,51 +629,43 @@ showTokenHead = \case
   _ -> "token"
 
 parseClassMembers :: P [ClassMember]
-parseClassMembers ts@(TRParen : _) = Parsed ([], ts)
+parseClassMembers ts@(TRBrace : _) = Parsed ([], ts)
 parseClassMembers ts = do
   (member, rest) <- parseClassMember ts
   (members, remaining) <- parseClassMembers rest
   pure (member : members, remaining)
 
 parseClassMember :: P ClassMember
-parseClassMember (TConstraints : ts) = do
-  (constraints, rest) <- parseConstraintPrefix (\case TLet -> True; _ -> False) "expected 'let' after flock member graiþ" ts
-  case rest of
-    TLet : _ -> parseClassLet constraints rest
-    _ -> Failed "expected 'let' after flock member graiþ"
-parseClassMember ts@(TLet : _) = parseClassLet [] ts
+parseClassMember ts@(TLet : _) = parseClassLet ts
 parseClassMember ts@(TLaw : _) = parseClassLaw ts
 parseClassMember _ = Failed "expected flock member"
 
-parseClassLet :: [ClassConstraint] -> P ClassMember
-parseClassLet constraints (TLet : ts) = do
+parseClassLet :: P ClassMember
+parseClassLet (TLet : ts) = do
   (memberTokens, rest) <- takeTopLevelUntilOrEnd ts isClassMemberBoundary
-  member <- parseClassSignature constraints memberTokens
+  member <- parseClassSignature memberTokens
   pure (member, rest)
-parseClassLet _ _ = Failed "expected 'let' before flock member"
+parseClassLet _ = Failed "expected 'let' before flock member"
 
-parseClassSignature :: [ClassConstraint] -> [Token] -> Result ClassMember
-parseClassSignature constraints ts = case ts of
+parseClassSignature :: [Token] -> Result ClassMember
+parseClassSignature ts = case ts of
   token@(TIdent name) : TLBracket : typeTokens -> do
     markRole "call" ["declaration", "applied"] token
     (header, rest) <- takeTopLevelUntil typeTokens (== TRBracket) "expected ']' after flock member type"
     case rest of
       [TRBracket] -> do
-        ty <- parseBareSignature constraints header
+        ty <- parseBareSignature header
         pure (ClassSignature name ty)
       _ -> Failed "unexpected tokens after flock member type"
   _ -> Failed "required flock member type requireþ brackets"
 
-parseBareSignature :: [ClassConstraint] -> [Token] -> Result TypeAnn
-parseBareSignature constraints header = do
-  -- member signatures have no binders, including type-parameter binders.
-  if TAt `elem` header
-    then Failed "type parameters must precede signature arguments"
-    else pure ()
-  (slots, result, effects) <- parseLetBracket False header
+parseBareSignature :: [Token] -> Result TypeAnn
+parseBareSignature header = do
+  (entries, slots, result, effects) <- parseLetBracket header
   arguments <- traverse bareType slots
   resultType <- maybe (Failed "signature requireþ a result type") Parsed result
-  functionLetAnn constraints (map Just arguments) (FunctionResult resultType effects)
+  TypeAnn ty requirements <- functionLetAnn entries (map Just arguments) (FunctionResult resultType effects)
+  pure (TypeAnn ty requirements)
   where
     bareType (BareSlot ty) = Parsed ty
     bareType (BoundSlot _ _) = Failed "signature cannot bind arguments"
@@ -753,17 +673,20 @@ parseBareSignature constraints header = do
 isClassMemberBoundary :: Token -> Bool
 isClassMemberBoundary = \case
   TLet -> True
-  TConstraints -> True
   TLaw -> True
-  TRParen -> True
+  TRBrace -> True
   _ -> False
 
 parseClassLaw :: P ClassMember
 parseClassLaw (TLaw : TLBracket : ts) = do
   (header, closing) <- takeTopLevelUntil ts (== TRBracket) "expected ']' after law parameters"
-  parameters <- splitBracketItems header >>= traverse parseLawBracketParameter
+  items <- splitBracketItems header
+  (entries, remaining) <- parseHeaderPrefix items
+  unless (null (headerRequirements entries)) (Failed "law requirements belong to the enclosing flock")
+  parameters <- traverse parseLawBracketParameter remaining
+  let names = headerParameters entries
   case closing of
-    TRBracket : body -> parseLawBody parameters body
+    TRBracket : body -> parseLawBody names parameters body
     _ -> Failed "expected ']' after law parameters"
 parseClassLaw _ = Failed "expected bracketed law parameters"
 
@@ -774,15 +697,15 @@ parseLawBracketParameter tokens = do
     BoundSlot pat ty -> pure (pat, ty)
     _ -> Failed "law parameters require typed patterns"
 
-parseLawBody :: [(Pattern, TypeExpr)] -> P ClassMember
-parseLawBody parameters body = do
+parseLawBody :: [TypeParameter] -> [(Pattern, TypeExpr)] -> P ClassMember
+parseLawBody names parameters body = do
   (leftTokens, separator) <- takeTopLevelUntil body (== TEquals) "expected '=' between law sides"
   (rightTokens, rest) <- case separator of
     TEquals : right -> takeTopLevelUntilOrEnd right isClassMemberBoundary
     _ -> Failed "expected '=' between law sides"
   left <- parseWhole "unexpected tokens on left side of law" parseExpr leftTokens
   right <- parseWhole "unexpected tokens on right side of law" parseExpr rightTokens
-  pure (ClassLaw parameters left right, rest)
+  pure (ClassLaw names parameters left right, rest)
 
 -- '$' is the only lower-precedence application layer. ordinary sequences are
 -- parsed below it and use the second term as their function.
@@ -817,18 +740,27 @@ parseDollarBareSegment :: Bool -> Expr -> P Expr
 parseDollarBareSegment stopBrace value ts = do
   (terms, rest) <- parseExprParts "expected function after '$'" stopBrace ts
   case terms of
-    fn : args -> (,rest) <$> applyParsed fn (value : args)
+    ValueArgument fn : args -> (,rest) <$> applyParsed fn (ValueArgument value : args)
+    TypeArgument _ : _ -> Failed "expected a function before type arguments"
     [] -> Failed "expected function after '$'"
 
 parseDollarParenSegment :: Expr -> P Expr
 parseDollarParenSegment value ts = do
   (terms, rest) <- parseFunctionFirstTerms ts
   case (terms, rest) of
-    (fn : args, TRParen : rest2) -> (,rest2) <$> applyParsed fn (value : args)
+    (ValueArgument fn : args, TRParen : rest2) -> (,rest2) <$> applyParsed fn (ValueArgument value : args)
     ([], _) -> Failed "expected function after '$('"
     (_, _) -> Failed "expected ')' after '$('"
 
-parseFunctionFirstTerms :: P [Expr]
+data ApplicationArgument = ValueArgument Expr | TypeArgument TypeExpr
+
+parseApplicationArgument :: P ApplicationArgument
+parseApplicationArgument (TAt : rest) = do
+  (ty, remaining) <- parseTypeAtom rest
+  pure (TypeArgument ty, remaining)
+parseApplicationArgument tokens = first ValueArgument <$> parseExprAtom tokens
+
+parseFunctionFirstTerms :: P [ApplicationArgument]
 parseFunctionFirstTerms = go []
   where
     go acc ts = case ts of
@@ -836,7 +768,7 @@ parseFunctionFirstTerms = go []
       TRParen : _ -> Parsed (reverse acc, ts)
       _ ->
         branch
-          (parseExprAtom ts)
+          (parseApplicationArgument ts)
           (\(arg, rest) -> go (arg : acc) rest)
           (pure (reverse acc, ts))
 
@@ -849,13 +781,15 @@ applyArgs :: Expr -> [Expr] -> Expr
 applyArgs = foldl' (\expr arg -> locateAround [expr, arg] (EApply expr (arg :| [])))
 
 -- a lone term denotes itself; otherwise @a f b c@ lowers to @f a b c@.
-defaultApplication :: [Expr] -> [Token] -> Result (Expr, [Token])
+defaultApplication :: [ApplicationArgument] -> [Token] -> Result (Expr, [Token])
 defaultApplication parts rest = case parts of
   [] -> Failed "expected expression"
-  [x] -> Parsed (x, rest)
-  arg : f : args -> (,rest) <$> applyParsed f (arg : args)
+  [ValueArgument x] -> Parsed (x, rest)
+  ValueArgument f : args@(TypeArgument _ : _) -> (,rest) <$> applyParsed f args
+  arg : ValueArgument f : args -> (,rest) <$> applyParsed f (arg : args)
+  _ -> Failed "type arguments requireþ a function"
 
-parseExprParts :: String -> Bool -> P [Expr]
+parseExprParts :: String -> Bool -> P [ApplicationArgument]
 parseExprParts emptyMessage stopBrace = go []
   where
     go acc ts = case ts of
@@ -865,7 +799,7 @@ parseExprParts emptyMessage stopBrace = go []
       TDollar : _ -> Parsed (reverse acc, ts)
       _ ->
         branch
-          (parseExprAtom ts)
+          (parseApplicationArgument ts)
           (\(e, rest) -> go (e : acc) rest)
           (if null acc then failedAt ts emptyMessage else pure (reverse acc, ts))
 
@@ -896,13 +830,13 @@ parseExprAtomRaw = \case
   TText key : TForeign : rest -> Parsed (EForeign key, rest)
   TText s : rest -> Parsed (EText s, rest)
   TForeign : _ -> Failed "fremmed requireþ a preceding text key"
-  TParenKeyword marker : rest -> parseParenKeywordExpr marker rest
-  TIdent "r" : TLParen : _ -> Failed "record opener must be written 'r(' without whitespace"
+  TBraceKeyword marker : rest -> parseBraceKeywordExpr marker rest
+  TIdent "r" : TLBrace : _ -> Failed "record opener must be written 'r{' without whitespace"
   token@(TIdent name) : rest -> markRole "term" [] token >> pure (EVar name, rest)
   TTry : rest -> parseTry rest
   TMatch : rest -> parseMatchExpr rest
-  TLBrace : rest -> parseAnonymousMatchExpr rest
   TLParen : rest -> parseParen rest
+  TLBrace : rest -> parseAnonymousMatchExpr rest
   _ -> Failed "expected expression atom"
 
 parseAnonymousMatchExpr :: P Expr
@@ -911,7 +845,7 @@ parseAnonymousMatchExpr ts = do
   pure (EMatch [] cs, rest)
 
 parseMatchExpr :: P Expr
-parseMatchExpr (TLBrace : _) = Failed "match requireþ a scrutinee; use '{ ... }' for a function"
+parseMatchExpr (TLBrace : _) = Failed "match requireþ a scrutinee; use '{...}' for a function"
 parseMatchExpr ts = parseMatchScrutinees [] ts
 
 parseMatchScrutinees :: [Expr] -> P Expr
@@ -926,7 +860,6 @@ parseMatchScrutinees acc ts = do
 
 parseParen :: P Expr
 parseParen ts@(TLet : _) = parseBlock ts
-parseParen ts@(TConstraints : _) = parseBlock ts
 parseParen ts = do
   (e, rest) <- parseExpr ts
   case rest of
@@ -1002,11 +935,11 @@ parseRecordUpdate ts = do
     TComma : rest2 -> do
       (updates, rest3) <- parseRecordUpdates rest2
       pure (EUpdate base updates, rest3)
-    TRParen : rest2 -> pure (EUpdate base [], rest2)
-    _ -> Failed "expected ',' or ')' after record update base"
+    TRBrace : rest2 -> pure (EUpdate base [], rest2)
+    _ -> Failed "expected ',' or '}' after record update base"
 
 parseRecordUpdates :: P [RecordUpdate]
-parseRecordUpdates = parseCommaListUntil isRightParen parseRecordUpdateItem
+parseRecordUpdates = parseCommaListUntil isRightBrace parseRecordUpdateItem
 
 parseRecordUpdateItem :: P RecordUpdate
 parseRecordUpdateItem (TIdent "-" : token@(TIdent name) : rest) = markRole "property" [] token >> pure (RecordRemove name, rest)
@@ -1017,7 +950,7 @@ parseRecordUpdateItem (token@(TIdent name) : TEquals : rest) = do
 parseRecordUpdateItem _ = Failed "expected record update"
 
 parseRecordExprFields :: P [(String, Expr)]
-parseRecordExprFields = parseCommaListUntil isRightParen parseRecordExprField
+parseRecordExprFields = parseCommaListUntil isRightBrace parseRecordExprField
 
 parseRecordExprField :: P (String, Expr)
 parseRecordExprField (token@(TIdent name) : TEquals : rest) = do
@@ -1026,17 +959,17 @@ parseRecordExprField (token@(TIdent name) : TEquals : rest) = do
   pure ((name, e), rest2)
 parseRecordExprField _ = Failed "expected record field"
 
-parseParenKeywordExpr :: String -> P Expr
-parseParenKeywordExpr "r" = parseRecordExpr
-parseParenKeywordExpr marker = parseAssociativeExpr marker
+parseBraceKeywordExpr :: String -> P Expr
+parseBraceKeywordExpr "r" = parseRecordExpr
+parseBraceKeywordExpr marker = parseAssociativeExpr marker
 
 parseAssociativeExpr :: String -> P Expr
 parseAssociativeExpr marker ts = do
-  (expressions, rest) <- parseCommaListUntil isRightParen parseExpr ts
+  (expressions, rest) <- parseCommaListUntil isRightBrace parseExpr ts
   case expressions of
-    [] -> Failed (marker ++ "(...) requireþ a combining function")
+    [] -> Failed (marker ++ "{...} requireþ a combining function")
     function : values@(_ : _ : _) -> markFunction function >> pure (associate function values, rest)
-    _ -> Failed (marker ++ "(...) requireþ at least two values")
+    _ -> Failed (marker ++ "{...} requireþ at least two values")
   where
     associate function = direction (applyBinary function)
     direction = if marker == "<" then foldl1 else foldr1
@@ -1134,8 +1067,8 @@ patternFromTerm (TLParen : rest) = do
   if null following then parseWhole "invalid grouped pattern" parsePattern inner else Failed "unexpected tokens after pattern"
 patternFromTerm term = parseWhole "invalid pattern" parsePattern term
 
-parseTypeUntilCommaOrParen :: String -> P TypeExpr
-parseTypeUntilCommaOrParen message ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRParen -> True; _ -> False) message
+parseTypeUntilCommaOrBrace :: String -> P TypeExpr
+parseTypeUntilCommaOrBrace message ts = parseTypeUntilTopLevel ts (\case TComma -> True; TRBrace -> True; _ -> False) message
 
 parseTypeUntilTopLevel :: [Token] -> (Token -> Bool) -> String -> Result (TypeExpr, [Token])
 parseTypeUntilTopLevel ts stop message = do
@@ -1189,8 +1122,8 @@ parseTypeParts = go []
 
 parseTypeAtom :: P TypeExpr
 parseTypeAtom = \case
-  TParenKeyword "r" : rest -> parseRecordType rest
-  TIdent "r" : TLParen : _ -> Failed "record opener must be written 'r(' without whitespace"
+  TBraceKeyword "r" : rest -> parseRecordType rest
+  TIdent "r" : TLBrace : _ -> Failed "record opener must be written 'r{' without whitespace"
   token@(TIdent name) : rest -> markRole "type" [] token >> pure (TypeName name, rest)
   token@TArrow : rest -> markRole "type" [] token >> pure (TypeName "→", rest)
   TLBracket : rest -> do
@@ -1207,11 +1140,24 @@ parseTypeAtom = \case
 parseBracketType :: [Token] -> Result TypeExpr
 parseBracketType tokens = do
   let (typeTokens, effectTokens) = splitBracketEffects tokens
-  types <- parseBracketTypes typeTokens
+  items <- splitBracketItems typeTokens
+  (entries, remaining) <- parseHeaderPrefix items
+  unless (null (headerRequirements entries)) (Failed "nested class constraints are not supported")
+  let names = headerParameters entries
+  types <- traverse (parseWhole "unexpected tokens in function type" parseTypeTokens) remaining
   effects <- maybe (Parsed []) (withEffect . parseBracketTypes) effectTokens
-  case reverse types of
+  body <- case reverse types of
     result : argument : remaining -> makeArrowType (reverse (argument : remaining)) effects result
     _ -> Failed "function type requireþ an argument and result"
+  pure (if null names then body else TypeForall names body)
+
+startsTypeParameter :: [Token] -> Bool
+startsTypeParameter (TAt : _) = True
+startsTypeParameter _ = False
+
+quantifiedType :: [TypeParameter] -> TypeExpr -> TypeExpr
+quantifiedType [] body = body
+quantifiedType names body = TypeForall names body
 
 parseBracketTypes :: [Token] -> Result [TypeExpr]
 parseBracketTypes tokens =
@@ -1240,12 +1186,12 @@ parseRecordType ts = do
   pure (TypeRecord fields, rest)
 
 parseRecordTypeFields :: P [(String, TypeExpr)]
-parseRecordTypeFields = parseCommaListUntil isRightParen parseRecordTypeField
+parseRecordTypeFields = parseCommaListUntil isRightBrace parseRecordTypeField
 
 parseRecordTypeField :: P (String, TypeExpr)
 parseRecordTypeField (token@(TIdent name) : TColon : rest) = do
   markRole "property" [] token
-  (t, rest2) <- parseTypeUntilCommaOrParen "unterminated record type" rest
+  (t, rest2) <- parseTypeUntilCommaOrBrace "unterminated record type" rest
   pure ((name, t), rest2)
 parseRecordTypeField _ = Failed "expected record field type"
 
@@ -1338,9 +1284,8 @@ dropComma :: [Token] -> [Token]
 dropComma (TComma : rest) = rest
 dropComma ts = ts
 
-isRightBrace, isRightParen :: Token -> Bool
+isRightBrace :: Token -> Bool
 isRightBrace = (== TRBrace)
-isRightParen = (== TRParen)
 
 splitTopLevelBang, splitTopLevelColon, splitTopLevelComma :: [Token] -> Maybe ([Token], [Token])
 splitTopLevelBang ts = splitTopLevel ts (\case TBang -> True; _ -> False)
@@ -1348,16 +1293,9 @@ splitTopLevelColon ts = splitTopLevel ts (\case TColon -> True; _ -> False)
 splitTopLevelComma ts = splitTopLevel ts (\case TComma -> True; _ -> False)
 
 splitTopLevel :: [Token] -> (Token -> Bool) -> Maybe ([Token], [Token])
-splitTopLevel ts stop = go [] (0 :: Int) ts
-  where
-    go _ _ [] = Nothing
-    go acc depth (x : rest)
-      | depth == 0 && stop x = Just (reverse acc, rest)
-      | otherwise = case x of
-          _ | isParenthesisOpen x -> go (x : acc) (depth + 1) rest
-          TRParen -> go (x : acc) (depth - 1) rest
-          TRBracket -> go (x : acc) (depth - 1) rest
-          _ -> go (x : acc) depth rest
+splitTopLevel ts stop = case spanTopLevel ts stop of
+  (_, []) -> Nothing
+  (prefix, _ : rest) -> Just (prefix, rest)
 
 -- delimiter-aware slicing keepeþ declaration and type parsers small. callers
 -- decide whether reaching the end is valid for their enclosing construct.
@@ -1367,35 +1305,31 @@ takeTopLevelUntil ts stop message = case takeTopLevelUntilOrEnd ts stop of
   other -> other
 
 takeTopLevelUntilOrEnd :: [Token] -> (Token -> Bool) -> Result ([Token], [Token])
-takeTopLevelUntilOrEnd ts stop = go [] (0 :: Int) ts stop
+takeTopLevelUntilOrEnd ts stop = Parsed (spanTopLevel ts stop)
+
+spanTopLevel :: [Token] -> (Token -> Bool) -> ([Token], [Token])
+spanTopLevel ts stop = go [] (0 :: Int) ts
   where
-    go acc _ [] _ = Parsed (reverse acc, [])
-    go acc depth xs@(x : rest) stop
-      | depth == 0 && stop x = Parsed (reverse acc, xs)
-      | otherwise = case x of
-          _ | isParenthesisOpen x -> go (x : acc) (depth + 1) rest stop
-          TRParen -> go (x : acc) (depth - 1) rest stop
-          TRBracket -> go (x : acc) (depth - 1) rest stop
-          TLBrace -> go (x : acc) (depth + 1) rest stop
-          TRBrace -> go (x : acc) (depth - 1) rest stop
-          _ -> go (x : acc) depth rest stop
+    go acc _ [] = (reverse acc, [])
+    go acc depth xs@(x : rest)
+      | depth == 0 && stop x = (reverse acc, xs)
+      | otherwise = go (x : acc) (depth + change x) rest
+    change token
+      | isDelimiterOpen token = 1
+      | token `elem` [TRParen, TRBracket, TRBrace] = -1
+      | otherwise = 0
 
 takeBalanced :: [Token] -> Result ([Token], [Token])
-takeBalanced = go [] (1 :: Int)
-  where
-    go _ _ [] = Failed "unclosed parenthesised type"
-    go acc depth (x : rest)
-      | isParenthesisOpen x = go (x : acc) (depth + 1) rest
-    go acc 1 (TRParen : rest) = Parsed (reverse acc, rest)
-    go acc depth (TRParen : rest) = go (TRParen : acc) (depth - 1) rest
-    go acc depth (TRBracket : rest) = go (TRBracket : acc) (depth - 1) rest
-    go acc depth (x : rest) = go (x : acc) depth rest
+takeBalanced tokens = do
+  (prefix, rest) <- takeTopLevelUntil tokens (== TRParen) "unclosed parenthesised type"
+  pure (prefix, drop 1 rest)
 
-isParenthesisOpen :: Token -> Bool
-isParenthesisOpen = \case
+isDelimiterOpen :: Token -> Bool
+isDelimiterOpen = \case
   TLParen -> True
   TLBracket -> True
-  TParenKeyword _ -> True
+  TLBrace -> True
+  TBraceKeyword _ -> True
   _ -> False
 
 takeHeaderTokens :: String -> [Token] -> Result ([Token], [Token])
@@ -1495,8 +1429,11 @@ markTypeFunction (TypeName name) tokens = traverse_ (markRole "type" ["applied"]
     named _ = False
 markTypeFunction _ _ = pure ()
 
-applyParsed :: Expr -> [Expr] -> Result Expr
-applyParsed function arguments = markFunction function >> pure (applyArgs function arguments)
+applyParsed :: Expr -> [ApplicationArgument] -> Result Expr
+applyParsed function arguments = do
+  markFunction function
+  let specialised = maybe function (ETypeApply function) (NE.nonEmpty [ty | TypeArgument ty <- arguments])
+  pure (applyArgs specialised [value | ValueArgument value <- arguments])
 
 markFunction :: Expr -> Result ()
 markFunction (ELocated span (EVar "eftgin")) = Result (Right ()) (Seq.singleton (SourceRole span "keyword" []))
@@ -1504,17 +1441,20 @@ markFunction (ELocated span (EVar name))
   | name /= "_" = Result (Right ()) (Seq.singleton (SourceRole span "call" ["applied"]))
 markFunction (ELocated _ body) = markFunction body
 markFunction (EApply function _) = markFunction function
+markFunction (ETypeApply function _) = markFunction function
 markFunction _ = pure ()
 
 -- highlighting useþ the same lexer and parser, without imports or type checking.
 -- after failure, unindented declaration heads bound each recovery parse. a series
 -- of unfinished brackets must not repeatedly scan the remaining file.
 parseSourceRoles :: String -> [SourceRole]
-parseSourceRoles source = case parseTokenStream tokens of
-  Result (Right _) events -> toList events
-  Result (Left _) events -> toList events ++ foldMap roles (chunks tokens)
+parseSourceRoles source =
+  lexical ++ case parseTokenStream tokens of
+    Result (Right _) events -> toList events
+    Result (Left _) events -> toList events ++ foldMap roles (chunks tokens)
   where
     tokens = map locatedToken (lexLocatedPrefix source)
+    lexical = [SourceRole span "keyword" [] | token <- tokens, token `elem` [TAt, TKindStar, TConstraint], Just span <- [tokenSpan token]]
     roles (Result _ events) = toList events
     chunks [] = []
     chunks (token : rest) =

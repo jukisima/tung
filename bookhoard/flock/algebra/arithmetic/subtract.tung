@@ -2,19 +2,18 @@ use _foreign.tung
 use flock/algebra/arithmetic/add.tung
 use ilk/two.tung
 
-graiþ a add
-show flock subtract [a:ilk] (
+show flock subtract [byzen a add] {
   let - [a, a, a]
-)
-
-bizen ℤ subtract {
-  let - ≔ subtract-integer
 }
 
-bizen float subtract {
-  let - ≔ subtract-float
+bizen:ℤ subtract {
+  let - [] subtract-integer
 }
 
-bizen 𝟚 subtract {
-  let - ≔ +
+bizen:float subtract {
+  let - [] subtract-float
+}
+
+bizen:𝟚 subtract {
+  let - [] +
 }

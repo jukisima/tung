@@ -20,7 +20,7 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["--check-stdin"] -> checkStdin checkWithImports
+    ["--check-stdin"] -> checkStdin
     ["--editor-session"] -> editorSession
     ["--language-metadata"] -> putStr languageMetadata
     ["--library-paths"] -> getCurrentDirectory >>= listLibraryPaths
@@ -74,8 +74,8 @@ withProject path action = do
         Left message -> projectFailure message
         Right project -> action project
 
-checkStdin :: (String -> Map.Map String String -> String) -> IO ()
-checkStdin checkSource = do
+checkStdin :: IO ()
+checkStdin = do
   source <- getContents
   current <- getCurrentDirectory
   resolveLibraryRoots current >>= \case
@@ -83,7 +83,7 @@ checkStdin checkSource = do
     Right roots ->
       loadProjectSourceWithRoots Map.empty roots (current </> "<stdin>.tung") source >>= \case
         Left message -> projectFailure message
-        Right project -> putStrLn (checkSource source (projectImports project))
+        Right Project {projectBundle} -> putStrLn (maybe "type ok" diagnosticMessage (checkBundleDiagnostic False projectBundle))
 
 listLibraryPaths :: FilePath -> IO ()
 listLibraryPaths path =

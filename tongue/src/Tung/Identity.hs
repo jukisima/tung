@@ -8,6 +8,7 @@ module Tung.Identity
     ClassRef (..),
     EffectRef (..),
     HandlerTarget (..),
+    KindExpr (..),
     InstanceType (..),
     InstanceId (..),
     isPrimitiveInstanceId,
@@ -17,6 +18,10 @@ where
 
 import Data.Function (on)
 import Data.List (intercalate)
+
+-- quantified type identities include binder kinds, even for unused binders.
+data KindExpr = KindType | KindArrow KindExpr KindExpr | KindUnknown | KindVariable Int
+  deriving stock (Eq, Ord, Show)
 
 data ModuleId = RootModule | RuntimeModule | SourceModule FilePath
   deriving stock (Eq, Ord, Show)
@@ -87,6 +92,7 @@ data InstanceType
   | InstanceTypeEffect EffectRef [InstanceType]
   | InstanceTypeRecord [(String, InstanceType)]
   | InstanceTypeArrow [InstanceType] [InstanceType] InstanceType
+  | InstanceTypeForall [KindExpr] InstanceType
   deriving stock (Eq, Ord, Show)
 
 data InstanceId
@@ -117,6 +123,7 @@ renderModuleId (SourceModule path) = path
 
 renderInstanceType :: InstanceType -> String
 renderInstanceType = \case
+  InstanceTypeForall kinds body -> "forall" ++ show (length kinds) ++ "." ++ renderInstanceType body
   InstanceTypeName name -> name
   InstanceTypeApply name arguments -> name ++ "[" ++ intercalate "," (map renderInstanceType arguments) ++ "]"
   InstanceTypeNominal TypeRef {typeDisplayName} arguments -> typeDisplayName ++ "[" ++ intercalate "," (map renderInstanceType arguments) ++ "]"

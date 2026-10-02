@@ -14,42 +14,45 @@ group =
 
 accepted :: [(String, String)]
 accepted =
-  [ ("distinct declarations", "ilk pair { pair } deed pulse { pulse [ℤ, ℤ] } flock same [a:ilk] ( let same [a, a] )"),
+  [ ("distinct declarations", "ilk pair [*] { pair } deed pulse { pulse [ℤ, ℤ] } flock same [a:*] { let same [a, a] }"),
+    ("distinct namespaces may share a name", "ilk same [*] {} flock same [a:*] {} let same [] 1"),
     ("explicit aliases override colliding defaults", "use ilk/list.tung data-list use syntax/list.tung syntax-list"),
     ("explicit aliases distinguish extension-sharing paths", "use a.tung one use a.extra.tung two"),
     ("explicit aliases distinguish dotted directories", "use pkg.one/query.tung one use pkg.two/query.tung two"),
-    ("labels may repeat in separate records", "let first ≔ r(x = 1) let second ≔ r(x = 2)"),
+    ("labels may repeat in separate records", "let first [] r{x = 1} let second [] r{x = 2}"),
     ("handler names may repeat in separate handlers", "yield try (try 1 { fail ^ 2 }) { fail ^ 3 }"),
     ("annotated fremmed let", "let plus [ℤ, ℤ, ℤ] 'add-integer' fremmed"),
-    ("shared constructor heads in law parameters", "ilk a box { a box } flock identity [a:ilk] ( law [x box:a box, y box:a box] x = y )")
+    ("shared constructor heads in law parameters", "ilk box [a:*, *] { a box } flock identity [a:*] { law [x box:a box, y box:a box] x = y }")
   ]
 
 rejected :: [(String, String)]
 rejected =
   [ ("colliding default use aliases", "use ilk/list.tung use syntax/list.tung"),
+    ("duplicate class declarations", "show flock same [a:*] {} flock same [a:*] {}"),
+    ("type and effect declarations share a namespace", "ilk same [*] {} deed same {}"),
     ("extension-sharing paths retain colliding default aliases", "use a.tung use a.extra.tung"),
     ("extensionless use path", "use ground"),
-    ("qualified type alias name", "let-ilk left~right = ℤ"),
-    ("qualified data name", "ilk left~right { value }"),
-    ("qualified constructor name", "ilk value { left~right }"),
-    ("duplicate data parameter", "ilk a bad a { bad }"),
-    ("duplicate type alias parameter", "let-ilk a bad a = a"),
-    ("duplicate constructor", "ilk bad { same, same }"),
+    ("qualified type alias name", "let left~right [*] ℤ"),
+    ("qualified data name", "ilk left~right [*] { value }"),
+    ("qualified constructor name", "ilk value [*] { left~right }"),
+    ("duplicate data parameter", "ilk bad [a:*, a:*, *] { bad }"),
+    ("duplicate type alias parameter", "let bad [a:*, a:*, *] a"),
+    ("duplicate constructor", "ilk bad [*] { same, same }"),
     ("qualified effect name", "deed left~right { op [ℤ, ℤ] }"),
     ("qualified effect operation name", "deed left { right~op [ℤ, ℤ] }"),
     ("duplicate effect parameter", "deed a bad a { op [a, a] }"),
     ("duplicate effect operation", "deed bad { op [ℤ, ℤ], op [ℤ, ℤ] }"),
-    ("unannotated fremmed let", "let plus ≔ 'add-integer' fremmed"),
-    ("nested fremmed marker", "let bad [r(value: ℤ)] r(value = 'add-integer' fremmed)"),
-    ("qualified flock name", "flock left~right [a:ilk] ( let op [a, a] )"),
-    ("qualified flock member name", "flock left [a:ilk] ( let right~op [a, a] )"),
-    ("duplicate flock parameter", "flock bad [a:ilk, a:ilk] ( let op [a, a] )"),
-    ("duplicate flock member", "flock bad [a:ilk] ( let op [a, a] let op [a, a] )"),
-    ("duplicate flock law parameter", "flock bad [a:ilk] ( law [x: a, x: a] x = x )"),
-    ("duplicate bracketed flock law parameter", "flock bad [a:ilk] ( law [x: a, x: a] x = x )"),
-    ("duplicate bizen member", "bizen ℤ bad { let x op ≔ x let y op ≔ y }"),
-    ("duplicate record type field", "let bad [r(x: ℤ, x: text)] r(x = 1)"),
-    ("duplicate record field", "let bad ≔ r(x = 1, x = 2)"),
+    ("unannotated fremmed let", "let plus [] 'add-integer' fremmed"),
+    ("nested fremmed marker", "let bad [r{value: ℤ}] r{value = 'add-integer' fremmed}"),
+    ("qualified flock name", "flock left~right [a:*] { let op [a, a] }"),
+    ("qualified flock member name", "flock left [a:*] { let right~op [a, a] }"),
+    ("duplicate flock parameter", "flock bad [a:*, a:*] { let op [a, a] }"),
+    ("duplicate flock member", "flock bad [a:*] { let op [a, a] let op [a, a] }"),
+    ("duplicate flock law parameter", "flock bad [a:*] { law [x: a, x: a] x = x }"),
+    ("duplicate bracketed flock law parameter", "flock bad [a:*] { law [x: a, x: a] x = x }"),
+    ("duplicate bizen member", "bizen:ℤ bad { let x op [] x let y op [] y }"),
+    ("duplicate record type field", "let bad [r{x: ℤ, x: text}] r{x = 1}"),
+    ("duplicate record field", "let bad [] r{x = 1, x = 2}"),
     ("duplicate handler case", "yield try 1 { fail ^ 2, fail ^ 3 }")
   ]
 

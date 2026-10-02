@@ -18,95 +18,80 @@ use ilk/powerset.tung
 use ilk/two.tung
 
 ## a list-backed finite set.
-show ilk set [a:ilk] {
+show ilk set [a:*, *] {
   from-list [a list, a set]
 }
 
-show let empty [a set] list~empty from-list
+show let empty [@a:*, a set] list~empty from-list
 
-show let singleton [a:a, a set]
+show let singleton [@a:*, a:a, a set]
   (a _* list~empty) from-list
 
-show let to-list [list from-list:a set, a list] list
+show let to-list [@a:*, list from-list:a set, a list] list
 
-graiþ (a list) inhold a
-bizen (a set) inhold a {
-  let (list from-list) ∋ a ≔ list ∋ a
+bizen [byzen (a list) inhold a]:(a set) inhold a {
+  let (list from-list) ∋ a [] list ∋ a
 }
 
-graiþ (a list) inhold a
-show let put [list from-list:a set, a:a, a set]
+show let put [byzen (a list) inhold a, list from-list:a set, a:a, a set]
   (list ∋ a) if (list from-list) ((a _* list) from-list)
 
 show let keep [
+  @a:*, @e:*,
   list from-list:a set,
   predicate:[a, 𝟚; e],
   a set; e]
   (list filter predicate) from-list
 
-graiþ a equal
-show let rid [set:a set, a:a, a set]
+show let rid [byzen a equal, set:a set, a:a, a set]
   set keep { b ^ a ≢ b }
 
-graiþ (a set) inhold a
-show let ∖ [set₀:a set, set₁:a set, a set]
+show let ∖ [byzen (a set) inhold a, set₀:a set, set₁:a set, a set]
   set₀ keep { value ^ (set₁ ∋ value) ¬ }
 
-graiþ (a list) inhold a
-show let to-powerset [list from-list:a set, a powerset] list ∋
+show let to-powerset [byzen (a list) inhold a, list from-list:a set, a powerset] list ∋
 
-bizen (a set) size {
-  let (list from-list) size ≔ list size
+bizen [@a:*]:(a set) size {
+  let (list from-list) size [] list size
 }
 
-graiþ (a list) inhold a
-let included [list₀:a list, list₁:a list, 𝟚]
+let included [byzen (a list) inhold a, list₀:a list, list₁:a list, 𝟚]
   list₀ fold₀ yea { value, all-included ^
     all-included ∧ (list₁ ∋ value)
   }
 
-graiþ (a list) inhold a
-bizen (a set) equal {
-  let (list₀ from-list) ≡ (list₁ from-list) ≔
+bizen [byzen (a list) inhold a]:(a set) equal {
+  let (list₀ from-list) ≡ (list₁ from-list) []
     (list₀ included list₁) ∧ (list₁ included list₀)
 }
 
-graiþ (a list) inhold a
-bizen (a set) less-equal {
-  let (list₀ from-list) ≤ (list₁ from-list) ≔ list₀ included list₁
+bizen [byzen (a list) inhold a]:(a set) less-equal {
+  let (list₀ from-list) ≤ (list₁ from-list) [] list₀ included list₁
 }
 
-graiþ (a list) inhold a
-bizen (a set) order-partial {}
+bizen [byzen (a list) inhold a]:(a set) order-partial {}
 
-graiþ (a list) inhold a
-bizen (a set) semigroup {
-  let * ≔ ∨
+bizen [byzen (a list) inhold a]:(a set) semigroup {
+  let · [] ∨
 }
 
-graiþ (a list) inhold a
-bizen (a set) monoid {
-  let ∅ ≔ empty
+bizen [byzen (a list) inhold a]:(a set) monoid {
+  let ∅ [] empty
 }
 
-graiþ (a set) inhold a
-bizen (a set) semilattice-lower {
-  let set₀ ∧ set₁ ≔ set₀ keep { value ^ set₁ ∋ value }
+bizen [byzen (a set) inhold a]:(a set) semilattice-lower {
+  let set₀ ∧ set₁ [] set₀ keep { value ^ set₁ ∋ value }
 }
 
-graiþ (a list) inhold a
-bizen (a set) semilattice-upper {
-  let (list₀ from-list) ∨ (list₁ from-list) ≔
+bizen [byzen (a list) inhold a]:(a set) semilattice-upper {
+  let (list₀ from-list) ∨ (list₁ from-list) []
     list₁ fold₁ (list₀ from-list) put
 }
 
-graiþ (a list) inhold a
-bizen (a set) lattice {}
+bizen [byzen (a list) inhold a]:(a set) lattice {}
 
-graiþ (a list) inhold a
-bizen (a set) lattice-distributive {}
+bizen [byzen (a list) inhold a]:(a set) lattice-distributive {}
 
-graiþ (a list) inhold a
-bizen (a set) semilattice-upper-bounded {
-  let ⟂ ≔ empty
+bizen [byzen (a list) inhold a]:(a set) semilattice-upper-bounded {
+  let ⟂ [] empty
 }

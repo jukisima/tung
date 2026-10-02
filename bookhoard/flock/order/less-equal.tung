@@ -3,23 +3,21 @@ use ilk/three.tung
 use ilk/two.tung
 
 ## a decidable less-þan-or-equal operation, wiþout order laws.
-graiþ a equal
-show flock less-equal [a:ilk] (
+show flock less-equal [byzen a equal] {
   let ≤ [a, a, 𝟚]
-)
+}
 
-graiþ a less-equal, a equal
-show let < [a:a, b:a, 𝟚] (a ≤ b) if (a ≢ b) nay
+show let < [byzen a less-equal, byzen a equal, a:a, b:a, 𝟚] (a ≤ b) if (a ≢ b) nay
 
-bizen 𝟚 less-equal {
-  let ≤ ≔ {
+bizen:𝟚 less-equal {
+  let ≤ [] {
     nay, _ ^ yea,
     yea, b ^ b
   }
 }
 
-bizen 𝟛 less-equal {
-  let ≤ ≔ {
+bizen:𝟛 less-equal {
+  let ≤ [] {
     fore, _    ^ yea,
     mid,  fore ^ nay,
     mid,  _    ^ yea,

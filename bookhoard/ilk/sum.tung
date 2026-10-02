@@ -8,12 +8,13 @@ use flock/functor/traverse.tung
 use flock/order/complement.tung
 use ilk/two.tung
 
-show ilk ∐ [a:ilk, b:ilk] {
+show ilk ∐ [a:*, b:*, *] {
   inject₀ [a, a ∐ b]
   inject₁ [b, a ∐ b]
 }
 
 show let eiþer [
+  @a:*, @b:*, @c:*, @e₀:*, @e₁:*,
   sum:a ∐ b,
   f₀:[a, c; e₀],
   f₁:[b, c; e₁],
@@ -23,53 +24,53 @@ show let eiþer [
     b inject₁ ^ b f₁
   }
 
-bizen ∐ bifunctor {
-  let sum bimap f g ≔ match sum {
+bizen:∐ bifunctor {
+  let sum bimap f g [] match sum {
     a inject₀ ^ (a f) inject₀,
     b inject₁ ^ (b g) inject₁
   }
 }
 
-show let is-inject₀ [a ∐ b, 𝟚] {
+show let is-inject₀ [@a:*, @b:*, a ∐ b, 𝟚] {
   _ inject₀ ^ yea,
   _ inject₁ ^ nay
 }
 
-show let is-inject₁ [sum:a ∐ b, 𝟚] sum is-inject₀ $ ¬
+show let is-inject₁ [@a:*, @b:*, sum:a ∐ b, 𝟚] sum is-inject₀ $ ¬
 
-bizen (a ∐) functor {
-  let sum map f ≔ sum bimap sameness f
+bizen [@a:*]:(a ∐) functor {
+  let sum map f [] sum bimap sameness f
 }
 
-bizen (a ∐) applicative {
-  let pure ≔ inject₁
-  let apply ≔ {
+bizen [@a:*]:(a ∐) applicative {
+  let pure [] inject₁
+  let apply [] {
     a inject₀, _ ^ a inject₀,
     _, a inject₀ ^ a inject₀,
     b inject₁, f inject₁ ^ (b f) inject₁
   }
 }
 
-bizen (a ∐) monad {
-  let flat ≔ {
+bizen [@a:*]:(a ∐) monad {
+  let flat [] {
     a inject₀ ^ a inject₀,
     b inject₁ ^ b
   }
 }
 
-bizen (a ∐) cata {
-  let sum fold₀ b f ≔ match sum {
+bizen [@a:*]:(a ∐) cata {
+  let sum fold₀ b f [] match sum {
     _ inject₀ ^ b,
     a inject₁ ^ a f b
   }
-  let sum fold₁ b f ≔ match sum {
+  let sum fold₁ b f [] match sum {
     _ inject₀ ^ b,
     a inject₁ ^ b f a
   }
 }
 
-bizen (a ∐) traverse {
-  let sum traverse f ≔ match sum {
+bizen [@a:*]:(a ∐) traverse {
+  let sum traverse f [] match sum {
     a inject₀ ^ (a inject₀) pure,
     b inject₁ ^ (b f) map inject₁
   }

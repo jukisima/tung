@@ -5,16 +5,16 @@ use ilk/one.tung
 use ilk/text/structure.tung
 
 ## a paþ kept distinct from arbitrary text at api boundaries.
-show ilk paþ {
+show ilk paþ [*] {
   paþ [text, paþ]
 }
 
-bizen paþ to-text {
-  let (text paþ) to-text ≔ text
+bizen:paþ to-text {
+  let (text paþ) to-text [] text
 }
 
 show let join-paþ [text₀ paþ:paþ, text₁ paþ:paþ, paþ]
-  text₀ * '/' $ * text₁ $ paþ
+  text₀ · '/' $ · text₁ $ paþ
 
 show let read-paþ [text paþ:paþ, text; file, text fail]
   text read-file
@@ -22,11 +22,11 @@ show let read-paþ [text paþ:paþ, text; file, text fail]
 show let write-paþ [
   text paþ:paþ,
   contents:text,
-  𝟙; file, text fail]
-  text write-file contents
+  𝟙; file, text fail
+] text write-file contents
 
 show let append-paþ [
   text paþ:paþ,
   contents:text,
-  𝟙; file, text fail]
-  text append-file contents
+  𝟙; file, text fail
+] text append-file contents

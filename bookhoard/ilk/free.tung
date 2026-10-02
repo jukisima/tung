@@ -3,32 +3,30 @@ use flock/algebra/partial/semigroupoid.tung
 use flock/deedless/functor.tung
 
 ## representeþ a computation as eiþer a result or one suspended request.
-show ilk free [f:[ilk, ilk], a:ilk]  {
+show ilk free [f:[*, *], a:*, *]  {
   done [a, f free a]
   more [(f free a) f, f free a]
 }
 
-show let bind ≔ {
+show let bind [] {
   þing done,  next ^ þing next,
   layer more, next ^ (layer map { child ^ child bind next }) more
 }
 
-graiþ f functor
-show let lift [af:a f, f free a]
+show let lift [byzen f functor, @a:*, af:a f, f free a]
   (af map done) more
 
-show let þing map-free change ≔
+show let þing map-free change []
   þing bind (change ∘ done)
 
-graiþ f functor
-bizen (f free) functor {
-  let þing map change ≔ þing map-free change
+bizen [byzen f functor]:(f free) functor {
+  let þing map change [] þing map-free change
 }
 
-show let þing flat-free ≔
+show let þing flat-free []
   þing bind sameness
 
-show let node fold leaf program ≔ match program {
+show let node fold leaf program [] match program {
   þing done  ^ þing leaf,
   layer more ^ (layer map { child ^ node fold leaf child }) node
 }

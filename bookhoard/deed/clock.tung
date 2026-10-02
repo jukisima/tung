@@ -1,3 +1,5 @@
+use ilk/one.tung
+
 ## host wall-clock time.
 show deed clock {
   unix-time [𝟙, ℤ]

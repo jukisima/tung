@@ -35,7 +35,6 @@ import Control.Applicative ((<|>))
 import Control.Monad (filterM, foldM, replicateM, unless, void, when, zipWithM_)
 import Control.Monad.Trans.State.Strict (StateT (..), get, mapStateT, put, runStateT, state)
 import Data.Bifunctor (first)
-import Data.Char (isAscii, isDigit, isLower)
 import Data.Either (fromRight, isRight)
 import Data.Graph (SCC (..), stronglyConnComp)
 import Data.IntMap.Strict qualified as IntMap
@@ -50,6 +49,7 @@ import Tung.Core (CoreProgram, ModuleInterface (..), makeCoreProgramWithImports)
 import Tung.Coverage qualified as Coverage
 import Tung.Identity (ClassRef (..), EffectRef (..), InstanceId (..), InstanceType (..), ModuleId (..), SymbolId (..), TermExport (..), TermKind (..), TypeRef (..), isPrimitiveInstanceId, renderInstanceId)
 import Tung.Import (ImportStack, enterImport)
+import Tung.Kind qualified as Kind
 import Tung.Name (importAlias, importNamespace, isQualifiedName, lastQualifiedSegment, replaceNamespace, splitQualifiedName)
 import Tung.Parse (ParsedBundle (..), ParsedSource (..), SourceUnit (..), prepareBundle, prepareSource)
 import Tung.Primitive
@@ -67,6 +67,7 @@ data Ty
   | TyEffect EffectRef [Ty]
   | TyRecord (Map.Map String Ty)
   | TyArrow Ty EffectRow Ty
+  | TyForall [TypeParameter] Ty
   | TyRowVariable RowVariable
   | TyEffectSkolem Int
   deriving (Eq, Show)
@@ -78,15 +79,20 @@ data ApplicationHead = VariableHead String | ConstructorHead TypeConstructor
 pattern TyApp :: String -> [Ty] -> Ty
 pattern TyApp name args <- TyApplication (sourceHeadName -> Just name) args
   where
-    TyApp name args = TyApplication (sourceApplicationHead name) args
+    TyApp name args = TyApplication (ConstructorHead (StructuralConstructor name)) args
 
 pattern TyNamed :: TypeRef -> [Ty] -> Ty
 pattern TyNamed ref args = TyApplication (ConstructorHead (NamedConstructor ref)) args
 
-sourceApplicationHead :: String -> ApplicationHead
-sourceApplicationHead name
-  | isTypeVarName name = VariableHead name
-  | otherwise = ConstructorHead (StructuralConstructor name)
+-- rigid variables carry identity and binding role; names are diagnostic only.
+data SkolemId = UniversalSkolem Int | ExistentialSkolem Int deriving (Eq, Ord, Show)
+
+pattern TySkolem :: SkolemId -> [Ty] -> Ty
+pattern TySkolem ident args = TyApplication (ConstructorHead (SkolemConstructor ident)) args
+
+skolemName :: SkolemId -> String
+skolemName (UniversalSkolem ident) = "$type" ++ show ident
+skolemName (ExistentialSkolem ident) = "$exist" ++ show ident
 
 sourceHeadName :: ApplicationHead -> Maybe String
 sourceHeadName (VariableHead name) = Just name
@@ -108,9 +114,9 @@ functionView (TyArrow arg [] ret)
 functionView (TyArrow arg effects ret) = Just (arg :| [], effects, ret)
 functionView _ = Nothing
 
-{-# COMPLETE TyMeta, TyVar, TyCon, TyApp, TyNamed, TyEffect, TyRecord, TyFun, TyRowVariable, TyEffectSkolem #-}
+{-# COMPLETE TyMeta, TyVar, TyCon, TyApp, TyNamed, TySkolem, TyEffect, TyRecord, TyFun, TyForall, TyRowVariable, TyEffectSkolem #-}
 
-{-# COMPLETE TyMeta, TyVar, TyCon, TyApplication, TyEffect, TyRecord, TyArrow, TyRowVariable, TyEffectSkolem #-}
+{-# COMPLETE TyMeta, TyVar, TyCon, TyApplication, TyEffect, TyRecord, TyArrow, TyForall, TyRowVariable, TyEffectSkolem #-}
 
 data Constraint = Constraint [Ty] ClassRef deriving (Eq, Show)
 
@@ -129,6 +135,7 @@ data Scheme
   = Forall [String] [Constraint] Ty
   | EffectOpForall EffectRef [String] [Constraint] Ty
   | Constrained [RowEquality] Scheme
+  | Specified [TypeParameter] Scheme
   deriving (Eq, Show)
 
 data RowEquality = RowEquality EffectRow EffectRow deriving (Eq, Show)
@@ -159,7 +166,7 @@ data TypeFailure = TypeFailure
 -- these modes share inference but impose different top-level computation bounds.
 data ProgramMode = ModuleMode | Interactive | Runnable deriving (Eq)
 
-data TypeConstructor = StructuralConstructor String | NamedConstructor TypeRef deriving (Eq, Show)
+data TypeConstructor = StructuralConstructor String | NamedConstructor TypeRef | SkolemConstructor SkolemId deriving (Eq, Show)
 
 data TyHead = TyHead ApplicationHead [Ty] deriving (Eq, Show)
 
@@ -216,7 +223,7 @@ mapEffectTypes f = effectFromTy . f . effectAsTy
 data TcState = TcState
   { tcNextMeta :: !Int,
     tcMetaSubst :: !(IntMap.IntMap Ty),
-    tcGadtRefinements :: !(Map.Map String Ty),
+    tcGadtRefinements :: !(Map.Map SkolemId Ty),
     tcTypeHeads :: !(Map.Map String TyHead),
     tcEffectRows :: !(Map.Map RowVariable EffectRow),
     tcRowEqualities :: [RowEquality],
@@ -280,6 +287,7 @@ data TcContext = TcContext
     tcTypeRegistry :: Map.Map SymbolId TypeInfo,
     tcTypeAmbiguities :: Map.Map String [String],
     tcClasses :: Map.Map String ClassInfo,
+    tcKinds :: Kind.KindContext,
     tcClassRegistry :: Map.Map SymbolId ClassInfo,
     tcInstances :: Map.Map String [InstanceInfo]
   }
@@ -350,22 +358,32 @@ mapTyChildren mapTy mapEffect = \case
   TyEffect effect args -> TyEffect effect (map mapTy args)
   TyRecord fields -> TyRecord (Map.map mapTy fields)
   TyArrow arg effects ret -> TyArrow (mapTy arg) (map (mapEffectTypes mapEffect) effects) (mapTy ret)
+  TyForall names body -> TyForall names (mapTy body)
   ty -> ty
 
 -- visit a type before its children. þe second visitor applieþ only to direct
 -- effect-row entries, so row variables can retain þeir special semantics.
 foldTyWith :: (Ty -> a -> a) -> (Ty -> a -> a) -> Ty -> a -> a
-foldTyWith visitType visitEffect = go
+foldTyWith visitType visitEffect = foldScopedTyWith (const visitType) (const visitEffect)
+
+foldScopedTyWith :: ([String] -> Ty -> a -> a) -> ([String] -> Ty -> a -> a) -> Ty -> a -> a
+foldScopedTyWith visitType visitEffect = go []
   where
-    go ty acc = descend ty (visitType ty acc)
-    goEffect ty acc = descend ty (visitEffect ty acc)
-    descend ty acc = case ty of
-      TyApplication _ args -> foldl' (flip go) acc args
-      TyEffect _ args -> foldl' (flip go) acc args
-      TyRecord fields -> foldl' (flip go) acc (Map.elems fields)
+    go bound ty acc = descend bound ty (visitType bound ty acc)
+    goEffect bound ty acc = descend bound ty (visitEffect bound ty acc)
+    descend bound ty acc = case ty of
+      TyApplication _ args -> foldl' (flip (go bound)) acc args
+      TyEffect _ args -> foldl' (flip (go bound)) acc args
+      TyRecord fields -> foldl' (flip (go bound)) acc (Map.elems fields)
       TyArrow arg effects ret ->
-        go ret (foldl' (\current effect -> goEffect (effectAsTy effect) current) (go arg acc) effects)
+        go bound ret (foldl' (\current effect -> goEffect bound (effectAsTy effect) current) (go bound arg acc) effects)
+      TyForall (parameterNames -> names) body -> go (names ++ bound) body acc
       _ -> acc
+
+foldFreeNamesWith :: (Ty -> [String] -> [String]) -> (Ty -> [String] -> [String]) -> Ty -> [String] -> [String]
+foldFreeNamesWith visitType visitEffect = foldScopedTyWith (free visitType) (free visitEffect)
+  where
+    free visit bound ty acc = foldr addUnique acc (filter (`notElem` bound) (visit ty []))
 
 foldConstraintTypes :: (Ty -> a -> a) -> [Constraint] -> a -> a
 foldConstraintTypes visit constraints acc = foldl' visitConstraint acc constraints
@@ -399,6 +417,7 @@ relabelClassRef DisplayNames {displayClasses} fallback ref@ClassRef {classIdenti
 
 relabelSchemeTypeRefs :: DisplayNames -> (String -> String) -> Scheme -> Scheme
 relabelSchemeTypeRefs names fallback = \case
+  Specified vars scheme -> Specified vars (relabelSchemeTypeRefs names fallback scheme)
   Constrained rows scheme -> Constrained (map (mapRowEquality relabelTy) rows) (relabelSchemeTypeRefs names fallback scheme)
   Forall vars constraints ty -> Forall vars (map relabelConstraint constraints) (relabelTy ty)
   EffectOpForall owner vars constraints ty ->
@@ -531,13 +550,6 @@ isEffectVarTy :: Ty -> Bool
 isEffectVarTy TyRowVariable {} = True
 isEffectVarTy _ = False
 
-isEffectVarName :: String -> Bool
-isEffectVarName ('e' : rest) = all isTypeVariableIndex rest
-isEffectVarName _ = False
-
-isTypeVariableIndex :: Char -> Bool
-isTypeVariableIndex c = isDigit c || c `elem` ("₀₁₂₃₄₅₆₇₈₉" :: String)
-
 unifyCommonEffectsM :: EffectRow -> EffectRow -> Tc ()
 unifyCommonEffectsM xs ys =
   mapM_ (\x -> maybe (pure ()) (unifyEffectM x) (findEffectByHead x ys)) xs
@@ -592,6 +604,9 @@ unifyM a b = do
     (TyEffect x xs, TyEffect y ys) | x == y -> unifyListsM xs ys
     (TyRecord xs, TyRecord ys) -> unifyRecordFieldsM xs ys
     (TyArrow x xEffs xRet, TyArrow y yEffs yRet) -> unifyM x y >> unifyEffectsM xEffs yEffs >> unifyM xRet yRet
+    (TyForall xs x, TyForall ys y) | map snd xs == map snd ys ->
+      withPolymorphicScopeM xs x [TyForall ys y] $ \replacements rigid ->
+        unifyM rigid (replaceVars y (Map.fromList [(right, replacements Map.! left) | (left, right) <- zip (parameterNames xs) (parameterNames ys)]))
     (applicationView -> Just (x, xs), applicationView -> Just (y, ys)) -> unifyApplicationsM x xs y ys
     (TyApplication head args, TyArrow arg effects ret) -> unifyArrowApplicationM head args arg effects ret
     (TyArrow arg effects ret, TyApplication head args) -> unifyArrowApplicationM head args arg effects ret
@@ -647,6 +662,7 @@ applyApplicationHead (ConstructorHead constructor) args = applyTypeConstructor c
 applyTypeConstructor :: TypeConstructor -> [Ty] -> Ty
 applyTypeConstructor (StructuralConstructor name) = tyAppOrArrow name
 applyTypeConstructor (NamedConstructor ref) = TyNamed ref
+applyTypeConstructor (SkolemConstructor ident) = TySkolem ident
 
 tyAppOrArrow :: String -> [Ty] -> Ty
 tyAppOrArrow name [] = TyCon name
@@ -665,6 +681,7 @@ unifyRecordFieldsM xs ys
 bindMetaM :: Int -> Ty -> Tc ()
 bindMetaM ident ty = do
   st@TcState {tcMetaSubst} <- getTc
+  when (case ty of TyForall {} -> True; _ -> False) (failTc "cannot infer a polymorphic type; an explicit annotation is required")
   if occursMeta ident ty st
     then failTc "recursive type"
     else putTc st {tcMetaSubst = IntMap.insert ident ty tcMetaSubst}
@@ -680,15 +697,23 @@ applyState ty st@TcState {tcMetaSubst, tcTypeHeads} = go ty
       TyVar name -> maybe (TyVar name) (go . (`applyTypeHead` [])) (Map.lookup name tcTypeHeads)
       TyRowVariable variable -> TyRowVariable variable
       TyEffectSkolem ident -> TyEffectSkolem ident
-      TyCon name -> maybe (TyCon name) go (Map.lookup name (tcGadtRefinements st))
+      ty@TyCon {} -> ty
       TyApplication head args -> case head of
         VariableHead name -> maybe (applyApplicationHead head (map go args)) (\bound -> go (applyTypeHead bound (map go args))) (Map.lookup name tcTypeHeads)
-        ConstructorHead (StructuralConstructor name)
-          | Just bound <- Map.lookup name (tcGadtRefinements st) -> go (applyReplacementTy bound (map go args))
+        ConstructorHead (SkolemConstructor ident)
+          | Just bound <- Map.lookup ident (tcGadtRefinements st) -> go (applyReplacementTy bound (map go args))
         ConstructorHead _ -> applyApplicationHead head (map go args)
       TyEffect effect args -> TyEffect effect (map go args)
       TyRecord fields -> TyRecord (Map.map go fields)
       TyArrow arg effects ret -> TyArrow (go arg) (applyStateEffects effects st) (go ret)
+      TyForall parameters body ->
+        let names = parameterNames parameters
+            activeHeads = foldr Map.delete tcTypeHeads names
+            activeRows = foldr (Map.delete . RowVariable) (tcEffectRows st) names
+            scoped = st {tcTypeHeads = activeHeads, tcEffectRows = activeRows}
+            replacements = IntMap.elems tcMetaSubst ++ map (`applyTypeHead` []) (Map.elems activeHeads) ++ map (\row -> rowEqualityType (RowEquality row [])) (Map.elems activeRows)
+            (renamed, body2) = renameBoundVariables (foldr typeVarsInTy [] replacements) parameters body
+         in TyForall renamed (applyState body2 scoped {tcTypeHeads = foldr Map.delete activeHeads (parameterNames renamed), tcEffectRows = foldr (Map.delete . RowVariable) activeRows (parameterNames renamed)})
 
 applyStateAll :: [Ty] -> TcState -> [Ty]
 applyStateAll tys st = map (`applyState` st) tys
@@ -701,35 +726,74 @@ freshIdM = Tc $ state (\st@TcState {tcNextMeta} -> (tcNextMeta, st {tcNextMeta =
 
 schemeEffectOwner :: Scheme -> Maybe EffectRef
 schemeEffectOwner = \case
+  Specified _ scheme -> schemeEffectOwner scheme
   Constrained _ scheme -> schemeEffectOwner scheme
   EffectOpForall owner _ _ _ -> Just owner
   Forall {} -> Nothing
 
 schemeParts :: Scheme -> ([String], [Constraint], Ty)
 schemeParts = \case
+  Specified _ scheme -> schemeParts scheme
   Constrained _ scheme -> schemeParts scheme
   Forall vars constraints ty -> (vars, constraints, ty)
   EffectOpForall _ vars constraints ty -> (vars, constraints, ty)
 
 markEffectOpScheme :: EffectRef -> Scheme -> Scheme
 markEffectOpScheme owner = \case
+  Specified vars scheme -> Specified vars (markEffectOpScheme owner scheme)
   Constrained rows scheme -> Constrained rows (markEffectOpScheme owner scheme)
   Forall vars constraints ty -> EffectOpForall owner vars constraints ty
   EffectOpForall _ vars constraints ty -> EffectOpForall owner vars constraints ty
 
 instantiateM :: Scheme -> Tc (Ty, [Constraint])
-instantiateM scheme = do
+instantiateM = instantiateWithTypesM []
+
+type TypeArgument = (Ty, KindExpr)
+
+instantiateWithTypesM :: [TypeArgument] -> Scheme -> Tc (Ty, [Constraint])
+instantiateWithTypesM explicit scheme = do
+  (_, ty, constraints) <- instantiateWithBindingsM explicit scheme
+  pure (ty, constraints)
+
+instantiateWithBindingsM :: [TypeArgument] -> Scheme -> Tc (Map.Map String Ty, Ty, [Constraint])
+instantiateWithBindingsM explicit scheme = do
   let (vars, constraints, ty) = schemeParts scheme
       types = ty : map rowEqualityType (schemeRows scheme)
-      appliedVars = filter (`elem` vars) (typeAppHeadsInConstraints constraints (foldr typeAppHeadsInTy [] types))
-      headVars = nub (appliedVars ++ typeHeadVarsInConstraints constraints (foldr typeHeadVarsInTy [] types))
+      headVars = typeHeadVarsInConstraints constraints (foldr typeHeadVarsInTy [] types)
       rowVars = effectRowVarsInConstraints constraints (foldr effectRowVarsInTy [] types)
+      specified = specifiedVars scheme
+  when (length explicit > length specified) (failTc "too many explicit type arguments; declare type parameters wiþ '@name:kind'")
+  when (any (\case (TyForall {}, _) -> True; _ -> False) explicit) (failTc "type arguments cannot be universally quantified")
+  zipWithM_ (\(_, expected) (_, actual) -> unless (expected == actual) (failTc "explicit type argument hath the wrong kind")) (specifiedParameters scheme) explicit
   repls <- freshForNamesM headVars rowVars vars
-  mapM_ (\(RowEquality xs ys) -> unifyEffectsM xs ys) (map (mapRowEquality (`replaceVars` repls)) (schemeRows scheme))
-  pure (replaceVars ty repls, map (`replaceConstraintVars` repls) constraints)
+  let appliedReplacements = Map.union (Map.fromList (zip specified (map fst explicit))) repls
+  mapM_ (\(RowEquality xs ys) -> unifyEffectsM xs ys) (map (mapRowEquality (`replaceVars` appliedReplacements)) (schemeRows scheme))
+  pure (appliedReplacements, replaceVars ty appliedReplacements, map (`replaceConstraintVars` appliedReplacements) constraints)
+
+specifiedVars :: Scheme -> [String]
+specifiedVars = parameterNames . specifiedParameters
+
+specifiedParameters :: Scheme -> [TypeParameter]
+specifiedParameters (Specified parameters _) = parameters
+specifiedParameters (Constrained _ scheme) = specifiedParameters scheme
+specifiedParameters _ = []
+
+-- an inferred binding may retain a quantified value from an ascription or a
+-- polymorphic result. its written binders remain available for type input.
+exposeSchemeQuantifiers :: Scheme -> Scheme
+exposeSchemeQuantifiers (Constrained rows scheme) = Constrained rows (exposeSchemeQuantifiers scheme)
+exposeSchemeQuantifiers (Forall variables constraints (TyForall parameters body)) = Specified parameters (Forall (nub (parameterNames parameters ++ variables)) constraints body)
+exposeSchemeQuantifiers scheme = scheme
+
+-- quantifiers are instantiated only at the outer edge. argument quantifiers
+-- remain intact until checking a supplied value against its expected type.
+instantiateTypeM :: Ty -> Tc Ty
+instantiateTypeM (TyForall (parameterNames -> names) body) = instantiateM (Forall names [] body) >>= instantiateTypeM . fst
+instantiateTypeM ty = pure ty
 
 schemeRows :: Scheme -> [RowEquality]
 schemeRows (Constrained rows scheme) = rows ++ schemeRows scheme
+schemeRows (Specified _ scheme) = schemeRows scheme
 schemeRows _ = []
 
 mapRowEquality :: (Ty -> Ty) -> RowEquality -> RowEquality
@@ -762,7 +826,28 @@ replaceTypeVariables includeRows replacements = go
       TyApplication head@(VariableHead name) args ->
         let arguments = map go args
          in maybe (applyApplicationHead head arguments) (`applyReplacementTy` arguments) (Map.lookup name replacements)
+      TyForall parameters body ->
+        let active = foldr Map.delete replacements (parameterNames parameters)
+            replacementNames = foldr typeVarsInTy [] (Map.elems active)
+            (renamed, body2) = renameBoundVariables replacementNames parameters body
+         in TyForall renamed (replaceTypeVariables includeRows active body2)
       _ -> mapTyChildren go go ty
+
+renameBoundVariables :: [String] -> [TypeParameter] -> Ty -> ([TypeParameter], Ty)
+renameBoundVariables captured parameters body
+  | all (`notElem` captured) names = (parameters, body)
+  | otherwise =
+      let taken = names ++ captured ++ allTypeNames body
+          (_, renamed) = foldl' rename (taken, []) names
+          replacements = Map.fromList [(old, TyVar new) | (old, new) <- zip names renamed, old /= new]
+       in (zip renamed (map snd parameters), replaceVars body replacements)
+  where
+    names = parameterNames parameters
+    rename (taken, names) name =
+      let fresh = if name `elem` captured then unused 0 else name
+          unused :: Int -> String
+          unused index = let candidate = name ++ "$" ++ show index in if candidate `elem` taken then unused (index + 1) else candidate
+       in (fresh : taken, names ++ [fresh])
 
 replaceConstraintVars :: Constraint -> Map.Map String Ty -> Constraint
 replaceConstraintVars (Constraint args name) repls = Constraint (map (`replaceVars` repls) args) name
@@ -771,8 +856,12 @@ typeAnnScheme :: TypeAnn -> TcContext -> Scheme
 typeAnnScheme annotation ctx = typeAnnSchemeWith [] ctx annotation
 
 typeAnnSchemeWith :: [String] -> TcContext -> TypeAnn -> Scheme
-typeAnnSchemeWith bound ctx (TypeAnn ty constraints) =
-  generalizeTyWithConstraints (map (convertClassConstraintWith bound ctx) constraints) (convertTypeExprWith bound ctx ty)
+typeAnnSchemeWith bound ctx (TypeAnn ty (headerRequirements -> constraints)) =
+  let (parameters, body) = case ty of TypeForall declarations inner -> (declarations, inner); _ -> ([], ty)
+      names = parameterNames parameters
+      boundNames = names ++ bound
+      scheme = generalizeTyWithConstraints (map (convertClassConstraintWith boundNames ctx) constraints) (convertTypeExprWith boundNames ctx body)
+   in if null names then scheme else Specified parameters (addForallVars names scheme)
 
 convertClassConstraint :: ClassConstraint -> TcContext -> Constraint
 convertClassConstraint constraint ctx = convertClassConstraintWith [] ctx constraint
@@ -801,6 +890,7 @@ convertTypeExpr expression ctx = convertTypeExprWith [] ctx expression
 
 convertTypeExprWith :: [String] -> TcContext -> TypeExpr -> Ty
 convertTypeExprWith bound ctx = \case
+  TypeHole ident -> TyVar ("$hole" ++ show ident)
   TypeName name
     | name `elem` bound -> TyVar name
     | otherwise -> atomTypeName name ctx
@@ -815,23 +905,13 @@ convertTypeExprWith bound ctx = \case
       (fmap convert args)
       (map convertEffect effects)
       (convert ret)
+  TypeForall parameters body -> TyForall parameters (convertTypeExprWith (parameterNames parameters ++ bound) ctx body)
   where
     convert = convertTypeExprWith bound ctx
     convertEffect = convertEffectExprWith bound ctx
 
 convertEffectExprWith :: [String] -> TcContext -> TypeExpr -> Effect
-convertEffectExprWith bound ctx = effectFromTy . convertEffect
-  where
-    convertEffect = \case
-      TypeName name | name `elem` bound || isEffectVarName name -> TyVar name
-      TypeName name -> maybe (TyApp name []) (`TyEffect` []) (effectRefForName name ctx)
-      TypeApply name args
-        | name `elem` bound -> TyApp name arguments
-        | otherwise -> maybe (TyApp name arguments) (`TyEffect` arguments) (effectRefForName name ctx)
-        where
-          arguments = map convert args
-      expression -> convertTypeExprWith bound ctx expression
-    convert = convertTypeExprWith bound ctx
+convertEffectExprWith bound ctx = effectFromTy . convertTypeExprWith bound ctx
 
 typeExprFromAppliedTy :: Ty -> TypeExpr
 typeExprFromAppliedTy = \case
@@ -840,12 +920,14 @@ typeExprFromAppliedTy = \case
   TyRowVariable (RowVariable name) -> TypeName name
   TyEffectSkolem ident -> TypeName ("$effect" ++ show ident)
   TyCon name -> TypeName name
+  TySkolem ident args -> TypeApply (skolemName ident) (map typeExprFromAppliedTy args)
   TyApp name args -> TypeApply name (map typeExprFromAppliedTy args)
   TyNamed TypeRef {typeDisplayName} [] -> TypeName typeDisplayName
   TyNamed TypeRef {typeDisplayName} args -> TypeApply typeDisplayName (map typeExprFromAppliedTy args)
   TyEffect EffectRef {effectDisplayName} args -> TypeApply effectDisplayName (map typeExprFromAppliedTy args)
   TyRecord fields -> TypeRecord [(name, typeExprFromAppliedTy fieldTy) | (name, fieldTy) <- Map.toList fields]
   TyFun args effects ret -> TypeArrow (fmap typeExprFromAppliedTy args) (map (typeExprFromAppliedTy . effectAsTy) effects) (typeExprFromAppliedTy ret)
+  TyForall parameters body -> TypeForall parameters (typeExprFromAppliedTy body)
 
 specializeConstraint :: [String] -> [Ty] -> Constraint -> Constraint
 specializeConstraint params arguments (Constraint constraintArguments class_) =
@@ -855,7 +937,14 @@ specializeConstraint params arguments (Constraint constraintArguments class_) =
 specializeResolvedTypeAnn :: [String] -> [Ty] -> ResolvedTypeAnn -> ResolvedTypeAnn
 specializeResolvedTypeAnn params instanceTypes (ResolvedTypeAnn ty constraints) =
   let replacements = Map.fromList (zip params instanceTypes)
-   in ResolvedTypeAnn (replaceClassTyParams replacements ty) (map (replaceConstraintClassTyParams replacements) constraints)
+      -- method quantifiers must not capture variables from the instance head.
+      (renamedType, renamedConstraints) = case ty of
+        TyForall names body ->
+          let (fresh, renamed) = renameBoundVariables (foldr typeVarsInTy [] instanceTypes) names body
+              renaming = Map.fromList (zip (parameterNames names) (map (TyVar . fst) fresh))
+           in (TyForall fresh renamed, map (`replaceConstraintVars` renaming) constraints)
+        _ -> (ty, constraints)
+   in ResolvedTypeAnn (replaceClassTyParams replacements renamedType) (map (replaceConstraintClassTyParams replacements) renamedConstraints)
 
 replaceConstraintClassTyParams :: Map.Map String Ty -> Constraint -> Constraint
 replaceConstraintClassTyParams replacements (Constraint args class_) = Constraint (map (replaceClassTyParams replacements) args) class_
@@ -875,15 +964,25 @@ atomTypeName name ctx
   | isPrimitiveTypeName name = TyCon name
   | Just ([], target) <- aliasInfo name ctx = target
   | Just ref <- typeRefForName name ctx = TyNamed ref []
+  | Just ref <- effectRefForName name ctx = TyEffect ref []
   | isQualifiedName name = TyCon name
   | otherwise = TyVar name
 
 atomAppliedTypeName :: String -> [Ty] -> TcContext -> Ty
 atomAppliedTypeName "→" args _ = tyAppOrArrow "→" args
 atomAppliedTypeName name args ctx = case aliasInfo name ctx of
+  Just ([], target) | isScopedTypeVariable target -> applyReplacementTy target args
   Just (params, target)
     | length params == length args -> replaceVars target (Map.fromList (zip params args))
-  _ -> maybe (TyApp name args) (`TyNamed` args) (typeRefForName name ctx)
+  _
+    | Just ref <- typeRefForName name ctx -> TyNamed ref args
+    | Just ref <- effectRefForName name ctx -> TyEffect ref args
+    | otherwise -> TyApp name args
+
+isScopedTypeVariable :: Ty -> Bool
+isScopedTypeVariable TyVar {} = True
+isScopedTypeVariable TySkolem {} = True
+isScopedTypeVariable _ = False
 
 aliasInfo :: String -> TcContext -> Maybe ([String], Ty)
 aliasInfo name ctx = case unshownTypeInfo <$> findTypeInfoForTypeSystem name ctx of
@@ -918,7 +1017,7 @@ findTypeInfoForTypeSystem :: String -> TcContext -> Maybe TypeInfo
 findTypeInfoForTypeSystem name TcContext {tcTypes} = Map.lookup name tcTypes
 
 typeVarsInTy :: Ty -> [String] -> [String]
-typeVarsInTy = foldTyWith collect collect
+typeVarsInTy = foldFreeNamesWith collect collect
   where
     collect (TyVar name) acc = addUnique name acc
     collect (TyRowVariable (RowVariable name)) acc = addUnique name acc
@@ -929,7 +1028,7 @@ typeVarsInConstraints :: [Constraint] -> [String] -> [String]
 typeVarsInConstraints = foldConstraintTypes typeVarsInTy
 
 typeHeadVarsInTy :: Ty -> [String] -> [String]
-typeHeadVarsInTy = foldTyWith collect collectEffect
+typeHeadVarsInTy = foldFreeNamesWith collect collectEffect
   where
     collect (TyApplication (VariableHead name) _) acc = addUnique name acc
     collect _ acc = acc
@@ -940,17 +1039,8 @@ typeHeadVarsInTy = foldTyWith collect collectEffect
 typeHeadVarsInConstraints :: [Constraint] -> [String] -> [String]
 typeHeadVarsInConstraints = foldConstraintTypes typeHeadVarsInTy
 
-typeAppHeadsInTy :: Ty -> [String] -> [String]
-typeAppHeadsInTy = foldTyWith collect collect
-  where
-    collect (TyApp name _) acc = addUnique name acc
-    collect _ acc = acc
-
-typeAppHeadsInConstraints :: [Constraint] -> [String] -> [String]
-typeAppHeadsInConstraints = foldConstraintTypes typeAppHeadsInTy
-
 effectRowVarsInTy :: Ty -> [String] -> [String]
-effectRowVarsInTy = foldTyWith keep collectEffect
+effectRowVarsInTy = foldFreeNamesWith keep collectEffect
   where
     keep _ acc = acc
     collectEffect (TyRowVariable (RowVariable name)) acc = addUnique name acc
@@ -969,11 +1059,14 @@ showTy = \case
   TyRowVariable (RowVariable name) -> name
   TyEffectSkolem ident -> "$effect" ++ show ident
   TyCon c -> c
+  TySkolem ident [] -> skolemName ident
+  TySkolem ident args -> skolemName ident ++ "<" ++ showTyList args ++ ">"
+  TyForall (parameterNames -> names) body -> "forall " ++ unwords names ++ ". " ++ showTy body
   TyApp name args -> name ++ "<" ++ showTyList args ++ ">"
   TyNamed TypeRef {typeDisplayName} [] -> typeDisplayName
   TyNamed TypeRef {typeDisplayName} args -> typeDisplayName ++ "<" ++ showTyList args ++ ">"
   TyEffect EffectRef {effectDisplayName} args -> effectDisplayName ++ "<" ++ showTyList args ++ ">"
-  TyRecord fields -> "r(" ++ showRecordFields fields ++ ")"
+  TyRecord fields -> "r{" ++ showRecordFields fields ++ "}"
   TyFun args effects ret ->
     let effectText = if null effects then "" else "{" ++ showEffects effects ++ "} "
      in "(" ++ showTyList (NE.toList args) ++ " \\" ++ effectText ++ showTy ret ++ ")"
@@ -998,6 +1091,7 @@ baseContext =
       tcTypeRegistry = Map.empty,
       tcTypeAmbiguities = Map.empty,
       tcClasses = Map.empty,
+      tcKinds = Kind.emptyKindContext,
       tcClassRegistry = Map.empty,
       tcInstances = indexInstances primitiveInstances
     }
@@ -1016,17 +1110,23 @@ instanceKeyFor owner className types = DeclaredInstanceId sourceOwner className 
       _ -> Nothing
 
 instanceType :: Ty -> InstanceType
-instanceType ty = case normalizeFun ty of
-  TyMeta ident -> InstanceTypeName ("?" ++ show ident)
-  TyVar name -> InstanceTypeName name
-  TyRowVariable (RowVariable name) -> InstanceTypeName name
-  TyEffectSkolem ident -> InstanceTypeName ("$effect" ++ show ident)
-  TyCon name -> InstanceTypeName name
-  TyApp name arguments -> InstanceTypeApply name (map instanceType arguments)
-  TyNamed ref arguments -> InstanceTypeNominal ref (map instanceType arguments)
-  TyEffect ref arguments -> InstanceTypeEffect ref (map instanceType arguments)
-  TyRecord fields -> InstanceTypeRecord [(name, instanceType fieldType) | (name, fieldType) <- Map.toList fields]
-  TyFun arguments effects result -> InstanceTypeArrow (map instanceType (NE.toList arguments)) (map (instanceType . effectAsTy) effects) (instanceType result)
+instanceType = go (0 :: Int)
+  where
+    go depth ty = case normalizeFun ty of
+      TyMeta ident -> InstanceTypeName ("?" ++ show ident)
+      TyVar name -> InstanceTypeName name
+      TyRowVariable (RowVariable name) -> InstanceTypeName name
+      TyEffectSkolem ident -> InstanceTypeName ("$effect" ++ show ident)
+      TyCon name -> InstanceTypeName name
+      TySkolem ident arguments -> InstanceTypeApply (skolemName ident) (map (go depth) arguments)
+      TyApp name arguments -> InstanceTypeApply name (map (go depth) arguments)
+      TyNamed ref arguments -> InstanceTypeNominal ref (map (go depth) arguments)
+      TyEffect ref arguments -> InstanceTypeEffect ref (map (go depth) arguments)
+      TyRecord fields -> InstanceTypeRecord [(name, go depth fieldType) | (name, fieldType) <- Map.toList fields]
+      TyFun arguments effects result -> InstanceTypeArrow (map (go depth) (NE.toList arguments)) (map (go depth . effectAsTy) effects) (go depth result)
+      TyForall parameters body ->
+        let replacements = Map.fromList [(name, TyCon ("$bound" ++ show depth ++ "_" ++ show index)) | (name, index) <- zip (parameterNames parameters) [0 :: Int ..]]
+         in InstanceTypeForall (map snd parameters) (go (depth + 1) (replaceVars body replacements))
 
 -- an imported context contributeþ only shown surface names. instance metadata
 -- retainþ private inherited targets needed by its checked runtime dictionaries.
@@ -1040,6 +1140,7 @@ namespaceImportContext ns TcContext {..} =
           tcTypeRegistry,
           tcTypeAmbiguities = Map.empty,
           tcClasses = namespaceImportClasses ns preferredNames tcClasses,
+          tcKinds = namespaceImportKinds ns tcTypes tcClasses tcKinds,
           tcClassRegistry,
           tcInstances = relabelInstanceIndex preferredNames (namespaceDisplayName ns) tcInstances
         }
@@ -1086,6 +1187,7 @@ aliasImportContext canonical alias ctx@TcContext {..}
         { tcEnv = mapMaybe aliasBinding surfaceEnv ++ surfaceEnv,
           tcTypes = aliasMap (relabelAliasedTypeInfoDisplays (replaceNamespace canonical alias)) tcTypes,
           tcClasses = aliasMap (relabelClassInfoRefs emptyDisplayNames (replaceNamespace canonical alias)) tcClasses,
+          tcKinds = Kind.renameKinds (\name -> name : [replaceNamespace canonical alias name | canonicalPrefix name]) tcKinds,
           tcInstances = relabelInstanceIndex emptyDisplayNames (replaceNamespace canonical alias) tcInstances
         }
   where
@@ -1135,6 +1237,14 @@ namespaceImportTypes ns =
        in if typeInfoIsShown info && not (isQualifiedName name)
             then Map.insert (lastQualifiedSegment name) info2 withExact
             else acc
+
+-- kinds follow the same visible names as types and classes. private imported
+-- classes must not introduce parameters through an unqualified byzen header.
+namespaceImportKinds :: String -> Map.Map String TypeInfo -> Map.Map String ClassInfo -> Kind.KindContext -> Kind.KindContext
+namespaceImportKinds ns types classes Kind.KindContext {..} =
+  Kind.KindContext
+    (Map.fromList [(visible, kind) | (name, info) <- Map.toList types, Just kind <- [Map.lookup name typeKinds], visible <- (ns ++ "~" ++ name) : [lastQualifiedSegment name | typeInfoIsShown info && not (isQualifiedName name)]])
+    (Map.fromList [(visible, kinds) | (name, ClassInfo {classExported = True}) <- Map.toList classes, Just kinds <- [Map.lookup name classKinds], visible <- [lastQualifiedSegment name, ns ++ "~" ++ lastQualifiedSegment name]])
 
 relabelTypeInfoDisplays :: (String -> String) -> TypeInfo -> TypeInfo
 relabelTypeInfoDisplays rename = \case
@@ -1200,14 +1310,6 @@ relabelInstanceIndex names fallback = Map.map (map relabelInstance)
           instanceParents = map (relabelConstraintRefs names fallback) instanceParents
         }
 
-typeExprVars :: TypeExpr -> [String]
-typeExprVars = \case
-  TypeName name | isTypeVarName name -> [name]
-  TypeName _ -> []
-  TypeApply _ args -> nub (concatMap typeExprVars args)
-  TypeRecord fields -> nub (concatMap (typeExprVars . snd) fields)
-  TypeArrow args effects ret -> nub (concatMap typeExprVars (NE.toList args ++ effects ++ [ret]))
-
 mergeContext :: TcContext -> TcContext -> TcContext
 mergeContext left right =
   TcContext
@@ -1217,6 +1319,7 @@ mergeContext left right =
       tcTypeRegistry = Map.union (tcTypeRegistry left) (tcTypeRegistry right),
       tcTypeAmbiguities = Map.unionsWith unionNames [tcTypeAmbiguities left, tcTypeAmbiguities right, collisions],
       tcClasses = Map.union (tcClasses left) (tcClasses right),
+      tcKinds = Kind.mergeKinds (tcKinds left) (tcKinds right),
       tcClassRegistry = Map.union (tcClassRegistry left) (tcClassRegistry right),
       tcInstances = Map.unionWith (++) (tcInstances left) (tcInstances right)
     }
@@ -1267,10 +1370,6 @@ isConcreteSchemaType :: TcContext -> String -> Bool
 isConcreteSchemaType ctx name =
   isPrimitiveTypeName name || isQualifiedName name || isJust (findTypeInfoForTypeSystem name ctx)
 
-isTypeVarName :: String -> Bool
-isTypeVarName (c : rest) = isAscii c && isLower c && all isTypeVariableIndex rest
-isTypeVarName [] = False
-
 -- nominal headers make declaration identity independent of source order;
 -- transparent aliases are rebuilt as data and effect ABIs settle.
 resolveTypeHeadersM :: [Decl] -> TcContext -> Tc TcContext
@@ -1278,20 +1377,16 @@ resolveTypeHeadersM declarations importedCtx = do
   let aliasHeaders = mapMaybe aliasHeader declarations
       aliasNames = Set.fromList (map aliasHeaderName aliasHeaders)
       dataHeaders = mapMaybe (hostDataHeader (tcModule importedCtx)) declarations
-      localNames = mapMaybe declaredTypeName declarations
-      nameCounts = Map.fromListWith (+) [(name, 1 :: Int) | name <- localNames]
-      isConcrete name = Map.member name nameCounts || isConcreteSchemaType importedCtx name
+      localNames = Set.fromList (mapMaybe declaredTypeName declarations)
+      isConcrete name = Set.member name localNames || isConcreteSchemaType importedCtx name
       nominalCtx = foldl' (flip (collectNominalTypeHeader isConcrete)) importedCtx declarations
       aliasComponents = stronglyConnComp [aliasNode aliasNames header | header <- aliasHeaders]
       addAliases = foldM addAlias
-  case listToMaybe (Map.keys (Map.filter (> 1) nameCounts)) of
-    Just name -> failTc ("type name '" ++ name ++ "' is declared more than once")
-    Nothing -> do
-      aliasCtx <- addAliases nominalCtx aliasComponents
-      let dataCtx = resolveHostDataHeaders dataHeaders aliasCtx
-      dataAliasCtx <- addAliases dataCtx aliasComponents
-      let effectCtx = foldl' (flip collectResolvedEffectHeader) dataAliasCtx declarations
-      addAliases effectCtx aliasComponents
+  aliasCtx <- addAliases nominalCtx aliasComponents
+  let dataCtx = resolveHostDataHeaders dataHeaders aliasCtx
+  dataAliasCtx <- addAliases dataCtx aliasComponents
+  let effectCtx = foldl' (flip collectResolvedEffectHeader) dataAliasCtx declarations
+  addAliases effectCtx aliasComponents
   where
     addAlias ctx (AcyclicSCC AliasHeader {..}) =
       pure (addTypeAliasInfo aliasHeaderParams aliasHeaderName aliasHeaderTarget ctx)
@@ -1301,13 +1396,13 @@ resolveTypeHeadersM declarations importedCtx = do
 aliasHeader :: Decl -> Maybe AliasHeader
 aliasHeader = \case
   Export nested -> aliasHeader nested
-  TypeAlias params name target -> Just (AliasHeader name params target)
+  TypeAlias (parameterNames -> params) name target -> Just (AliasHeader name params target)
   _ -> Nothing
 
 hostDataHeader :: ModuleId -> Decl -> Maybe DataHeader
 hostDataHeader owner = \case
   Export nested -> hostDataHeader owner nested
-  DataDecl params name constructors -> do
+  DataDecl (parameterNames -> params) name constructors -> do
     expected <- hostTypeId name
     if typeIdentity (dataDeclarationRef True owner params name constructors) == expected
       then Just (DataHeader name params constructors)
@@ -1325,9 +1420,9 @@ declaredTypeName = \case
 collectNominalTypeHeader :: (String -> Bool) -> Decl -> TcContext -> TcContext
 collectNominalTypeHeader isConcrete declaration ctx = case declaration of
   Export nested -> collectNominalTypeHeader isConcrete nested ctx
-  DataDecl params name constructors ->
+  DataDecl (parameterNames -> params) name constructors ->
     addDataTypeHeader name (dataDeclarationRef True (tcModule ctx) params name constructors) params ctx
-  EffectDecl params name operations ->
+  EffectDecl (parameterNames -> params) name operations ->
     let target = effectId isConcrete (tcModule ctx) params name operations
         effect = EffectRef target (renderEffectId target)
      in addEffectTypeInfo name effect params operations ctx
@@ -1336,7 +1431,7 @@ collectNominalTypeHeader isConcrete declaration ctx = case declaration of
 collectResolvedEffectHeader :: Decl -> TcContext -> TcContext
 collectResolvedEffectHeader declaration ctx = case declaration of
   Export nested -> collectResolvedEffectHeader nested ctx
-  EffectDecl params name operations ->
+  EffectDecl (parameterNames -> params) name operations ->
     addEffectTypeInfo name (resolvedEffectRef params name operations ctx) params operations ctx
   _ -> ctx
 
@@ -1373,7 +1468,7 @@ hostDataHeaderResolves DataHeader {..} =
   hostNominalsMatchResolvedTypes dataHeaderParams (concatMap constructorTypeExprs dataHeaderConstructors)
 
 constructorTypeExprs :: Ctor -> [TypeExpr]
-constructorTypeExprs (Ctor _ fields result) = fields ++ maybeToList result
+constructorTypeExprs (Ctor _ _ fields result) = fields ++ maybeToList result
 
 dataHeaderNode :: Set.Set String -> DataHeader -> (DataHeader, String, [String])
 dataHeaderNode names header@DataHeader {..} =
@@ -1391,10 +1486,12 @@ hostNominalsMatchResolvedTypes :: [String] -> [TypeExpr] -> TcContext -> Bool
 hostNominalsMatchResolvedTypes bound expressions ctx = all typeMatches expressions
   where
     typeMatches expression = case expression of
+      TypeHole _ -> True
       TypeName name -> headMatches name [] expression
       TypeApply name arguments -> headMatches name arguments expression && all typeMatches arguments
       TypeRecord fields -> all (typeMatches . snd) fields
       TypeArrow arguments effects result -> all typeMatches (NE.toList arguments ++ [result]) && all effectMatches effects
+      TypeForall (parameterNames -> names) body -> hostNominalsMatchResolvedTypes (names ++ bound) [body] ctx
     effectMatches expression = case expression of
       TypeName name -> effectHeadMatches name
       TypeApply name arguments -> effectHeadMatches name && all typeMatches arguments
@@ -1423,10 +1520,12 @@ aliasNode aliasNames header@AliasHeader {..} =
 
 typeExprHeads :: TypeExpr -> [String]
 typeExprHeads = \case
+  TypeHole _ -> []
   TypeName name -> [name]
   TypeApply name arguments -> name : concatMap typeExprHeads arguments
   TypeRecord fields -> concatMap (typeExprHeads . snd) fields
   TypeArrow arguments effects result -> concatMap typeExprHeads (NE.toList arguments ++ effects ++ [result])
+  TypeForall (parameterNames -> names) body -> filter (`notElem` names) (typeExprHeads body)
 
 -- classes form þe nominal index used by instances. collecting þeir headers first
 -- makeþ a forward instance equivalent to þe same declarations in source order.
@@ -1436,7 +1535,7 @@ collectClassContexts ds ctx = foldl' (flip collectClassContext) ctx ds
 collectClassContext :: Decl -> TcContext -> TcContext
 collectClassContext declaration ctx = case declaration of
   Export nested -> collectClassContext nested ctx
-  ClassDecl params name constraints members -> addClassInfo name params constraints members ctx
+  ClassDecl (typeHeaderParts -> (params, constraints)) name members -> addClassInfo name params constraints members ctx
   _ -> ctx
 
 collectDeclContext :: Decl -> TcContext -> TcContext
@@ -1449,16 +1548,16 @@ collectDeclContext decl ctx = case decl of
     Just ref -> collectDataDeclaration name ref params ctors ctx
     Nothing -> ctx
   TypeAlias {} -> ctx
-  EffectDecl params name ops -> case effectRefForName name ctx of
+  EffectDecl (parameterNames -> params) name ops -> case effectRefForName name ctx of
     Just effect -> collectEffectOps params name effect ops ctx
     Nothing -> ctx
   ElaboratedEffect {} -> ctx
-  ClassDecl params name constraints members -> addClassMembers name params constraints members ctx
+  ClassDecl (typeHeaderParts -> (params, constraints)) name members -> addClassMembers name params constraints members ctx
   ElaboratedClass {} -> ctx
   Let name (Just ann) _ -> addGlobalEnv name name (typeAnnScheme ann ctx) OrdinaryTerm ctx
   Let _ Nothing _ -> ctx
-  InstanceDecl tyArgs className constraints members -> addInstanceInfo className tyArgs constraints members ctx
-  ElaboratedInstance _ _ tyArgs className constraints members -> addInstanceInfo className tyArgs constraints members ctx
+  InstanceDecl (typeHeaderParts -> (names, constraints)) tyArgs className members -> addInstanceInfo names className tyArgs constraints members ctx
+  ElaboratedInstance _ _ tyArgs className constraints members -> addInstanceInfo [] className tyArgs constraints members ctx
 
 exportDeclContext :: Decl -> TcContext -> TcContext
 exportDeclContext declaration ctx = case declaration of
@@ -1468,10 +1567,10 @@ exportDeclContext declaration ctx = case declaration of
   ReExportType name -> fromRight ctx (reExportTypeName name ctx)
   Let name _ _ -> addShownEnv name ctx
   TypeAlias _ name _ -> addShownType name ctx
-  DataDecl _ name constructors -> foldl' (flip addShownEnv) (addShownType name ctx) [ctorName | Ctor ctorName _ _ <- constructors]
+  DataDecl _ name constructors -> foldl' (flip addShownEnv) (addShownType name ctx) [ctorName | Ctor ctorName _ _ _ <- constructors]
   EffectDecl _ name operations -> foldl' (flip addShownEnv) (addShownType name ctx) [opName | EffectOp opName _ <- operations]
   ElaboratedEffect {} -> ctx
-  ClassDecl _ name _ members -> foldl' (flip addShownEnv) (markClassExported name ctx) (classMemberNames members)
+  ClassDecl _ name members -> foldl' (flip addShownEnv) (markClassExported name ctx) (classMemberNames members)
   ElaboratedClass {} -> ctx
   InstanceDecl {} -> ctx
   ElaboratedInstance {} -> ctx
@@ -1531,37 +1630,25 @@ declaredDataRef name ctx = case unshownTypeInfo <$> findTypeInfoForTypeSystem na
   Just (DataInfo ref _ _) -> Just ref
   _ -> Nothing
 
-collectDataDeclaration :: String -> TypeRef -> [String] -> [Ctor] -> TcContext -> TcContext
-collectDataDeclaration dataName ref@TypeRef {typeIdentity = SymbolId owner typeName} params ctors ctx =
+collectDataDeclaration :: String -> TypeRef -> [TypeParameter] -> [Ctor] -> TcContext -> TcContext
+collectDataDeclaration dataName ref@TypeRef {typeIdentity = SymbolId owner typeName} parameters ctors ctx =
   foldl' addConstructor withType constructors
   where
     constructors =
-      [ (name, ConstructorInfo (SymbolId owner (typeName ++ "@" ++ name)) fieldTypes result, constructorVars)
-      | Ctor name fields explicitResult <- ctors,
+      [ (name, ConstructorInfo (SymbolId owner (typeName ++ "@" ++ name)) fieldTypes result, constructorParameters)
+      | Ctor name declarations fields explicitResult <- ctors,
         let fieldTypes = map (convertTypeExprWith constructorVars ctx) fields
             result = maybe defaultResult (convertTypeExprWith constructorVars ctx) explicitResult
             -- field-only variables become existential when the constructor is matched.
-            constructorTypes = fields ++ [fromMaybe defaultResultExpr explicitResult]
-            defaultResultExpr = case params of
-              [] -> TypeName dataName
-              _ -> TypeApply dataName (map TypeName params)
-            constructorVars =
-              nub
-                ( concatMap typeExprVars constructorTypes
-                    ++ [ headName
-                       | ty <- constructorTypes,
-                         headName <- typeExprHeads ty,
-                         isTypeVarName headName,
-                         headName /= dataName,
-                         isNothing (findTypeInfoForTypeSystem headName ctx)
-                       ]
-                )
+            constructorParameters = declarations ++ parameters
+            constructorVars = parameterNames constructorParameters
       ]
+    params = parameterNames parameters
     withType = addTypeInfo dataName (DataInfo ref params [info | (_, info, _) <- constructors]) ctx
     defaultResult = TyNamed ref (map TyVar params)
-    addConstructor current (name, ConstructorInfo target fields result, vars) =
+    addConstructor current (name, ConstructorInfo target fields result, declarations) =
       let qualifiedName = dataName ++ "@" ++ name
-          scheme = Forall vars [] (curriedFunction fields [] result)
+          scheme = Specified declarations (Forall (parameterNames declarations) [] (curriedFunction fields [] result))
           kind = ConstructorTerm (length fields)
        in addGlobalEnvTarget name qualifiedName scheme target kind (addGlobalEnvTarget qualifiedName qualifiedName scheme target kind current)
 
@@ -1570,15 +1657,17 @@ collectEffectOps params effectName effectRef@EffectRef {effectIdentity} ops ctx 
   where
     step current (EffectOp opName t) =
       let effect = TyEffect effectRef (map TyVar params)
-          opTy = addLatentEffect effect (convertTypeExprWith params current t)
-          scheme = markEffectOpScheme effectRef (addForallVars params (generalizeTy opTy))
+          annotation = typeAnnSchemeWith params current (TypeAnn t [])
+          (vars, constraints, rawTy) = schemeParts annotation
+          opTy = addLatentEffect effect rawTy
+          scheme = markEffectOpScheme effectRef (Specified (specifiedParameters annotation) (Forall (nub (params ++ vars)) constraints opTy))
           target = effectName ++ "@" ++ opName
           identity = effectOperationId effectIdentity opName
           kind = EffectOperationTerm effectIdentity (effectOperationArity params current t)
        in addGlobalEnvTarget opName target scheme identity kind (addGlobalEnvTarget target target scheme identity kind current)
 
 effectOperationArity :: [String] -> TcContext -> TypeExpr -> Int
-effectOperationArity params ctx operationType = case normalizeFun (convertTypeExprWith params ctx operationType) of
+effectOperationArity params ctx operationType = case normalizeFun (let (_, _, ty) = schemeParts (typeAnnSchemeWith params ctx (TypeAnn operationType [])) in ty) of
   TyFun arguments _ _ -> NE.length arguments
   _ -> 0
 
@@ -1615,12 +1704,12 @@ addTypeInfo name info ctx@TcContext {tcTypes, tcTypeRegistry, tcTypeAmbiguities}
       tcTypeAmbiguities = Map.delete name tcTypeAmbiguities
     }
 
-addInstanceInfo :: String -> [TypeExpr] -> [ClassConstraint] -> [Decl] -> TcContext -> TcContext
-addInstanceInfo className tyArgs constraints members ctx@TcContext {tcInstances} =
+addInstanceInfo :: [String] -> String -> [TypeExpr] -> [ClassConstraint] -> [Decl] -> TcContext -> TcContext
+addInstanceInfo names className tyArgs constraints members ctx@TcContext {tcInstances} =
   let actualClass = canonicalClassName className ctx
       actualClassRef = classRefForName className ctx
-      actualTypes = map (`convertTypeExpr` ctx) tyArgs
-      actualConstraints = map (`convertClassConstraint` ctx) constraints
+      actualTypes = map (convertTypeExprWith names ctx) tyArgs
+      actualConstraints = map (convertClassConstraintWith names ctx) constraints
       key = instanceKeyFor (tcModule ctx) actualClass actualTypes
       provided = [name | Let name _ _ <- members]
       newInstances = instanceClosure key actualClassRef actualTypes actualConstraints provided ctx [] 0
@@ -1819,8 +1908,8 @@ addClassInfo className params constraints members ctx@TcContext {tcModule, tcCla
       resolveMethod = \case
         ClassSignature name annotation -> Just (ClassMethod name (resolve annotation))
         _ -> Nothing
-      resolve (TypeAnn ty memberConstraints) =
-        ResolvedTypeAnn (convertTypeExprWith params ctx ty) (map (convertClassConstraintWith params ctx) memberConstraints)
+      resolve (TypeAnn ty (headerRequirements -> memberConstraints)) =
+        ResolvedTypeAnn (convertTypeExprWith params ctx ty) (map (convertClassConstraintWith (annotationParameters ty ++ params) ctx) memberConstraints)
       info =
         ClassInfo
           { classParams = params,
@@ -1852,6 +1941,7 @@ classMemberScheme className ann ctx = case findClassInfo className ctx of
 
 addForallVars :: [String] -> Scheme -> Scheme
 addForallVars extra = \case
+  Specified names scheme -> Specified names (addForallVars extra scheme)
   Constrained rows scheme -> Constrained rows (addForallVars extra scheme)
   Forall vars constraints ty -> Forall (nub (extra ++ vars)) constraints ty
   EffectOpForall owner vars constraints ty -> EffectOpForall owner (nub (extra ++ vars)) constraints ty
@@ -1860,7 +1950,7 @@ typeAnnWithOwnClassConstraint :: String -> TypeAnn -> TcContext -> TypeAnn
 typeAnnWithOwnClassConstraint className ann ctx = typeAnnWithInternalConstraints (ownClassConstraint className ctx) ann
 
 typeAnnWithInternalConstraints :: [ClassConstraint] -> TypeAnn -> TypeAnn
-typeAnnWithInternalConstraints internal (TypeAnn ty constraints) = TypeAnn ty (internal ++ constraints)
+typeAnnWithInternalConstraints internal (TypeAnn ty (headerRequirements -> constraints)) = TypeAnn ty (map Requirement (internal ++ constraints))
 
 ownClassConstraint :: String -> TcContext -> [ClassConstraint]
 ownClassConstraint className ctx = case findClassInfo className ctx of
@@ -1923,18 +2013,18 @@ unifyPatternResultM actual expected = do
   case (normalizeFun (applyState actual st), normalizeFun (applyState expected st)) of
     (left@(TyMeta _), right) -> unifyM left right
     (left, right@(TyMeta _)) -> unifyM left right
-    (TyCon name, ty) | "$type" `isPrefixOf` name, TyCon name /= ty -> refine name ty
-    (ty, TyCon name) | "$type" `isPrefixOf` name, TyCon name /= ty -> refine name ty
+    (TySkolem ident@UniversalSkolem {} [], ty) | TySkolem ident [] /= ty -> refine ident ty
+    (ty, TySkolem ident@UniversalSkolem {} []) | TySkolem ident [] /= ty -> refine ident ty
     (applicationView -> Just (left, xs), applicationView -> Just (right, ys))
       | left == right && length xs == length ys -> zipWithM_ unifyPatternResultM xs ys
     (left, right) -> unifyM left right
   where
-    refine name ty = do
+    refine ident ty = do
       st <- getTc
       let resolved = applyState ty st
-      if TyCon name == resolved || name `elem` [n | TyCon n <- foldTyWith (:) (:) resolved []]
+      if ident `elem` [key | TySkolem key _ <- foldTyWith (:) (:) resolved []]
         then failTc "recursive GADT index"
-        else putTc st {tcGadtRefinements = Map.insert name resolved (tcGadtRefinements st)}
+        else putTc st {tcGadtRefinements = Map.insert ident resolved (tcGadtRefinements st)}
 
 -- each branch keepeþ ordinary unification, but its index equalities must not
 -- constrain a sibling branch.
@@ -1971,7 +2061,11 @@ bindPatternListM patterns tys ctx bound
 bindPatternVariableM :: String -> Ty -> TcContext -> [String] -> Tc (TcContext, [String])
 bindPatternVariableM name expected ctx bound
   | name `elem` bound = failTc ("pattern bindeþ '" ++ name ++ "' more than once")
-  | otherwise = pure (addEnv name (Forall [] [] expected) ctx, name : bound)
+  | otherwise = pure (addEnv name (valueScheme expected) ctx, name : bound)
+
+valueScheme :: Ty -> Scheme
+valueScheme (TyForall parameters body) = Specified parameters (Forall (parameterNames parameters) [] body)
+valueScheme ty = Forall [] [] ty
 
 knownConstructorArity :: String -> TcContext -> Maybe Int
 knownConstructorArity name ctx = either (const Nothing) (>>= constructorBindingArity) (lookupConstructorBinding name ctx)
@@ -2006,7 +2100,7 @@ instantiateConstructorPatternM EnvBinding {envScheme} = do
   where
     freshExistential rowVars variable = do
       ident <- freshIdM
-      let ty = if variable `elem` rowVars then TyEffectSkolem ident else TyCon ("$exist" ++ show ident)
+      let ty = if variable `elem` rowVars then TyEffectSkolem ident else TySkolem (ExistentialSkolem ident) []
       pure (variable, ty)
 
 constructorResultType :: Ty -> Ty
@@ -2076,10 +2170,8 @@ gadtIndicesMayAgree x y = case (normalizeFun x, normalizeFun y) of
   (_, TyVar _) -> True
   (TyMeta _, _) -> True
   (_, TyMeta _) -> True
-  (TyCon name, _) | "$type" `isPrefixOf` name -> True
-  (_, TyCon name) | "$type" `isPrefixOf` name -> True
-  (TyCon name, _) | "$exist" `isPrefixOf` name -> True
-  (_, TyCon name) | "$exist" `isPrefixOf` name -> True
+  (TySkolem {}, _) -> True
+  (_, TySkolem {}) -> True
   (TyApplication (VariableHead _) _, _) -> True
   (_, TyApplication (VariableHead _) _) -> True
   (TyCon left, TyCon right) -> left == right
@@ -2116,6 +2208,7 @@ inferExprUncheckedM expr ctx = case expr of
   EEvidenceLambda {} -> failTc "internal evidence abstraction appeareþ before elaboration"
   EAscribe expression annotation -> inferAscribedM expression annotation ctx
   EApply f args -> inferApplyM f (NE.toList args) ctx
+  ETypeApply f arguments -> inferExplicitApplyM f (NE.toList arguments) [] ctx
   ERecord fields -> inferRecordFieldsM fields ctx
   EField base field -> inferRecordFieldAccessM base field ctx
   EUpdate base updates -> inferRecordUpdateM base updates ctx
@@ -2145,24 +2238,32 @@ checkTypeEffectRowsM ty = do
       checkEffectRowArgumentsM effects
       mapM_ (checkTypeEffectRowsM . effectAsTy) effects
       checkTypeEffectRowsM ret
+    TyForall _ body -> checkTypeEffectRowsM body
     _ -> pure ()
 
 checkEffectRowArgumentsM :: EffectRow -> Tc ()
 checkEffectRowArgumentsM effects = do
   st <- getTc
   let concrete = concreteEffects (applyStateEffects effects st)
+  when (any (\case EffectLabel (UnresolvedEffect _) _ -> True; _ -> False) concrete) (failTc "an effect row requireþ a declared effect or a row variable")
   unifyCommonEffectsM concrete concrete
 
 inferAscribedM :: Expr -> TypeExpr -> TcContext -> Tc Inferred
 inferAscribedM expression annotation ctx = do
   checkTypeExprNamesM "type ascription" annotation ctx
-  (expected, _) <- instantiateM (typeAnnScheme (TypeAnn annotation []) ctx)
-  Inferred actual effects constraints core <- inferExprM expression ctx
-  mapTcError
-    (unifyM actual expected)
-    (\msg -> "in type ascription: " ++ msg ++ "; actual " ++ showTy actual ++ ", expected " ++ showTy expected)
-  st <- getTc
-  pure (Inferred (applyState expected st) (applyStateEffects effects st) (applyStateConstraints constraints st) (EAscribe core annotation))
+  (expected, _) <- instantiateM (generalizeTy (convertTypeExpr annotation ctx))
+  if containsForall expected
+    then do
+      (ty, effects, constraints, core) <- checkExprAgainstM "type ascription" expected [] [] expression ctx
+      pure (Inferred ty effects constraints (EAscribe core annotation))
+    else do
+      Inferred actual effects constraints core <- inferExprM expression ctx
+      instantiated <- instantiateTypeM actual
+      mapTcError
+        (unifyM instantiated expected)
+        (\msg -> "in type ascription: " ++ msg ++ "; actual " ++ showTy actual ++ ", expected " ++ showTy expected)
+      st <- getTc
+      pure (Inferred (applyState expected st) (applyStateEffects effects st) (applyStateConstraints constraints st) (EAscribe core annotation))
 
 inferRecordFieldsM :: [(String, Expr)] -> TcContext -> Tc Inferred
 inferRecordFieldsM fields ctx = do
@@ -2211,8 +2312,12 @@ inferVarM name ctx = case lookupEnvBinding name ctx of
   Right (Just binding) -> inferBindingM binding
 
 inferBindingM :: EnvBinding -> Tc Inferred
-inferBindingM binding = do
-  (ty, constraints) <- instantiateM (envScheme binding)
+inferBindingM = inferBindingWithTypesM []
+
+inferBindingWithTypesM :: [TypeArgument] -> EnvBinding -> Tc Inferred
+inferBindingWithTypesM typeArguments binding = do
+  (schemeTy, constraints) <- instantiateWithTypesM typeArguments (exposeSchemeQuantifiers (envScheme binding))
+  ty <- instantiateTypeM schemeTy
   holes <- traverse freshEvidenceHoleM constraints
   when (isNothing (envTarget binding) && envName binding /= envLocalName binding) do
     st <- getTc
@@ -2240,8 +2345,28 @@ inferRecordFieldAccessM baseExpr fieldName ctx = do
 
 inferApplyM :: Expr -> [Expr] -> TcContext -> Tc Inferred
 inferApplyM f args ctx = case flatApply f args of
+  (ETypeApply function types, allArgs) -> inferExplicitApplyM function (NE.toList types) allArgs ctx
   (EVar name, allArgs) -> inferNamedApplyM name allArgs ctx
   (other, allArgs) -> inferExprM other ctx >>= \inferred -> inferCurriedApplyM inferred allArgs ctx
+
+inferExplicitApplyM :: Expr -> [TypeExpr] -> [Expr] -> TcContext -> Tc Inferred
+inferExplicitApplyM function annotations arguments ctx = do
+  mapM_ (\annotation -> checkTypeExprNamesM "type argument" annotation ctx) annotations
+  kinds <- either failTc pure (Kind.inferKinds (tcKinds ctx) annotations)
+  let types = zip (map (`convertTypeExpr` ctx) annotations) kinds
+  case unlocated function of
+    EVar name -> inferNamedApplyWithTypesM types name arguments ctx
+    other -> do
+      Inferred ty effects constraints core <- inferExprM other ctx
+      st <- getTc
+      case applyState ty st of
+        TyForall parameters body -> do
+          (instantiated, _) <- instantiateWithTypesM types (Specified parameters (Forall (parameterNames parameters) [] body))
+          inferCurriedApplyM (Inferred instantiated effects constraints core) arguments ctx
+        _ -> failTc "explicit type application requireþ a polymorphic value"
+  where
+    unlocated (ELocated _ body) = unlocated body
+    unlocated body = body
 
 flatApply :: Expr -> [Expr] -> (Expr, [Expr])
 flatApply (ELocated _ inner) args = flatApply inner args
@@ -2251,18 +2376,21 @@ flatApply (EApply inner innerArgs) args =
 flatApply f args = (f, args)
 
 inferNamedApplyM :: String -> [Expr] -> TcContext -> Tc Inferred
-inferNamedApplyM name args ctx = case lookupEnvChoices name ctx of
+inferNamedApplyM = inferNamedApplyWithTypesM []
+
+inferNamedApplyWithTypesM :: [TypeArgument] -> String -> [Expr] -> TcContext -> Tc Inferred
+inferNamedApplyWithTypesM types name args ctx = case lookupEnvChoices name ctx of
   ChoicesMissing -> failTc ("unknown name '" ++ name ++ "'")
   ChoicesAmbiguous msg -> failTc msg
-  EnvChoices bindings -> tryApplyBindingsM name args bindings ctx Nothing
+  EnvChoices bindings -> tryApplyBindingsM types name args bindings ctx Nothing
 
-tryApplyBindingsM :: String -> [Expr] -> [EnvBinding] -> TcContext -> Maybe String -> Tc Inferred
-tryApplyBindingsM name args bindings ctx = foldr tryBinding noMore bindings
+tryApplyBindingsM :: [TypeArgument] -> String -> [Expr] -> [EnvBinding] -> TcContext -> Maybe String -> Tc Inferred
+tryApplyBindingsM types name args bindings ctx = foldr tryBinding noMore bindings
   where
     noMore err = failTc (fromMaybe ("unknown name '" ++ name ++ "'") err)
     tryBinding binding fallback err =
       recoverTc
-        (inferBindingM binding >>= \inferred -> inferCurriedApplyM inferred args ctx)
+        (inferBindingWithTypesM types binding >>= \inferred -> inferCurriedApplyM inferred args ctx)
         (fallback . keepFirstError err)
 
 keepFirstError :: Maybe String -> String -> Maybe String
@@ -2273,13 +2401,40 @@ inferCurriedApplyM :: Inferred -> [Expr] -> TcContext -> Tc Inferred
 inferCurriedApplyM fn args ctx = foldM step fn args
   where
     step (Inferred fTy fEffs fConstraints f) arg = do
-      Inferred argTy argEffs argConstraints arg2 <- inferExprM arg ctx
-      retTy <- freshM
-      latentEffects <- unifyApplyFunctionM fTy argTy retTy
+      st0 <- getTc
+      functionTy <- instantiateTypeM (normalizeFun (applyState fTy st0))
+      (retTy, latentEffects, Inferred _ argEffs argConstraints arg2) <- case functionTy of
+        TyArrow param latent ret -> do
+          argument <- checkArgumentM param arg ctx
+          pure (ret, latent, argument)
+        _ -> do
+          argument <- inferExprM arg ctx
+          ret <- freshM
+          latent <- unifyApplyFunctionM functionTy (inferredTy argument) ret
+          pure (ret, latent, argument)
       let effects = unionEffects fEffs (unionEffects argEffs latentEffects)
           constraints = unionConstraints fConstraints argConstraints
       st <- getTc
       pure (Inferred (applyState retTy st) effects (applyStateConstraints constraints st) (EApply f (arg2 :| [])))
+
+checkArgumentM :: Ty -> Expr -> TcContext -> Tc Inferred
+checkArgumentM expected expression ctx = do
+  st <- getTc
+  if containsForall (applyState expected st)
+    then do
+      (ty, effects, constraints, core) <- checkExprAgainstM "polymorphic argument" expected [] [] expression ctx
+      pure (Inferred ty effects constraints core)
+    else do
+      inferred <- inferExprM expression ctx
+      actual <- instantiateTypeM (inferredTy inferred)
+      unifyM actual expected
+      pure inferred
+
+containsForall :: Ty -> Bool
+containsForall ty = foldTyWith collect collect ty False
+  where
+    collect TyForall {} _ = True
+    collect _ found = found
 
 unifyApplyFunctionM :: Ty -> Ty -> Ty -> Tc EffectRow
 unifyApplyFunctionM fTy argTy retTy = do
@@ -2551,7 +2706,7 @@ elaborateSequentialDeclM scope (Let name annotation expr) ctx = do
     Just ann -> do
       checkTypeAnnConstraintsM ("let '" ++ name ++ "'") ann ctx
       let ctx2 = addElaboratedBinding scope name (typeAnnScheme ann ctx) ctx
-          checkingCtx = if scope == GlobalDeclarations then ctx2 else ctx
+          checkingCtx = if isAnonymousMatchExpr expr then ctx2 else ctx
       (_, effects, checkedConstraints, core) <- checkAnnotatedExprM name ann expr checkingCtx
       expr2 <- resolveInferredBindingM ctx2 checkedConstraints core
       pure (Let name annotation expr2, ctx2, effects)
@@ -2591,10 +2746,10 @@ addElaboratedBinding LocalDeclarations name scheme = addEnv name scheme
 elaborateDeclM :: Decl -> TcContext -> Tc Decl
 elaborateDeclM declaration ctx = case declaration of
   Let _ (Just _) EForeign {} -> pure declaration
-  EffectDecl parameters effectName operations -> do
+  EffectDecl (parameterNames -> parameters) effectName operations -> do
     effect <- maybe (failTc ("internal missing checked effect '" ++ effectName ++ "'")) pure (effectRefForName effectName ctx)
     let target = effectIdentity effect
-        resolvedOperationType = typeExprFromAppliedTy . normalizeFun . convertTypeExprWith parameters ctx
+        resolvedOperationType ty = typeExprFromAppliedTy (normalizeFun (let (_, _, body) = schemeParts (typeAnnSchemeWith parameters ctx (TypeAnn ty [])) in body))
         resolveOperation (EffectOp name operationType) =
           ( TermExport
               (effectOperationId target name)
@@ -2603,15 +2758,18 @@ elaborateDeclM declaration ctx = case declaration of
           )
     pure (ElaboratedEffect target (map resolveOperation operations))
   ElaboratedEffect {} -> pure declaration
-  ClassDecl _ className constraints members -> do
+  ClassDecl (typeHeaderParts -> (_, constraints)) className members -> do
     target <- resolveClassTargetM className ctx
     parents <- traverse (\(ClassConstraint _ name) -> resolveClassTargetM name ctx) constraints
     members2 <- catMaybes <$> traverse (elaborateClassMemberEntryM target className ctx) members
     pure (ElaboratedClass target parents members2)
   ElaboratedClass {} -> pure declaration
-  InstanceDecl types className constraints members -> do
-    members2 <- elaborateInstanceMembersM types className constraints members ctx
-    let key = instanceKeyFor (tcModule ctx) (canonicalClassName className ctx) (map (`convertTypeExpr` ctx) types)
+  InstanceDecl entries types className members -> do
+    let parameters = headerParameters entries
+        constraints = headerRequirements entries
+        scoped = scopeTypeVariables (Map.fromList [(name, TyVar name) | name <- parameterNames parameters]) (scopeParameterKinds parameters ctx)
+    members2 <- elaborateInstanceMembersM types className constraints members scoped
+    let key = instanceKeyFor (tcModule ctx) (canonicalClassName className ctx) (map (`convertTypeExpr` scoped) types)
     class_ <- resolveClassTargetM className ctx
     pure (ElaboratedInstance key class_ types className constraints members2)
   ElaboratedInstance {} -> pure declaration
@@ -2644,8 +2802,8 @@ elaborateInstanceMembersM types className instanceConstraints members ctx = case
     elaborateMember specs (Let name annotation expr) = do
       InstanceSpec {instanceSpecType} <- requireInstanceSpecM name specs
       let memberAnn = resolvedTypeAnnWithInternalConstraints ctx internalConstraints instanceSpecType
-      (expected, constraints) <- instantiateResolvedAnnotationM memberAnn
-      (_, _, checkedConstraints, core) <- checkExprAgainstM name expected [] constraints expr ctx
+      (variables, expected, constraints) <- instantiateResolvedAnnotationM memberAnn
+      (_, _, checkedConstraints, core) <- checkInstanceExprM name annotation expected constraints expr (scopeInstanceVariables variables ctx)
       let bindings = evidenceBindings checkedConstraints
       resolved <- resolveExprEvidenceM ctx bindings core
       pure (Let name annotation (wrapExternalEvidence internalConstraints bindings resolved))
@@ -2687,13 +2845,13 @@ declLabel :: Decl -> String
 declLabel = \case
   Import path _ -> "use '" ++ path ++ "'"
   Let name _ _ -> "let '" ++ name ++ "'"
-  TypeAlias _ name _ -> "let-ilk '" ++ name ++ "'"
+  TypeAlias _ name _ -> "type alias '" ++ name ++ "'"
   DataDecl _ name _ -> "ilk '" ++ name ++ "'"
   EffectDecl _ name _ -> "deed '" ++ name ++ "'"
   ElaboratedEffect target _ -> "deed '" ++ symbolName target ++ "'"
-  ClassDecl _ name _ _ -> "flock '" ++ name ++ "'"
+  ClassDecl _ name _ -> "flock '" ++ name ++ "'"
   ElaboratedClass target _ _ -> "flock '" ++ symbolName target ++ "'"
-  InstanceDecl tyArgs className _ _ -> "bizen '" ++ showClassHeader tyArgs className ++ "'"
+  InstanceDecl _ tyArgs className _ -> "bizen '" ++ showClassHeader tyArgs className ++ "'"
   ElaboratedInstance _ _ tyArgs className _ _ -> "bizen '" ++ showClassHeader tyArgs className ++ "'"
   Export declaration -> "show " ++ declLabel declaration
   ReExport name -> "show '" ++ name ++ "'"
@@ -2706,10 +2864,12 @@ showClassHeader arguments name = case map showTypeExprLabel arguments of
 
 showTypeExprLabel :: TypeExpr -> String
 showTypeExprLabel = \case
+  TypeHole _ -> "inferred"
   TypeName name -> name
   TypeApply name _ -> name
   TypeRecord {} -> "record"
   TypeArrow {} -> "function"
+  TypeForall _ body -> showTypeExprLabel body
 
 checkRunnableEffectsM :: EffectRow -> Tc ()
 checkRunnableEffectsM effects = do
@@ -2726,19 +2886,20 @@ isRunnableEffect effect = case effectHeadAndArgs effect of
 
 checkDeclM :: Decl -> TcContext -> Tc ()
 checkDeclM d ctx = case d of
-  TypeAlias params _ target -> checkTypeExprNamesWithM params "type alias" target ctx
-  DataDecl params dataName constructors -> mapM_ (checkCtor params dataName) constructors
-  EffectDecl params effectName ops -> checkEffectDeclM params effectName ops ctx
-  ClassDecl params className constraints members -> checkClassDeclM params className constraints members ctx
-  InstanceDecl tyArgs className constraints members -> checkInstanceM tyArgs className constraints members ctx
+  TypeAlias (parameterNames -> params) _ target -> checkTypeExprNamesWithM params "type alias" target ctx
+  DataDecl (parameterNames -> params) dataName constructors -> mapM_ (checkCtor params dataName) constructors
+  EffectDecl (parameterNames -> params) effectName ops -> checkEffectDeclM params effectName ops ctx
+  ClassDecl entries className members -> checkClassDeclM (parameterNames (headerParameters entries)) className (headerRequirements entries) members (scopeParameterKinds (headerParameters entries) ctx)
+  InstanceDecl entries tyArgs className members -> checkInstanceM (parameterNames (headerParameters entries)) tyArgs className (headerRequirements entries) members (scopeParameterKinds (headerParameters entries) ctx)
   _ -> pure ()
   where
-    checkCtor params dataName (Ctor _ fields result) = do
-      mapM_ (\field -> checkTypeExprNamesWithM params ("data '" ++ dataName ++ "'") field ctx) fields
+    checkCtor params dataName (Ctor _ (parameterNames -> names) fields result) = do
+      checkNewTypeParametersM params names
+      mapM_ (\field -> checkTypeExprNamesWithM (names ++ params) ("data '" ++ dataName ++ "'") field ctx) fields
       mapM_ checkResult result
       where
         checkResult ty = do
-          checkTypeExprNamesWithM params ("data '" ++ dataName ++ "'") ty ctx
+          checkTypeExprNamesWithM (names ++ params) ("data '" ++ dataName ++ "'") ty ctx
           let resultArgs = case ty of
                 TypeName name | name == dataName -> Just []
                 TypeApply name args | name == dataName -> Just args
@@ -2751,8 +2912,9 @@ checkEffectDeclM :: [String] -> String -> [EffectOp] -> TcContext -> Tc ()
 checkEffectDeclM params effectName ops ctx = mapM_ checkOp ops
   where
     checkOp (EffectOp opName t) = do
+      checkNewTypeParametersM params (annotationParameters t)
       checkTypeExprNamesWithM params ("effect operation '" ++ effectName ++ "~" ++ opName ++ "'") t ctx
-      case normalizeFun (convertTypeExprWith params ctx t) of
+      case normalizeFun (let (_, _, ty) = schemeParts (typeAnnSchemeWith params ctx (TypeAnn t [])) in ty) of
         TyFun {} -> pure ()
         _ -> failTc ("effect operation '" ++ effectName ++ "~" ++ opName ++ "' must have a function type")
 
@@ -2762,21 +2924,18 @@ checkClassDeclM classParams className constraints members ctx = do
   checkClassMemberConstraintsM classParams className members ctx
   checkClassLawsM classParams className constraints members ctx
 
-checkClassConstraintsM :: String -> [ClassConstraint] -> TcContext -> Tc ()
-checkClassConstraintsM = checkClassConstraintsWithM []
-
 checkClassConstraintsWithM :: [String] -> String -> [ClassConstraint] -> TcContext -> Tc ()
 checkClassConstraintsWithM bound owner constraints ctx = mapM_ checkConstraint constraints
   where
     checkConstraint (ClassConstraint args neededName) = do
       mapM_ (\argument -> checkTypeExprNamesWithM bound owner argument ctx) args
       case findClassInfo neededName ctx of
-        Nothing -> failTc (owner ++ " hath unknown graith flock '" ++ neededName ++ "'")
+        Nothing -> failTc (owner ++ " hath unknown constraint flock '" ++ neededName ++ "'")
         Just ClassInfo {classParams} -> do
           let expected = length classParams
               actual = length args
           unless (actual == expected) $
-            failTc (owner ++ " hath graith '" ++ neededName ++ "' with " ++ show actual ++ " arguments, but '" ++ neededName ++ "' hath " ++ show expected ++ " parameters")
+            failTc (owner ++ " hath constraint '" ++ neededName ++ "' with " ++ show actual ++ " arguments, but '" ++ neededName ++ "' hath " ++ show expected ++ " parameters")
 
 checkClassMemberConstraintsM :: [String] -> String -> [ClassMember] -> TcContext -> Tc ()
 checkClassMemberConstraintsM bound className members ctx = mapM_ checkMember (mapMaybe classMemberSignature members)
@@ -2787,14 +2946,25 @@ checkTypeAnnConstraintsM :: String -> TypeAnn -> TcContext -> Tc ()
 checkTypeAnnConstraintsM = checkTypeAnnConstraintsWithM []
 
 checkTypeAnnConstraintsWithM :: [String] -> String -> TypeAnn -> TcContext -> Tc ()
-checkTypeAnnConstraintsWithM bound owner (TypeAnn value constraints) ctx =
-  checkTypeExprNamesWithM bound owner value ctx >> checkClassConstraintsWithM bound owner constraints ctx
+checkTypeAnnConstraintsWithM bound owner (TypeAnn value (headerRequirements -> constraints)) ctx = do
+  checkNewTypeParametersM bound (annotationParameters value)
+  checkTypeExprNamesWithM bound owner value ctx
+  checkClassConstraintsWithM (annotationParameters value ++ bound) owner constraints ctx
+
+checkNewTypeParametersM :: [String] -> [String] -> Tc ()
+checkNewTypeParametersM bound =
+  mapM_ (\name -> when (name `elem` bound) (failTc ("type parameter '" ++ name ++ "' is already declared by its owner")))
+
+annotationParameters :: TypeExpr -> [String]
+annotationParameters (TypeForall (parameterNames -> names) _) = names
+annotationParameters _ = []
 
 checkTypeExprNamesM :: String -> TypeExpr -> TcContext -> Tc ()
 checkTypeExprNamesM = checkTypeExprNamesWithM []
 
 checkTypeExprNamesWithM :: [String] -> String -> TypeExpr -> TcContext -> Tc ()
 checkTypeExprNamesWithM bound owner expr ctx = case expr of
+  TypeHole _ -> pure ()
   TypeName name
     | name `elem` bound -> pure ()
     | otherwise -> checkTypeNameM owner name ctx >> checkAliasArityM owner name 0 ctx
@@ -2807,13 +2977,15 @@ checkTypeExprNamesWithM bound owner expr ctx = case expr of
   TypeArrow arguments effects result -> do
     mapM_ (\argument -> checkTypeExprNamesWithM bound owner argument ctx) arguments
     mapM_ (\effect -> checkTypeExprNamesWithM bound owner effect ctx) effects
+    checkEffectRowArgumentsM (map (convertEffectExprWith bound ctx) effects)
     checkTypeExprNamesWithM bound owner result ctx
+  TypeForall (parameterNames -> names) body -> checkTypeExprNamesWithM (names ++ bound) owner body ctx
 
 checkAliasArityM :: String -> String -> Int -> TcContext -> Tc ()
 checkAliasArityM owner name actual ctx = case unshownTypeInfo <$> findTypeInfoForTypeSystem name ctx of
   Just (Alias canonical params _) -> do
     let expected = length params
-    unless (actual == expected) $
+    unless (actual == expected || maybe False isScopedTypeVariable (snd <$> aliasInfo name ctx)) $
       failTc (owner ++ " useþ type alias '" ++ canonical ++ "' with " ++ show actual ++ " arguments, but it hath " ++ show expected ++ " parameters")
   _ -> pure ()
 
@@ -2824,24 +2996,27 @@ checkTypeNameM owner name ctx@TcContext {tcTypeAmbiguities}
         failTc (owner ++ " useþ unknown type '" ++ name ++ "'")
   | Just choices <- Map.lookup name tcTypeAmbiguities =
       failTc (owner ++ " useþ ambiguous type '" ++ name ++ "'; qualify it as one of: " ++ intercalate ", " choices)
-  | otherwise = pure ()
+  | isPrimitiveTypeName name || isJust (findTypeInfoForTypeSystem name ctx) = pure ()
+  | otherwise = failTc (owner ++ " useþ undeclared type '" ++ name ++ "'; declare @" ++ name ++ " with its kind")
 
 checkClassLawsM :: [String] -> String -> [ClassConstraint] -> [ClassMember] -> TcContext -> Tc ()
 checkClassLawsM classParams className classConstraints members ctx = zipWithM_ checkLaw [(1 :: Int) ..] laws
   where
-    laws = [(parameters, left, right) | ClassLaw parameters left right <- members]
+    laws = [(declarations, parameters, left, right) | ClassLaw declarations parameters left right <- members]
     availableConstraints = map (convertClassConstraintWith classParams ctx) (ownClassConstraint className ctx ++ classConstraints)
 
-    checkLaw number (parameters, left, right) = mapTcError check (\message -> "in law " ++ show number ++ " of flock '" ++ className ++ "': " ++ message)
+    checkLaw number (declarations, parameters, left, right) = mapTcError check (\message -> "in law " ++ show number ++ " of flock '" ++ className ++ "': " ++ message)
       where
+        names = parameterNames declarations
         check = do
-          mapM_ (\(_, ty) -> checkTypeExprNamesWithM classParams ("law of flock '" ++ className ++ "'") ty ctx) parameters
-          let rawParameterTypes = map (convertTypeExprWith classParams ctx . snd) parameters
-              variables = nub (classParams ++ concatMap (typeExprVars . snd) parameters)
+          checkNewTypeParametersM classParams names
+          mapM_ (\(_, ty) -> checkTypeExprNamesWithM (names ++ classParams) ("law of flock '" ++ className ++ "'") ty ctx) parameters
+          let rawParameterTypes = map (convertTypeExprWith (names ++ classParams) ctx . snd) parameters
+              variables = nub (names ++ classParams)
               rowVariables = nub (foldl' (flip effectRowVarsInTy) [] rawParameterTypes)
           replacements <- Map.fromList <$> traverse (freshLawVariable rowVariables) variables
           let parameterTypes = map (`replaceVars` replacements) rawParameterTypes
-          lawCtx <- bindPatternsM (map fst parameters) parameterTypes ctx
+          lawCtx <- bindPatternsM (map fst parameters) parameterTypes (scopeTypeVariables replacements (scopeParameterKinds declarations ctx))
           Inferred leftType leftEffects leftConstraints _ <- inferNamedM "law left side" left lawCtx
           Inferred rightType rightEffects rightConstraints _ <- inferNamedM "law right side" right lawCtx
           mapTcError (unifyM leftType rightType) ("law sides have different types: " ++)
@@ -2881,10 +3056,10 @@ requirePureImmediateEffectsM owner effects = do
   unless (null actualEffects) $
     failTc (owner ++ " hath immediate effects {" ++ showEffects actualEffects ++ "}; use a function type or run it from a runnable file")
 
-checkInstanceM :: [TypeExpr] -> String -> [ClassConstraint] -> [Decl] -> TcContext -> Tc ()
-checkInstanceM tyArgs className constraints members ctx = do
-  mapM_ (\tyArg -> checkTypeExprNamesM ("bizen '" ++ className ++ "'") tyArg ctx) tyArgs
-  checkClassConstraintsM ("bizen '" ++ className ++ "'") constraints ctx
+checkInstanceM :: [String] -> [TypeExpr] -> String -> [ClassConstraint] -> [Decl] -> TcContext -> Tc ()
+checkInstanceM names tyArgs className constraints members outer = do
+  mapM_ (\tyArg -> checkTypeExprNamesWithM names ("bizen '" ++ className ++ "'") tyArg outer) tyArgs
+  checkClassConstraintsWithM names ("bizen '" ++ className ++ "'") constraints outer
   let actualClass = canonicalClassName className ctx
       key = instanceKeyFor (tcModule ctx) actualClass (map (`convertTypeExpr` ctx) tyArgs)
       duplicateCount =
@@ -2902,6 +3077,8 @@ checkInstanceM tyArgs className constraints members ctx = do
       case instanceSpecsForClass className tyArgs ctx [] of
         Nothing -> failTc ("bizen '" ++ className ++ "' hath an unknown required flock")
         Just specs -> checkInstanceMembersM className tyArgs constraints members specs ctx
+  where
+    ctx = scopeTypeVariables (Map.fromList [(name, TyVar name) | name <- names]) outer
 
 checkInstanceArityM :: String -> [String] -> [TypeExpr] -> Tc ()
 checkInstanceArityM className classParams tyArgs =
@@ -2956,22 +3133,40 @@ checkInstanceMembersM className tyArgs constraints members specs ctx = do
 
 checkInstanceMemberM :: [TypeExpr] -> String -> [ClassConstraint] -> [InstanceSpec] -> TcContext -> Decl -> Tc ()
 checkInstanceMemberM tyArgs className constraints specs ctx = \case
-  Let name _ expr -> do
+  Let name annotation expr -> do
+    mapM_ (\ann -> checkTypeAnnConstraintsM ("bizen member '" ++ name ++ "'") ann ctx) annotation
     InstanceSpec {instanceSpecClass, instanceSpecType} <- requireInstanceSpecM name specs
     let memberAnn = resolvedTypeAnnWithInternalConstraints ctx (instanceMemberInternalConstraints tyArgs className constraints) instanceSpecType
     mapTcError
       ( do
-          (expected, expectedConstraints) <- instantiateResolvedAnnotationM memberAnn
-          void (checkExprAgainstM name expected [] expectedConstraints expr ctx)
+          (variables, expected, expectedConstraints) <- instantiateResolvedAnnotationM memberAnn
+          void (checkInstanceExprM name annotation expected expectedConstraints expr (scopeInstanceVariables variables ctx))
       )
       (\msg -> "in bizen member '" ++ classDisplayName instanceSpecClass ++ "~" ++ name ++ "': " ++ msg)
   _ -> failTc "bizen member must be a let"
+
+checkInstanceExprM :: String -> Maybe TypeAnn -> Ty -> [Constraint] -> Expr -> TcContext -> Tc (Ty, EffectRow, [Constraint], Expr)
+checkInstanceExprM name annotation expected constraints expr ctx = do
+  scoped <- case annotation of
+    Nothing -> pure ctx
+    Just ann -> do
+      -- the written annotation must hold universally, and its instantiation
+      -- must satisfy the class interface. only the latter check elaborateþ.
+      before <- getTc
+      void (checkAnnotatedExprM name ann expr ctx)
+      putTc before
+      let scheme = typeAnnScheme ann ctx
+      (variables, actual, required) <- instantiateWithBindingsM [] scheme
+      unifyM actual expected
+      checkConstraintsAgainstM name ctx required constraints
+      pure (scopeTypeVariables (Map.restrictKeys variables (Set.fromList (specifiedVars scheme))) (scopeParameterKinds (specifiedParameters scheme) ctx))
+  checkExprAgainstM name expected [] constraints expr scoped
 
 checkRedundantInstanceConstraintsM :: String -> [TypeExpr] -> [ClassConstraint] -> [Decl] -> [InstanceSpec] -> TcContext -> Tc ()
 checkRedundantInstanceConstraintsM className tyArgs constraints members specs ctx = do
   redundant <- findRedundant (zip [(0 :: Int) ..] constraints)
   case redundant of
-    Just constraint -> failTc (owner ++ " hath redundant graiþ " ++ showSourceConstraint (convertClassConstraint constraint ctx))
+    Just constraint -> failTc (owner ++ " hath redundant constraint " ++ showSourceConstraint (convertClassConstraint constraint ctx))
     Nothing -> pure ()
   where
     owner = "bizen '" ++ showClassHeader tyArgs className ++ "'"
@@ -3048,7 +3243,8 @@ inferRecursiveBindingM name expr ctx = do
   let alias = "$self" ++ show ident
       ctxSelf = ctx {tcEnv = EnvBinding name alias (Forall [] [] selfTy) localEnvRank name Nothing : tcEnv ctx}
   inferred <- inferNamedM name expr ctxSelf
-  mapTcError (unifyM selfTy (inferredTy inferred)) (\msg -> "in '" ++ name ++ "': " ++ msg)
+  recursiveType <- instantiateTypeM (inferredTy inferred)
+  mapTcError (unifyM selfTy recursiveType) (\msg -> "in '" ++ name ++ "': " ++ msg)
   pure (alias, inferred)
 
 bindRecursiveAlias :: String -> Expr -> [Constraint] -> Expr -> Expr
@@ -3059,6 +3255,7 @@ bindRecursiveAlias alias target constraints = go
       first : rest -> EApply target (first :| rest)
     go (ELocated span body) = ELocated span (go body)
     go (EAscribe body annotation) = EAscribe (go body) annotation
+    go (ETypeApply body arguments) = ETypeApply (go body) arguments
     go (EMatch [] cases) = EMatch [] [MatchCase patterns (EBlock [Let alias Nothing self] body) | MatchCase patterns body <- cases]
     go body = body
 
@@ -3070,52 +3267,120 @@ bindingScheme ctx ty constraints effects st
 inferNamedM :: String -> Expr -> TcContext -> Tc Inferred
 inferNamedM name expr ctx = mapTcError (inferExprM expr ctx) (\msg -> "in '" ++ name ++ "': " ++ msg)
 
-instantiateAnnotationM :: TypeAnn -> TcContext -> Tc (Ty, EffectRow, [Constraint])
-instantiateAnnotationM = instantiateAnnotationWithM []
-
-instantiateAnnotationWithM :: [String] -> TypeAnn -> TcContext -> Tc (Ty, EffectRow, [Constraint])
-instantiateAnnotationWithM bound ann ctx = do
-  (ty, constraints) <- skolemizeM (typeAnnSchemeWith bound ctx ann)
-  pure (ty, [], constraints)
-
 resolvedTypeAnnWithInternalConstraints :: TcContext -> [ClassConstraint] -> ResolvedTypeAnn -> ResolvedTypeAnn
 resolvedTypeAnnWithInternalConstraints ctx internal (ResolvedTypeAnn ty constraints) =
   ResolvedTypeAnn ty (map (`convertClassConstraint` ctx) internal ++ constraints)
 
-instantiateResolvedAnnotationM :: ResolvedTypeAnn -> Tc (Ty, [Constraint])
-instantiateResolvedAnnotationM (ResolvedTypeAnn ty constraints) = skolemizeM (generalizeTyWithConstraints constraints ty)
+instantiateResolvedAnnotationM :: ResolvedTypeAnn -> Tc (Map.Map String Ty, Ty, [Constraint])
+instantiateResolvedAnnotationM (ResolvedTypeAnn ty constraints) =
+  let (parameters, body) = case ty of TyForall declarations inner -> (declarations, inner); _ -> ([], ty)
+      scheme = Specified parameters (addForallVars (parameterNames parameters) (generalizeTyWithConstraints constraints body))
+   in skolemizeWithBindingsM scheme
+
+scopeInstanceVariables :: Map.Map String Ty -> TcContext -> TcContext
+scopeInstanceVariables variables ctx = scopeTypeVariables (Map.filterWithKey inScope variables) ctx
+  where
+    inScope name _ = maybe False (isScopedTypeVariable . snd) (aliasInfo name ctx)
 
 skolemizeM :: Scheme -> Tc (Ty, [Constraint])
 skolemizeM scheme = do
+  (_, ty, constraints) <- skolemizeWithBindingsM scheme
+  pure (ty, constraints)
+
+skolemizeWithBindingsM :: Scheme -> Tc (Map.Map String Ty, Ty, [Constraint])
+skolemizeWithBindingsM scheme = do
   -- annotation variables are rigid here; only parser-generated holes remain flexible.
   let (vars, constraints, ty) = schemeParts scheme
       rowVars = effectRowVarsInConstraints constraints (effectRowVarsInTy ty [])
-  replacements <- Map.fromList <$> traverse (freshSkolem rowVars) vars
-  pure (replaceVars ty replacements, map (`replaceConstraintVars` replacements) constraints)
+  replacements <- Map.fromList <$> traverse (\name -> if name `elem` specifiedVars scheme then rigidSkolem rowVars name else freshSkolem rowVars name) vars
+  pure (replacements, replaceVars ty replacements, map (`replaceConstraintVars` replacements) constraints)
+
+rigidSkolem :: [String] -> String -> Tc (String, Ty)
+rigidSkolem rowVars name = do
+  ident <- freshIdM
+  pure (name, if name `elem` rowVars then TyEffectSkolem ident else TySkolem (UniversalSkolem ident) [])
+
+scopeTypeVariables :: Map.Map String Ty -> TcContext -> TcContext
+scopeTypeVariables variables ctx = Map.foldlWithKey' (\current name ty -> addTypeInfo name (Alias name [] ty) current) ctx variables
+
+scopeParameterKinds :: [TypeParameter] -> TcContext -> TcContext
+scopeParameterKinds parameters ctx@TcContext {tcKinds = kinds@Kind.KindContext {typeKinds}} =
+  ctx {tcKinds = kinds {Kind.typeKinds = Map.union (Map.fromList parameters) typeKinds}}
 
 freshSkolem :: [String] -> String -> Tc (String, Ty)
 freshSkolem rowVars variable
   | isImplicitAnnotationVariable variable = (variable,) <$> freshM
-  | otherwise = do
-      st@TcState {tcNextMeta} <- getTc
-      putTc st {tcNextMeta = tcNextMeta + 1}
-      let suffix = show tcNextMeta
-          skolem = if variable `elem` rowVars then TyEffectSkolem tcNextMeta else TyCon ("$type" ++ suffix)
-      pure (variable, skolem)
+  | otherwise = rigidSkolem rowVars variable
 
 isImplicitAnnotationVariable :: String -> Bool
-isImplicitAnnotationVariable ('t' : digits) = not (null digits) && all isDigit digits
-isImplicitAnnotationVariable _ = False
+isImplicitAnnotationVariable name = "$hole" `isPrefixOf` name
+
+-- skolems may solve fresh holes inside a check, but must never determine a
+-- captured type outside it. inspect earlier metas and free constructor/row
+-- variables after substitution, including indirect links to fresh holes.
+withPolymorphicScopeM :: [TypeParameter] -> Ty -> [Ty] -> (Map.Map String Ty -> Ty -> Tc a) -> Tc a
+withPolymorphicScopeM parameters body surrounding action = do
+  before <- getTc
+  replacements <- Map.fromList <$> traverse (rigidSkolem rowNames) names
+  value <- action replacements (replaceVars body replacements)
+  rejectEscapingSkolemsM before replacements (TyForall parameters body : surrounding)
+  pure value
+  where
+    rowNames = effectRowVarsInTy body []
+    names = parameterNames parameters
+
+rejectEscapingSkolemsM :: TcState -> Map.Map String Ty -> [Ty] -> Tc ()
+rejectEscapingSkolemsM before replacements external = do
+  let boundary = tcNextMeta before
+      heads = nub (Map.keys (tcTypeHeads before) ++ foldr typeHeadVarsInTy [] external)
+      rows = nub (map (\(RowVariable name) -> name) (Map.keys (tcEffectRows before)) ++ foldr effectRowVarsInTy [] external)
+  after <- getTc
+  let externalTypes = [TyMeta ident | ident <- IntMap.keys (tcMetaSubst after), ident < boundary] ++ map TyVar heads ++ [rowEqualityType (RowEquality [EffectVariable (RowVariable row)] []) | row <- rows]
+      escapes = any (any (isSkolem replacements) . (\ty -> foldTyWith (:) (:) (applyState ty after) [])) externalTypes
+  when escapes (failTc "polymorphic type variable escapes its scope")
+  where
+    isSkolem replacements ty =
+      ty `elem` Map.elems replacements || case ty of
+        TySkolem ident _ -> TySkolem ident [] `elem` Map.elems replacements
+        _ -> False
+
+contextTypes :: TcContext -> [Ty]
+contextTypes = map (schemeType . envScheme) . tcEnv
+  where
+    schemeType scheme =
+      let (names, constraints, ty) = schemeParts scheme
+       in TyForall (unknownParameters names) (TyRecord (Map.fromList (zip (map show [0 :: Int ..]) (ty : map rowEqualityType (schemeRows scheme) ++ [arg | Constraint args _ <- constraints, arg <- args]))))
 
 checkAnnotatedExprM :: String -> TypeAnn -> Expr -> TcContext -> Tc (Ty, EffectRow, [Constraint], Expr)
 checkAnnotatedExprM name ann expr ctx = do
-  (expectedValue, expectedEffects, expectedConstraints) <- instantiateAnnotationM ann ctx
-  checkExprAgainstM name expectedValue expectedEffects expectedConstraints expr ctx
+  before <- getTc
+  let scheme = typeAnnScheme ann ctx
+  (variables, expectedValue, expectedConstraints) <- skolemizeWithBindingsM scheme
+  let scoped = Map.restrictKeys variables (Set.fromList (specifiedVars scheme))
+  checked <- checkExprAgainstM name expectedValue [] expectedConstraints expr (scopeTypeVariables scoped (scopeParameterKinds (specifiedParameters scheme) ctx))
+  unless (Map.null scoped) (rejectEscapingSkolemsM before scoped (contextTypes ctx))
+  pure checked
 
 checkExprAgainstM :: String -> Ty -> EffectRow -> [Constraint] -> Expr -> TcContext -> Tc (Ty, EffectRow, [Constraint], Expr)
 checkExprAgainstM name expectedValue expectedEffects expectedConstraints (ELocated span expression) ctx = withTcSpan span do
   (value, effects, constraints, core) <- checkExprAgainstM name expectedValue expectedEffects expectedConstraints expression ctx
   pure (value, effects, constraints, ELocated span core)
+checkExprAgainstM name (TyForall names body) expectedEffects expectedConstraints expression ctx =
+  withPolymorphicScopeM names body (contextTypes ctx ++ [rowEqualityType (RowEquality expectedEffects [])]) $ \variables rigid -> do
+    (_, effects, constraints, core) <- checkExprAgainstM name rigid expectedEffects expectedConstraints expression (scopeTypeVariables variables (scopeParameterKinds names ctx))
+    st <- getTc
+    pure (applyState (TyForall names body) st, effects, constraints, core)
+checkExprAgainstM name expectedValue expectedEffects expectedConstraints (EBlock declarations body) ctx = do
+  (declarations2, ctx2, declarationEffects) <- inferLocalDeclsM declarations ctx
+  (ty, effects, constraints, core) <- checkExprAgainstM name expectedValue expectedEffects expectedConstraints body ctx2
+  (_, combined) <- checkEffectsAgainstM name expectedValue (unionEffects declarationEffects effects) expectedEffects
+  pure (ty, combined, constraints, EBlock declarations2 core)
+checkExprAgainstM name expectedValue@(TyRecord fieldTypes) expectedEffects expectedConstraints (ERecord fields) ctx = do
+  unless (Map.keys fieldTypes == Map.keys (Map.fromList fields)) (failTc "record field mismatch")
+  checked <- traverse (\(field, expression) -> (field,) <$> checkExprAgainstM name (fieldTypes Map.! field) expectedEffects expectedConstraints expression ctx) fields
+  let effects = foldl' unionEffects [] [row | (_, (_, row, _, _)) <- checked]
+  st <- getTc
+  pure (applyState expectedValue st, effects, applyStateConstraints expectedConstraints st, ERecord [(field, core) | (field, (_, _, _, core)) <- checked])
 checkExprAgainstM name expectedValue expectedEffects expectedConstraints (EMatch [] cases) ctx
   | TyFun args latentEffects ret <- normalizeFun expectedValue,
     anonymousCasesFitFunction (NE.length args) cases = do
@@ -3123,11 +3388,12 @@ checkExprAgainstM name expectedValue expectedEffects expectedConstraints (EMatch
       st <- getTc
       pure (applyState expectedValue st, applyStateEffects expectedEffects st, checkedConstraints, core)
 checkExprAgainstM name expectedValue expectedEffects expectedConstraints (EMatch scrutinees cases) ctx
-  | not (null scrutinees) && any (caseUsesIndexedConstructor ctx) cases =
+  | not (null scrutinees) =
       checkMatchAgainstM name expectedValue expectedEffects expectedConstraints scrutinees cases ctx
 checkExprAgainstM name expectedValue expectedEffects expectedConstraints expr ctx = do
   Inferred actual effects constraints core <- inferNamedM name expr ctx
-  mapTcError (unifyM actual expectedValue) (\msg -> "in '" ++ name ++ "': " ++ msg ++ "; actual " ++ showTy actual ++ ", expected " ++ showTy expectedValue)
+  instantiated <- instantiateTypeM actual
+  mapTcError (unifyM instantiated expectedValue) (\msg -> "in '" ++ name ++ "': " ++ msg ++ "; actual " ++ showTy actual ++ ", expected " ++ showTy expectedValue)
   (checkedValue, checkedEffects) <- checkEffectsAgainstM name expectedValue effects expectedEffects
   checkConstraintsAgainstM name ctx constraints expectedConstraints
   st <- getTc
@@ -3146,51 +3412,17 @@ checkMatchFunctionAgainstM name args latentEffects ret expectedConstraints cases
     (patternArgs, remainingArgs) = splitAt arity (NE.toList args)
     step constraints (MatchCase ps body) = withScopedGadtRefinements do
       scopeStart <- tcNextMeta <$> getTc
-      before <- tcGadtRefinements <$> getTc
       ctx2 <- bindPatternsM (NE.toList ps) patternArgs ctx
-      refined <- (/= before) . tcGadtRefinements <$> getTc
       ps2 <- traverse (resolvePatternM ctx) ps
       (bodyConstraints, body2) <- case NE.nonEmpty remainingArgs of
-        Nothing
-          | refined || exprUsesIndexedMatch ctx body -> do
-              (checked, _, inferredConstraints, core) <- checkExprAgainstM name ret latentEffects expectedConstraints body ctx2
-              rejectEscapingExistentials scopeStart checked
-              pure (inferredConstraints, core)
-          | otherwise -> do
-              Inferred bodyTy bodyEffects inferredConstraints core <- inferNamedM name body ctx2
-              mapTcError (unifyM bodyTy ret) (\msg -> "in '" ++ name ++ "': " ++ msg ++ "; actual " ++ showTy bodyTy ++ ", expected " ++ showTy ret)
-              _ <- checkEffectsAgainstM name ret bodyEffects latentEffects
-              st <- getTc
-              rejectEscapingExistentials scopeStart (applyState ret st)
-              pure (inferredConstraints, core)
+        Nothing -> do
+          (checked, _, inferredConstraints, core) <- checkExprAgainstM name ret latentEffects expectedConstraints body ctx2
+          rejectEscapingExistentials scopeStart checked
+          pure (inferredConstraints, core)
         Just rest -> do
           (_, _, inferredConstraints, core) <- checkExprAgainstM name (TyFun rest latentEffects ret) [] expectedConstraints body ctx2
           pure (inferredConstraints, core)
       pure (unionConstraints constraints bodyConstraints, MatchCase ps2 body2)
-
-exprUsesIndexedMatch :: TcContext -> Expr -> Bool
-exprUsesIndexedMatch ctx = \case
-  ELocated _ body -> exprUsesIndexedMatch ctx body
-  EMatch _ cases -> any (caseUsesIndexedConstructor ctx) cases
-  _ -> False
-
-caseUsesIndexedConstructor :: TcContext -> MatchCase -> Bool
-caseUsesIndexedConstructor ctx (MatchCase patterns _) = any (patternUsesIndexedConstructor ctx) patterns
-
-patternUsesIndexedConstructor :: TcContext -> Pattern -> Bool
-patternUsesIndexedConstructor ctx = \case
-  PVar name -> indexedName name
-  PCon name arguments -> indexedName name || any (patternUsesIndexedConstructor ctx) arguments
-  _ -> False
-  where
-    indexedName name = case lookupConstructorBinding name ctx of
-      Right (Just EnvBinding {envScheme}) -> indexedResult (constructorResultType (third (schemeParts envScheme)))
-      _ -> False
-    indexedResult (TyNamed TypeRef {typeIdentity} args) = case Map.lookup typeIdentity (tcTypeRegistry ctx) of
-      Just (DataInfo _ params _) -> args /= map TyVar params
-      _ -> False
-    indexedResult _ = False
-    third (_, _, value) = value
 
 checkMatchAgainstM :: String -> Ty -> EffectRow -> [Constraint] -> [Expr] -> [MatchCase] -> TcContext -> Tc (Ty, EffectRow, [Constraint], Expr)
 checkMatchAgainstM name expected expectedEffects expectedConstraints scrutinees cases ctx = do
@@ -3219,13 +3451,9 @@ rejectEscapingExistentials scopeStart ty =
   when (any newlyBound (foldTyWith (:) (:) ty [])) $
     failTc "existential constructor type escapes its match branch"
   where
-    newlyBound (TyCon name) = newName name
-    newlyBound (TyApplication (ConstructorHead (StructuralConstructor name)) _) = newName name
+    newlyBound (TySkolem (ExistentialSkolem ident) _) = ident >= scopeStart
     newlyBound (TyEffectSkolem ident) = ident >= scopeStart
     newlyBound _ = False
-    newName name = case stripPrefix "$exist" name of
-      Just digits | not (null digits) && all isDigit digits -> read digits >= scopeStart
-      _ -> False
 
 anonymousCasesFitFunction :: Int -> [MatchCase] -> Bool
 anonymousCasesFitFunction arity cases = case cases of
@@ -3258,7 +3486,7 @@ checkConstraintsAgainstM name ctx actualConstraints0 expectedConstraints0 = do
       expectedConstraints = applyStateConstraints expectedConstraints0 st
   unexpected <- filterM (fmap not . constraintResolvedBy expectedConstraints ctx) actualConstraints
   unless (null unexpected) $
-    failTc ("in '" ++ name ++ "': missing graith " ++ showConstraints unexpected ++ "; available graiths " ++ showConstraints expectedConstraints)
+    failTc ("in '" ++ name ++ "': missing constraint " ++ showConstraints unexpected ++ "; available constraints " ++ showConstraints expectedConstraints)
 
 normalizeConstraintsM :: TcContext -> [Constraint] -> Tc [Constraint]
 normalizeConstraintsM ctx constraints0 = do
@@ -3272,14 +3500,14 @@ normalizeConstraintsM ctx constraints0 = do
 
 normalizeConstraintM :: TcContext -> [Constraint] -> Constraint -> Tc [Constraint]
 normalizeConstraintM ctx seen constraint
-  | constraint `elem` seen = if constraintMayRemainOpen constraint then pure [constraint] else failTc ("missing graith " ++ showConstraint constraint)
+  | constraint `elem` seen = if constraintMayRemainOpen constraint then pure [constraint] else failTc ("missing constraint " ++ showConstraint constraint)
   | otherwise = do
       selected <- either failTc pure (selectInstanceCandidate ctx constraint)
       case selected of
         Just (_, constraints, _) -> foldM step [] constraints
         Nothing
           | constraintMayRemainOpen constraint -> pure [constraint]
-          | otherwise -> failTc ("missing graith " ++ showConstraint constraint)
+          | otherwise -> failTc ("missing constraint " ++ showConstraint constraint)
   where
     step acc nested = do
       normalized <- normalizeConstraintM ctx (constraint : seen) nested
@@ -3290,7 +3518,7 @@ requireNoConstraintsM ctx constraints = do
   remaining <- normalizeConstraintsM ctx constraints
   if null remaining
     then pure ()
-    else failTc ("runnable file hath unresolved graiths " ++ showConstraints remaining)
+    else failTc ("runnable file hath unresolved constraints " ++ showConstraints remaining)
 
 constraintResolvedBy :: [Constraint] -> TcContext -> Constraint -> Tc Bool
 constraintResolvedBy expected ctx = go []
@@ -3442,39 +3670,15 @@ resolveExprEvidenceM :: TcContext -> [EvidenceBinding] -> Expr -> Tc Expr
 resolveExprEvidenceM ctx available = go
   where
     go = \case
-      ELocated span expression -> ELocated span <$> go expression
-      literal@EInteger {} -> pure literal
-      literal@EFloat {} -> pure literal
-      literal@EUnicode {} -> pure literal
-      literal@EText {} -> pure literal
-      foreignExpression@EForeign {} -> pure foreignExpression
-      variable@EVar {} -> pure variable
-      global@EGlobal {} -> pure global
-      evidence@EEvidence {} -> pure evidence
-      EEvidenceLambda identifiers body -> EEvidenceLambda identifiers <$> go body
-      EAscribe expression annotation -> EAscribe <$> go expression <*> pure annotation
-      EApply function arguments -> EApply <$> go function <*> traverse go arguments
-      ERecord fields -> ERecord <$> traverse (traverse go) fields
-      EField base field -> EField <$> go base <*> pure field
-      EUpdate base updates -> EUpdate <$> go base <*> traverse resolveUpdate updates
-      ETry body returnCase cases -> ETry <$> go body <*> traverse resolveReturn returnCase <*> traverse resolveHandler cases
-      EMatch scrutinees cases -> EMatch <$> traverse go scrutinees <*> traverse resolveCase cases
-      EBlock declarations body -> EBlock declarations <$> go body
       EWithEvidence function evidence -> do
         function2 <- go function
         dictionaries <- traverse resolveDictionary evidence
         pure $ case dictionaries of
           [] -> function2
           first : rest -> EApply function2 (first :| rest)
-      EDictionary key class_ nested parents -> EDictionary key class_ <$> traverse go nested <*> traverse go parents
+      -- nested declarations have already resolved their own evidence scopes.
+      other -> traverseExprChildren pure pure go other
     resolveDictionary = resolveEvidenceHoleM ctx available
-    resolveUpdate = \case
-      RecordSet name expr -> RecordSet name <$> go expr
-      update@RecordRemove {} -> pure update
-    resolveReturn (ReturnCase pat body) = ReturnCase pat <$> go body
-    resolveHandler (HandlerCase name patterns body) = HandlerCase name patterns <$> go body
-    resolveHandler (ResolvedHandlerCase target patterns body) = ResolvedHandlerCase target patterns <$> go body
-    resolveCase (MatchCase patterns body) = MatchCase patterns <$> go body
 
 constraintWithBindings :: Map.Map String Ty -> Constraint -> Constraint
 constraintWithBindings bindings (Constraint args class_) =
@@ -3523,8 +3727,8 @@ hasConsistentTypePatternBindings expected actual = isJust (zipWithExact typePatt
 
 hasConcreteHead :: Ty -> Bool
 hasConcreteHead ty = case normalizeFun ty of
-  TyCon name -> not ("$type" `isPrefixOf` name)
-  TyApp _ _ -> True
+  TyCon _ -> True
+  TyApplication (ConstructorHead (StructuralConstructor _)) _ -> True
   TyNamed {} -> True
   TyFun {} -> True
   _ -> False
@@ -3558,7 +3762,7 @@ generalizeApplied TcContext {tcEnv} ty constraints st =
             ty2 = applyState (TyRecord (Map.fromList (zip (map show [0 :: Int ..]) (ty : map rowEqualityType (schemeRows (envScheme binding)))))) freeState
          in (metaIdsInConstraints constraints2 (metaIdsInTy ty2 []), filter (`notElem` bound) (typeVarsInConstraints constraints2 (typeVarsInTy ty2 [])))
       (environmentMetas, environmentVars) = unzip (map freeInBinding tcEnv)
-      used = nub (concat environmentVars ++ typeVarsInConstraints appliedConstraints (typeVarsInTy bindingTypes []))
+      used = nub (concat environmentVars ++ typeVarsInConstraints appliedConstraints (allTypeNames bindingTypes))
       metas = filter (`notElem` concat environmentMetas) (metaIdsInConstraints appliedConstraints (metaIdsInTy bindingTypes []))
       replacements = IntMap.fromList (zip metas (metaVarNames used metas))
       ty2 = replaceTyMetas replacements appliedTy
@@ -3588,11 +3792,20 @@ generalizeTyWithConstraints constraints ty =
 
 replaceMetasForGeneralization :: [Constraint] -> Ty -> ([Constraint], Ty)
 replaceMetasForGeneralization constraints ty =
-  let used = typeVarsInConstraints constraints (typeVarsInTy ty [])
+  let used = typeVarsInConstraints constraints (allTypeNames ty)
       metaIds = metaIdsInConstraints constraints (metaIdsInTy ty [])
       names = metaVarNames used metaIds
       repls = IntMap.fromList (zip metaIds names)
    in (map (replaceConstraintMetas repls) constraints, replaceTyMetas repls ty)
+
+allTypeNames :: Ty -> [String]
+allTypeNames ty = foldTyWith collect collect ty []
+  where
+    collect (TyForall (parameterNames -> names) _) acc = foldr addUnique acc names
+    collect (TyVar name) acc = addUnique name acc
+    collect (TyApplication (VariableHead name) _) acc = addUnique name acc
+    collect (TyRowVariable (RowVariable name)) acc = addUnique name acc
+    collect _ acc = acc
 
 metaIdsInConstraints :: [Constraint] -> [Int] -> [Int]
 metaIdsInConstraints = foldConstraintTypes metaIdsInTy
@@ -3669,7 +3882,7 @@ showScheme :: TcState -> Scheme -> String
 showScheme state scheme =
   let (_, constraints, ty) = schemeParts scheme
       typeText = showSourceTy (applyState ty state)
-      constraintText = if null constraints then "" else "graith " ++ intercalate ", " (map showSourceConstraint (applyStateConstraints constraints state)) ++ "; "
+      constraintText = if null constraints then "" else intercalate ", " (map (("byzen " ++) . showSourceConstraint) (applyStateConstraints constraints state)) ++ "; "
       rows = map (applyRowEquality state) (schemeRows scheme)
       rowText = if null rows then "" else " where " ++ intercalate ", " ["{" ++ showEffects xs ++ "} = {" ++ showEffects ys ++ "}" | RowEquality xs ys <- rows]
    in constraintText ++ typeText ++ rowText
@@ -3681,10 +3894,14 @@ showSourceTy = \case
   TyRowVariable (RowVariable name) -> name
   TyEffectSkolem ident -> "$effect" ++ show ident
   TyCon name -> name
+  TySkolem ident arguments -> unwords (skolemName ident : map showSourceTy arguments)
+  TyForall (parameterNames -> names) body -> case body of
+    TyFun {} -> "[" ++ intercalate ", " (map ('@' :) names) ++ ", " ++ drop 1 (showSourceTy body)
+    _ -> "forall " ++ unwords names ++ ". " ++ showSourceTy body
   TyApp name arguments -> unwords (map showSourceTy arguments ++ [name])
   TyNamed TypeRef {typeDisplayName} arguments -> unwords (map showSourceTy arguments ++ [typeDisplayName])
   TyEffect EffectRef {effectDisplayName} arguments -> unwords (map showSourceTy arguments ++ [effectDisplayName])
-  TyRecord fields -> "r(" ++ intercalate ", " [name ++ ": " ++ showSourceTy ty | (name, ty) <- Map.toList fields] ++ ")"
+  TyRecord fields -> "r{" ++ intercalate ", " [name ++ ": " ++ showSourceTy ty | (name, ty) <- Map.toList fields] ++ "}"
   TyFun arguments effects result ->
     "["
       ++ intercalate ", " (map showSourceTy (NE.toList arguments) ++ [showSourceTy result])
@@ -3767,8 +3984,9 @@ prepareDeclsM :: ImportStack -> [Decl] -> Map.Map String SourceUnit -> TcContext
 prepareDeclsM importStack ds imports baseCtx = do
   either failTc pure (validateProgram (Program ds))
   importCtx <- collectImportContextsM importStack ds imports baseCtx
-  preparedCtx <- resolveTypeHeadersM ds importCtx
-  pure (ds, preparedCtx)
+  (Program normalised, kinds) <- either failTc pure (Kind.checkKinds (tcKinds importCtx) (Program ds))
+  preparedCtx <- resolveTypeHeadersM normalised (importCtx {tcKinds = kinds})
+  pure (normalised, preparedCtx)
 
 -- imports are checked in isolated states. þeir static contexts and lowered
 -- core modules are cached by public path and cross back as checked artifacts.

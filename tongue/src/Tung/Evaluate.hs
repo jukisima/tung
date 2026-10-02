@@ -371,11 +371,15 @@ closeRuntimeInstances instances env = closedEnv
     localInstances = Map.map (\(class_, members) -> RuntimeInstance class_ members closedEnv) instances
 
 evalGlobalBoundValue :: TermExport -> CoreExpr -> RuntimeEnv -> Eval RuntimeValue
-evalGlobalBoundValue term expr env = case anonymousCoreMatchCases expr of
-  Just cases ->
-    let value = newMatcher (compileMatchCases cases) (addGlobalValue term value env)
-     in pure value
-  Nothing -> compileExpr expr env
+evalGlobalBoundValue term = compileBoundValue (addGlobalValue term)
+
+-- only a function introduction delays its body enough to tie a recursive
+-- environment. all other initialisers evaluate in the preceding environment.
+compileBoundValue :: (RuntimeValue -> RuntimeEnv -> RuntimeEnv) -> CoreExpr -> RuntimeExpr
+compileBoundValue bind (CoreMatch [] cases) =
+  let compiled = compileMatchCases cases
+   in \env -> let value = newMatcher compiled (bind value env) in pure value
+compileBoundValue _ expression = compileExpr expression
 
 addClassSelectors :: [TermExport] -> RuntimeEnv -> RuntimeEnv
 addClassSelectors members env = foldl' add env members
@@ -457,27 +461,15 @@ evalCompiledRecordUpdate value updates env = case value of
           else runtimeError ("unknown record field '" ++ name ++ "'")
       Right (name, expr) -> Map.insert name <$> expr env <*> pure record
 
-data RuntimeLocalDecl
-  = RuntimeLocalLet LocalId RuntimeExpr
-  | RuntimeLocalMatcher LocalId [RuntimeMatchCase]
+type RuntimeLocalDecl = (LocalId, RuntimeExpr)
 
 compileLocalDecl :: CoreLocalDecl -> RuntimeLocalDecl
-compileLocalDecl (CoreLocalLet name expr) = case anonymousCoreMatchCases expr of
-  Just cases -> RuntimeLocalMatcher name (compileMatchCases cases)
-  Nothing -> RuntimeLocalLet name (compileExpr expr)
-
-anonymousCoreMatchCases :: CoreExpr -> Maybe [CoreMatchCase]
-anonymousCoreMatchCases = \case
-  CoreMatch [] cases -> Just cases
-  _ -> Nothing
+compileLocalDecl (CoreLocalLet name expr) = (name, compileBoundValue (addLocalValue name) expr)
 
 evalCompiledLocalDecls :: [RuntimeLocalDecl] -> RuntimeEnv -> Eval RuntimeEnv
 evalCompiledLocalDecls declarations env = foldM step env declarations
   where
-    step env (RuntimeLocalLet name expr) = addLocalValue name <$> expr env <*> pure env
-    step env (RuntimeLocalMatcher name cases) =
-      let value = newMatcher cases (addLocalValue name value env)
-       in pure (addLocalValue name value env)
+    step env (name, expression) = addLocalValue name <$> expression env <*> pure env
 
 compileMatchCases :: [CoreMatchCase] -> [RuntimeMatchCase]
 compileMatchCases = map (\(CoreMatchCase patterns body) -> RuntimeMatchCase patterns (compileExpr body))
@@ -1047,7 +1039,7 @@ showRuntimeValue = \case
   VFloat value -> show value
   VUnicode codePoint -> "`" ++ escapeUnicodeCodePoint codePoint
   VText s -> "'" ++ concatMap escapeTextCharacter (Text.unpack s) ++ "'"
-  VRecord fields -> "r(" ++ showRuntimeFields fields ++ ")"
+  VRecord fields -> "r{" ++ showRuntimeFields fields ++ "}"
   VData identity [] -> lastQualifiedSegment (symbolName identity)
   VData identity args -> "(" ++ showRuntimeValues args ++ " " ++ lastQualifiedSegment (symbolName identity) ++ ")"
   VCallable display _ _ _ -> display

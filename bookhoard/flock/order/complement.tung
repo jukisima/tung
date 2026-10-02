@@ -6,15 +6,14 @@ use flock/order/semilattice-upper.tung
 use ilk/two.tung
 
 ## a bounded lattice wiþ a chosen complement for every value.
-graiþ a lattice-bounded
-show flock complement [a:ilk] (
+show flock complement [byzen a lattice-bounded] {
   let ¬ [a, a]
   law [a:a] a ∧ (a ¬) = ⟂
   law [a:a] a ∨ (a ¬) = ⊤
-)
+}
 
-bizen 𝟚 complement {
-  let ¬ ≔ {
+bizen:𝟚 complement {
+  let ¬ [] {
     yea ^ nay,
     nay ^ yea
   }

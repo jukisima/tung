@@ -8,29 +8,26 @@ use flock/order/semilattice-upper.tung
 use ilk/two.tung
 
 ## a powerset represented by its membership predicate.
-show let-ilk a powerset = a → 𝟚
+show let powerset [a:*, *] [a, 𝟚]
 
-show let empty [a powerset] nay constant
+show let empty [@a:*, a powerset] nay constant
 
-show let universe [a powerset] yea constant
+show let universe [@a:*, a powerset] yea constant
 
-graiþ a equal
-show let singleton [a, a powerset] ≡
+show let singleton [byzen a equal, a, a powerset] ≡
 
-bizen (a powerset) inhold a {
-  let powerset ∋ a ≔ a powerset
+bizen [@a:*]:(a powerset) inhold a {
+  let powerset ∋ a [] a powerset
 }
 
-graiþ a equal
-show let put [powerset:a powerset, a:a, a powerset]
+show let put [byzen a equal, powerset:a powerset, a:a, a powerset]
   powerset ∨ (a singleton)
 
-graiþ a equal
-show let rid [powerset:a powerset, a:a, a powerset]
+show let rid [byzen a equal, powerset:a powerset, a:a, a powerset]
   powerset ∧ (a singleton $ ¬)
 
-show let ∖ [powerset₀:a powerset, powerset₁:a powerset, a powerset] powerset₀ ∧ (powerset₁ ¬)
+show let ∖ [@a:*, powerset₀:a powerset, powerset₁:a powerset, a powerset] powerset₀ ∧ (powerset₁ ¬)
 
-bizen (a powerset) complement {
-  let powerset ¬ ≔ powerset ∘ ¬
+bizen [@a:*]:(a powerset) complement {
+  let powerset ¬ [] powerset ∘ ¬
 }

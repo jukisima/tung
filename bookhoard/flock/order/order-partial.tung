@@ -4,15 +4,14 @@ use ilk/three.tung
 use ilk/two.tung
 
 ## a decidable partial order.
-graiþ a less-equal
-show flock order-partial [a:ilk] (
+show flock order-partial [byzen a less-equal] {
   law [a:a] a ≤ a = yea
-  law [a:a, b:a] >(≤, a ≤ b, b ≤ a, a ≡ b) = yea
-  law [a:a, b:a, c:a] >(≤, a ≤ b, b ≤ c, a, c) = yea
-)
+  law [a:a, b:a] >{≤, a ≤ b, b ≤ a, a ≡ b} = yea
+  law [a:a, b:a, c:a] >{≤, a ≤ b, b ≤ c, a, c} = yea
+}
 
-bizen 𝟚 order-partial {}
+bizen:𝟚 order-partial {}
 
-bizen 𝟛 order-partial {}
+bizen:𝟛 order-partial {}
 
-bizen ℤ order-partial {}
+bizen:ℤ order-partial {}

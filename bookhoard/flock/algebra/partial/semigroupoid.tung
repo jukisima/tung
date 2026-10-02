@@ -1,9 +1,9 @@
-show flock semigroupoid [⇨:[ilk, ilk, ilk]] (
-  let ∘ [a ⇨ b, b ⇨ c, a ⇨ c]
+show flock semigroupoid [⇨:[*, *, *]] {
+  let ∘ [@a:*, @b:*, @c:*, a ⇨ b, b ⇨ c, a ⇨ c]
 
-  law [f:a ⇨ b, g:b ⇨ c, h:c ⇨ d] f ∘ (g ∘ h) = (f ∘ g) ∘ h
-)
+  law [@a:*, @b:*, @c:*, @d:*, f:a ⇨ b, g:b ⇨ c, h:c ⇨ d] f ∘ (g ∘ h) = (f ∘ g) ∘ h
+}
 
-bizen → semigroupoid {
-  let f ∘ g a ≔ a f $ g
+bizen:→ semigroupoid {
+  let f ∘ g a [] a f $ g
 }

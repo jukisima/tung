@@ -20,9 +20,9 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   const depPath = path.join(root, "dep.tung");
   const mainPath = path.join(root, "main.tung");
   const depText =
-    "show ilk ℕ { zero }\nshow ilk truth { yea, nay }\nshow ilk a parcel { a wrap }\nshow let identity [x: ℤ, ℤ] x\nshow let answer [ℤ] 42\nshow flock convert [a:ilk] ( let convert [a, a] )\n";
+    "show ilk ℕ [*] { zero }\nshow ilk truth [*] { yea, nay }\nshow ilk parcel [a:*, *] { a wrap }\nshow let identity [x: ℤ, ℤ] x\nshow let answer [ℤ] 42\nshow flock convert [a:*] { let convert [a, a] }\n";
   const mainText =
-    "use dep.tung\nlet value [ℤ] answer\nlet count [ℕ] zero\nlet ratio [float] 1.5\nlet truth-to-text [truth, text] { yea ^ 'yea', nay ^ 'nay' }\nlet shipment [ℤ parcel] 1 wrap\nlet same [ℤ] 1 identity # \"unicode 𝟙\\n\"\nlet select [left: ℤ, middle: ℤ, right: ℤ, ℤ] middle\nlet picker ≔ { first, second, third ^ second }\nbizen ℤ convert { let x convert ≔ x }\nshow ilk a box {\na box\n}\n";
+    "use dep.tung\nlet value [ℤ] answer\nlet count [ℕ] zero\nlet ratio [float] 1.5\nlet truth-to-text [truth, text] { yea ^ 'yea', nay ^ 'nay' }\nlet shipment [ℤ parcel] 1 wrap\nlet same [ℤ] 1 identity # \"unicode 𝟙\\n\"\nlet select [left: ℤ, middle: ℤ, right: ℤ, ℤ] middle\nlet picker [] { first, second, third ^ second }\nbizen:ℤ convert { let x convert [] x }\nshow ilk box [a:*, *] {\na box\n}\n";
   fs.writeFileSync(depPath, depText);
   fs.writeFileSync(mainPath, mainText);
   const depUri = pathToFileURL(depPath).href;
@@ -239,14 +239,16 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
   });
   assert.equal(rename.changes[depUri][0].newText, "result");
   assert.equal(rename.changes[mainUri][0].newText, "result");
-  await assert.rejects(
-    request("textDocument/rename", {
-      textDocument: { uri: mainUri },
-      position: answerPosition,
-      newName: "not a name",
-    }),
-    /invalid tung name/,
-  );
+  for (const newName of ["not a name", "*"]) {
+    await assert.rejects(
+      request("textDocument/rename", {
+        textDocument: { uri: mainUri },
+        position: answerPosition,
+        newName,
+      }),
+      /invalid tung name/,
+    );
+  }
   const primitiveRename = await request("textDocument/prepareRename", {
     textDocument: { uri: mainUri },
     position: positionOf(mainText, "ℤ"),
@@ -299,8 +301,11 @@ test("server implementeþ the editor workflow over stdio", async (context) => {
     textDocument: { uri: mainUri },
     options: { tabSize: 2, insertSpaces: true },
   });
-  assert.match(formatted[0].newText, /show ilk a box \{\n[ ]{2}a box\n\}/);
-  const boxStartLine = positionOf(mainText, "show ilk a box").line;
+  assert.match(
+    formatted[0].newText,
+    /show ilk box \[a:\*, \*\] \{\n[ ]{2}a box\n\}/,
+  );
+  const boxStartLine = positionOf(mainText, "show ilk box").line;
   const rangeFormatted = await request("textDocument/rangeFormatting", {
     textDocument: { uri: mainUri },
     range: {

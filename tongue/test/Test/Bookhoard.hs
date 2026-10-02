@@ -139,9 +139,9 @@ runnerEffectsCase imports =
       "use ground.tung use deed/clock.tung use deed/process.tung use deed/system.tung use web/server.tung use ilk/list.tung use ilk/option.tung "
         ++ "let route [_: request, response] 'ok' ok "
         ++ "let main [_: 𝟙, 𝟙; system, clock, process, web] ("
-        ++ "let args ≔ only arguments "
-        ++ "let setting ≔ 'TUNG_SETTING' environment "
-        ++ "let stamp ≔ only unix-time "
+        ++ "let args [] only arguments "
+        ++ "let setting [] 'TUNG_SETTING' environment "
+        ++ "let stamp [] only unix-time "
         ++ "yield try 8080 serve route { _ fail ^ only })"
 
 primitiveCatalogueCase :: Map.Map String String -> Test
@@ -177,6 +177,7 @@ primitiveCatalogueCase imports = pure $ case traverse parse (Map.elems imports) 
       EffectDecl _ owner operations -> [((owner, name), effectArity signature) | EffectOp name signature <- operations]
       _ -> []
     effectArity (TypeArrow arguments _ _) = length arguments
+    effectArity (TypeForall _ body) = effectArity body
     effectArity _ = 0
     effectOwners (BaseEffect owner) = [owner]
     effectOwners (SourceEffect owner) = [owner]
@@ -219,6 +220,6 @@ classLayoutCase files = listToMaybe . catMaybes <$> traverse checkModule files
     classPrefix = "flock/"
 
 classNames :: Decl -> [String]
-classNames (ClassDecl _ name _ _) = [name]
+classNames (ClassDecl _ name _) = [name]
 classNames (Export declaration) = classNames declaration
 classNames _ = []

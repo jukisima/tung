@@ -8,18 +8,18 @@ use flock/algebra/arithmetic/semiring.tung
 use flock/algebra/arithmetic/zero.tung
 
 ## ieee floats keep þeir useful operations wiþout claiming exact semiring laws.
-bizen float add {
-  let + ≔ add-float
+bizen:float add {
+  let + [] add-float
 }
 
-bizen float zero {
-  let zero ≔ 0.0
+bizen:float zero {
+  let zero [] 0.0
 }
 
-bizen float multiply {
-  let × ≔ multiply-float
+bizen:float multiply {
+  let × [] multiply-float
 }
 
-bizen float one {
-  let one ≔ 1.0
+bizen:float one {
+  let one [] 1.0
 }

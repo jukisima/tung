@@ -1,11 +1,11 @@
 use flock/to-text.tung
 
-show ilk 𝟙 {
+show ilk 𝟙 [*] {
   only [𝟙]
 }
 
-show let terminal [_:a, 𝟙] only
+show let terminal [@a:*, _:a, 𝟙] only
 
-bizen 𝟙 to-text {
-  let _ to-text ≔ 'only'
+bizen:𝟙 to-text {
+  let _ to-text [] 'only'
 }
